@@ -95,7 +95,7 @@
 use fmt;
 use str::FromStr;
 
-use self::parse::{parse_decimal, Decimal, Sign, ParseResult};
+use self::parse::{parse_decimal, Decimal, ParseResult, Sign};
 use self::num::digits_to_big;
 use self::rawfp::RawFloat;
 
@@ -157,7 +157,7 @@ from_str_float_impl!(f64);
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[stable(feature = "rust1", since = "1.0.0")]
 pub struct ParseFloatError {
-    kind: FloatErrorKind
+    kind: FloatErrorKind,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -188,11 +188,15 @@ impl fmt::Display for ParseFloatError {
 }
 
 fn pfe_empty() -> ParseFloatError {
-    ParseFloatError { kind: FloatErrorKind::Empty }
+    ParseFloatError {
+        kind: FloatErrorKind::Empty,
+    }
 }
 
 fn pfe_invalid() -> ParseFloatError {
-    ParseFloatError { kind: FloatErrorKind::Invalid }
+    ParseFloatError {
+        kind: FloatErrorKind::Invalid,
+    }
 }
 
 /// Split decimal string into sign and the rest, without inspecting or validating the rest.
@@ -208,7 +212,7 @@ fn extract_sign(s: &str) -> (Sign, &str) {
 /// Convert a decimal string into a floating point number.
 fn dec2flt<T: RawFloat>(s: &str) -> Result<T, ParseFloatError> {
     if s.is_empty() {
-        return Err(pfe_empty())
+        return Err(pfe_empty());
     }
     let (sign, s) = extract_sign(s);
     let flt = match parse_decimal(s) {
@@ -218,8 +222,10 @@ fn dec2flt<T: RawFloat>(s: &str) -> Result<T, ParseFloatError> {
         ParseResult::Invalid => match s {
             "inf" => T::INFINITY,
             "NaN" => T::NAN,
-            _ => { return Err(pfe_invalid()); }
-        }
+            _ => {
+                return Err(pfe_invalid());
+            }
+        },
     };
 
     match sign {

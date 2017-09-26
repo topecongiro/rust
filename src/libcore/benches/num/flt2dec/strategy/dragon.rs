@@ -8,7 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::{i16, f64};
+use std::{f64, i16};
 use super::super::*;
 use core::num::flt2dec::strategy::dragon::*;
 use test::Bencher;

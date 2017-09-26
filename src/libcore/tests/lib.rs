@@ -9,7 +9,6 @@
 // except according to those terms.
 
 #![deny(warnings)]
-
 #![feature(box_syntax)]
 #![feature(core_float)]
 #![feature(core_private_bignum)]
@@ -39,14 +38,13 @@
 #![feature(trusted_len)]
 #![feature(try_from)]
 #![feature(unique)]
-
 #![feature(const_atomic_bool_new)]
 #![feature(const_atomic_usize_new)]
 #![feature(const_atomic_isize_new)]
 
 extern crate core;
-extern crate test;
 extern crate rand;
+extern crate test;
 
 mod any;
 mod array;

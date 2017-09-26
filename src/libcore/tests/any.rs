@@ -34,7 +34,11 @@ fn any_referenced() {
 
 #[test]
 fn any_owning() {
-    let (a, b, c) = (box 5_usize as Box<Any>, box TEST as Box<Any>, box Test as Box<Any>);
+    let (a, b, c) = (
+        box 5_usize as Box<Any>,
+        box TEST as Box<Any>,
+        box Test as Box<Any>,
+    );
 
     assert!(a.is::<usize>());
     assert!(!b.is::<usize>());
@@ -55,12 +59,12 @@ fn any_downcast_ref() {
 
     match a.downcast_ref::<usize>() {
         Some(&5) => {}
-        x => panic!("Unexpected value {:?}", x)
+        x => panic!("Unexpected value {:?}", x),
     }
 
     match a.downcast_ref::<Test>() {
         None => {}
-        x => panic!("Unexpected value {:?}", x)
+        x => panic!("Unexpected value {:?}", x),
     }
 }
 
@@ -78,7 +82,7 @@ fn any_downcast_mut() {
             assert_eq!(*x, 5);
             *x = 612;
         }
-        x => panic!("Unexpected value {:?}", x)
+        x => panic!("Unexpected value {:?}", x),
     }
 
     match b_r.downcast_mut::<usize>() {
@@ -86,27 +90,27 @@ fn any_downcast_mut() {
             assert_eq!(*x, 7);
             *x = 413;
         }
-        x => panic!("Unexpected value {:?}", x)
+        x => panic!("Unexpected value {:?}", x),
     }
 
     match a_r.downcast_mut::<Test>() {
         None => (),
-        x => panic!("Unexpected value {:?}", x)
+        x => panic!("Unexpected value {:?}", x),
     }
 
     match b_r.downcast_mut::<Test>() {
         None => (),
-        x => panic!("Unexpected value {:?}", x)
+        x => panic!("Unexpected value {:?}", x),
     }
 
     match a_r.downcast_mut::<usize>() {
         Some(&mut 612) => {}
-        x => panic!("Unexpected value {:?}", x)
+        x => panic!("Unexpected value {:?}", x),
     }
 
     match b_r.downcast_mut::<usize>() {
         Some(&mut 413) => {}
-        x => panic!("Unexpected value {:?}", x)
+        x => panic!("Unexpected value {:?}", x),
     }
 }
 

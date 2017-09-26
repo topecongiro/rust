@@ -10,7 +10,7 @@
 
 use core::cmp::Ordering::{Equal, Greater, Less};
 use core::slice::heapsort;
-use core::result::Result::{Ok, Err};
+use core::result::Result::{Err, Ok};
 use rand::{Rng, XorShiftRng};
 
 #[test]
@@ -220,7 +220,7 @@ fn get_unchecked_mut_range() {
         let v: &mut [i32] = &mut [0, 1, 2, 3, 4, 5];
         assert_eq!(v.get_unchecked_mut(..), &mut [0, 1, 2, 3, 4, 5][..]);
         assert_eq!(v.get_unchecked_mut(..2), &mut [0, 1][..]);
-        assert_eq!(v.get_unchecked_mut(2..), &mut[2, 3, 4, 5][..]);
+        assert_eq!(v.get_unchecked_mut(2..), &mut [2, 3, 4, 5][..]);
         assert_eq!(v.get_unchecked_mut(1..4), &mut [1, 2, 3][..]);
     }
 }
@@ -250,7 +250,7 @@ fn test_rotate() {
     let k = N - 42;
 
     for i in 0..N {
-        assert_eq!(a[(i+k)%N], i);
+        assert_eq!(a[(i + k) % N], i);
     }
 }
 

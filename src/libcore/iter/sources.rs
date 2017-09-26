@@ -22,7 +22,7 @@ use super::{FusedIterator, TrustedLen};
 #[derive(Clone, Debug)]
 #[stable(feature = "rust1", since = "1.0.0")]
 pub struct Repeat<A> {
-    element: A
+    element: A,
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
@@ -30,15 +30,21 @@ impl<A: Clone> Iterator for Repeat<A> {
     type Item = A;
 
     #[inline]
-    fn next(&mut self) -> Option<A> { Some(self.element.clone()) }
+    fn next(&mut self) -> Option<A> {
+        Some(self.element.clone())
+    }
     #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) { (usize::MAX, None) }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (usize::MAX, None)
+    }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<A: Clone> DoubleEndedIterator for Repeat<A> {
     #[inline]
-    fn next_back(&mut self) -> Option<A> { Some(self.element.clone()) }
+    fn next_back(&mut self) -> Option<A> {
+        Some(self.element.clone())
+    }
 }
 
 #[unstable(feature = "fused", issue = "35602")]
@@ -93,7 +99,7 @@ impl<A: Clone> FusedIterator for Repeat<A> {}
 #[inline]
 #[stable(feature = "rust1", since = "1.0.0")]
 pub fn repeat<T: Clone>(elt: T) -> Repeat<T> {
-    Repeat{element: elt}
+    Repeat { element: elt }
 }
 
 /// An iterator that yields nothing.
@@ -119,7 +125,7 @@ impl<T> Iterator for Empty<T> {
         None
     }
 
-    fn size_hint(&self) -> (usize, Option<usize>){
+    fn size_hint(&self) -> (usize, Option<usize>) {
         (0, Some(0))
     }
 }
@@ -189,7 +195,7 @@ pub fn empty<T>() -> Empty<T> {
 #[derive(Clone, Debug)]
 #[stable(feature = "iter_once", since = "1.2.0")]
 pub struct Once<T> {
-    inner: ::option::IntoIter<T>
+    inner: ::option::IntoIter<T>,
 }
 
 #[stable(feature = "iter_once", since = "1.2.0")]
@@ -278,5 +284,7 @@ impl<T> FusedIterator for Once<T> {}
 /// ```
 #[stable(feature = "iter_once", since = "1.2.0")]
 pub fn once<T>(value: T) -> Once<T> {
-    Once { inner: Some(value).into_iter() }
+    Once {
+        inner: Some(value).into_iter(),
+    }
 }

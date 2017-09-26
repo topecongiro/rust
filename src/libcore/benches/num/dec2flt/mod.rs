@@ -49,7 +49,9 @@ fn bench_1e150(b: &mut Bencher) {
 
 #[bench]
 fn bench_long_decimal_and_exp(b: &mut Bencher) {
-    b.iter(|| "727501488517303786137132964064381141071e-123".parse::<f64>());
+    b.iter(|| {
+        "727501488517303786137132964064381141071e-123".parse::<f64>()
+    });
 }
 
 #[bench]

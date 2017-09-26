@@ -167,12 +167,12 @@ mod try;
 mod unsize;
 
 #[stable(feature = "rust1", since = "1.0.0")]
-pub use self::arith::{Add, Sub, Mul, Div, Rem, Neg};
+pub use self::arith::{Add, Div, Mul, Neg, Rem, Sub};
 #[stable(feature = "op_assign_traits", since = "1.8.0")]
-pub use self::arith::{AddAssign, SubAssign, MulAssign, DivAssign, RemAssign};
+pub use self::arith::{AddAssign, DivAssign, MulAssign, RemAssign, SubAssign};
 
 #[stable(feature = "rust1", since = "1.0.0")]
-pub use self::bit::{Not, BitAnd, BitOr, BitXor, Shl, Shr};
+pub use self::bit::{BitAnd, BitOr, BitXor, Not, Shl, Shr};
 #[stable(feature = "op_assign_traits", since = "1.8.0")]
 pub use self::bit::{BitAndAssign, BitOrAssign, BitXorAssign, ShlAssign, ShrAssign};
 
@@ -201,7 +201,7 @@ pub use self::try::Try;
 pub use self::generator::{Generator, GeneratorState};
 
 #[unstable(feature = "placement_new_protocol", issue = "27779")]
-pub use self::place::{Place, Placer, InPlace, Boxed, BoxPlace};
+pub use self::place::{BoxPlace, Boxed, InPlace, Place, Placer};
 
 #[unstable(feature = "coerce_unsized", issue = "27732")]
 pub use self::unsize::CoerceUnsized;

@@ -89,9 +89,10 @@ pub struct DebugStruct<'a, 'b: 'a> {
     has_fields: bool,
 }
 
-pub fn debug_struct_new<'a, 'b>(fmt: &'a mut fmt::Formatter<'b>,
-                                name: &str)
-                                -> DebugStruct<'a, 'b> {
+pub fn debug_struct_new<'a, 'b>(
+    fmt: &'a mut fmt::Formatter<'b>,
+    name: &str,
+) -> DebugStruct<'a, 'b> {
     let result = fmt.write_str(name);
     DebugStruct {
         fmt,
@@ -105,16 +106,14 @@ impl<'a, 'b: 'a> DebugStruct<'a, 'b> {
     #[stable(feature = "debug_builders", since = "1.2.0")]
     pub fn field(&mut self, name: &str, value: &fmt::Debug) -> &mut DebugStruct<'a, 'b> {
         self.result = self.result.and_then(|_| {
-            let prefix = if self.has_fields {
-                ","
-            } else {
-                " {"
-            };
+            let prefix = if self.has_fields { "," } else { " {" };
 
             if self.is_pretty() {
                 let mut writer = PadAdapter::new(self.fmt);
-                fmt::write(&mut writer,
-                           format_args!("{}\n{}: {:#?}", prefix, name, value))
+                fmt::write(
+                    &mut writer,
+                    format_args!("{}\n{}: {:#?}", prefix, name, value),
+                )
             } else {
                 write!(self.fmt, "{} {}: {:?}", prefix, name, value)
             }
@@ -128,12 +127,10 @@ impl<'a, 'b: 'a> DebugStruct<'a, 'b> {
     #[stable(feature = "debug_builders", since = "1.2.0")]
     pub fn finish(&mut self) -> fmt::Result {
         if self.has_fields {
-            self.result = self.result.and_then(|_| {
-                if self.is_pretty() {
-                    self.fmt.write_str("\n}")
-                } else {
-                    self.fmt.write_str(" }")
-                }
+            self.result = self.result.and_then(|_| if self.is_pretty() {
+                self.fmt.write_str("\n}")
+            } else {
+                self.fmt.write_str(" }")
             });
         }
         self.result
@@ -245,23 +242,13 @@ struct DebugInner<'a, 'b: 'a> {
 
 impl<'a, 'b: 'a> DebugInner<'a, 'b> {
     fn entry(&mut self, entry: &fmt::Debug) {
-        self.result = self.result.and_then(|_| {
-            if self.is_pretty() {
-                let mut writer = PadAdapter::new(self.fmt);
-                let prefix = if self.has_fields {
-                    ","
-                } else {
-                    ""
-                };
-                fmt::write(&mut writer, format_args!("{}\n{:#?}", prefix, entry))
-            } else {
-                let prefix = if self.has_fields {
-                    ", "
-                } else {
-                    ""
-                };
-                write!(self.fmt, "{}{:?}", prefix, entry)
-            }
+        self.result = self.result.and_then(|_| if self.is_pretty() {
+            let mut writer = PadAdapter::new(self.fmt);
+            let prefix = if self.has_fields { "," } else { "" };
+            fmt::write(&mut writer, format_args!("{}\n{:#?}", prefix, entry))
+        } else {
+            let prefix = if self.has_fields { ", " } else { "" };
+            write!(self.fmt, "{}{:?}", prefix, entry)
         });
 
         self.has_fields = true;
@@ -335,8 +322,9 @@ impl<'a, 'b: 'a> DebugSet<'a, 'b> {
     /// Adds the contents of an iterator of entries to the set output.
     #[stable(feature = "debug_builders", since = "1.2.0")]
     pub fn entries<D, I>(&mut self, entries: I) -> &mut DebugSet<'a, 'b>
-        where D: fmt::Debug,
-              I: IntoIterator<Item = D>
+    where
+        D: fmt::Debug,
+        I: IntoIterator<Item = D>,
     {
         for entry in entries {
             self.entry(&entry);
@@ -348,7 +336,9 @@ impl<'a, 'b: 'a> DebugSet<'a, 'b> {
     #[stable(feature = "debug_builders", since = "1.2.0")]
     pub fn finish(&mut self) -> fmt::Result {
         self.inner.finish();
-        self.inner.result.and_then(|_| self.inner.fmt.write_str("}"))
+        self.inner
+            .result
+            .and_then(|_| self.inner.fmt.write_str("}"))
     }
 }
 
@@ -406,8 +396,9 @@ impl<'a, 'b: 'a> DebugList<'a, 'b> {
     /// Adds the contents of an iterator of entries to the list output.
     #[stable(feature = "debug_builders", since = "1.2.0")]
     pub fn entries<D, I>(&mut self, entries: I) -> &mut DebugList<'a, 'b>
-        where D: fmt::Debug,
-              I: IntoIterator<Item = D>
+    where
+        D: fmt::Debug,
+        I: IntoIterator<Item = D>,
     {
         for entry in entries {
             self.entry(&entry);
@@ -419,7 +410,9 @@ impl<'a, 'b: 'a> DebugList<'a, 'b> {
     #[stable(feature = "debug_builders", since = "1.2.0")]
     pub fn finish(&mut self) -> fmt::Result {
         self.inner.finish();
-        self.inner.result.and_then(|_| self.inner.fmt.write_str("]"))
+        self.inner
+            .result
+            .and_then(|_| self.inner.fmt.write_str("]"))
     }
 }
 
@@ -470,24 +463,16 @@ impl<'a, 'b: 'a> DebugMap<'a, 'b> {
     /// Adds a new entry to the map output.
     #[stable(feature = "debug_builders", since = "1.2.0")]
     pub fn entry(&mut self, key: &fmt::Debug, value: &fmt::Debug) -> &mut DebugMap<'a, 'b> {
-        self.result = self.result.and_then(|_| {
-            if self.is_pretty() {
-                let mut writer = PadAdapter::new(self.fmt);
-                let prefix = if self.has_fields {
-                    ","
-                } else {
-                    ""
-                };
-                fmt::write(&mut writer,
-                           format_args!("{}\n{:#?}: {:#?}", prefix, key, value))
-            } else {
-                let prefix = if self.has_fields {
-                    ", "
-                } else {
-                    ""
-                };
-                write!(self.fmt, "{}{:?}: {:?}", prefix, key, value)
-            }
+        self.result = self.result.and_then(|_| if self.is_pretty() {
+            let mut writer = PadAdapter::new(self.fmt);
+            let prefix = if self.has_fields { "," } else { "" };
+            fmt::write(
+                &mut writer,
+                format_args!("{}\n{:#?}: {:#?}", prefix, key, value),
+            )
+        } else {
+            let prefix = if self.has_fields { ", " } else { "" };
+            write!(self.fmt, "{}{:?}: {:?}", prefix, key, value)
         });
 
         self.has_fields = true;
@@ -497,9 +482,10 @@ impl<'a, 'b: 'a> DebugMap<'a, 'b> {
     /// Adds the contents of an iterator of entries to the map output.
     #[stable(feature = "debug_builders", since = "1.2.0")]
     pub fn entries<K, V, I>(&mut self, entries: I) -> &mut DebugMap<'a, 'b>
-        where K: fmt::Debug,
-              V: fmt::Debug,
-              I: IntoIterator<Item = (K, V)>
+    where
+        K: fmt::Debug,
+        V: fmt::Debug,
+        I: IntoIterator<Item = (K, V)>,
     {
         for (k, v) in entries {
             self.entry(&k, &v);

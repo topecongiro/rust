@@ -42,8 +42,7 @@ use str::FromStr;
 /// ```
 #[stable(feature = "rust1", since = "1.0.0")]
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Default, Hash)]
-pub struct Wrapping<T>(#[stable(feature = "rust1", since = "1.0.0")]
-                       pub T);
+pub struct Wrapping<T>(#[stable(feature = "rust1", since = "1.0.0")] pub T);
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<T: fmt::Debug> fmt::Debug for Wrapping<T> {
@@ -1199,68 +1198,68 @@ macro_rules! int_impl {
 #[lang = "i8"]
 impl i8 {
     int_impl! { i8, i8, u8, 8,
-        intrinsics::add_with_overflow,
-        intrinsics::sub_with_overflow,
-        intrinsics::mul_with_overflow }
+    intrinsics::add_with_overflow,
+    intrinsics::sub_with_overflow,
+    intrinsics::mul_with_overflow }
 }
 
 #[lang = "i16"]
 impl i16 {
     int_impl! { i16, i16, u16, 16,
-        intrinsics::add_with_overflow,
-        intrinsics::sub_with_overflow,
-        intrinsics::mul_with_overflow }
+    intrinsics::add_with_overflow,
+    intrinsics::sub_with_overflow,
+    intrinsics::mul_with_overflow }
 }
 
 #[lang = "i32"]
 impl i32 {
     int_impl! { i32, i32, u32, 32,
-        intrinsics::add_with_overflow,
-        intrinsics::sub_with_overflow,
-        intrinsics::mul_with_overflow }
+    intrinsics::add_with_overflow,
+    intrinsics::sub_with_overflow,
+    intrinsics::mul_with_overflow }
 }
 
 #[lang = "i64"]
 impl i64 {
     int_impl! { i64, i64, u64, 64,
-        intrinsics::add_with_overflow,
-        intrinsics::sub_with_overflow,
-        intrinsics::mul_with_overflow }
+    intrinsics::add_with_overflow,
+    intrinsics::sub_with_overflow,
+    intrinsics::mul_with_overflow }
 }
 
 #[lang = "i128"]
 impl i128 {
     int_impl! { i128, i128, u128, 128,
-        intrinsics::add_with_overflow,
-        intrinsics::sub_with_overflow,
-        intrinsics::mul_with_overflow }
+    intrinsics::add_with_overflow,
+    intrinsics::sub_with_overflow,
+    intrinsics::mul_with_overflow }
 }
 
 #[cfg(target_pointer_width = "16")]
 #[lang = "isize"]
 impl isize {
     int_impl! { isize, i16, u16, 16,
-        intrinsics::add_with_overflow,
-        intrinsics::sub_with_overflow,
-        intrinsics::mul_with_overflow }
+    intrinsics::add_with_overflow,
+    intrinsics::sub_with_overflow,
+    intrinsics::mul_with_overflow }
 }
 
 #[cfg(target_pointer_width = "32")]
 #[lang = "isize"]
 impl isize {
     int_impl! { isize, i32, u32, 32,
-        intrinsics::add_with_overflow,
-        intrinsics::sub_with_overflow,
-        intrinsics::mul_with_overflow }
+    intrinsics::add_with_overflow,
+    intrinsics::sub_with_overflow,
+    intrinsics::mul_with_overflow }
 }
 
 #[cfg(target_pointer_width = "64")]
 #[lang = "isize"]
 impl isize {
     int_impl! { isize, i64, u64, 64,
-        intrinsics::add_with_overflow,
-        intrinsics::sub_with_overflow,
-        intrinsics::mul_with_overflow }
+    intrinsics::add_with_overflow,
+    intrinsics::sub_with_overflow,
+    intrinsics::mul_with_overflow }
 }
 
 // `Int` + `UnsignedInt` implemented for unsigned integers
@@ -2249,107 +2248,107 @@ macro_rules! uint_impl {
 #[lang = "u8"]
 impl u8 {
     uint_impl! { u8, u8, 8,
-        intrinsics::ctpop,
-        intrinsics::ctlz,
-        intrinsics::ctlz_nonzero,
-        intrinsics::cttz,
-        intrinsics::bswap,
-        intrinsics::add_with_overflow,
-        intrinsics::sub_with_overflow,
-        intrinsics::mul_with_overflow }
+    intrinsics::ctpop,
+    intrinsics::ctlz,
+    intrinsics::ctlz_nonzero,
+    intrinsics::cttz,
+    intrinsics::bswap,
+    intrinsics::add_with_overflow,
+    intrinsics::sub_with_overflow,
+    intrinsics::mul_with_overflow }
 }
 
 #[lang = "u16"]
 impl u16 {
     uint_impl! { u16, u16, 16,
-        intrinsics::ctpop,
-        intrinsics::ctlz,
-        intrinsics::ctlz_nonzero,
-        intrinsics::cttz,
-        intrinsics::bswap,
-        intrinsics::add_with_overflow,
-        intrinsics::sub_with_overflow,
-        intrinsics::mul_with_overflow }
+    intrinsics::ctpop,
+    intrinsics::ctlz,
+    intrinsics::ctlz_nonzero,
+    intrinsics::cttz,
+    intrinsics::bswap,
+    intrinsics::add_with_overflow,
+    intrinsics::sub_with_overflow,
+    intrinsics::mul_with_overflow }
 }
 
 #[lang = "u32"]
 impl u32 {
     uint_impl! { u32, u32, 32,
-        intrinsics::ctpop,
-        intrinsics::ctlz,
-        intrinsics::ctlz_nonzero,
-        intrinsics::cttz,
-        intrinsics::bswap,
-        intrinsics::add_with_overflow,
-        intrinsics::sub_with_overflow,
-        intrinsics::mul_with_overflow }
+    intrinsics::ctpop,
+    intrinsics::ctlz,
+    intrinsics::ctlz_nonzero,
+    intrinsics::cttz,
+    intrinsics::bswap,
+    intrinsics::add_with_overflow,
+    intrinsics::sub_with_overflow,
+    intrinsics::mul_with_overflow }
 }
 
 #[lang = "u64"]
 impl u64 {
     uint_impl! { u64, u64, 64,
-        intrinsics::ctpop,
-        intrinsics::ctlz,
-        intrinsics::ctlz_nonzero,
-        intrinsics::cttz,
-        intrinsics::bswap,
-        intrinsics::add_with_overflow,
-        intrinsics::sub_with_overflow,
-        intrinsics::mul_with_overflow }
+    intrinsics::ctpop,
+    intrinsics::ctlz,
+    intrinsics::ctlz_nonzero,
+    intrinsics::cttz,
+    intrinsics::bswap,
+    intrinsics::add_with_overflow,
+    intrinsics::sub_with_overflow,
+    intrinsics::mul_with_overflow }
 }
 
 #[lang = "u128"]
 impl u128 {
     uint_impl! { u128, u128, 128,
-        intrinsics::ctpop,
-        intrinsics::ctlz,
-        intrinsics::ctlz_nonzero,
-        intrinsics::cttz,
-        intrinsics::bswap,
-        intrinsics::add_with_overflow,
-        intrinsics::sub_with_overflow,
-        intrinsics::mul_with_overflow }
+    intrinsics::ctpop,
+    intrinsics::ctlz,
+    intrinsics::ctlz_nonzero,
+    intrinsics::cttz,
+    intrinsics::bswap,
+    intrinsics::add_with_overflow,
+    intrinsics::sub_with_overflow,
+    intrinsics::mul_with_overflow }
 }
 
 #[cfg(target_pointer_width = "16")]
 #[lang = "usize"]
 impl usize {
     uint_impl! { usize, u16, 16,
-        intrinsics::ctpop,
-        intrinsics::ctlz,
-        intrinsics::ctlz_nonzero,
-        intrinsics::cttz,
-        intrinsics::bswap,
-        intrinsics::add_with_overflow,
-        intrinsics::sub_with_overflow,
-        intrinsics::mul_with_overflow }
+    intrinsics::ctpop,
+    intrinsics::ctlz,
+    intrinsics::ctlz_nonzero,
+    intrinsics::cttz,
+    intrinsics::bswap,
+    intrinsics::add_with_overflow,
+    intrinsics::sub_with_overflow,
+    intrinsics::mul_with_overflow }
 }
 #[cfg(target_pointer_width = "32")]
 #[lang = "usize"]
 impl usize {
     uint_impl! { usize, u32, 32,
-        intrinsics::ctpop,
-        intrinsics::ctlz,
-        intrinsics::ctlz_nonzero,
-        intrinsics::cttz,
-        intrinsics::bswap,
-        intrinsics::add_with_overflow,
-        intrinsics::sub_with_overflow,
-        intrinsics::mul_with_overflow }
+    intrinsics::ctpop,
+    intrinsics::ctlz,
+    intrinsics::ctlz_nonzero,
+    intrinsics::cttz,
+    intrinsics::bswap,
+    intrinsics::add_with_overflow,
+    intrinsics::sub_with_overflow,
+    intrinsics::mul_with_overflow }
 }
 
 #[cfg(target_pointer_width = "64")]
 #[lang = "usize"]
 impl usize {
     uint_impl! { usize, u64, 64,
-        intrinsics::ctpop,
-        intrinsics::ctlz,
-        intrinsics::ctlz_nonzero,
-        intrinsics::cttz,
-        intrinsics::bswap,
-        intrinsics::add_with_overflow,
-        intrinsics::sub_with_overflow,
-        intrinsics::mul_with_overflow }
+    intrinsics::ctpop,
+    intrinsics::ctlz,
+    intrinsics::ctlz_nonzero,
+    intrinsics::cttz,
+    intrinsics::bswap,
+    intrinsics::add_with_overflow,
+    intrinsics::sub_with_overflow,
+    intrinsics::mul_with_overflow }
 }
 
 /// A classification of floating point numbers.
@@ -2405,8 +2404,7 @@ pub enum FpCategory {
 /// A built-in floating point number.
 #[doc(hidden)]
 #[unstable(feature = "core_float",
-           reason = "stable interface is via `impl f{32,64}` in later crates",
-           issue = "32110")]
+           reason = "stable interface is via `impl f{32,64}` in later crates", issue = "32110")]
 pub trait Float: Sized {
     /// Returns `true` if this value is NaN and false otherwise.
     #[stable(feature = "core", since = "1.6.0")]
@@ -2457,17 +2455,17 @@ pub trait Float: Sized {
     fn powi(self, n: i32) -> Self;
 
     /// Convert radians to degrees.
-    #[stable(feature = "deg_rad_conversions", since="1.7.0")]
+    #[stable(feature = "deg_rad_conversions", since = "1.7.0")]
     fn to_degrees(self) -> Self;
     /// Convert degrees to radians.
-    #[stable(feature = "deg_rad_conversions", since="1.7.0")]
+    #[stable(feature = "deg_rad_conversions", since = "1.7.0")]
     fn to_radians(self) -> Self;
 
     /// Returns the maximum of the two numbers.
-    #[stable(feature = "core_float_min_max", since="1.20.0")]
+    #[stable(feature = "core_float_min_max", since = "1.20.0")]
     fn max(self, other: Self) -> Self;
     /// Returns the minimum of the two numbers.
-    #[stable(feature = "core_float_min_max", since="1.20.0")]
+    #[stable(feature = "core_float_min_max", since = "1.20.0")]
     fn min(self, other: Self) -> Self;
 }
 
@@ -2752,9 +2750,11 @@ fn from_str_radix<T: FromStrRadixHelper>(src: &str, radix: u32) -> Result<T, Par
     use self::IntErrorKind::*;
     use self::ParseIntError as PIE;
 
-    assert!(radix >= 2 && radix <= 36,
-           "from_str_radix_int: must lie in the range `[2, 36]` - found {}",
-           radix);
+    assert!(
+        radix >= 2 && radix <= 36,
+        "from_str_radix_int: must lie in the range `[2, 36]` - found {}",
+        radix
+    );
 
     if src.is_empty() {
         return Err(PIE { kind: Empty });

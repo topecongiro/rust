@@ -310,22 +310,21 @@ use usize;
 #[stable(feature = "rust1", since = "1.0.0")]
 pub use self::iterator::Iterator;
 
-#[unstable(feature = "step_trait",
-           reason = "likely to be replaced by finer-grained traits",
+#[unstable(feature = "step_trait", reason = "likely to be replaced by finer-grained traits",
            issue = "42168")]
 pub use self::range::Step;
 
 #[stable(feature = "rust1", since = "1.0.0")]
-pub use self::sources::{Repeat, repeat};
+pub use self::sources::{repeat, Repeat};
 #[stable(feature = "iter_empty", since = "1.2.0")]
-pub use self::sources::{Empty, empty};
+pub use self::sources::{empty, Empty};
 #[stable(feature = "iter_once", since = "1.2.0")]
-pub use self::sources::{Once, once};
+pub use self::sources::{once, Once};
 
 #[stable(feature = "rust1", since = "1.0.0")]
-pub use self::traits::{FromIterator, IntoIterator, DoubleEndedIterator, Extend};
+pub use self::traits::{DoubleEndedIterator, Extend, FromIterator, IntoIterator};
 #[stable(feature = "rust1", since = "1.0.0")]
-pub use self::traits::{ExactSizeIterator, Sum, Product};
+pub use self::traits::{ExactSizeIterator, Product, Sum};
 #[unstable(feature = "fused", issue = "35602")]
 pub use self::traits::FusedIterator;
 #[unstable(feature = "trusted_len", issue = "37572")]
@@ -347,52 +346,69 @@ mod traits;
 #[must_use = "iterator adaptors are lazy and do nothing unless consumed"]
 #[stable(feature = "rust1", since = "1.0.0")]
 pub struct Rev<T> {
-    iter: T
+    iter: T,
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<I> Iterator for Rev<I> where I: DoubleEndedIterator {
+impl<I> Iterator for Rev<I>
+where
+    I: DoubleEndedIterator,
+{
     type Item = <I as Iterator>::Item;
 
     #[inline]
-    fn next(&mut self) -> Option<<I as Iterator>::Item> { self.iter.next_back() }
+    fn next(&mut self) -> Option<<I as Iterator>::Item> {
+        self.iter.next_back()
+    }
     #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) { self.iter.size_hint() }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
 
     fn fold<Acc, F>(self, init: Acc, f: F) -> Acc
-        where F: FnMut(Acc, Self::Item) -> Acc,
+    where
+        F: FnMut(Acc, Self::Item) -> Acc,
     {
         self.iter.rfold(init, f)
     }
 
     #[inline]
     fn find<P>(&mut self, predicate: P) -> Option<Self::Item>
-        where P: FnMut(&Self::Item) -> bool
+    where
+        P: FnMut(&Self::Item) -> bool,
     {
         self.iter.rfind(predicate)
     }
 
     #[inline]
-    fn rposition<P>(&mut self, predicate: P) -> Option<usize> where
-        P: FnMut(Self::Item) -> bool
+    fn rposition<P>(&mut self, predicate: P) -> Option<usize>
+    where
+        P: FnMut(Self::Item) -> bool,
     {
         self.iter.position(predicate)
     }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<I> DoubleEndedIterator for Rev<I> where I: DoubleEndedIterator {
+impl<I> DoubleEndedIterator for Rev<I>
+where
+    I: DoubleEndedIterator,
+{
     #[inline]
-    fn next_back(&mut self) -> Option<<I as Iterator>::Item> { self.iter.next() }
+    fn next_back(&mut self) -> Option<<I as Iterator>::Item> {
+        self.iter.next()
+    }
 
     fn rfold<Acc, F>(self, init: Acc, f: F) -> Acc
-        where F: FnMut(Acc, Self::Item) -> Acc,
+    where
+        F: FnMut(Acc, Self::Item) -> Acc,
     {
         self.iter.fold(init, f)
     }
 
     fn rfind<P>(&mut self, predicate: P) -> Option<Self::Item>
-        where P: FnMut(&Self::Item) -> bool
+    where
+        P: FnMut(&Self::Item) -> bool,
     {
         self.iter.find(predicate)
     }
@@ -400,7 +416,8 @@ impl<I> DoubleEndedIterator for Rev<I> where I: DoubleEndedIterator {
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<I> ExactSizeIterator for Rev<I>
-    where I: ExactSizeIterator + DoubleEndedIterator
+where
+    I: ExactSizeIterator + DoubleEndedIterator,
 {
     fn len(&self) -> usize {
         self.iter.len()
@@ -413,11 +430,17 @@ impl<I> ExactSizeIterator for Rev<I>
 
 #[unstable(feature = "fused", issue = "35602")]
 impl<I> FusedIterator for Rev<I>
-    where I: FusedIterator + DoubleEndedIterator {}
+where
+    I: FusedIterator + DoubleEndedIterator,
+{
+}
 
 #[unstable(feature = "trusted_len", issue = "37572")]
 unsafe impl<I> TrustedLen for Rev<I>
-    where I: TrustedLen + DoubleEndedIterator {}
+where
+    I: TrustedLen + DoubleEndedIterator,
+{
+}
 
 /// An iterator that clones the elements of an underlying iterator.
 ///
@@ -435,7 +458,9 @@ pub struct Cloned<I> {
 
 #[stable(feature = "iter_cloned", since = "1.1.0")]
 impl<'a, I, T: 'a> Iterator for Cloned<I>
-    where I: Iterator<Item=&'a T>, T: Clone
+where
+    I: Iterator<Item = &'a T>,
+    T: Clone,
 {
     type Item = T;
 
@@ -448,7 +473,8 @@ impl<'a, I, T: 'a> Iterator for Cloned<I>
     }
 
     fn fold<Acc, F>(self, init: Acc, mut f: F) -> Acc
-        where F: FnMut(Acc, Self::Item) -> Acc,
+    where
+        F: FnMut(Acc, Self::Item) -> Acc,
     {
         self.it.fold(init, move |acc, elt| f(acc, elt.clone()))
     }
@@ -456,14 +482,17 @@ impl<'a, I, T: 'a> Iterator for Cloned<I>
 
 #[stable(feature = "iter_cloned", since = "1.1.0")]
 impl<'a, I, T: 'a> DoubleEndedIterator for Cloned<I>
-    where I: DoubleEndedIterator<Item=&'a T>, T: Clone
+where
+    I: DoubleEndedIterator<Item = &'a T>,
+    T: Clone,
 {
     fn next_back(&mut self) -> Option<T> {
         self.it.next_back().cloned()
     }
 
     fn rfold<Acc, F>(self, init: Acc, mut f: F) -> Acc
-        where F: FnMut(Acc, Self::Item) -> Acc,
+    where
+        F: FnMut(Acc, Self::Item) -> Acc,
     {
         self.it.rfold(init, move |acc, elt| f(acc, elt.clone()))
     }
@@ -471,7 +500,9 @@ impl<'a, I, T: 'a> DoubleEndedIterator for Cloned<I>
 
 #[stable(feature = "iter_cloned", since = "1.1.0")]
 impl<'a, I, T: 'a> ExactSizeIterator for Cloned<I>
-    where I: ExactSizeIterator<Item=&'a T>, T: Clone
+where
+    I: ExactSizeIterator<Item = &'a T>,
+    T: Clone,
 {
     fn len(&self) -> usize {
         self.it.len()
@@ -484,26 +515,35 @@ impl<'a, I, T: 'a> ExactSizeIterator for Cloned<I>
 
 #[unstable(feature = "fused", issue = "35602")]
 impl<'a, I, T: 'a> FusedIterator for Cloned<I>
-    where I: FusedIterator<Item=&'a T>, T: Clone
-{}
+where
+    I: FusedIterator<Item = &'a T>,
+    T: Clone,
+{
+}
 
 #[doc(hidden)]
 unsafe impl<'a, I, T: 'a> TrustedRandomAccess for Cloned<I>
-    where I: TrustedRandomAccess<Item=&'a T>, T: Clone
+where
+    I: TrustedRandomAccess<Item = &'a T>,
+    T: Clone,
 {
     unsafe fn get_unchecked(&mut self, i: usize) -> Self::Item {
         self.it.get_unchecked(i).clone()
     }
 
     #[inline]
-    fn may_have_side_effect() -> bool { true }
+    fn may_have_side_effect() -> bool {
+        true
+    }
 }
 
 #[unstable(feature = "trusted_len", issue = "37572")]
 unsafe impl<'a, I, T: 'a> TrustedLen for Cloned<I>
-    where I: TrustedLen<Item=&'a T>,
-          T: Clone
-{}
+where
+    I: TrustedLen<Item = &'a T>,
+    T: Clone,
+{
+}
 
 /// An iterator that repeats endlessly.
 ///
@@ -521,14 +561,20 @@ pub struct Cycle<I> {
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<I> Iterator for Cycle<I> where I: Clone + Iterator {
+impl<I> Iterator for Cycle<I>
+where
+    I: Clone + Iterator,
+{
     type Item = <I as Iterator>::Item;
 
     #[inline]
     fn next(&mut self) -> Option<<I as Iterator>::Item> {
         match self.iter.next() {
-            None => { self.iter = self.orig.clone(); self.iter.next() }
-            y => y
+            None => {
+                self.iter = self.orig.clone();
+                self.iter.next()
+            }
+            y => y,
         }
     }
 
@@ -538,13 +584,17 @@ impl<I> Iterator for Cycle<I> where I: Clone + Iterator {
         match self.orig.size_hint() {
             sz @ (0, Some(0)) => sz,
             (0, _) => (0, None),
-            _ => (usize::MAX, None)
+            _ => (usize::MAX, None),
         }
     }
 }
 
 #[unstable(feature = "fused", issue = "35602")]
-impl<I> FusedIterator for Cycle<I> where I: Clone + Iterator {}
+impl<I> FusedIterator for Cycle<I>
+where
+    I: Clone + Iterator,
+{
+}
 
 /// An adapter for stepping iterators by a custom amount.
 ///
@@ -554,8 +604,7 @@ impl<I> FusedIterator for Cycle<I> where I: Clone + Iterator {}
 /// [`step_by`]: trait.Iterator.html#method.step_by
 /// [`Iterator`]: trait.Iterator.html
 #[must_use = "iterator adaptors are lazy and do nothing unless consumed"]
-#[unstable(feature = "iterator_step_by",
-           reason = "unstable replacement of Range::step_by",
+#[unstable(feature = "iterator_step_by", reason = "unstable replacement of Range::step_by",
            issue = "27741")]
 #[derive(Clone, Debug)]
 pub struct StepBy<I> {
@@ -564,10 +613,12 @@ pub struct StepBy<I> {
     first_take: bool,
 }
 
-#[unstable(feature = "iterator_step_by",
-           reason = "unstable replacement of Range::step_by",
+#[unstable(feature = "iterator_step_by", reason = "unstable replacement of Range::step_by",
            issue = "27741")]
-impl<I> Iterator for StepBy<I> where I: Iterator {
+impl<I> Iterator for StepBy<I>
+where
+    I: Iterator,
+{
     type Item = I::Item;
 
     #[inline]
@@ -585,20 +636,27 @@ impl<I> Iterator for StepBy<I> where I: Iterator {
         let inner_hint = self.iter.size_hint();
 
         if self.first_take {
-            let f = |n| if n == 0 { 0 } else { 1 + (n-1)/(self.step+1) };
+            let f = |n| if n == 0 {
+                0
+            } else {
+                1 + (n - 1) / (self.step + 1)
+            };
             (f(inner_hint.0), inner_hint.1.map(f))
         } else {
-            let f = |n| n / (self.step+1);
+            let f = |n| n / (self.step + 1);
             (f(inner_hint.0), inner_hint.1.map(f))
         }
     }
 }
 
 // StepBy can only make the iterator shorter, so the len will still fit.
-#[unstable(feature = "iterator_step_by",
-           reason = "unstable replacement of Range::step_by",
+#[unstable(feature = "iterator_step_by", reason = "unstable replacement of Range::step_by",
            issue = "27741")]
-impl<I> ExactSizeIterator for StepBy<I> where I: ExactSizeIterator {}
+impl<I> ExactSizeIterator for StepBy<I>
+where
+    I: ExactSizeIterator,
+{
+}
 
 /// An iterator that strings two iterators together.
 ///
@@ -640,9 +698,10 @@ enum ChainState {
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<A, B> Iterator for Chain<A, B> where
+impl<A, B> Iterator for Chain<A, B>
+where
     A: Iterator,
-    B: Iterator<Item = A::Item>
+    B: Iterator<Item = A::Item>,
 {
     type Item = A::Item;
 
@@ -672,20 +731,21 @@ impl<A, B> Iterator for Chain<A, B> where
     }
 
     fn fold<Acc, F>(self, init: Acc, mut f: F) -> Acc
-        where F: FnMut(Acc, Self::Item) -> Acc,
+    where
+        F: FnMut(Acc, Self::Item) -> Acc,
     {
         let mut accum = init;
         match self.state {
             ChainState::Both | ChainState::Front => {
                 accum = self.a.fold(accum, &mut f);
             }
-            _ => { }
+            _ => {}
         }
         match self.state {
             ChainState::Both | ChainState::Back => {
                 accum = self.b.fold(accum, &mut f);
             }
-            _ => { }
+            _ => {}
         }
         accum
     }
@@ -696,7 +756,7 @@ impl<A, B> Iterator for Chain<A, B> where
             ChainState::Both | ChainState::Front => {
                 for x in self.a.by_ref() {
                     if n == 0 {
-                        return Some(x)
+                        return Some(x);
                     }
                     n -= 1;
                 }
@@ -714,7 +774,8 @@ impl<A, B> Iterator for Chain<A, B> where
     }
 
     #[inline]
-    fn find<P>(&mut self, mut predicate: P) -> Option<Self::Item> where
+    fn find<P>(&mut self, mut predicate: P) -> Option<Self::Item>
+    where
         P: FnMut(&Self::Item) -> bool,
     {
         match self.state {
@@ -723,7 +784,7 @@ impl<A, B> Iterator for Chain<A, B> where
                     self.state = ChainState::Back;
                     self.b.find(predicate)
                 }
-                v => v
+                v => v,
             },
             ChainState::Front => self.a.find(predicate),
             ChainState::Back => self.b.find(predicate),
@@ -738,9 +799,9 @@ impl<A, B> Iterator for Chain<A, B> where
                 let a_last = self.a.last();
                 let b_last = self.b.last();
                 b_last.or(a_last)
-            },
+            }
             ChainState::Front => self.a.last(),
-            ChainState::Back => self.b.last()
+            ChainState::Back => self.b.last(),
         }
     }
 
@@ -753,7 +814,7 @@ impl<A, B> Iterator for Chain<A, B> where
 
         let upper = match (a_upper, b_upper) {
             (Some(x), Some(y)) => x.checked_add(y),
-            _ => None
+            _ => None,
         };
 
         (lower, upper)
@@ -761,9 +822,10 @@ impl<A, B> Iterator for Chain<A, B> where
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<A, B> DoubleEndedIterator for Chain<A, B> where
+impl<A, B> DoubleEndedIterator for Chain<A, B>
+where
     A: DoubleEndedIterator,
-    B: DoubleEndedIterator<Item=A::Item>,
+    B: DoubleEndedIterator<Item = A::Item>,
 {
     #[inline]
     fn next_back(&mut self) -> Option<A::Item> {
@@ -781,37 +843,42 @@ impl<A, B> DoubleEndedIterator for Chain<A, B> where
     }
 
     fn rfold<Acc, F>(self, init: Acc, mut f: F) -> Acc
-        where F: FnMut(Acc, Self::Item) -> Acc,
+    where
+        F: FnMut(Acc, Self::Item) -> Acc,
     {
         let mut accum = init;
         match self.state {
             ChainState::Both | ChainState::Back => {
                 accum = self.b.rfold(accum, &mut f);
             }
-            _ => { }
+            _ => {}
         }
         match self.state {
             ChainState::Both | ChainState::Front => {
                 accum = self.a.rfold(accum, &mut f);
             }
-            _ => { }
+            _ => {}
         }
         accum
     }
-
 }
 
 // Note: *both* must be fused to handle double-ended iterators.
 #[unstable(feature = "fused", issue = "35602")]
 impl<A, B> FusedIterator for Chain<A, B>
-    where A: FusedIterator,
-          B: FusedIterator<Item=A::Item>,
-{}
+where
+    A: FusedIterator,
+    B: FusedIterator<Item = A::Item>,
+{
+}
 
 #[unstable(feature = "trusted_len", issue = "37572")]
 unsafe impl<A, B> TrustedLen for Chain<A, B>
-    where A: TrustedLen, B: TrustedLen<Item=A::Item>,
-{}
+where
+    A: TrustedLen,
+    B: TrustedLen<Item = A::Item>,
+{
+}
 
 /// An iterator that iterates two other iterators simultaneously.
 ///
@@ -832,7 +899,10 @@ pub struct Zip<A, B> {
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<A, B> Iterator for Zip<A, B> where A: Iterator, B: Iterator
+impl<A, B> Iterator for Zip<A, B>
+where
+    A: Iterator,
+    B: Iterator,
 {
     type Item = (A::Item, B::Item);
 
@@ -848,7 +918,8 @@ impl<A, B> Iterator for Zip<A, B> where A: Iterator, B: Iterator
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<A, B> DoubleEndedIterator for Zip<A, B> where
+impl<A, B> DoubleEndedIterator for Zip<A, B>
+where
     A: DoubleEndedIterator + ExactSizeIterator,
     B: DoubleEndedIterator + ExactSizeIterator,
 {
@@ -866,14 +937,17 @@ trait ZipImpl<A, B> {
     fn next(&mut self) -> Option<Self::Item>;
     fn size_hint(&self) -> (usize, Option<usize>);
     fn next_back(&mut self) -> Option<Self::Item>
-        where A: DoubleEndedIterator + ExactSizeIterator,
-              B: DoubleEndedIterator + ExactSizeIterator;
+    where
+        A: DoubleEndedIterator + ExactSizeIterator,
+        B: DoubleEndedIterator + ExactSizeIterator;
 }
 
 // General Zip impl
 #[doc(hidden)]
 impl<A, B> ZipImpl<A, B> for Zip<A, B>
-    where A: Iterator, B: Iterator
+where
+    A: Iterator,
+    B: Iterator,
 {
     type Item = (A::Item, B::Item);
     default fn new(a: A, b: B) -> Self {
@@ -881,32 +955,35 @@ impl<A, B> ZipImpl<A, B> for Zip<A, B>
             a,
             b,
             index: 0, // unused
-            len: 0, // unused
+            len: 0,   // unused
         }
     }
 
     #[inline]
     default fn next(&mut self) -> Option<(A::Item, B::Item)> {
-        self.a.next().and_then(|x| {
-            self.b.next().and_then(|y| {
-                Some((x, y))
-            })
-        })
+        self.a
+            .next()
+            .and_then(|x| self.b.next().and_then(|y| Some((x, y))))
     }
 
     #[inline]
     default fn next_back(&mut self) -> Option<(A::Item, B::Item)>
-        where A: DoubleEndedIterator + ExactSizeIterator,
-              B: DoubleEndedIterator + ExactSizeIterator
+    where
+        A: DoubleEndedIterator + ExactSizeIterator,
+        B: DoubleEndedIterator + ExactSizeIterator,
     {
         let a_sz = self.a.len();
         let b_sz = self.b.len();
         if a_sz != b_sz {
             // Adjust a, b to equal length
             if a_sz > b_sz {
-                for _ in 0..a_sz - b_sz { self.a.next_back(); }
+                for _ in 0..a_sz - b_sz {
+                    self.a.next_back();
+                }
             } else {
-                for _ in 0..b_sz - a_sz { self.b.next_back(); }
+                for _ in 0..b_sz - a_sz {
+                    self.b.next_back();
+                }
             }
         }
         match (self.a.next_back(), self.b.next_back()) {
@@ -924,10 +1001,10 @@ impl<A, B> ZipImpl<A, B> for Zip<A, B>
         let lower = cmp::min(a_lower, b_lower);
 
         let upper = match (a_upper, b_upper) {
-            (Some(x), Some(y)) => Some(cmp::min(x,y)),
+            (Some(x), Some(y)) => Some(cmp::min(x, y)),
             (Some(x), None) => Some(x),
             (None, Some(y)) => Some(y),
-            (None, None) => None
+            (None, None) => None,
         };
 
         (lower, upper)
@@ -936,7 +1013,9 @@ impl<A, B> ZipImpl<A, B> for Zip<A, B>
 
 #[doc(hidden)]
 impl<A, B> ZipImpl<A, B> for Zip<A, B>
-    where A: TrustedRandomAccess, B: TrustedRandomAccess
+where
+    A: TrustedRandomAccess,
+    B: TrustedRandomAccess,
 {
     fn new(a: A, b: B) -> Self {
         let len = cmp::min(a.len(), b.len());
@@ -953,9 +1032,7 @@ impl<A, B> ZipImpl<A, B> for Zip<A, B>
         if self.index < self.len {
             let i = self.index;
             self.index += 1;
-            unsafe {
-                Some((self.a.get_unchecked(i), self.b.get_unchecked(i)))
-            }
+            unsafe { Some((self.a.get_unchecked(i), self.b.get_unchecked(i))) }
         } else if A::may_have_side_effect() && self.index < self.a.len() {
             // match the base implementation's potential side effects
             unsafe {
@@ -976,8 +1053,9 @@ impl<A, B> ZipImpl<A, B> for Zip<A, B>
 
     #[inline]
     fn next_back(&mut self) -> Option<(A::Item, B::Item)>
-        where A: DoubleEndedIterator + ExactSizeIterator,
-              B: DoubleEndedIterator + ExactSizeIterator
+    where
+        A: DoubleEndedIterator + ExactSizeIterator,
+        B: DoubleEndedIterator + ExactSizeIterator,
     {
         // Adjust a, b to equal length
         if A::may_have_side_effect() {
@@ -999,9 +1077,7 @@ impl<A, B> ZipImpl<A, B> for Zip<A, B>
         if self.index < self.len {
             self.len -= 1;
             let i = self.len;
-            unsafe {
-                Some((self.a.get_unchecked(i), self.b.get_unchecked(i)))
-            }
+            unsafe { Some((self.a.get_unchecked(i), self.b.get_unchecked(i))) }
         } else {
             None
         }
@@ -1010,12 +1086,17 @@ impl<A, B> ZipImpl<A, B> for Zip<A, B>
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<A, B> ExactSizeIterator for Zip<A, B>
-    where A: ExactSizeIterator, B: ExactSizeIterator {}
+where
+    A: ExactSizeIterator,
+    B: ExactSizeIterator,
+{
+}
 
 #[doc(hidden)]
 unsafe impl<A, B> TrustedRandomAccess for Zip<A, B>
-    where A: TrustedRandomAccess,
-          B: TrustedRandomAccess,
+where
+    A: TrustedRandomAccess,
+    B: TrustedRandomAccess,
 {
     unsafe fn get_unchecked(&mut self, i: usize) -> (A::Item, B::Item) {
         (self.a.get_unchecked(i), self.b.get_unchecked(i))
@@ -1028,12 +1109,19 @@ unsafe impl<A, B> TrustedRandomAccess for Zip<A, B>
 
 #[unstable(feature = "fused", issue = "35602")]
 impl<A, B> FusedIterator for Zip<A, B>
-    where A: FusedIterator, B: FusedIterator, {}
+where
+    A: FusedIterator,
+    B: FusedIterator,
+{
+}
 
 #[unstable(feature = "trusted_len", issue = "37572")]
 unsafe impl<A, B> TrustedLen for Zip<A, B>
-    where A: TrustedLen, B: TrustedLen,
-{}
+where
+    A: TrustedLen,
+    B: TrustedLen,
+{
+}
 
 /// An iterator that maps the values of `iter` with `f`.
 ///
@@ -1096,14 +1184,15 @@ pub struct Map<I, F> {
 #[stable(feature = "core_impl_debug", since = "1.9.0")]
 impl<I: fmt::Debug, F> fmt::Debug for Map<I, F> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Map")
-            .field("iter", &self.iter)
-            .finish()
+        f.debug_struct("Map").field("iter", &self.iter).finish()
     }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<B, I: Iterator, F> Iterator for Map<I, F> where F: FnMut(I::Item) -> B {
+impl<B, I: Iterator, F> Iterator for Map<I, F>
+where
+    F: FnMut(I::Item) -> B,
+{
     type Item = B;
 
     #[inline]
@@ -1117,7 +1206,8 @@ impl<B, I: Iterator, F> Iterator for Map<I, F> where F: FnMut(I::Item) -> B {
     }
 
     fn fold<Acc, G>(self, init: Acc, mut g: G) -> Acc
-        where G: FnMut(Acc, Self::Item) -> Acc,
+    where
+        G: FnMut(Acc, Self::Item) -> Acc,
     {
         let mut f = self.f;
         self.iter.fold(init, move |acc, elt| g(acc, f(elt)))
@@ -1125,7 +1215,8 @@ impl<B, I: Iterator, F> Iterator for Map<I, F> where F: FnMut(I::Item) -> B {
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<B, I: DoubleEndedIterator, F> DoubleEndedIterator for Map<I, F> where
+impl<B, I: DoubleEndedIterator, F> DoubleEndedIterator for Map<I, F>
+where
     F: FnMut(I::Item) -> B,
 {
     #[inline]
@@ -1134,7 +1225,8 @@ impl<B, I: DoubleEndedIterator, F> DoubleEndedIterator for Map<I, F> where
     }
 
     fn rfold<Acc, G>(self, init: Acc, mut g: G) -> Acc
-        where G: FnMut(Acc, Self::Item) -> Acc,
+    where
+        G: FnMut(Acc, Self::Item) -> Acc,
     {
         let mut f = self.f;
         self.iter.rfold(init, move |acc, elt| g(acc, f(elt)))
@@ -1143,7 +1235,8 @@ impl<B, I: DoubleEndedIterator, F> DoubleEndedIterator for Map<I, F> where
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<B, I: ExactSizeIterator, F> ExactSizeIterator for Map<I, F>
-    where F: FnMut(I::Item) -> B
+where
+    F: FnMut(I::Item) -> B,
 {
     fn len(&self) -> usize {
         self.iter.len()
@@ -1156,23 +1249,32 @@ impl<B, I: ExactSizeIterator, F> ExactSizeIterator for Map<I, F>
 
 #[unstable(feature = "fused", issue = "35602")]
 impl<B, I: FusedIterator, F> FusedIterator for Map<I, F>
-    where F: FnMut(I::Item) -> B {}
+where
+    F: FnMut(I::Item) -> B,
+{
+}
 
 #[unstable(feature = "trusted_len", issue = "37572")]
 unsafe impl<B, I, F> TrustedLen for Map<I, F>
-    where I: TrustedLen,
-          F: FnMut(I::Item) -> B {}
+where
+    I: TrustedLen,
+    F: FnMut(I::Item) -> B,
+{
+}
 
 #[doc(hidden)]
 unsafe impl<B, I, F> TrustedRandomAccess for Map<I, F>
-    where I: TrustedRandomAccess,
-          F: FnMut(I::Item) -> B,
+where
+    I: TrustedRandomAccess,
+    F: FnMut(I::Item) -> B,
 {
     unsafe fn get_unchecked(&mut self, i: usize) -> Self::Item {
         (self.f)(self.iter.get_unchecked(i))
     }
     #[inline]
-    fn may_have_side_effect() -> bool { true }
+    fn may_have_side_effect() -> bool {
+        true
+    }
 }
 
 /// An iterator that filters the elements of `iter` with `predicate`.
@@ -1193,14 +1295,15 @@ pub struct Filter<I, P> {
 #[stable(feature = "core_impl_debug", since = "1.9.0")]
 impl<I: fmt::Debug, P> fmt::Debug for Filter<I, P> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Filter")
-            .field("iter", &self.iter)
-            .finish()
+        f.debug_struct("Filter").field("iter", &self.iter).finish()
     }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<I: Iterator, P> Iterator for Filter<I, P> where P: FnMut(&I::Item) -> bool {
+impl<I: Iterator, P> Iterator for Filter<I, P>
+where
+    P: FnMut(&I::Item) -> bool,
+{
     type Item = I::Item;
 
     #[inline]
@@ -1242,7 +1345,8 @@ impl<I: Iterator, P> Iterator for Filter<I, P> where P: FnMut(&I::Item) -> bool 
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<I: DoubleEndedIterator, P> DoubleEndedIterator for Filter<I, P>
-    where P: FnMut(&I::Item) -> bool,
+where
+    P: FnMut(&I::Item) -> bool,
 {
     #[inline]
     fn next_back(&mut self) -> Option<I::Item> {
@@ -1257,7 +1361,10 @@ impl<I: DoubleEndedIterator, P> DoubleEndedIterator for Filter<I, P>
 
 #[unstable(feature = "fused", issue = "35602")]
 impl<I: FusedIterator, P> FusedIterator for Filter<I, P>
-    where P: FnMut(&I::Item) -> bool {}
+where
+    P: FnMut(&I::Item) -> bool,
+{
+}
 
 /// An iterator that uses `f` to both filter and map elements from `iter`.
 ///
@@ -1285,7 +1392,8 @@ impl<I: fmt::Debug, F> fmt::Debug for FilterMap<I, F> {
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<B, I: Iterator, F> Iterator for FilterMap<I, F>
-    where F: FnMut(I::Item) -> Option<B>,
+where
+    F: FnMut(I::Item) -> Option<B>,
 {
     type Item = B;
 
@@ -1308,7 +1416,8 @@ impl<B, I: Iterator, F> Iterator for FilterMap<I, F>
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<B, I: DoubleEndedIterator, F> DoubleEndedIterator for FilterMap<I, F>
-    where F: FnMut(I::Item) -> Option<B>,
+where
+    F: FnMut(I::Item) -> Option<B>,
 {
     #[inline]
     fn next_back(&mut self) -> Option<B> {
@@ -1323,7 +1432,10 @@ impl<B, I: DoubleEndedIterator, F> DoubleEndedIterator for FilterMap<I, F>
 
 #[unstable(feature = "fused", issue = "35602")]
 impl<B, I: FusedIterator, F> FusedIterator for FilterMap<I, F>
-    where F: FnMut(I::Item) -> Option<B> {}
+where
+    F: FnMut(I::Item) -> Option<B>,
+{
+}
 
 /// An iterator that yields the current count and the element during iteration.
 ///
@@ -1341,7 +1453,10 @@ pub struct Enumerate<I> {
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<I> Iterator for Enumerate<I> where I: Iterator {
+impl<I> Iterator for Enumerate<I>
+where
+    I: Iterator,
+{
     type Item = (usize, <I as Iterator>::Item);
 
     /// # Overflow Behavior
@@ -1386,8 +1501,9 @@ impl<I> Iterator for Enumerate<I> where I: Iterator {
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<I> DoubleEndedIterator for Enumerate<I> where
-    I: ExactSizeIterator + DoubleEndedIterator
+impl<I> DoubleEndedIterator for Enumerate<I>
+where
+    I: ExactSizeIterator + DoubleEndedIterator,
 {
     #[inline]
     fn next_back(&mut self) -> Option<(usize, <I as Iterator>::Item)> {
@@ -1401,7 +1517,10 @@ impl<I> DoubleEndedIterator for Enumerate<I> where
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<I> ExactSizeIterator for Enumerate<I> where I: ExactSizeIterator {
+impl<I> ExactSizeIterator for Enumerate<I>
+where
+    I: ExactSizeIterator,
+{
     fn len(&self) -> usize {
         self.iter.len()
     }
@@ -1413,7 +1532,8 @@ impl<I> ExactSizeIterator for Enumerate<I> where I: ExactSizeIterator {
 
 #[doc(hidden)]
 unsafe impl<I> TrustedRandomAccess for Enumerate<I>
-    where I: TrustedRandomAccess
+where
+    I: TrustedRandomAccess,
 {
     unsafe fn get_unchecked(&mut self, i: usize) -> (usize, I::Item) {
         (self.count + i, self.iter.get_unchecked(i))
@@ -1425,12 +1545,18 @@ unsafe impl<I> TrustedRandomAccess for Enumerate<I>
 }
 
 #[unstable(feature = "fused", issue = "35602")]
-impl<I> FusedIterator for Enumerate<I> where I: FusedIterator {}
+impl<I> FusedIterator for Enumerate<I>
+where
+    I: FusedIterator,
+{
+}
 
 #[unstable(feature = "trusted_len", issue = "37572")]
 unsafe impl<I> TrustedLen for Enumerate<I>
-    where I: TrustedLen,
-{}
+where
+    I: TrustedLen,
+{
+}
 
 
 /// An iterator with a `peek()` that returns an optional reference to the next
@@ -1597,7 +1723,8 @@ impl<I: fmt::Debug, P> fmt::Debug for SkipWhile<I, P> {
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<I: Iterator, P> Iterator for SkipWhile<I, P>
-    where P: FnMut(&I::Item) -> bool
+where
+    P: FnMut(&I::Item) -> bool,
 {
     type Item = I::Item;
 
@@ -1621,7 +1748,11 @@ impl<I: Iterator, P> Iterator for SkipWhile<I, P>
 
 #[unstable(feature = "fused", issue = "35602")]
 impl<I, P> FusedIterator for SkipWhile<I, P>
-    where I: FusedIterator, P: FnMut(&I::Item) -> bool {}
+where
+    I: FusedIterator,
+    P: FnMut(&I::Item) -> bool,
+{
+}
 
 /// An iterator that only accepts elements while `predicate` is true.
 ///
@@ -1651,7 +1782,8 @@ impl<I: fmt::Debug, P> fmt::Debug for TakeWhile<I, P> {
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<I: Iterator, P> Iterator for TakeWhile<I, P>
-    where P: FnMut(&I::Item) -> bool
+where
+    P: FnMut(&I::Item) -> bool,
 {
     type Item = I::Item;
 
@@ -1660,13 +1792,11 @@ impl<I: Iterator, P> Iterator for TakeWhile<I, P>
         if self.flag {
             None
         } else {
-            self.iter.next().and_then(|x| {
-                if (self.predicate)(&x) {
-                    Some(x)
-                } else {
-                    self.flag = true;
-                    None
-                }
+            self.iter.next().and_then(|x| if (self.predicate)(&x) {
+                Some(x)
+            } else {
+                self.flag = true;
+                None
             })
         }
     }
@@ -1680,7 +1810,11 @@ impl<I: Iterator, P> Iterator for TakeWhile<I, P>
 
 #[unstable(feature = "fused", issue = "35602")]
 impl<I, P> FusedIterator for TakeWhile<I, P>
-    where I: FusedIterator, P: FnMut(&I::Item) -> bool {}
+where
+    I: FusedIterator,
+    P: FnMut(&I::Item) -> bool,
+{
+}
 
 /// An iterator that skips over `n` elements of `iter`.
 ///
@@ -1694,11 +1828,14 @@ impl<I, P> FusedIterator for TakeWhile<I, P>
 #[stable(feature = "rust1", since = "1.0.0")]
 pub struct Skip<I> {
     iter: I,
-    n: usize
+    n: usize,
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<I> Iterator for Skip<I> where I: Iterator {
+impl<I> Iterator for Skip<I>
+where
+    I: Iterator,
+{
     type Item = <I as Iterator>::Item;
 
     #[inline]
@@ -1721,7 +1858,7 @@ impl<I> Iterator for Skip<I> where I: Iterator {
             let to_skip = self.n;
             self.n = 0;
             // nth(n) skips n+1
-            if self.iter.nth(to_skip-1).is_none() {
+            if self.iter.nth(to_skip - 1).is_none() {
                 return None;
             }
             self.iter.nth(n)
@@ -1760,10 +1897,17 @@ impl<I> Iterator for Skip<I> where I: Iterator {
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<I> ExactSizeIterator for Skip<I> where I: ExactSizeIterator {}
+impl<I> ExactSizeIterator for Skip<I>
+where
+    I: ExactSizeIterator,
+{
+}
 
 #[stable(feature = "double_ended_skip_iterator", since = "1.9.0")]
-impl<I> DoubleEndedIterator for Skip<I> where I: DoubleEndedIterator + ExactSizeIterator {
+impl<I> DoubleEndedIterator for Skip<I>
+where
+    I: DoubleEndedIterator + ExactSizeIterator,
+{
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.len() > 0 {
             self.iter.next_back()
@@ -1774,7 +1918,11 @@ impl<I> DoubleEndedIterator for Skip<I> where I: DoubleEndedIterator + ExactSize
 }
 
 #[unstable(feature = "fused", issue = "35602")]
-impl<I> FusedIterator for Skip<I> where I: FusedIterator {}
+impl<I> FusedIterator for Skip<I>
+where
+    I: FusedIterator,
+{
+}
 
 /// An iterator that only iterates over the first `n` iterations of `iter`.
 ///
@@ -1788,11 +1936,14 @@ impl<I> FusedIterator for Skip<I> where I: FusedIterator {}
 #[stable(feature = "rust1", since = "1.0.0")]
 pub struct Take<I> {
     iter: I,
-    n: usize
+    n: usize,
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<I> Iterator for Take<I> where I: Iterator{
+impl<I> Iterator for Take<I>
+where
+    I: Iterator,
+{
     type Item = <I as Iterator>::Item;
 
     #[inline]
@@ -1827,7 +1978,7 @@ impl<I> Iterator for Take<I> where I: Iterator{
 
         let upper = match upper {
             Some(x) if x < self.n => Some(x),
-            _ => Some(self.n)
+            _ => Some(self.n),
         };
 
         (lower, upper)
@@ -1835,10 +1986,18 @@ impl<I> Iterator for Take<I> where I: Iterator{
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<I> ExactSizeIterator for Take<I> where I: ExactSizeIterator {}
+impl<I> ExactSizeIterator for Take<I>
+where
+    I: ExactSizeIterator,
+{
+}
 
 #[unstable(feature = "fused", issue = "35602")]
-impl<I> FusedIterator for Take<I> where I: FusedIterator {}
+impl<I> FusedIterator for Take<I>
+where
+    I: FusedIterator,
+{
+}
 
 /// An iterator to maintain state while iterating another iterator.
 ///
@@ -1867,7 +2026,8 @@ impl<I: fmt::Debug, St: fmt::Debug, F> fmt::Debug for Scan<I, St, F> {
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<B, I, St, F> Iterator for Scan<I, St, F> where
+impl<B, I, St, F> Iterator for Scan<I, St, F>
+where
     I: Iterator,
     F: FnMut(&mut St, I::Item) -> Option<B>,
 {
@@ -1905,7 +2065,8 @@ pub struct FlatMap<I, U: IntoIterator, F> {
 
 #[stable(feature = "core_impl_debug", since = "1.9.0")]
 impl<I: fmt::Debug, U: IntoIterator, F> fmt::Debug for FlatMap<I, U, F>
-    where U::IntoIter: fmt::Debug
+where
+    U::IntoIter: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("FlatMap")
@@ -1918,7 +2079,8 @@ impl<I: fmt::Debug, U: IntoIterator, F> fmt::Debug for FlatMap<I, U, F>
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<I: Iterator, U: IntoIterator, F> Iterator for FlatMap<I, U, F>
-    where F: FnMut(I::Item) -> U,
+where
+    F: FnMut(I::Item) -> U,
 {
     type Item = U::Item;
 
@@ -1927,7 +2089,7 @@ impl<I: Iterator, U: IntoIterator, F> Iterator for FlatMap<I, U, F>
         loop {
             if let Some(ref mut inner) = self.frontiter {
                 if let Some(x) = inner.by_ref().next() {
-                    return Some(x)
+                    return Some(x);
                 }
             }
             match self.iter.next().map(&mut self.f) {
@@ -1939,20 +2101,26 @@ impl<I: Iterator, U: IntoIterator, F> Iterator for FlatMap<I, U, F>
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let (flo, fhi) = self.frontiter.as_ref().map_or((0, Some(0)), |it| it.size_hint());
-        let (blo, bhi) = self.backiter.as_ref().map_or((0, Some(0)), |it| it.size_hint());
+        let (flo, fhi) = self.frontiter
+            .as_ref()
+            .map_or((0, Some(0)), |it| it.size_hint());
+        let (blo, bhi) = self.backiter
+            .as_ref()
+            .map_or((0, Some(0)), |it| it.size_hint());
         let lo = flo.saturating_add(blo);
         match (self.iter.size_hint(), fhi, bhi) {
             ((0, Some(0)), Some(a), Some(b)) => (lo, a.checked_add(b)),
-            _ => (lo, None)
+            _ => (lo, None),
         }
     }
 
     #[inline]
     fn fold<Acc, Fold>(self, init: Acc, mut fold: Fold) -> Acc
-        where Fold: FnMut(Acc, Self::Item) -> Acc,
+    where
+        Fold: FnMut(Acc, Self::Item) -> Acc,
     {
-        self.frontiter.into_iter()
+        self.frontiter
+            .into_iter()
             .chain(self.iter.map(self.f).map(U::into_iter))
             .chain(self.backiter)
             .fold(init, |acc, iter| iter.fold(acc, &mut fold))
@@ -1960,17 +2128,18 @@ impl<I: Iterator, U: IntoIterator, F> Iterator for FlatMap<I, U, F>
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<I: DoubleEndedIterator, U, F> DoubleEndedIterator for FlatMap<I, U, F> where
+impl<I: DoubleEndedIterator, U, F> DoubleEndedIterator for FlatMap<I, U, F>
+where
     F: FnMut(I::Item) -> U,
     U: IntoIterator,
-    U::IntoIter: DoubleEndedIterator
+    U::IntoIter: DoubleEndedIterator,
 {
     #[inline]
     fn next_back(&mut self) -> Option<U::Item> {
         loop {
             if let Some(ref mut inner) = self.backiter {
                 if let Some(y) = inner.next_back() {
-                    return Some(y)
+                    return Some(y);
                 }
             }
             match self.iter.next_back().map(&mut self.f) {
@@ -1983,7 +2152,12 @@ impl<I: DoubleEndedIterator, U, F> DoubleEndedIterator for FlatMap<I, U, F> wher
 
 #[unstable(feature = "fused", issue = "35602")]
 impl<I, U, F> FusedIterator for FlatMap<I, U, F>
-    where I: FusedIterator, U: IntoIterator, F: FnMut(I::Item) -> U {}
+where
+    I: FusedIterator,
+    U: IntoIterator,
+    F: FnMut(I::Item) -> U,
+{
+}
 
 /// An iterator that yields `None` forever after the underlying iterator
 /// yields `None` once.
@@ -1998,14 +2172,21 @@ impl<I, U, F> FusedIterator for FlatMap<I, U, F>
 #[stable(feature = "rust1", since = "1.0.0")]
 pub struct Fuse<I> {
     iter: I,
-    done: bool
+    done: bool,
 }
 
 #[unstable(feature = "fused", issue = "35602")]
-impl<I> FusedIterator for Fuse<I> where I: Iterator {}
+impl<I> FusedIterator for Fuse<I>
+where
+    I: Iterator,
+{
+}
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<I> Iterator for Fuse<I> where I: Iterator {
+impl<I> Iterator for Fuse<I>
+where
+    I: Iterator,
+{
     type Item = <I as Iterator>::Item;
 
     #[inline]
@@ -2059,7 +2240,10 @@ impl<I> Iterator for Fuse<I> where I: Iterator {
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<I> DoubleEndedIterator for Fuse<I> where I: DoubleEndedIterator {
+impl<I> DoubleEndedIterator for Fuse<I>
+where
+    I: DoubleEndedIterator,
+{
     #[inline]
     default fn next_back(&mut self) -> Option<<I as Iterator>::Item> {
         if self.done {
@@ -2073,7 +2257,8 @@ impl<I> DoubleEndedIterator for Fuse<I> where I: DoubleEndedIterator {
 }
 
 unsafe impl<I> TrustedRandomAccess for Fuse<I>
-    where I: TrustedRandomAccess,
+where
+    I: TrustedRandomAccess,
 {
     unsafe fn get_unchecked(&mut self, i: usize) -> I::Item {
         self.iter.get_unchecked(i)
@@ -2085,7 +2270,10 @@ unsafe impl<I> TrustedRandomAccess for Fuse<I>
 }
 
 #[unstable(feature = "fused", issue = "35602")]
-impl<I> Iterator for Fuse<I> where I: FusedIterator {
+impl<I> Iterator for Fuse<I>
+where
+    I: FusedIterator,
+{
     #[inline]
     fn next(&mut self) -> Option<<I as Iterator>::Item> {
         self.iter.next()
@@ -2114,7 +2302,8 @@ impl<I> Iterator for Fuse<I> where I: FusedIterator {
 
 #[unstable(feature = "fused", reason = "recently added", issue = "35602")]
 impl<I> DoubleEndedIterator for Fuse<I>
-    where I: DoubleEndedIterator + FusedIterator
+where
+    I: DoubleEndedIterator + FusedIterator,
 {
     #[inline]
     fn next_back(&mut self) -> Option<<I as Iterator>::Item> {
@@ -2124,7 +2313,10 @@ impl<I> DoubleEndedIterator for Fuse<I>
 
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<I> ExactSizeIterator for Fuse<I> where I: ExactSizeIterator {
+impl<I> ExactSizeIterator for Fuse<I>
+where
+    I: ExactSizeIterator,
+{
     fn len(&self) -> usize {
         self.iter.len()
     }
@@ -2153,13 +2345,14 @@ pub struct Inspect<I, F> {
 #[stable(feature = "core_impl_debug", since = "1.9.0")]
 impl<I: fmt::Debug, F> fmt::Debug for Inspect<I, F> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Inspect")
-            .field("iter", &self.iter)
-            .finish()
+        f.debug_struct("Inspect").field("iter", &self.iter).finish()
     }
 }
 
-impl<I: Iterator, F> Inspect<I, F> where F: FnMut(&I::Item) {
+impl<I: Iterator, F> Inspect<I, F>
+where
+    F: FnMut(&I::Item),
+{
     #[inline]
     fn do_inspect(&mut self, elt: Option<I::Item>) -> Option<I::Item> {
         if let Some(ref a) = elt {
@@ -2171,7 +2364,10 @@ impl<I: Iterator, F> Inspect<I, F> where F: FnMut(&I::Item) {
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<I: Iterator, F> Iterator for Inspect<I, F> where F: FnMut(&I::Item) {
+impl<I: Iterator, F> Iterator for Inspect<I, F>
+where
+    F: FnMut(&I::Item),
+{
     type Item = I::Item;
 
     #[inline]
@@ -2188,7 +2384,8 @@ impl<I: Iterator, F> Iterator for Inspect<I, F> where F: FnMut(&I::Item) {
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<I: DoubleEndedIterator, F> DoubleEndedIterator for Inspect<I, F>
-    where F: FnMut(&I::Item),
+where
+    F: FnMut(&I::Item),
 {
     #[inline]
     fn next_back(&mut self) -> Option<I::Item> {
@@ -2199,7 +2396,8 @@ impl<I: DoubleEndedIterator, F> DoubleEndedIterator for Inspect<I, F>
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<I: ExactSizeIterator, F> ExactSizeIterator for Inspect<I, F>
-    where F: FnMut(&I::Item)
+where
+    F: FnMut(&I::Item),
 {
     fn len(&self) -> usize {
         self.iter.len()
@@ -2212,4 +2410,7 @@ impl<I: ExactSizeIterator, F> ExactSizeIterator for Inspect<I, F>
 
 #[unstable(feature = "fused", issue = "35602")]
 impl<I: FusedIterator, F> FusedIterator for Inspect<I, F>
-    where F: FnMut(&I::Item) {}
+where
+    F: FnMut(&I::Item),
+{
+}

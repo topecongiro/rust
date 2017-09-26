@@ -22,7 +22,7 @@
 use borrow::{Borrow, BorrowMut};
 use cmp::Ordering;
 use fmt;
-use hash::{Hash, self};
+use hash::{self, Hash};
 use marker::Unsize;
 use slice::{Iter, IterMut};
 

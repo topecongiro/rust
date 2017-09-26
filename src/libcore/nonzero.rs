@@ -68,8 +68,7 @@ pub struct NonZero<T: Zeroable>(T);
 impl<T: Zeroable> NonZero<T> {
     /// Creates an instance of NonZero with the provided value.
     /// You must indeed ensure that the value is actually "non-zero".
-    #[unstable(feature = "nonzero",
-               reason = "needs an RFC to flesh out the design",
+    #[unstable(feature = "nonzero", reason = "needs an RFC to flesh out the design",
                issue = "27730")]
     #[cfg_attr(not(stage0), rustc_const_unstable(feature = "const_nonzero_new"))]
     #[inline]
@@ -93,7 +92,7 @@ impl<T: Zeroable> NonZero<T> {
     }
 }
 
-impl<T: Zeroable+CoerceUnsized<U>, U: Zeroable> CoerceUnsized<NonZero<U>> for NonZero<T> {}
+impl<T: Zeroable + CoerceUnsized<U>, U: Zeroable> CoerceUnsized<NonZero<U>> for NonZero<T> {}
 
 impl<'a, T: ?Sized> From<&'a mut T> for NonZero<*mut T> {
     fn from(reference: &'a mut T) -> Self {
