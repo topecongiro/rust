@@ -114,6 +114,7 @@ macro_rules! declare_features {
 // NB: tools/tidy/src/features.rs parses this information directly out of the
 // source, so take care when modifying it.
 
+#[rustfmt_skip]
 declare_features! (
     (active, asm, "1.0.0", Some(29722)),
     (active, concat_idents, "1.0.0", Some(29599)),
@@ -430,6 +431,7 @@ declare_features! (
     (active, in_band_lifetimes, "1.23.0", Some(44524)),
 );
 
+#[rustfmt_skip]
 declare_features! (
     (removed, import_shadowing, "1.0.0", None),
     (removed, managed_boxes, "1.0.0", None),
@@ -450,10 +452,12 @@ declare_features! (
     (removed, allocator, "1.0.0", None),
 );
 
+#[rustfmt_skip]
 declare_features! (
     (stable_removed, no_stack_check, "1.0.0", None),
 );
 
+#[rustfmt_skip]
 declare_features! (
     (accepted, associated_types, "1.0.0", None),
     // allow overloading augmented assignment operations like `a += b`
