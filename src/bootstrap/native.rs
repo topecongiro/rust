@@ -83,7 +83,7 @@ impl Step for Llvm {
             // If LLVM was already built previously and contents of the rebuild-trigger file
             // didn't change from the previous build, then no action is required.
             if done_contents == rebuild_trigger_contents {
-                return
+                return;
             }
         }
 
@@ -98,7 +98,10 @@ impl Step for Llvm {
             cfg.generator("Ninja");
         }
 
-        let profile = match (build.config.llvm_optimize, build.config.llvm_release_debuginfo) {
+        let profile = match (
+            build.config.llvm_optimize,
+            build.config.llvm_release_debuginfo,
+        ) {
             (false, _) => "Debug",
             (true, false) => "Release",
             (true, true) => "RelWithDebInfo",
@@ -112,25 +115,29 @@ impl Step for Llvm {
 
         let llvm_exp_targets = &build.config.llvm_experimental_targets;
 
-        let assertions = if build.config.llvm_assertions {"ON"} else {"OFF"};
+        let assertions = if build.config.llvm_assertions {
+            "ON"
+        } else {
+            "OFF"
+        };
 
         cfg.target(&target)
-           .host(&build.build)
-           .out_dir(&out_dir)
-           .profile(profile)
-           .define("LLVM_ENABLE_ASSERTIONS", assertions)
-           .define("LLVM_TARGETS_TO_BUILD", llvm_targets)
-           .define("LLVM_EXPERIMENTAL_TARGETS_TO_BUILD", llvm_exp_targets)
-           .define("LLVM_INCLUDE_EXAMPLES", "OFF")
-           .define("LLVM_INCLUDE_TESTS", "OFF")
-           .define("LLVM_INCLUDE_DOCS", "OFF")
-           .define("LLVM_ENABLE_ZLIB", "OFF")
-           .define("WITH_POLLY", "OFF")
-           .define("LLVM_ENABLE_TERMINFO", "OFF")
-           .define("LLVM_ENABLE_LIBEDIT", "OFF")
-           .define("LLVM_PARALLEL_COMPILE_JOBS", build.jobs().to_string())
-           .define("LLVM_TARGET_ARCH", target.split('-').next().unwrap())
-           .define("LLVM_DEFAULT_TARGET_TRIPLE", target);
+            .host(&build.build)
+            .out_dir(&out_dir)
+            .profile(profile)
+            .define("LLVM_ENABLE_ASSERTIONS", assertions)
+            .define("LLVM_TARGETS_TO_BUILD", llvm_targets)
+            .define("LLVM_EXPERIMENTAL_TARGETS_TO_BUILD", llvm_exp_targets)
+            .define("LLVM_INCLUDE_EXAMPLES", "OFF")
+            .define("LLVM_INCLUDE_TESTS", "OFF")
+            .define("LLVM_INCLUDE_DOCS", "OFF")
+            .define("LLVM_ENABLE_ZLIB", "OFF")
+            .define("WITH_POLLY", "OFF")
+            .define("LLVM_ENABLE_TERMINFO", "OFF")
+            .define("LLVM_ENABLE_LIBEDIT", "OFF")
+            .define("LLVM_PARALLEL_COMPILE_JOBS", build.jobs().to_string())
+            .define("LLVM_TARGET_ARCH", target.split('-').next().unwrap())
+            .define("LLVM_DEFAULT_TARGET_TRIPLE", target);
 
 
         // This setting makes the LLVM tools link to the dynamic LLVM library,
@@ -138,7 +145,7 @@ impl Step for Llvm {
         // for the tools.  We don't distribute any of those tools, so this is
         // just a local concern.  However, it doesn't work well everywhere.
         if target.contains("linux-gnu") || target.contains("apple-darwin") {
-           cfg.define("LLVM_LINK_LLVM_DYLIB", "ON");
+            cfg.define("LLVM_LINK_LLVM_DYLIB", "ON");
         }
 
         if target.contains("msvc") {
@@ -160,21 +167,26 @@ impl Step for Llvm {
 
         // http://llvm.org/docs/HowToCrossCompileLLVM.html
         if target != build.build {
-            builder.ensure(Llvm { target: build.build });
+            builder.ensure(Llvm {
+                target: build.build,
+            });
             // FIXME: if the llvm root for the build triple is overridden then we
             //        should use llvm-tblgen from there, also should verify that it
             //        actually exists most of the time in normal installs of LLVM.
             let host = build.llvm_out(build.build).join("bin/llvm-tblgen");
             cfg.define("CMAKE_CROSSCOMPILING", "True")
-               .define("LLVM_TABLEGEN", &host);
+                .define("LLVM_TABLEGEN", &host);
 
             if target.contains("netbsd") {
-               cfg.define("CMAKE_SYSTEM_NAME", "NetBSD");
+                cfg.define("CMAKE_SYSTEM_NAME", "NetBSD");
             } else if target.contains("freebsd") {
-               cfg.define("CMAKE_SYSTEM_NAME", "FreeBSD");
+                cfg.define("CMAKE_SYSTEM_NAME", "FreeBSD");
             }
 
-            cfg.define("LLVM_NATIVE_BUILD", build.llvm_out(build.build).join("build"));
+            cfg.define(
+                "LLVM_NATIVE_BUILD",
+                build.llvm_out(build.build).join("build"),
+            );
         }
 
         let sanitize_cc = |cc: &Path| {
@@ -190,35 +202,32 @@ impl Step for Llvm {
             // vars that we'd otherwise configure. In that case we just skip this
             // entirely.
             if target.contains("msvc") && !build.config.ninja {
-                return
+                return;
             }
 
             let cc = build.cc(target);
             let cxx = build.cxx(target).unwrap();
 
             // Handle msvc + ninja + ccache specially (this is what the bots use)
-            if target.contains("msvc") &&
-               build.config.ninja &&
-               build.config.ccache.is_some() {
+            if target.contains("msvc") && build.config.ninja && build.config.ccache.is_some() {
                 let mut cc = env::current_exe().expect("failed to get cwd");
                 cc.set_file_name("sccache-plus-cl.exe");
 
-               cfg.define("CMAKE_C_COMPILER", sanitize_cc(&cc))
-                  .define("CMAKE_CXX_COMPILER", sanitize_cc(&cc));
-               cfg.env("SCCACHE_PATH",
-                       build.config.ccache.as_ref().unwrap())
-                  .env("SCCACHE_TARGET", target);
+                cfg.define("CMAKE_C_COMPILER", sanitize_cc(&cc))
+                    .define("CMAKE_CXX_COMPILER", sanitize_cc(&cc));
+                cfg.env("SCCACHE_PATH", build.config.ccache.as_ref().unwrap())
+                    .env("SCCACHE_TARGET", target);
 
             // If ccache is configured we inform the build a little differently hwo
             // to invoke ccache while also invoking our compilers.
             } else if let Some(ref ccache) = build.config.ccache {
-               cfg.define("CMAKE_C_COMPILER", ccache)
-                  .define("CMAKE_C_COMPILER_ARG1", sanitize_cc(cc))
-                  .define("CMAKE_CXX_COMPILER", ccache)
-                  .define("CMAKE_CXX_COMPILER_ARG1", sanitize_cc(cxx));
+                cfg.define("CMAKE_C_COMPILER", ccache)
+                    .define("CMAKE_C_COMPILER_ARG1", sanitize_cc(cc))
+                    .define("CMAKE_CXX_COMPILER", ccache)
+                    .define("CMAKE_CXX_COMPILER_ARG1", sanitize_cc(cxx));
             } else {
-               cfg.define("CMAKE_C_COMPILER", sanitize_cc(cc))
-                  .define("CMAKE_CXX_COMPILER", sanitize_cc(cxx));
+                cfg.define("CMAKE_C_COMPILER", sanitize_cc(cc))
+                    .define("CMAKE_CXX_COMPILER", sanitize_cc(cxx));
             }
 
             cfg.build_arg("-j").build_arg(build.jobs().to_string());
@@ -251,16 +260,18 @@ impl Step for Llvm {
 
 fn check_llvm_version(build: &Build, llvm_config: &Path) {
     if !build.config.llvm_version_check {
-        return
+        return;
     }
 
     let mut cmd = Command::new(llvm_config);
     let version = output(cmd.arg("--version"));
-    let mut parts = version.split('.').take(2)
+    let mut parts = version
+        .split('.')
+        .take(2)
         .filter_map(|s| s.parse::<u32>().ok());
     if let (Some(major), Some(minor)) = (parts.next(), parts.next()) {
         if major > 3 || (major == 3 && minor >= 9) {
-            return
+            return;
         }
     }
     panic!("\n\nbad LLVM version: {}, need >=3.9\n\n", version)
@@ -290,7 +301,7 @@ impl Step for TestHelpers {
         let dst = build.test_helpers_out(target);
         let src = build.src.join("src/rt/rust_test_helpers.c");
         if up_to_date(&src, &dst.join("librust_test_helpers.a")) {
-            return
+            return;
         }
 
         let _folder = build.fold_output(|| "build_test_helpers");
@@ -309,14 +320,14 @@ impl Step for TestHelpers {
         }
 
         cfg.cargo_metadata(false)
-           .out_dir(&dst)
-           .target(&target)
-           .host(&build.build)
-           .opt_level(0)
-           .warnings(false)
-           .debug(false)
-           .file(build.src.join("src/rt/rust_test_helpers.c"))
-           .compile("librust_test_helpers.a");
+            .out_dir(&dst)
+            .target(&target)
+            .host(&build.build)
+            .opt_level(0)
+            .warnings(false)
+            .debug(false)
+            .file(build.src.join("src/rt/rust_test_helpers.c"))
+            .compile("librust_test_helpers.a");
     }
 }
 
@@ -348,7 +359,7 @@ impl Step for Openssl {
         let mut contents = String::new();
         drop(File::open(&stamp).and_then(|mut f| f.read_to_string(&mut contents)));
         if contents == OPENSSL_VERS {
-            return
+            return;
         }
         t!(fs::create_dir_all(&out));
 
@@ -357,8 +368,10 @@ impl Step for Openssl {
         if !tarball.exists() {
             let tmp = tarball.with_extension("tmp");
             // originally from https://www.openssl.org/source/...
-            let url = format!("https://s3-us-west-1.amazonaws.com/rust-lang-ci2/rust-ci-mirror/{}",
-                              name);
+            let url = format!(
+                "https://s3-us-west-1.amazonaws.com/rust-lang-ci2/rust-ci-mirror/{}",
+                name
+            );
             let mut last_error = None;
             for _ in 0..3 {
                 let status = Command::new("curl")
@@ -411,7 +424,12 @@ impl Step for Openssl {
         let dst = build.openssl_install_dir(target).unwrap();
         drop(fs::remove_dir_all(&obj));
         drop(fs::remove_dir_all(&dst));
-        build.run(Command::new("tar").arg("zxf").arg(&tarball).current_dir(&out));
+        build.run(
+            Command::new("tar")
+                .arg("zxf")
+                .arg(&tarball)
+                .current_dir(&out),
+        );
 
         let mut configure = Command::new("perl");
         configure.arg(obj.join("Configure"));

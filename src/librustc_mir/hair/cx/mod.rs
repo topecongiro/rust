@@ -58,15 +58,13 @@ pub struct Cx<'a, 'gcx: 'a + 'tcx, 'tcx: 'a> {
 }
 
 impl<'a, 'gcx, 'tcx> Cx<'a, 'gcx, 'tcx> {
-    pub fn new(infcx: &'a InferCtxt<'a, 'gcx, 'tcx>,
-               src_id: ast::NodeId) -> Cx<'a, 'gcx, 'tcx> {
+    pub fn new(infcx: &'a InferCtxt<'a, 'gcx, 'tcx>, src_id: ast::NodeId) -> Cx<'a, 'gcx, 'tcx> {
         let tcx = infcx.tcx;
         let src_def_id = tcx.hir.local_def_id(src_id);
         let body_owner_kind = tcx.hir.body_owner_kind(src_id);
 
         let constness = match body_owner_kind {
-            hir::BodyOwnerKind::Const |
-            hir::BodyOwnerKind::Static(_) => hir::Constness::Const,
+            hir::BodyOwnerKind::Const | hir::BodyOwnerKind::Static(_) => hir::Constness::Const,
             hir::BodyOwnerKind::Fn => {
                 let fn_like = FnLikeNode::from_node(infcx.tcx.hir.get(src_id));
                 fn_like.map_or(hir::Constness::NotConst, |f| f.constness())
@@ -78,7 +76,8 @@ impl<'a, 'gcx, 'tcx> Cx<'a, 'gcx, 'tcx> {
         // Some functions always have overflow checks enabled,
         // however, they may not get codegen'd, depending on
         // the settings for the crate they are translated in.
-        let mut check_overflow = attrs.iter()
+        let mut check_overflow = attrs
+            .iter()
             .any(|item| item.check_name("rustc_inherit_overflow_checks"));
 
         // Respect -C overflow-checks.
@@ -101,7 +100,6 @@ impl<'a, 'gcx, 'tcx> Cx<'a, 'gcx, 'tcx> {
             check_overflow,
         }
     }
-
 }
 
 impl<'a, 'gcx, 'tcx> Cx<'a, 'gcx, 'tcx> {
@@ -116,14 +114,12 @@ impl<'a, 'gcx, 'tcx> Cx<'a, 'gcx, 'tcx> {
 
     pub fn usize_literal(&mut self, value: u64) -> Literal<'tcx> {
         match ConstUsize::new(value, self.tcx.sess.target.usize_ty) {
-            Ok(val) => {
-                Literal::Value {
-                    value: self.tcx.mk_const(ty::Const {
-                        val: ConstVal::Integral(ConstInt::Usize(val)),
-                        ty: self.tcx.types.usize
-                    })
-                }
-            }
+            Ok(val) => Literal::Value {
+                value: self.tcx.mk_const(ty::Const {
+                    val: ConstVal::Integral(ConstInt::Usize(val)),
+                    ty: self.tcx.types.usize,
+                }),
+            },
             Err(_) => bug!("usize literal out of range for target"),
         }
     }
@@ -140,8 +136,8 @@ impl<'a, 'gcx, 'tcx> Cx<'a, 'gcx, 'tcx> {
         Literal::Value {
             value: self.tcx.mk_const(ty::Const {
                 val: ConstVal::Bool(true),
-                ty: self.tcx.types.bool
-            })
+                ty: self.tcx.types.bool,
+            }),
         }
     }
 
@@ -149,19 +145,18 @@ impl<'a, 'gcx, 'tcx> Cx<'a, 'gcx, 'tcx> {
         Literal::Value {
             value: self.tcx.mk_const(ty::Const {
                 val: ConstVal::Bool(false),
-                ty: self.tcx.types.bool
-            })
+                ty: self.tcx.types.bool,
+            }),
         }
     }
 
     pub fn const_eval_literal(&mut self, e: &hir::Expr) -> Literal<'tcx> {
         let tcx = self.tcx.global_tcx();
-        let const_cx = ConstContext::new(tcx,
-                                         self.param_env.and(self.identity_substs),
-                                         self.tables());
+        let const_cx =
+            ConstContext::new(tcx, self.param_env.and(self.identity_substs), self.tables());
         match const_cx.eval(tcx.hir.expect_expr(e.id)) {
             Ok(value) => Literal::Value { value },
-            Err(s) => self.fatal_const_eval_err(&s, e.span, "expression")
+            Err(s) => self.fatal_const_eval_err(&s, e.span, "expression"),
         }
     }
 
@@ -169,44 +164,49 @@ impl<'a, 'gcx, 'tcx> Cx<'a, 'gcx, 'tcx> {
         let tcx = self.tcx.global_tcx();
         let p = match tcx.hir.get(p.id) {
             hir::map::NodePat(p) | hir::map::NodeBinding(p) => p,
-            node => bug!("pattern became {:?}", node)
+            node => bug!("pattern became {:?}", node),
         };
-        Pattern::from_hir(tcx,
-                          self.param_env.and(self.identity_substs),
-                          self.tables(),
-                          p)
+        Pattern::from_hir(
+            tcx,
+            self.param_env.and(self.identity_substs),
+            self.tables(),
+            p,
+        )
     }
 
-    pub fn fatal_const_eval_err(&mut self,
+    pub fn fatal_const_eval_err(
+        &mut self,
         err: &ConstEvalErr<'tcx>,
         primary_span: Span,
-        primary_kind: &str)
-        -> !
-    {
+        primary_kind: &str,
+    ) -> ! {
         err.report(self.tcx, primary_span, primary_kind);
         self.tcx.sess.abort_if_errors();
         unreachable!()
     }
 
-    pub fn trait_method(&mut self,
-                        trait_def_id: DefId,
-                        method_name: &str,
-                        self_ty: Ty<'tcx>,
-                        params: &[Ty<'tcx>])
-                        -> (Ty<'tcx>, Literal<'tcx>) {
+    pub fn trait_method(
+        &mut self,
+        trait_def_id: DefId,
+        method_name: &str,
+        self_ty: Ty<'tcx>,
+        params: &[Ty<'tcx>],
+    ) -> (Ty<'tcx>, Literal<'tcx>) {
         let method_name = Symbol::intern(method_name);
         let substs = self.tcx.mk_substs_trait(self_ty, params);
         for item in self.tcx.associated_items(trait_def_id) {
             if item.kind == ty::AssociatedKind::Method && item.name == method_name {
                 let method_ty = self.tcx.type_of(item.def_id);
                 let method_ty = method_ty.subst(self.tcx, substs);
-                return (method_ty,
-                        Literal::Value {
-                            value: self.tcx.mk_const(ty::Const {
-                                val: ConstVal::Function(item.def_id, substs),
-                                ty: method_ty
-                            }),
-                        });
+                return (
+                    method_ty,
+                    Literal::Value {
+                        value: self.tcx.mk_const(ty::Const {
+                            val: ConstVal::Function(item.def_id, substs),
+                            ty: method_ty,
+                        }),
+                    },
+                );
             }
         }
 
@@ -220,18 +220,26 @@ impl<'a, 'gcx, 'tcx> Cx<'a, 'gcx, 'tcx> {
     }
 
     pub fn needs_drop(&mut self, ty: Ty<'tcx>) -> bool {
-        let (ty, param_env) = self.tcx.lift_to_global(&(ty, self.param_env)).unwrap_or_else(|| {
-            bug!("MIR: Cx::needs_drop({:?}, {:?}) got \
-                  type with inference types/regions",
-                 ty, self.param_env);
-        });
+        let (ty, param_env) = self.tcx
+            .lift_to_global(&(ty, self.param_env))
+            .unwrap_or_else(|| {
+                bug!(
+                    "MIR: Cx::needs_drop({:?}, {:?}) got \
+                     type with inference types/regions",
+                    ty,
+                    self.param_env
+                );
+            });
         ty.needs_drop(self.tcx.global_tcx(), param_env)
     }
 
     fn lint_level_of(&self, node_id: ast::NodeId) -> LintLevel {
         let hir_id = self.tcx.hir.definitions().node_to_hir_id(node_id);
         let has_lint_level = self.tcx.dep_graph.with_ignore(|| {
-            self.tcx.lint_levels(LOCAL_CRATE).lint_level_set(hir_id).is_some()
+            self.tcx
+                .lint_levels(LOCAL_CRATE)
+                .lint_level_set(hir_id)
+                .is_some()
         });
 
         if has_lint_level {
@@ -272,7 +280,7 @@ fn lint_level_for_hir_id(tcx: TyCtxt, mut id: ast::NodeId) -> ast::NodeId {
         loop {
             let hir_id = tcx.hir.definitions().node_to_hir_id(id);
             if sets.lint_level_set(hir_id).is_some() {
-                return id
+                return id;
             }
             let next = tcx.hir.get_parent_node(id);
             if next == id {

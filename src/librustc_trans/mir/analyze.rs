@@ -14,8 +14,8 @@
 use rustc_data_structures::bitvec::BitVector;
 use rustc_data_structures::indexed_vec::{Idx, IndexVec};
 use rustc::middle::const_val::ConstVal;
-use rustc::mir::{self, Location, TerminatorKind, Literal};
-use rustc::mir::visit::{Visitor, LvalueContext};
+use rustc::mir::{self, Literal, Location, TerminatorKind};
+use rustc::mir::visit::{LvalueContext, Visitor};
 use rustc::mir::traversal;
 use rustc::ty;
 use rustc::ty::layout::LayoutOf;
@@ -54,7 +54,7 @@ pub fn lvalue_locals<'a, 'tcx>(mircx: &MirContext<'a, 'tcx>) -> BitVector {
 struct LocalAnalyzer<'mir, 'a: 'mir, 'tcx: 'a> {
     cx: &'mir MirContext<'a, 'tcx>,
     lvalue_locals: BitVector,
-    seen_assigned: BitVector
+    seen_assigned: BitVector,
 }
 
 impl<'mir, 'a, 'tcx> LocalAnalyzer<'mir, 'a, 'tcx> {
@@ -62,7 +62,7 @@ impl<'mir, 'a, 'tcx> LocalAnalyzer<'mir, 'a, 'tcx> {
         let mut analyzer = LocalAnalyzer {
             cx: mircx,
             lvalue_locals: BitVector::new(mircx.mir.local_decls.len()),
-            seen_assigned: BitVector::new(mircx.mir.local_decls.len())
+            seen_assigned: BitVector::new(mircx.mir.local_decls.len()),
         };
 
         // Arguments get assigned to by means of the function being called
@@ -86,12 +86,19 @@ impl<'mir, 'a, 'tcx> LocalAnalyzer<'mir, 'a, 'tcx> {
 }
 
 impl<'mir, 'a, 'tcx> Visitor<'tcx> for LocalAnalyzer<'mir, 'a, 'tcx> {
-    fn visit_assign(&mut self,
-                    block: mir::BasicBlock,
-                    lvalue: &mir::Lvalue<'tcx>,
-                    rvalue: &mir::Rvalue<'tcx>,
-                    location: Location) {
-        debug!("visit_assign(block={:?}, lvalue={:?}, rvalue={:?})", block, lvalue, rvalue);
+    fn visit_assign(
+        &mut self,
+        block: mir::BasicBlock,
+        lvalue: &mir::Lvalue<'tcx>,
+        rvalue: &mir::Rvalue<'tcx>,
+        location: Location,
+    ) {
+        debug!(
+            "visit_assign(block={:?}, lvalue={:?}, rvalue={:?})",
+            block,
+            lvalue,
+            rvalue
+        );
 
         if let mir::Lvalue::Local(index) = *lvalue {
             self.mark_assigned(index);
@@ -105,19 +112,31 @@ impl<'mir, 'a, 'tcx> Visitor<'tcx> for LocalAnalyzer<'mir, 'a, 'tcx> {
         self.visit_rvalue(rvalue, location);
     }
 
-    fn visit_terminator_kind(&mut self,
-                             block: mir::BasicBlock,
-                             kind: &mir::TerminatorKind<'tcx>,
-                             location: Location) {
+    fn visit_terminator_kind(
+        &mut self,
+        block: mir::BasicBlock,
+        kind: &mir::TerminatorKind<'tcx>,
+        location: Location,
+    ) {
         match *kind {
             mir::TerminatorKind::Call {
-                func: mir::Operand::Constant(box mir::Constant {
-                    literal: Literal::Value {
-                        value: &ty::Const { val: ConstVal::Function(def_id, _), .. }, ..
-                    }, ..
-                }),
-                ref args, ..
-            } if Some(def_id) == self.cx.ccx.tcx().lang_items().box_free_fn() => {
+                func:
+                    mir::Operand::Constant(box mir::Constant {
+                        literal:
+                            Literal::Value {
+                                value:
+                                    &ty::Const {
+                                        val: ConstVal::Function(def_id, _),
+                                        ..
+                                    },
+                                ..
+                            },
+                        ..
+                    }),
+                ref args,
+                ..
+            } if Some(def_id) == self.cx.ccx.tcx().lang_items().box_free_fn() =>
+            {
                 // box_free(x) shares with `drop x` the property that it
                 // is not guaranteed to be statically dominated by the
                 // definition of x, so x must always be in an alloca.
@@ -131,10 +150,12 @@ impl<'mir, 'a, 'tcx> Visitor<'tcx> for LocalAnalyzer<'mir, 'a, 'tcx> {
         self.super_terminator_kind(block, kind, location);
     }
 
-    fn visit_lvalue(&mut self,
-                    lvalue: &mir::Lvalue<'tcx>,
-                    context: LvalueContext<'tcx>,
-                    location: Location) {
+    fn visit_lvalue(
+        &mut self,
+        lvalue: &mir::Lvalue<'tcx>,
+        context: LvalueContext<'tcx>,
+        location: Location,
+    ) {
         debug!("visit_lvalue(lvalue={:?}, context={:?})", lvalue, context);
         let ccx = self.cx.ccx;
 
@@ -142,14 +163,16 @@ impl<'mir, 'a, 'tcx> Visitor<'tcx> for LocalAnalyzer<'mir, 'a, 'tcx> {
             // Allow uses of projections that are ZSTs or from scalar fields.
             let is_consume = match context {
                 LvalueContext::Copy | LvalueContext::Move => true,
-                _ => false
+                _ => false,
             };
             if is_consume {
                 let base_ty = proj.base.ty(self.cx.mir, ccx.tcx());
                 let base_ty = self.cx.monomorphize(&base_ty);
 
                 // ZSTs don't require any actual memory access.
-                let elem_ty = base_ty.projection_ty(ccx.tcx(), &proj.elem).to_ty(ccx.tcx());
+                let elem_ty = base_ty
+                    .projection_ty(ccx.tcx(), &proj.elem)
+                    .to_ty(ccx.tcx());
                 let elem_ty = self.cx.monomorphize(&elem_ty);
                 if ccx.layout_of(elem_ty).is_zst() {
                     return;
@@ -176,25 +199,22 @@ impl<'mir, 'a, 'tcx> Visitor<'tcx> for LocalAnalyzer<'mir, 'a, 'tcx> {
         self.super_lvalue(lvalue, context, location);
     }
 
-    fn visit_local(&mut self,
-                   &index: &mir::Local,
-                   context: LvalueContext<'tcx>,
-                   _: Location) {
+    fn visit_local(&mut self, &index: &mir::Local, context: LvalueContext<'tcx>, _: Location) {
         match context {
             LvalueContext::Call => {
                 self.mark_assigned(index);
             }
 
-            LvalueContext::StorageLive |
-            LvalueContext::StorageDead |
-            LvalueContext::Validate |
-            LvalueContext::Copy |
-            LvalueContext::Move => {}
+            LvalueContext::StorageLive
+            | LvalueContext::StorageDead
+            | LvalueContext::Validate
+            | LvalueContext::Copy
+            | LvalueContext::Move => {}
 
-            LvalueContext::Inspect |
-            LvalueContext::Store |
-            LvalueContext::Borrow { .. } |
-            LvalueContext::Projection(..) => {
+            LvalueContext::Inspect
+            | LvalueContext::Store
+            | LvalueContext::Borrow { .. }
+            | LvalueContext::Projection(..) => {
                 self.mark_as_lvalue(index);
             }
 
@@ -215,7 +235,7 @@ impl<'mir, 'a, 'tcx> Visitor<'tcx> for LocalAnalyzer<'mir, 'a, 'tcx> {
 pub enum CleanupKind {
     NotCleanup,
     Funclet,
-    Internal { funclet: mir::BasicBlock }
+    Internal { funclet: mir::BasicBlock },
 }
 
 impl CleanupKind {
@@ -229,27 +249,35 @@ impl CleanupKind {
 }
 
 pub fn cleanup_kinds<'a, 'tcx>(mir: &mir::Mir<'tcx>) -> IndexVec<mir::BasicBlock, CleanupKind> {
-    fn discover_masters<'tcx>(result: &mut IndexVec<mir::BasicBlock, CleanupKind>,
-                              mir: &mir::Mir<'tcx>) {
+    fn discover_masters<'tcx>(
+        result: &mut IndexVec<mir::BasicBlock, CleanupKind>,
+        mir: &mir::Mir<'tcx>,
+    ) {
         for (bb, data) in mir.basic_blocks().iter_enumerated() {
             match data.terminator().kind {
-                TerminatorKind::Goto { .. } |
-                TerminatorKind::Resume |
-                TerminatorKind::Return |
-                TerminatorKind::GeneratorDrop |
-                TerminatorKind::Unreachable |
-                TerminatorKind::SwitchInt { .. } |
-                TerminatorKind::Yield { .. } |
-                TerminatorKind::FalseEdges { .. } => {
-                    /* nothing to do */
+                TerminatorKind::Goto { .. }
+                | TerminatorKind::Resume
+                | TerminatorKind::Return
+                | TerminatorKind::GeneratorDrop
+                | TerminatorKind::Unreachable
+                | TerminatorKind::SwitchInt { .. }
+                | TerminatorKind::Yield { .. }
+                | TerminatorKind::FalseEdges { .. } => { /* nothing to do */ }
+                TerminatorKind::Call {
+                    cleanup: unwind, ..
                 }
-                TerminatorKind::Call { cleanup: unwind, .. } |
-                TerminatorKind::Assert { cleanup: unwind, .. } |
-                TerminatorKind::DropAndReplace { unwind, .. } |
-                TerminatorKind::Drop { unwind, .. } => {
+                | TerminatorKind::Assert {
+                    cleanup: unwind, ..
+                }
+                | TerminatorKind::DropAndReplace { unwind, .. }
+                | TerminatorKind::Drop { unwind, .. } => {
                     if let Some(unwind) = unwind {
-                        debug!("cleanup_kinds: {:?}/{:?} registering {:?} as funclet",
-                               bb, data, unwind);
+                        debug!(
+                            "cleanup_kinds: {:?}/{:?} registering {:?} as funclet",
+                            bb,
+                            data,
+                            unwind
+                        );
                         result[unwind] = CleanupKind::Funclet;
                     }
                 }
@@ -257,22 +285,27 @@ pub fn cleanup_kinds<'a, 'tcx>(mir: &mir::Mir<'tcx>) -> IndexVec<mir::BasicBlock
         }
     }
 
-    fn propagate<'tcx>(result: &mut IndexVec<mir::BasicBlock, CleanupKind>,
-                       mir: &mir::Mir<'tcx>) {
+    fn propagate<'tcx>(result: &mut IndexVec<mir::BasicBlock, CleanupKind>, mir: &mir::Mir<'tcx>) {
         let mut funclet_succs = IndexVec::from_elem(None, mir.basic_blocks());
 
-        let mut set_successor = |funclet: mir::BasicBlock, succ| {
-            match funclet_succs[funclet] {
-                ref mut s @ None => {
-                    debug!("set_successor: updating successor of {:?} to {:?}",
-                           funclet, succ);
-                    *s = Some(succ);
-                },
-                Some(s) => if s != succ {
-                    span_bug!(mir.span, "funclet {:?} has 2 parents - {:?} and {:?}",
-                              funclet, s, succ);
-                }
+        let mut set_successor = |funclet: mir::BasicBlock, succ| match funclet_succs[funclet] {
+            ref mut s @ None => {
+                debug!(
+                    "set_successor: updating successor of {:?} to {:?}",
+                    funclet,
+                    succ
+                );
+                *s = Some(succ);
             }
+            Some(s) => if s != succ {
+                span_bug!(
+                    mir.span,
+                    "funclet {:?} has 2 parents - {:?} and {:?}",
+                    funclet,
+                    s,
+                    succ
+                );
+            },
         };
 
         for (bb, data) in traversal::reverse_postorder(mir) {
@@ -282,13 +315,22 @@ pub fn cleanup_kinds<'a, 'tcx>(mir: &mir::Mir<'tcx>) -> IndexVec<mir::BasicBlock
                 CleanupKind::Internal { funclet } => funclet,
             };
 
-            debug!("cleanup_kinds: {:?}/{:?}/{:?} propagating funclet {:?}",
-                   bb, data, result[bb], funclet);
+            debug!(
+                "cleanup_kinds: {:?}/{:?}/{:?} propagating funclet {:?}",
+                bb,
+                data,
+                result[bb],
+                funclet
+            );
 
             for &succ in data.terminator().successors().iter() {
                 let kind = result[succ];
-                debug!("cleanup_kinds: propagating {:?} to {:?}/{:?}",
-                       funclet, succ, kind);
+                debug!(
+                    "cleanup_kinds: propagating {:?} to {:?}/{:?}",
+                    funclet,
+                    succ,
+                    kind
+                );
                 match kind {
                     CleanupKind::NotCleanup => {
                         result[succ] = CleanupKind::Internal { funclet: funclet };
@@ -298,13 +340,18 @@ pub fn cleanup_kinds<'a, 'tcx>(mir: &mir::Mir<'tcx>) -> IndexVec<mir::BasicBlock
                             set_successor(funclet, succ);
                         }
                     }
-                    CleanupKind::Internal { funclet: succ_funclet } => {
+                    CleanupKind::Internal {
+                        funclet: succ_funclet,
+                    } => {
                         if funclet != succ_funclet {
                             // `succ` has 2 different funclet going into it, so it must
                             // be a funclet by itself.
 
-                            debug!("promoting {:?} to a funclet and updating {:?}", succ,
-                                   succ_funclet);
+                            debug!(
+                                "promoting {:?} to a funclet and updating {:?}",
+                                succ,
+                                succ_funclet
+                            );
                             result[succ] = CleanupKind::Funclet;
                             set_successor(succ_funclet, succ);
                             set_successor(funclet, succ);

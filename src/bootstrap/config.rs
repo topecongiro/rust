@@ -24,7 +24,7 @@ use std::cmp;
 use num_cpus;
 use toml;
 use util::exe;
-use cache::{INTERNER, Interned};
+use cache::{Interned, INTERNER};
 use flags::Flags;
 pub use flags::Subcommand;
 use toolstate::ToolStates;
@@ -172,10 +172,8 @@ struct TomlConfig {
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 struct Build {
     build: Option<String>,
-    #[serde(default)]
-    host: Vec<String>,
-    #[serde(default)]
-    target: Vec<String>,
+    #[serde(default)] host: Vec<String>,
+    #[serde(default)] target: Vec<String>,
     cargo: Option<String>,
     rustc: Option<String>,
     low_priority: Option<bool>,
@@ -336,8 +334,11 @@ impl Config {
             match toml::from_str(&contents) {
                 Ok(table) => table,
                 Err(err) => {
-                    println!("failed to parse TOML configuration '{}': {}",
-                        file.display(), err);
+                    println!(
+                        "failed to parse TOML configuration '{}': {}",
+                        file.display(),
+                        err
+                    );
                     process::exit(2);
                 }
             }
@@ -351,12 +352,18 @@ impl Config {
             Ok(toml::from_str(&contents)?)
         };
         config.toolstate = parse_toolstate().unwrap_or_else(|err| {
-            println!("failed to parse TOML configuration 'toolstate.toml': {}", err);
+            println!(
+                "failed to parse TOML configuration 'toolstate.toml': {}",
+                err
+            );
             process::exit(2);
         });
 
         let build = toml.build.clone().unwrap_or(Build::default());
-        set(&mut config.build, build.build.clone().map(|x| INTERNER.intern_string(x)));
+        set(
+            &mut config.build,
+            build.build.clone().map(|x| INTERNER.intern_string(x)),
+        );
         set(&mut config.build, flags.build);
         if config.build.is_empty() {
             // set by bootstrap.py
@@ -369,7 +376,10 @@ impl Config {
                 config.hosts.push(host);
             }
         }
-        for target in config.hosts.iter().cloned()
+        for target in config
+            .hosts
+            .iter()
+            .cloned()
             .chain(build.target.iter().map(|s| INTERNER.intern_str(s)))
         {
             if !config.targets.contains(&target) {
@@ -430,9 +440,7 @@ impl Config {
 
         if let Some(ref llvm) = toml.llvm {
             match llvm.ccache {
-                Some(StringOrBool::String(ref s)) => {
-                    config.ccache = Some(s.to_string())
-                }
+                Some(StringOrBool::String(ref s)) => config.ccache = Some(s.to_string()),
                 Some(StringOrBool::Bool(true)) => {
                     config.ccache = Some("ccache".to_string());
                 }
@@ -447,7 +455,8 @@ impl Config {
             set(&mut config.llvm_static_stdcpp, llvm.static_libstdcpp);
             set(&mut config.llvm_link_shared, llvm.link_shared);
             config.llvm_targets = llvm.targets.clone();
-            config.llvm_experimental_targets = llvm.experimental_targets.clone()
+            config.llvm_experimental_targets = llvm.experimental_targets
+                .clone()
                 .unwrap_or("WebAssembly".to_string());
             config.llvm_link_jobs = llvm.link_jobs;
         }
@@ -502,7 +511,9 @@ impl Config {
                 target.musl_root = cfg.musl_root.clone().map(PathBuf::from);
                 target.qemu_rootfs = cfg.qemu_rootfs.clone().map(PathBuf::from);
 
-                config.target_config.insert(INTERNER.intern_string(triple.clone()), target);
+                config
+                    .target_config
+                    .insert(INTERNER.intern_string(triple.clone()), target);
             }
         }
 

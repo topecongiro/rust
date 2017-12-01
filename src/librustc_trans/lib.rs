@@ -15,10 +15,9 @@
 //! This API is completely unstable and subject to change.
 
 #![doc(html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
-      html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
-      html_root_url = "https://doc.rust-lang.org/nightly/")]
+       html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
+       html_root_url = "https://doc.rust-lang.org/nightly/")]
 #![deny(warnings)]
-
 #![feature(box_patterns)]
 #![feature(box_syntax)]
 #![feature(custom_attribute)]
@@ -39,11 +38,12 @@ use syntax_pos::symbol::Symbol;
 #[macro_use]
 extern crate bitflags;
 extern crate flate2;
-extern crate libc;
-extern crate owning_ref;
-#[macro_use] extern crate rustc;
 extern crate jobserver;
+extern crate libc;
 extern crate num_cpus;
+extern crate owning_ref;
+#[macro_use]
+extern crate rustc;
 extern crate rustc_allocator;
 extern crate rustc_apfloat;
 extern crate rustc_back;
@@ -56,19 +56,21 @@ extern crate rustc_llvm as llvm;
 extern crate rustc_platform_intrinsics as intrinsics;
 extern crate rustc_trans_utils;
 
-#[macro_use] extern crate log;
-#[macro_use] extern crate syntax;
-extern crate syntax_pos;
+#[cfg(windows)]
+extern crate cc;
+#[macro_use]
+extern crate log;
 extern crate rustc_errors as errors;
 extern crate serialize;
-#[cfg(windows)]
-extern crate cc; // Used to locate MSVC
+#[macro_use]
+extern crate syntax;
+extern crate syntax_pos; // Used to locate MSVC
 
 pub use base::trans_crate;
 use back::bytecode::RLIB_BYTECODE_EXTENSION;
 
 pub use metadata::LlvmMetadataLoader;
-pub use llvm_util::{init, target_features, print_version, print_passes, print, enable_llvm_debug};
+pub use llvm_util::{enable_llvm_debug, init, print, print_passes, print_version, target_features};
 
 use std::any::Any;
 use std::path::PathBuf;
@@ -78,11 +80,11 @@ use std::sync::mpsc;
 use rustc::dep_graph::DepGraph;
 use rustc::hir::def_id::CrateNum;
 use rustc::middle::cstore::MetadataLoader;
-use rustc::middle::cstore::{NativeLibrary, CrateSource, LibSource};
+use rustc::middle::cstore::{CrateSource, LibSource, NativeLibrary};
 use rustc::session::Session;
 use rustc::session::config::{OutputFilenames, OutputType};
 use rustc::ty::{self, TyCtxt};
-use rustc::util::nodemap::{FxHashSet, FxHashMap};
+use rustc::util::nodemap::{FxHashMap, FxHashSet};
 
 use rustc_trans_utils::collector;
 use rustc_trans_utils::monomorphize;
@@ -175,7 +177,7 @@ impl rustc_trans_utils::trans_crate::TransCrate for LlvmTransCrate {
 
     fn trans_crate<'a, 'tcx>(
         tcx: TyCtxt<'a, 'tcx, 'tcx>,
-        rx: mpsc::Receiver<Box<Any + Send>>
+        rx: mpsc::Receiver<Box<Any + Send>>,
     ) -> Self::OngoingCrateTranslation {
         base::trans_crate(tcx, rx)
     }
@@ -183,7 +185,7 @@ impl rustc_trans_utils::trans_crate::TransCrate for LlvmTransCrate {
     fn join_trans(
         trans: Self::OngoingCrateTranslation,
         sess: &Session,
-        dep_graph: &DepGraph
+        dep_graph: &DepGraph,
     ) -> Self::TranslatedCrate {
         trans.join(sess, dep_graph)
     }
@@ -224,11 +226,13 @@ impl ModuleTranslation {
         }
     }
 
-    pub fn into_compiled_module(self,
-                                emit_obj: bool,
-                                emit_bc: bool,
-                                emit_bc_compressed: bool,
-                                outputs: &OutputFilenames) -> CompiledModule {
+    pub fn into_compiled_module(
+        self,
+        emit_obj: bool,
+        emit_bc: bool,
+        emit_bc_compressed: bool,
+        outputs: &OutputFilenames,
+    ) -> CompiledModule {
         let pre_existing = match self.source {
             ModuleSource::Preexisting(_) => true,
             ModuleSource::Translated(_) => false,
@@ -244,8 +248,11 @@ impl ModuleTranslation {
             None
         };
         let bytecode_compressed = if emit_bc_compressed {
-            Some(outputs.temp_path(OutputType::Bitcode, Some(&self.name))
-                    .with_extension(RLIB_BYTECODE_EXTENSION))
+            Some(
+                outputs
+                    .temp_path(OutputType::Bitcode, Some(&self.name))
+                    .with_extension(RLIB_BYTECODE_EXTENSION),
+            )
         } else {
             None
         };
@@ -288,8 +295,8 @@ pub struct ModuleLlvm {
     tm: llvm::TargetMachineRef,
 }
 
-unsafe impl Send for ModuleLlvm { }
-unsafe impl Sync for ModuleLlvm { }
+unsafe impl Send for ModuleLlvm {}
+unsafe impl Sync for ModuleLlvm {}
 
 impl Drop for ModuleLlvm {
     fn drop(&mut self) {

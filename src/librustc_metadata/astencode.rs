@@ -8,7 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use rustc::hir::intravisit::{Visitor, NestedVisitorMap};
+use rustc::hir::intravisit::{NestedVisitorMap, Visitor};
 
 use isolated_encoder::IsolatedEncoder;
 use schema::*;
@@ -67,8 +67,8 @@ impl<'a, 'b, 'tcx> IsolatedEncoder<'a, 'b, 'tcx> {
         visitor.visit_body(body);
         let lazy_nested_bodies = self.lazy_seq_ref_from_slice(&visitor.bodies_found);
 
-        let rvalue_promotable_to_static =
-            self.tcx.const_is_rvalue_promotable_to_static(body_owner_def_id);
+        let rvalue_promotable_to_static = self.tcx
+            .const_is_rvalue_promotable_to_static(body_owner_def_id);
 
         self.lazy(&Ast {
             body: lazy_body,

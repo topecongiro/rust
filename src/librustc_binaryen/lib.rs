@@ -18,7 +18,7 @@
 extern crate libc;
 
 use std::slice;
-use std::ffi::{CString, CStr};
+use std::ffi::{CStr, CString};
 
 /// In-memory representation of a serialized wasm module.
 pub struct Module {
@@ -124,20 +124,24 @@ impl Drop for ModuleOptions {
 enum BinaryenRustModule {}
 enum BinaryenRustModuleOptions {}
 
-extern {
-    fn BinaryenRustModuleCreate(opts: *const BinaryenRustModuleOptions,
-                                assembly: *const libc::c_char)
-        -> *mut BinaryenRustModule;
+extern "C" {
+    fn BinaryenRustModuleCreate(
+        opts: *const BinaryenRustModuleOptions,
+        assembly: *const libc::c_char,
+    ) -> *mut BinaryenRustModule;
     fn BinaryenRustModulePtr(module: *const BinaryenRustModule) -> *const u8;
     fn BinaryenRustModuleLen(module: *const BinaryenRustModule) -> usize;
     fn BinaryenRustModuleFree(module: *mut BinaryenRustModule);
 
-    fn BinaryenRustModuleOptionsCreate()
-        -> *mut BinaryenRustModuleOptions;
-    fn BinaryenRustModuleOptionsSetDebugInfo(module: *mut BinaryenRustModuleOptions,
-                                             debuginfo: bool);
-    fn BinaryenRustModuleOptionsSetStart(module: *mut BinaryenRustModuleOptions,
-                                         start: *const libc::c_char);
+    fn BinaryenRustModuleOptionsCreate() -> *mut BinaryenRustModuleOptions;
+    fn BinaryenRustModuleOptionsSetDebugInfo(
+        module: *mut BinaryenRustModuleOptions,
+        debuginfo: bool,
+    );
+    fn BinaryenRustModuleOptionsSetStart(
+        module: *mut BinaryenRustModuleOptions,
+        start: *const libc::c_char,
+    );
     fn BinaryenRustModuleOptionsSetStackAllocation(
         module: *mut BinaryenRustModuleOptions,
         stack: u64,

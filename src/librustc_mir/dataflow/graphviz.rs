@@ -38,16 +38,25 @@ pub trait MirWithFlowState<'tcx> {
 }
 
 impl<'a, 'tcx: 'a, BD> MirWithFlowState<'tcx> for DataflowBuilder<'a, 'tcx, BD>
-    where 'tcx: 'a, BD: BitDenotation
+where
+    'tcx: 'a,
+    BD: BitDenotation,
 {
     type BD = BD;
-    fn node_id(&self) -> NodeId { self.node_id }
-    fn mir(&self) -> &Mir<'tcx> { self.flow_state.mir() }
-    fn flow_state(&self) -> &DataflowState<Self::BD> { &self.flow_state.flow_state }
+    fn node_id(&self) -> NodeId {
+        self.node_id
+    }
+    fn mir(&self) -> &Mir<'tcx> {
+        self.flow_state.mir()
+    }
+    fn flow_state(&self) -> &DataflowState<Self::BD> {
+        &self.flow_state.flow_state
+    }
 }
 
-struct Graph<'a, 'tcx, MWF:'a, P> where
-    MWF: MirWithFlowState<'tcx>
+struct Graph<'a, 'tcx, MWF: 'a, P>
+where
+    MWF: MirWithFlowState<'tcx>,
 {
     mbcx: &'a MWF,
     phantom: PhantomData<&'tcx ()>,
@@ -57,44 +66,60 @@ struct Graph<'a, 'tcx, MWF:'a, P> where
 pub(crate) fn print_borrowck_graph_to<'a, 'tcx, BD, P>(
     mbcx: &DataflowBuilder<'a, 'tcx, BD>,
     path: &Path,
-    render_idx: P)
-    -> io::Result<()>
-    where BD: BitDenotation,
-          P: Fn(&BD, BD::Idx) -> &Debug
+    render_idx: P,
+) -> io::Result<()>
+where
+    BD: BitDenotation,
+    P: Fn(&BD, BD::Idx) -> &Debug,
 {
-    let g = Graph { mbcx: mbcx, phantom: PhantomData, render_idx: render_idx };
+    let g = Graph {
+        mbcx: mbcx,
+        phantom: PhantomData,
+        render_idx: render_idx,
+    };
     let mut v = Vec::new();
     dot::render(&g, &mut v)?;
-    debug!("print_borrowck_graph_to path: {} node_id: {}",
-           path.display(), mbcx.node_id);
+    debug!(
+        "print_borrowck_graph_to path: {} node_id: {}",
+        path.display(),
+        mbcx.node_id
+    );
     File::create(path).and_then(|mut f| f.write_all(&v))
 }
 
 pub type Node = BasicBlock;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub struct Edge { source: BasicBlock, index: usize }
+pub struct Edge {
+    source: BasicBlock,
+    index: usize,
+}
 
 fn outgoing(mir: &Mir, bb: BasicBlock) -> Vec<Edge> {
     let succ_len = mir[bb].terminator().successors().len();
-    (0..succ_len).map(|index| Edge { source: bb, index: index}).collect()
+    (0..succ_len)
+        .map(|index| {
+            Edge {
+                source: bb,
+                index: index,
+            }
+        })
+        .collect()
 }
 
 impl<'a, 'tcx, MWF, P> dot::Labeller<'a> for Graph<'a, 'tcx, MWF, P>
-    where MWF: MirWithFlowState<'tcx>,
-          P: for <'b> Fn(&'b MWF::BD, <MWF::BD as BitDenotation>::Idx) -> &'b Debug,
+where
+    MWF: MirWithFlowState<'tcx>,
+    P: for<'b> Fn(&'b MWF::BD, <MWF::BD as BitDenotation>::Idx) -> &'b Debug,
 {
     type Node = Node;
     type Edge = Edge;
     fn graph_id(&self) -> dot::Id {
-        dot::Id::new(format!("graph_for_node_{}",
-                             self.mbcx.node_id()))
-            .unwrap()
+        dot::Id::new(format!("graph_for_node_{}", self.mbcx.node_id())).unwrap()
     }
 
     fn node_id(&self, n: &Node) -> dot::Id {
-        dot::Id::new(format!("bb_{}", n.index()))
-            .unwrap()
+        dot::Id::new(format!("bb_{}", n.index())).unwrap()
     }
 
     fn node_label(&self, n: &Node) -> dot::LabelText {
@@ -141,11 +166,11 @@ impl<'a, 'tcx, MWF, P> dot::Labeller<'a> for Graph<'a, 'tcx, MWF, P>
         const BG_FLOWCONTENT: &'static str = r#"bgcolor="pink""#;
         const ALIGN_RIGHT: &'static str = r#"align="right""#;
         const FACE_MONOSPACE: &'static str = r#"FACE="Courier""#;
-        fn chunked_present_left<W:io::Write>(w: &mut W,
-                                             interpreted: &[&Debug],
-                                             chunk_size: usize)
-                                             -> io::Result<()>
-        {
+        fn chunked_present_left<W: io::Write>(
+            w: &mut W,
+            interpreted: &[&Debug],
+            chunk_size: usize,
+        ) -> io::Result<()> {
             // This function may emit a sequence of <tr>'s, but it
             // always finishes with an (unfinished)
             // <tr><td></td><td>
@@ -158,36 +183,55 @@ impl<'a, 'tcx, MWF, P> dot::Labeller<'a> for Graph<'a, 'tcx, MWF, P>
                     // if not the first row, finish off the previous row
                     write!(w, "</td><td></td><td></td></tr>")?;
                 }
-                write!(w, "<tr><td></td><td {bg} {align}>{objs:?}",
-                       bg = BG_FLOWCONTENT,
-                       align = ALIGN_RIGHT,
-                       objs = c)?;
+                write!(
+                    w,
+                    "<tr><td></td><td {bg} {align}>{objs:?}",
+                    bg = BG_FLOWCONTENT,
+                    align = ALIGN_RIGHT,
+                    objs = c
+                )?;
                 seen_one = true;
             }
             if !seen_one {
-                write!(w, "<tr><td></td><td {bg} {align}>[]",
-                       bg = BG_FLOWCONTENT,
-                       align = ALIGN_RIGHT)?;
+                write!(
+                    w,
+                    "<tr><td></td><td {bg} {align}>[]",
+                    bg = BG_FLOWCONTENT,
+                    align = ALIGN_RIGHT
+                )?;
             }
             Ok(())
         }
         util::write_graphviz_node_label(
-            *n, self.mbcx.mir(), &mut v, 4,
+            *n,
+            self.mbcx.mir(),
+            &mut v,
+            4,
             |w| {
                 let flow = self.mbcx.flow_state();
-                let entry_interp = flow.interpret_set(&flow.operator,
-                                                      flow.sets.on_entry_set_for(i),
-                                                      &self.render_idx);
+                let entry_interp = flow.interpret_set(
+                    &flow.operator,
+                    flow.sets.on_entry_set_for(i),
+                    &self.render_idx,
+                );
                 chunked_present_left(w, &entry_interp[..], chunk_size)?;
                 let bits_per_block = flow.sets.bits_per_block();
                 let entry = flow.sets.on_entry_set_for(i);
-                debug!("entry set for i={i} bits_per_block: {bpb} entry: {e:?} interp: {ei:?}",
-                       i=i, e=entry, bpb=bits_per_block, ei=entry_interp);
-                write!(w, "= ENTRY:</td><td {bg}><FONT {face}>{entrybits:?}</FONT></td>\
-                                        <td></td></tr>",
-                       bg = BG_FLOWCONTENT,
-                       face = FACE_MONOSPACE,
-                       entrybits=bits_to_string(entry.words(), bits_per_block))
+                debug!(
+                    "entry set for i={i} bits_per_block: {bpb} entry: {e:?} interp: {ei:?}",
+                    i = i,
+                    e = entry,
+                    bpb = bits_per_block,
+                    ei = entry_interp
+                );
+                write!(
+                    w,
+                    "= ENTRY:</td><td {bg}><FONT {face}>{entrybits:?}</FONT></td>\
+                     <td></td></tr>",
+                    bg = BG_FLOWCONTENT,
+                    face = FACE_MONOSPACE,
+                    entrybits = bits_to_string(entry.words(), bits_per_block)
+                )
             },
             |w| {
                 let flow = self.mbcx.flow_state();
@@ -199,25 +243,41 @@ impl<'a, 'tcx, MWF, P> dot::Labeller<'a> for Graph<'a, 'tcx, MWF, P>
                 let bits_per_block = flow.sets.bits_per_block();
                 {
                     let gen = flow.sets.gen_set_for(i);
-                    debug!("gen set for i={i} bits_per_block: {bpb} gen: {g:?} interp: {gi:?}",
-                           i=i, g=gen, bpb=bits_per_block, gi=gen_interp);
-                    write!(w, " = GEN:</td><td {bg}><FONT {face}>{genbits:?}</FONT></td>\
-                                           <td></td></tr>",
-                           bg = BG_FLOWCONTENT,
-                           face = FACE_MONOSPACE,
-                           genbits=bits_to_string(gen.words(), bits_per_block))?;
+                    debug!(
+                        "gen set for i={i} bits_per_block: {bpb} gen: {g:?} interp: {gi:?}",
+                        i = i,
+                        g = gen,
+                        bpb = bits_per_block,
+                        gi = gen_interp
+                    );
+                    write!(
+                        w,
+                        " = GEN:</td><td {bg}><FONT {face}>{genbits:?}</FONT></td>\
+                         <td></td></tr>",
+                        bg = BG_FLOWCONTENT,
+                        face = FACE_MONOSPACE,
+                        genbits = bits_to_string(gen.words(), bits_per_block)
+                    )?;
                 }
 
                 {
                     let kill = flow.sets.kill_set_for(i);
-                    debug!("kill set for i={i} bits_per_block: {bpb} kill: {k:?} interp: {ki:?}",
-                           i=i, k=kill, bpb=bits_per_block, ki=kill_interp);
-                    write!(w, "<tr><td></td><td {bg} {align}>KILL:</td>\
-                                            <td {bg}><FONT {face}>{killbits:?}</FONT></td>",
-                           bg = BG_FLOWCONTENT,
-                           align = ALIGN_RIGHT,
-                           face = FACE_MONOSPACE,
-                           killbits=bits_to_string(kill.words(), bits_per_block))?;
+                    debug!(
+                        "kill set for i={i} bits_per_block: {bpb} kill: {k:?} interp: {ki:?}",
+                        i = i,
+                        k = kill,
+                        bpb = bits_per_block,
+                        ki = kill_interp
+                    );
+                    write!(
+                        w,
+                        "<tr><td></td><td {bg} {align}>KILL:</td>\
+                         <td {bg}><FONT {face}>{killbits:?}</FONT></td>",
+                        bg = BG_FLOWCONTENT,
+                        align = ALIGN_RIGHT,
+                        face = FACE_MONOSPACE,
+                        killbits = bits_to_string(kill.words(), bits_per_block)
+                    )?;
                 }
 
                 // (chunked_present_right)
@@ -225,25 +285,30 @@ impl<'a, 'tcx, MWF, P> dot::Labeller<'a> for Graph<'a, 'tcx, MWF, P>
                 for k in kill_interp.chunks(chunk_size) {
                     if !seen_one {
                         // continuation of row; this is fourth <td>
-                        write!(w, "<td {bg}>= {kill:?}</td></tr>",
-                               bg = BG_FLOWCONTENT,
-                               kill=k)?;
+                        write!(
+                            w,
+                            "<td {bg}>= {kill:?}</td></tr>",
+                            bg = BG_FLOWCONTENT,
+                            kill = k
+                        )?;
                     } else {
                         // new row, with indent of three <td>'s
-                        write!(w, "<tr><td></td><td></td><td></td><td {bg}>{kill:?}</td></tr>",
-                               bg = BG_FLOWCONTENT,
-                               kill=k)?;
+                        write!(
+                            w,
+                            "<tr><td></td><td></td><td></td><td {bg}>{kill:?}</td></tr>",
+                            bg = BG_FLOWCONTENT,
+                            kill = k
+                        )?;
                     }
                     seen_one = true;
                 }
                 if !seen_one {
-                    write!(w, "<td {bg}>= []</td></tr>",
-                           bg = BG_FLOWCONTENT)?;
+                    write!(w, "<td {bg}>= []</td></tr>", bg = BG_FLOWCONTENT)?;
                 }
 
                 Ok(())
-            })
-            .unwrap();
+            },
+        ).unwrap();
         dot::LabelText::html(String::from_utf8(v).unwrap())
     }
 
@@ -253,12 +318,14 @@ impl<'a, 'tcx, MWF, P> dot::Labeller<'a> for Graph<'a, 'tcx, MWF, P>
 }
 
 impl<'a, 'tcx, MWF, P> dot::GraphWalk<'a> for Graph<'a, 'tcx, MWF, P>
-    where MWF: MirWithFlowState<'tcx>
+where
+    MWF: MirWithFlowState<'tcx>,
 {
     type Node = Node;
     type Edge = Edge;
     fn nodes(&self) -> dot::Nodes<Node> {
-        self.mbcx.mir()
+        self.mbcx
+            .mir()
             .basic_blocks()
             .indices()
             .collect::<Vec<_>>()

@@ -16,21 +16,32 @@ use std;
 
 use builder::Builder;
 use common::*;
-use llvm::{ValueRef};
+use llvm::ValueRef;
 use llvm;
 use meth;
 use rustc::ty::layout::LayoutOf;
 use rustc::ty::{self, Ty};
 use value::Value;
 
-pub fn size_and_align_of_dst<'a, 'tcx>(bcx: &Builder<'a, 'tcx>, t: Ty<'tcx>, info: ValueRef)
-                                       -> (ValueRef, ValueRef) {
-    debug!("calculate size of DST: {}; with lost info: {:?}",
-           t, Value(info));
+pub fn size_and_align_of_dst<'a, 'tcx>(
+    bcx: &Builder<'a, 'tcx>,
+    t: Ty<'tcx>,
+    info: ValueRef,
+) -> (ValueRef, ValueRef) {
+    debug!(
+        "calculate size of DST: {}; with lost info: {:?}",
+        t,
+        Value(info)
+    );
     if bcx.ccx.shared().type_is_sized(t) {
         let (size, align) = bcx.ccx.size_and_align_of(t);
-        debug!("size_and_align_of_dst t={} info={:?} size: {:?} align: {:?}",
-               t, Value(info), size, align);
+        debug!(
+            "size_and_align_of_dst t={} info={:?} size: {:?} align: {:?}",
+            t,
+            Value(info),
+            size,
+            align
+        );
         let size = C_usize(bcx.ccx, size.bytes());
         let align = C_usize(bcx.ccx, align.abi());
         return (size, align);
@@ -39,15 +50,20 @@ pub fn size_and_align_of_dst<'a, 'tcx>(bcx: &Builder<'a, 'tcx>, t: Ty<'tcx>, inf
     match t.sty {
         ty::TyDynamic(..) => {
             // load size/align from vtable
-            (meth::SIZE.get_usize(bcx, info), meth::ALIGN.get_usize(bcx, info))
+            (
+                meth::SIZE.get_usize(bcx, info),
+                meth::ALIGN.get_usize(bcx, info),
+            )
         }
         ty::TySlice(_) | ty::TyStr => {
             let unit = t.sequence_element_type(bcx.tcx());
             // The info in this case is the length of the str, so the size is that
             // times the unit size.
             let (size, align) = bcx.ccx.size_and_align_of(unit);
-            (bcx.mul(info, C_usize(bcx.ccx, size.bytes())),
-             C_usize(bcx.ccx, align.abi()))
+            (
+                bcx.mul(info, C_usize(bcx.ccx, size.bytes())),
+                C_usize(bcx.ccx, align.abi()),
+            )
         }
         _ => {
             let ccx = bcx.ccx;
@@ -61,8 +77,12 @@ pub fn size_and_align_of_dst<'a, 'tcx>(bcx: &Builder<'a, 'tcx>, t: Ty<'tcx>, inf
             let i = layout.fields.count() - 1;
             let sized_size = layout.fields.offset(i).bytes();
             let sized_align = layout.align.abi();
-            debug!("DST {} statically sized prefix size: {} align: {}",
-                   t, sized_size, sized_align);
+            debug!(
+                "DST {} statically sized prefix size: {} align: {}",
+                t,
+                sized_size,
+                sized_align
+            );
             let sized_size = C_usize(ccx, sized_size);
             let sized_align = C_usize(ccx, sized_align);
 
@@ -83,16 +103,20 @@ pub fn size_and_align_of_dst<'a, 'tcx>(bcx: &Builder<'a, 'tcx>, t: Ty<'tcx>, inf
 
             // Choose max of two known alignments (combined value must
             // be aligned according to more restrictive of the two).
-            let align = match (const_to_opt_u128(sized_align, false),
-                               const_to_opt_u128(unsized_align, false)) {
+            let align = match (
+                const_to_opt_u128(sized_align, false),
+                const_to_opt_u128(unsized_align, false),
+            ) {
                 (Some(sized_align), Some(unsized_align)) => {
                     // If both alignments are constant, (the sized_align should always be), then
                     // pick the correct alignment statically.
                     C_usize(ccx, std::cmp::max(sized_align, unsized_align) as u64)
                 }
-                _ => bcx.select(bcx.icmp(llvm::IntUGT, sized_align, unsized_align),
-                                sized_align,
-                                unsized_align)
+                _ => bcx.select(
+                    bcx.icmp(llvm::IntUGT, sized_align, unsized_align),
+                    sized_align,
+                    unsized_align,
+                ),
             };
 
             // Issue #27023: must add any necessary padding to `size`

@@ -68,8 +68,9 @@ pub fn collect_unstable_book_section_file_names(dir: &path::Path) -> BTreeSet<St
 ///
 /// * hyphens replaced by underscores
 /// * the markdown suffix ('.md') removed
-fn collect_unstable_book_lang_features_section_file_names(base_src_path: &path::Path)
-                                                          -> BTreeSet<String> {
+fn collect_unstable_book_lang_features_section_file_names(
+    base_src_path: &path::Path,
+) -> BTreeSet<String> {
     collect_unstable_book_section_file_names(&unstable_book_lang_features_path(base_src_path))
 }
 
@@ -77,13 +78,13 @@ fn collect_unstable_book_lang_features_section_file_names(base_src_path: &path::
 ///
 /// * hyphens replaced by underscores
 /// * the markdown suffix ('.md') removed
-fn collect_unstable_book_lib_features_section_file_names(base_src_path: &path::Path)
-                                                         -> BTreeSet<String> {
+fn collect_unstable_book_lib_features_section_file_names(
+    base_src_path: &path::Path,
+) -> BTreeSet<String> {
     collect_unstable_book_section_file_names(&unstable_book_lib_features_path(base_src_path))
 }
 
 pub fn check(path: &path::Path, bad: &mut bool) {
-
     // Library features
 
     let lang_features = collect_lang_features(path);
@@ -94,12 +95,14 @@ pub fn check(path: &path::Path, bad: &mut bool) {
         collect_unstable_book_lib_features_section_file_names(path);
 
     // Check for Unstable Book sections that don't have a corresponding unstable feature
-    for feature_name in &unstable_book_lib_features_section_file_names -
-                        &unstable_lib_feature_names {
-        tidy_error!(bad,
-                    "The Unstable Book has a 'library feature' section '{}' which doesn't \
-                     correspond to an unstable library feature",
-                    feature_name)
+    for feature_name in &unstable_book_lib_features_section_file_names - &unstable_lib_feature_names
+    {
+        tidy_error!(
+            bad,
+            "The Unstable Book has a 'library feature' section '{}' which doesn't \
+             correspond to an unstable library feature",
+            feature_name
+        )
     }
 
     // Language features
@@ -109,12 +112,15 @@ pub fn check(path: &path::Path, bad: &mut bool) {
         collect_unstable_book_lang_features_section_file_names(path);
 
     // Check for Unstable Book sections that don't have a corresponding unstable feature
-    for feature_name in &unstable_book_lang_features_section_file_names -
-                        &unstable_lang_feature_names {
-        tidy_error!(bad,
-                    "The Unstable Book has a 'language feature' section '{}' which doesn't \
-                     correspond to an unstable language feature",
-                    feature_name)
+    for feature_name in
+        &unstable_book_lang_features_section_file_names - &unstable_lang_feature_names
+    {
+        tidy_error!(
+            bad,
+            "The Unstable Book has a 'language feature' section '{}' which doesn't \
+             correspond to an unstable language feature",
+            feature_name
+        )
     }
 
     // List unstable features that don't have Unstable Book sections
@@ -131,5 +137,4 @@ pub fn check(path: &path::Path, bad: &mut bool) {
                         &unstable_book_lib_features_section_file_names {
         println!("    * {} {:?}", feature_name, lang_features[&feature_name].tracking_issue);
     }
-    // */
-}
+    // */}

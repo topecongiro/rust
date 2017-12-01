@@ -10,9 +10,9 @@
 
 #![feature(rustc_private)]
 
-extern crate syntax;
 extern crate rustdoc;
 extern crate serialize as rustc_serialize;
+extern crate syntax;
 
 use std::collections::BTreeMap;
 use std::env;
@@ -22,9 +22,9 @@ use std::io::{Read, Write};
 use std::path::Path;
 use std::path::PathBuf;
 
-use syntax::diagnostics::metadata::{get_metadata_dir, ErrorMetadataMap, ErrorMetadata};
+use syntax::diagnostics::metadata::{get_metadata_dir, ErrorMetadata, ErrorMetadataMap};
 
-use rustdoc::html::markdown::{Markdown, PLAYGROUND, RenderType};
+use rustdoc::html::markdown::{Markdown, RenderType, PLAYGROUND};
 use rustc_serialize::json;
 
 enum OutputFormat {
@@ -36,9 +36,9 @@ enum OutputFormat {
 impl OutputFormat {
     fn from(format: &str) -> OutputFormat {
         match &*format.to_lowercase() {
-            "html"     => OutputFormat::HTML(HTMLFormatter),
+            "html" => OutputFormat::HTML(HTMLFormatter),
             "markdown" => OutputFormat::Markdown(MarkdownFormatter),
-            s          => OutputFormat::Unknown(s.to_owned()),
+            s => OutputFormat::Unknown(s.to_owned()),
         }
     }
 }
@@ -46,8 +46,12 @@ impl OutputFormat {
 trait Formatter {
     fn header(&self, output: &mut Write) -> Result<(), Box<Error>>;
     fn title(&self, output: &mut Write) -> Result<(), Box<Error>>;
-    fn error_code_block(&self, output: &mut Write, info: &ErrorMetadata,
-                        err_code: &str) -> Result<(), Box<Error>>;
+    fn error_code_block(
+        &self,
+        output: &mut Write,
+        info: &ErrorMetadata,
+        err_code: &str,
+    ) -> Result<(), Box<Error>>;
     fn footer(&self, output: &mut Write) -> Result<(), Box<Error>>;
 }
 
@@ -56,7 +60,9 @@ struct MarkdownFormatter;
 
 impl Formatter for HTMLFormatter {
     fn header(&self, output: &mut Write) -> Result<(), Box<Error>> {
-        write!(output, r##"<!DOCTYPE html>
+        write!(
+            output,
+            r##"<!DOCTYPE html>
 <html>
 <head>
 <title>Rust Compiler Error Index</title>
@@ -71,7 +77,8 @@ impl Formatter for HTMLFormatter {
 </style>
 </head>
 <body>
-"##)?;
+"##
+        )?;
         Ok(())
     }
 
@@ -80,8 +87,12 @@ impl Formatter for HTMLFormatter {
         Ok(())
     }
 
-    fn error_code_block(&self, output: &mut Write, info: &ErrorMetadata,
-                        err_code: &str) -> Result<(), Box<Error>> {
+    fn error_code_block(
+        &self,
+        output: &mut Write,
+        info: &ErrorMetadata,
+        err_code: &str,
+    ) -> Result<(), Box<Error>> {
         // Enclose each error in a div so they can be shown/hidden en masse.
         let desc_desc = match info.description {
             Some(_) => "error-described",
@@ -94,9 +105,11 @@ impl Formatter for HTMLFormatter {
         write!(output, "<div class=\"{} {}\">", desc_desc, use_desc)?;
 
         // Error title (with self-link).
-        write!(output,
-               "<h2 id=\"{0}\" class=\"section-header\"><a href=\"#{0}\">{0}</a></h2>\n",
-               err_code)?;
+        write!(
+            output,
+            "<h2 id=\"{0}\" class=\"section-header\"><a href=\"#{0}\">{0}</a></h2>\n",
+            err_code
+        )?;
 
         // Description rendered as markdown.
         match info.description {
@@ -125,8 +138,12 @@ impl Formatter for MarkdownFormatter {
         Ok(())
     }
 
-    fn error_code_block(&self, output: &mut Write, info: &ErrorMetadata,
-                        err_code: &str) -> Result<(), Box<Error>> {
+    fn error_code_block(
+        &self,
+        output: &mut Write,
+        info: &ErrorMetadata,
+        err_code: &str,
+    ) -> Result<(), Box<Error>> {
         Ok(match info.description {
             Some(ref desc) => write!(output, "## {}\n{}\n", err_code, desc)?,
             None => (),
@@ -160,8 +177,11 @@ fn load_all_errors(metadata_dir: &Path) -> Result<ErrorMetadataMap, Box<Error>> 
 }
 
 /// Output an HTML page for the errors in `err_map` to `output_path`.
-fn render_error_page<T: Formatter>(err_map: &ErrorMetadataMap, output_path: &Path,
-                                   formatter: T) -> Result<(), Box<Error>> {
+fn render_error_page<T: Formatter>(
+    err_map: &ErrorMetadataMap,
+    output_path: &Path,
+    formatter: T,
+) -> Result<(), Box<Error>> {
     let mut output_file = File::create(output_path)?;
 
     formatter.header(&mut output_file)?;
@@ -179,8 +199,8 @@ fn main_with_result(format: OutputFormat, dst: &Path) -> Result<(), Box<Error>> 
     let metadata_dir = get_metadata_dir(&build_arch);
     let err_map = load_all_errors(&metadata_dir)?;
     match format {
-        OutputFormat::Unknown(s)  => panic!("Unknown output format: {}", s),
-        OutputFormat::HTML(h)     => render_error_page(&err_map, dst, h)?,
+        OutputFormat::Unknown(s) => panic!("Unknown output format: {}", s),
+        OutputFormat::HTML(h) => render_error_page(&err_map, dst, h)?,
         OutputFormat::Markdown(m) => render_error_page(&err_map, dst, m)?,
     }
     Ok(())
@@ -188,15 +208,16 @@ fn main_with_result(format: OutputFormat, dst: &Path) -> Result<(), Box<Error>> 
 
 fn parse_args() -> (OutputFormat, PathBuf) {
     let mut args = env::args().skip(1);
-    let format = args.next().map(|a| OutputFormat::from(&a))
-                            .unwrap_or(OutputFormat::from("html"));
-    let dst = args.next().map(PathBuf::from).unwrap_or_else(|| {
-        match format {
+    let format = args.next()
+        .map(|a| OutputFormat::from(&a))
+        .unwrap_or(OutputFormat::from("html"));
+    let dst = args.next()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| match format {
             OutputFormat::HTML(..) => PathBuf::from("doc/error-index.html"),
             OutputFormat::Markdown(..) => PathBuf::from("doc/error-index.md"),
             OutputFormat::Unknown(..) => PathBuf::from("<nul>"),
-        }
-    });
+        });
     (format, dst)
 }
 

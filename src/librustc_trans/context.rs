@@ -70,8 +70,7 @@ pub struct LocalCrateContext<'a, 'tcx: 'a> {
     /// Cache instances of monomorphic and polymorphic items
     instances: RefCell<FxHashMap<Instance<'tcx>, ValueRef>>,
     /// Cache generated vtables
-    vtables: RefCell<FxHashMap<(Ty<'tcx>,
-                                Option<ty::PolyExistentialTraitRef<'tcx>>), ValueRef>>,
+    vtables: RefCell<FxHashMap<(Ty<'tcx>, Option<ty::PolyExistentialTraitRef<'tcx>>), ValueRef>>,
     /// Cache of constant strings,
     const_cstr_cache: RefCell<FxHashMap<InternedString, ValueRef>>,
 
@@ -130,18 +129,17 @@ pub struct CrateContext<'a, 'tcx: 'a> {
 }
 
 impl<'a, 'tcx> CrateContext<'a, 'tcx> {
-    pub fn new(shared: &'a SharedCrateContext<'a, 'tcx>,
-               local_ccx: &'a LocalCrateContext<'a, 'tcx>)
-               -> Self {
+    pub fn new(
+        shared: &'a SharedCrateContext<'a, 'tcx>,
+        local_ccx: &'a LocalCrateContext<'a, 'tcx>,
+    ) -> Self {
         CrateContext { shared, local_ccx }
     }
 }
 
-impl<'a, 'tcx> DepGraphSafe for CrateContext<'a, 'tcx> {
-}
+impl<'a, 'tcx> DepGraphSafe for CrateContext<'a, 'tcx> {}
 
-impl<'a, 'tcx> DepGraphSafe for SharedCrateContext<'a, 'tcx> {
-}
+impl<'a, 'tcx> DepGraphSafe for SharedCrateContext<'a, 'tcx> {}
 
 impl<'a, 'tcx> StableHashingContextProvider for SharedCrateContext<'a, 'tcx> {
     type ContextType = StableHashingContext<'tcx>;
@@ -157,12 +155,16 @@ pub fn get_reloc_model(sess: &Session) -> llvm::RelocMode {
         None => &sess.target.target.options.relocation_model[..],
     };
 
-    match ::back::write::RELOC_MODEL_ARGS.iter().find(
-        |&&arg| arg.0 == reloc_model_arg) {
+    match ::back::write::RELOC_MODEL_ARGS
+        .iter()
+        .find(|&&arg| arg.0 == reloc_model_arg)
+    {
         Some(x) => x.1,
         _ => {
-            sess.err(&format!("{:?} is not a valid relocation mode",
-                              reloc_model_arg));
+            sess.err(&format!(
+                "{:?} is not a valid relocation mode",
+                reloc_model_arg
+            ));
             sess.abort_if_errors();
             bug!();
         }
@@ -175,12 +177,13 @@ fn get_tls_model(sess: &Session) -> llvm::ThreadLocalMode {
         None => &sess.target.target.options.tls_model[..],
     };
 
-    match ::back::write::TLS_MODEL_ARGS.iter().find(
-        |&&arg| arg.0 == tls_model_arg) {
+    match ::back::write::TLS_MODEL_ARGS
+        .iter()
+        .find(|&&arg| arg.0 == tls_model_arg)
+    {
         Some(x) => x.1,
         _ => {
-            sess.err(&format!("{:?} is not a valid TLS model",
-                              tls_model_arg));
+            sess.err(&format!("{:?} is not a valid TLS model", tls_model_arg));
             sess.abort_if_errors();
             bug!();
         }
@@ -188,9 +191,10 @@ fn get_tls_model(sess: &Session) -> llvm::ThreadLocalMode {
 }
 
 fn is_any_library(sess: &Session) -> bool {
-    sess.crate_types.borrow().iter().any(|ty| {
-        *ty != config::CrateTypeExecutable
-    })
+    sess.crate_types
+        .borrow()
+        .iter()
+        .any(|ty| *ty != config::CrateTypeExecutable)
 }
 
 pub fn is_pie_binary(sess: &Session) -> bool {
@@ -210,7 +214,8 @@ pub unsafe fn create_context_and_module(sess: &Session, mod_name: &str) -> (Cont
 
         let data_layout = llvm::LLVMGetDataLayout(llmod);
         let data_layout = str::from_utf8(CStr::from_ptr(data_layout).to_bytes())
-            .ok().expect("got a non-UTF8 data-layout from LLVM");
+            .ok()
+            .expect("got a non-UTF8 data-layout from LLVM");
 
         // Unfortunately LLVM target specs change over time, and right now we
         // don't have proper support to work with any more than one
@@ -231,11 +236,13 @@ pub unsafe fn create_context_and_module(sess: &Session, mod_name: &str) -> (Cont
         let custom_llvm_used = cfg_llvm_root.trim() != "";
 
         if !custom_llvm_used && sess.target.target.data_layout != data_layout {
-            bug!("data-layout for builtin `{}` target, `{}`, \
-                  differs from LLVM default, `{}`",
-                 sess.target.target.llvm_target,
-                 sess.target.target.data_layout,
-                 data_layout);
+            bug!(
+                "data-layout for builtin `{}` target, `{}`, \
+                 differs from LLVM default, `{}`",
+                sess.target.target.llvm_target,
+                sess.target.target.data_layout,
+                data_layout
+            );
         }
     }
 
@@ -346,20 +353,22 @@ impl<'b, 'tcx> SharedCrateContext<'b, 'tcx> {
 }
 
 impl<'a, 'tcx> LocalCrateContext<'a, 'tcx> {
-    pub fn new(shared: &SharedCrateContext<'a, 'tcx>,
-               codegen_unit: Arc<CodegenUnit<'tcx>>,
-               llmod_id: &str)
-               -> LocalCrateContext<'a, 'tcx> {
+    pub fn new(
+        shared: &SharedCrateContext<'a, 'tcx>,
+        codegen_unit: Arc<CodegenUnit<'tcx>>,
+        llmod_id: &str,
+    ) -> LocalCrateContext<'a, 'tcx> {
         unsafe {
-            let (llcx, llmod) = create_context_and_module(&shared.tcx.sess,
-                                                          &llmod_id[..]);
+            let (llcx, llmod) = create_context_and_module(&shared.tcx.sess, &llmod_id[..]);
 
             let dbg_cx = if shared.tcx.sess.opts.debuginfo != NoDebugInfo {
                 let dctx = debuginfo::CrateDebugContext::new(llmod);
-                debuginfo::metadata::compile_unit_metadata(shared,
-                                                           codegen_unit.name(),
-                                                           &dctx,
-                                                           shared.tcx.sess);
+                debuginfo::metadata::compile_unit_metadata(
+                    shared,
+                    codegen_unit.name(),
+                    &dctx,
+                    shared.tcx.sess,
+                );
                 Some(dctx)
             } else {
                 None
@@ -396,8 +405,7 @@ impl<'a, 'tcx> LocalCrateContext<'a, 'tcx> {
                 // create some things in the LLVM module of this codegen unit
                 let mut local_ccxs = vec![local_ccx];
                 let isize_ty = {
-                    let dummy_ccx = LocalCrateContext::dummy_ccx(shared,
-                                                                 local_ccxs.as_mut_slice());
+                    let dummy_ccx = LocalCrateContext::dummy_ccx(shared, local_ccxs.as_mut_slice());
                     Type::isize(&dummy_ccx)
                 };
                 (isize_ty, local_ccxs.pop().unwrap())
@@ -416,13 +424,14 @@ impl<'a, 'tcx> LocalCrateContext<'a, 'tcx> {
     /// This is used in the `LocalCrateContext` constructor to allow calling
     /// functions that expect a complete `CrateContext`, even before the local
     /// portion is fully initialized and attached to the `SharedCrateContext`.
-    fn dummy_ccx(shared: &'a SharedCrateContext<'a, 'tcx>,
-                 local_ccxs: &'a [LocalCrateContext<'a, 'tcx>])
-                 -> CrateContext<'a, 'tcx> {
+    fn dummy_ccx(
+        shared: &'a SharedCrateContext<'a, 'tcx>,
+        local_ccxs: &'a [LocalCrateContext<'a, 'tcx>],
+    ) -> CrateContext<'a, 'tcx> {
         assert!(local_ccxs.len() == 1);
         CrateContext {
             shared,
-            local_ccx: &local_ccxs[0]
+            local_ccx: &local_ccxs[0],
         }
     }
 
@@ -454,7 +463,7 @@ impl<'b, 'tcx> CrateContext<'b, 'tcx> {
         }
         match declare_intrinsic(self, key) {
             Some(v) => return v,
-            None => bug!("unknown intrinsic '{}'", key)
+            None => bug!("unknown intrinsic '{}'", key),
         }
     }
 
@@ -478,9 +487,10 @@ impl<'b, 'tcx> CrateContext<'b, 'tcx> {
         &self.local().instances
     }
 
-    pub fn vtables<'a>(&'a self)
-        -> &'a RefCell<FxHashMap<(Ty<'tcx>,
-                                  Option<ty::PolyExistentialTraitRef<'tcx>>), ValueRef>> {
+    pub fn vtables<'a>(
+        &'a self,
+    ) -> &'a RefCell<FxHashMap<(Ty<'tcx>, Option<ty::PolyExistentialTraitRef<'tcx>>), ValueRef>>
+    {
         &self.local().vtables
     }
 
@@ -516,8 +526,9 @@ impl<'b, 'tcx> CrateContext<'b, 'tcx> {
         &self.local().scalar_lltypes
     }
 
-    pub fn pointee_infos<'a>(&'a self)
-                             -> &'a RefCell<FxHashMap<(Ty<'tcx>, Size), Option<PointeeInfo>>> {
+    pub fn pointee_infos<'a>(
+        &'a self,
+    ) -> &'a RefCell<FxHashMap<(Ty<'tcx>, Size), Option<PointeeInfo>>> {
         &self.local().pointee_infos
     }
 
@@ -589,7 +600,7 @@ impl<'b, 'tcx> CrateContext<'b, 'tcx> {
         // CRT's custom personality function, which forces LLVM to consider
         // landing pads as "landing pads for SEH".
         if let Some(llpersonality) = self.local().eh_personality.get() {
-            return llpersonality
+            return llpersonality;
         }
         let tcx = self.tcx();
         let llfn = match tcx.lang_items().eh_personality() {
@@ -632,7 +643,7 @@ impl<'b, 'tcx> CrateContext<'b, 'tcx> {
             tcx.types.never,
             false,
             hir::Unsafety::Unsafe,
-            Abi::C
+            Abi::C,
         )));
 
         let llfn = declare::declare_fn(self, "rust_eh_unwind_resume", ty);
@@ -674,7 +685,7 @@ impl<'a, 'tcx> LayoutOf<Ty<'tcx>> for &'a SharedCrateContext<'a, 'tcx> {
             .layout_of(ty)
             .unwrap_or_else(|e| match e {
                 LayoutError::SizeOverflow(_) => self.sess().fatal(&e.to_string()),
-                _ => bug!("failed to get layout for `{}`: {}", ty, e)
+                _ => bug!("failed to get layout for `{}`: {}", ty, e),
             })
     }
 }
@@ -731,15 +742,42 @@ fn declare_intrinsic(ccx: &CrateContext, key: &str) -> Option<ValueRef> {
     let t_f32 = Type::f32(ccx);
     let t_f64 = Type::f64(ccx);
 
-    ifn!("llvm.memcpy.p0i8.p0i8.i16", fn(i8p, i8p, t_i16, t_i32, i1) -> void);
-    ifn!("llvm.memcpy.p0i8.p0i8.i32", fn(i8p, i8p, t_i32, t_i32, i1) -> void);
-    ifn!("llvm.memcpy.p0i8.p0i8.i64", fn(i8p, i8p, t_i64, t_i32, i1) -> void);
-    ifn!("llvm.memmove.p0i8.p0i8.i16", fn(i8p, i8p, t_i16, t_i32, i1) -> void);
-    ifn!("llvm.memmove.p0i8.p0i8.i32", fn(i8p, i8p, t_i32, t_i32, i1) -> void);
-    ifn!("llvm.memmove.p0i8.p0i8.i64", fn(i8p, i8p, t_i64, t_i32, i1) -> void);
-    ifn!("llvm.memset.p0i8.i16", fn(i8p, t_i8, t_i16, t_i32, i1) -> void);
-    ifn!("llvm.memset.p0i8.i32", fn(i8p, t_i8, t_i32, t_i32, i1) -> void);
-    ifn!("llvm.memset.p0i8.i64", fn(i8p, t_i8, t_i64, t_i32, i1) -> void);
+    ifn!(
+        "llvm.memcpy.p0i8.p0i8.i16",
+        fn(i8p, i8p, t_i16, t_i32, i1) -> void
+    );
+    ifn!(
+        "llvm.memcpy.p0i8.p0i8.i32",
+        fn(i8p, i8p, t_i32, t_i32, i1) -> void
+    );
+    ifn!(
+        "llvm.memcpy.p0i8.p0i8.i64",
+        fn(i8p, i8p, t_i64, t_i32, i1) -> void
+    );
+    ifn!(
+        "llvm.memmove.p0i8.p0i8.i16",
+        fn(i8p, i8p, t_i16, t_i32, i1) -> void
+    );
+    ifn!(
+        "llvm.memmove.p0i8.p0i8.i32",
+        fn(i8p, i8p, t_i32, t_i32, i1) -> void
+    );
+    ifn!(
+        "llvm.memmove.p0i8.p0i8.i64",
+        fn(i8p, i8p, t_i64, t_i32, i1) -> void
+    );
+    ifn!(
+        "llvm.memset.p0i8.i16",
+        fn(i8p, t_i8, t_i16, t_i32, i1) -> void
+    );
+    ifn!(
+        "llvm.memset.p0i8.i32",
+        fn(i8p, t_i8, t_i32, t_i32, i1) -> void
+    );
+    ifn!(
+        "llvm.memset.p0i8.i64",
+        fn(i8p, t_i8, t_i64, t_i32, i1) -> void
+    );
 
     ifn!("llvm.trap", fn() -> void);
     ifn!("llvm.debugtrap", fn() -> void);
@@ -796,13 +834,13 @@ fn declare_intrinsic(ccx: &CrateContext, key: &str) -> Option<ValueRef> {
     ifn!("llvm.ctpop.i64", fn(t_i64) -> t_i64);
     ifn!("llvm.ctpop.i128", fn(t_i128) -> t_i128);
 
-    ifn!("llvm.ctlz.i8", fn(t_i8 , i1) -> t_i8);
+    ifn!("llvm.ctlz.i8", fn(t_i8, i1) -> t_i8);
     ifn!("llvm.ctlz.i16", fn(t_i16, i1) -> t_i16);
     ifn!("llvm.ctlz.i32", fn(t_i32, i1) -> t_i32);
     ifn!("llvm.ctlz.i64", fn(t_i64, i1) -> t_i64);
     ifn!("llvm.ctlz.i128", fn(t_i128, i1) -> t_i128);
 
-    ifn!("llvm.cttz.i8", fn(t_i8 , i1) -> t_i8);
+    ifn!("llvm.cttz.i8", fn(t_i8, i1) -> t_i8);
     ifn!("llvm.cttz.i16", fn(t_i16, i1) -> t_i16);
     ifn!("llvm.cttz.i32", fn(t_i32, i1) -> t_i32);
     ifn!("llvm.cttz.i64", fn(t_i64, i1) -> t_i64);
@@ -849,7 +887,7 @@ fn declare_intrinsic(ccx: &CrateContext, key: &str) -> Option<ValueRef> {
     ifn!("llvm.umul.with.overflow.i64", fn(t_i64, t_i64) -> mk_struct!{t_i64, i1});
     ifn!("llvm.umul.with.overflow.i128", fn(t_i128, t_i128) -> mk_struct!{t_i128, i1});
 
-    ifn!("llvm.lifetime.start", fn(t_i64,i8p) -> void);
+    ifn!("llvm.lifetime.start", fn(t_i64, i8p) -> void);
     ifn!("llvm.lifetime.end", fn(t_i64, i8p) -> void);
 
     ifn!("llvm.expect.i1", fn(i1, i1) -> i1);
@@ -862,8 +900,14 @@ fn declare_intrinsic(ccx: &CrateContext, key: &str) -> Option<ValueRef> {
     ifn!("llvm.prefetch", fn(i8p, t_i32, t_i32, t_i32) -> void);
 
     if ccx.sess().opts.debuginfo != NoDebugInfo {
-        ifn!("llvm.dbg.declare", fn(Type::metadata(ccx), Type::metadata(ccx)) -> void);
-        ifn!("llvm.dbg.value", fn(Type::metadata(ccx), t_i64, Type::metadata(ccx)) -> void);
+        ifn!(
+            "llvm.dbg.declare",
+            fn(Type::metadata(ccx), Type::metadata(ccx)) -> void
+        );
+        ifn!(
+            "llvm.dbg.value",
+            fn(Type::metadata(ccx), t_i64, Type::metadata(ccx)) -> void
+        );
     }
     return None;
 }

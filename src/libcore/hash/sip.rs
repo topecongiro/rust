@@ -65,9 +65,9 @@ struct Hasher<S: Sip> {
     k0: u64,
     k1: u64,
     length: usize, // how many bytes we've processed
-    state: State, // hash State
-    tail: u64, // unprocessed bytes le
-    ntail: usize, // how many bytes in tail are valid
+    state: State,  // hash State
+    tail: u64,     // unprocessed bytes le
+    ntail: usize,  // how many bytes in tail are valid
     _marker: PhantomData<S>,
 }
 
@@ -177,7 +177,7 @@ impl SipHasher13 {
                        reason = "use `std::collections::hash_map::DefaultHasher` instead")]
     pub fn new_with_keys(key0: u64, key1: u64) -> SipHasher13 {
         SipHasher13 {
-            hasher: Hasher::new_with_keys(key0, key1)
+            hasher: Hasher::new_with_keys(key0, key1),
         }
     }
 }
@@ -199,7 +199,7 @@ impl SipHasher24 {
                        reason = "use `std::collections::hash_map::DefaultHasher` instead")]
     pub fn new_with_keys(key0: u64, key1: u64) -> SipHasher24 {
         SipHasher24 {
-            hasher: Hasher::new_with_keys(key0, key1)
+            hasher: Hasher::new_with_keys(key0, key1),
         }
     }
 }
@@ -334,7 +334,7 @@ impl<S: Sip> super::Hasher for Hasher<S> {
             self.tail |= unsafe { u8to64_le(msg, 0, cmp::min(length, needed)) } << 8 * self.ntail;
             if length < needed {
                 self.ntail += length;
-                return
+                return;
             } else {
                 self.state.v3 ^= self.tail;
                 S::c_rounds(&mut self.state);

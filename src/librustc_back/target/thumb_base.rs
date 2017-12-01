@@ -53,6 +53,6 @@ pub fn opts() -> TargetOptions {
         // costs it involves.
         relocation_model: "static".to_string(),
         abi_blacklist: super::arm_base::abi_blacklist(),
-        .. Default::default()
+        ..Default::default()
     }
 }

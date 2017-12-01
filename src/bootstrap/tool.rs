@@ -11,13 +11,13 @@
 use std::fs;
 use std::env;
 use std::path::PathBuf;
-use std::process::{Command, exit};
+use std::process::{exit, Command};
 
 use Mode;
 use Compiler;
-use builder::{Step, RunConfig, ShouldRun, Builder};
-use util::{copy, exe, add_lib_path};
-use compile::{self, libtest_stamp, libstd_stamp, librustc_stamp};
+use builder::{Builder, RunConfig, ShouldRun, Step};
+use util::{add_lib_path, copy, exe};
+use compile::{self, librustc_stamp, libstd_stamp, libtest_stamp};
 use native;
 use channel::GitInfo;
 use cache::Interned;
@@ -108,11 +108,16 @@ impl Step for ToolBuild {
             Mode::Libstd => builder.ensure(compile::Std { compiler, target }),
             Mode::Libtest => builder.ensure(compile::Test { compiler, target }),
             Mode::Librustc => builder.ensure(compile::Rustc { compiler, target }),
-            Mode::Tool => panic!("unexpected Mode::Tool for tool build")
+            Mode::Tool => panic!("unexpected Mode::Tool for tool build"),
         }
 
         let _folder = build.fold_output(|| format!("stage{}-{}", compiler.stage, tool));
-        println!("Building stage{} tool {} ({})", compiler.stage, tool, target);
+        println!(
+            "Building stage{} tool {} ({})",
+            compiler.stage,
+            tool,
+            target
+        );
 
         let mut cargo = prepare_tool_cargo(builder, compiler, target, "build", path);
         if !build.try_run(&mut cargo, expectation) {
@@ -124,7 +129,8 @@ impl Step for ToolBuild {
         }
 
         if expectation == BuildExpectation::Succeeding || expectation == BuildExpectation::None {
-            let cargo_out = build.cargo_out(compiler, Mode::Tool, target)
+            let cargo_out = build
+                .cargo_out(compiler, Mode::Tool, target)
                 .join(exe(tool, &compiler.host));
             let bin = build.tools_dir(compiler).join(exe(tool, &compiler.host));
             copy(&cargo_out, &bin);
@@ -275,20 +281,23 @@ impl Step for RemoteTestServer {
 
     fn make_run(run: RunConfig) {
         run.builder.ensure(RemoteTestServer {
-            compiler: run.builder.compiler(run.builder.top_stage, run.builder.build.build),
+            compiler: run.builder
+                .compiler(run.builder.top_stage, run.builder.build.build),
             target: run.target,
         });
     }
 
     fn run(self, builder: &Builder) -> PathBuf {
-        builder.ensure(ToolBuild {
-            compiler: self.compiler,
-            target: self.target,
-            tool: "remote-test-server",
-            mode: Mode::Libstd,
-            path: "src/tools/remote-test-server",
-            expectation: BuildExpectation::None,
-        }).expect("expected to build -- BuildExpectation::None")
+        builder
+            .ensure(ToolBuild {
+                compiler: self.compiler,
+                target: self.target,
+                tool: "remote-test-server",
+                mode: Mode::Libstd,
+                path: "src/tools/remote-test-server",
+                expectation: BuildExpectation::None,
+            })
+            .expect("expected to build -- BuildExpectation::None")
     }
 }
 
@@ -307,9 +316,7 @@ impl Step for Rustdoc {
     }
 
     fn make_run(run: RunConfig) {
-        run.builder.ensure(Rustdoc {
-            host: run.host,
-        });
+        run.builder.ensure(Rustdoc { host: run.host });
     }
 
     fn run(self, builder: &Builder) -> PathBuf {
@@ -329,26 +336,40 @@ impl Step for Rustdoc {
             builder.compiler(target_compiler.stage - 1, builder.build.build)
         };
 
-        builder.ensure(compile::Rustc { compiler: build_compiler, target });
+        builder.ensure(compile::Rustc {
+            compiler: build_compiler,
+            target,
+        });
 
         let _folder = build.fold_output(|| format!("stage{}-rustdoc", target_compiler.stage));
-        println!("Building rustdoc for stage{} ({})", target_compiler.stage, target_compiler.host);
+        println!(
+            "Building rustdoc for stage{} ({})",
+            target_compiler.stage,
+            target_compiler.host
+        );
 
-        let mut cargo = prepare_tool_cargo(builder,
-                                           build_compiler,
-                                           target,
-                                           "build",
-                                           "src/tools/rustdoc");
+        let mut cargo = prepare_tool_cargo(
+            builder,
+            build_compiler,
+            target,
+            "build",
+            "src/tools/rustdoc",
+        );
 
         // Most tools don't get debuginfo, but rustdoc should.
-        cargo.env("RUSTC_DEBUGINFO", builder.config.rust_debuginfo.to_string())
-             .env("RUSTC_DEBUGINFO_LINES", builder.config.rust_debuginfo_lines.to_string());
+        cargo
+            .env("RUSTC_DEBUGINFO", builder.config.rust_debuginfo.to_string())
+            .env(
+                "RUSTC_DEBUGINFO_LINES",
+                builder.config.rust_debuginfo_lines.to_string(),
+            );
 
         build.run(&mut cargo);
         // Cargo adds a number of paths to the dylib search path on windows, which results in
         // the wrong rustdoc being executed. To avoid the conflicting rustdocs, we name the "tool"
         // rustdoc a different name.
-        let tool_rustdoc = build.cargo_out(build_compiler, Mode::Tool, target)
+        let tool_rustdoc = build
+            .cargo_out(build_compiler, Mode::Tool, target)
             .join(exe("rustdoc-tool-binary", &target_compiler.host));
 
         // don't create a stage0-sysroot/bin directory.
@@ -379,12 +400,14 @@ impl Step for Cargo {
 
     fn should_run(run: ShouldRun) -> ShouldRun {
         let builder = run.builder;
-        run.path("src/tools/cargo").default_condition(builder.build.config.extended)
+        run.path("src/tools/cargo")
+            .default_condition(builder.build.config.extended)
     }
 
     fn make_run(run: RunConfig) {
         run.builder.ensure(Cargo {
-            compiler: run.builder.compiler(run.builder.top_stage, run.builder.build.build),
+            compiler: run.builder
+                .compiler(run.builder.top_stage, run.builder.build.build),
             target: run.target,
         });
     }
@@ -399,14 +422,16 @@ impl Step for Cargo {
             compiler: self.compiler,
             target: builder.build.build,
         });
-        builder.ensure(ToolBuild {
-            compiler: self.compiler,
-            target: self.target,
-            tool: "cargo",
-            mode: Mode::Librustc,
-            path: "src/tools/cargo",
-            expectation: BuildExpectation::None,
-        }).expect("BuildExpectation::None - expected to build")
+        builder
+            .ensure(ToolBuild {
+                compiler: self.compiler,
+                target: self.target,
+                tool: "cargo",
+                mode: Mode::Librustc,
+                path: "src/tools/cargo",
+                expectation: BuildExpectation::None,
+            })
+            .expect("BuildExpectation::None - expected to build")
     }
 }
 
@@ -512,7 +537,7 @@ impl<'a> Builder<'a> {
             let curpaths = env::split_paths(&curpaths).collect::<Vec<_>>();
             for &(ref k, ref v) in self.cc[&compiler.host].env() {
                 if k != "PATH" {
-                    continue
+                    continue;
                 }
                 for path in env::split_paths(v) {
                     if !curpaths.contains(&path) {

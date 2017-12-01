@@ -107,12 +107,16 @@ impl<'a, 'gcx, 'tcx> FnCtxt<'a, 'gcx, 'tcx> {
         let closure_type = self.tcx.mk_closure(expr_def_id, substs);
 
         if let Some(GeneratorTypes { yield_ty, interior }) = generator_types {
-            self.demand_eqtype(expr.span,
-                               yield_ty,
-                               substs.generator_yield_ty(expr_def_id, self.tcx));
-            self.demand_eqtype(expr.span,
-                               liberated_sig.output(),
-                               substs.generator_return_ty(expr_def_id, self.tcx));
+            self.demand_eqtype(
+                expr.span,
+                yield_ty,
+                substs.generator_yield_ty(expr_def_id, self.tcx),
+            );
+            self.demand_eqtype(
+                expr.span,
+                liberated_sig.output(),
+                substs.generator_return_ty(expr_def_id, self.tcx),
+            );
             return self.tcx.mk_generator(expr_def_id, substs, interior);
         }
 
@@ -142,14 +146,18 @@ impl<'a, 'gcx, 'tcx> FnCtxt<'a, 'gcx, 'tcx> {
         );
 
         let sig_fn_ptr_ty = self.tcx.mk_fn_ptr(sig);
-        self.demand_eqtype(expr.span,
-                           sig_fn_ptr_ty,
-                           substs.closure_sig_ty(expr_def_id, self.tcx));
+        self.demand_eqtype(
+            expr.span,
+            sig_fn_ptr_ty,
+            substs.closure_sig_ty(expr_def_id, self.tcx),
+        );
 
         if let Some(kind) = opt_kind {
-            self.demand_eqtype(expr.span,
-                               kind.to_ty(self.tcx),
-                               substs.closure_kind_ty(expr_def_id, self.tcx));
+            self.demand_eqtype(
+                expr.span,
+                kind.to_ty(self.tcx),
+                substs.closure_kind_ty(expr_def_id, self.tcx),
+            );
         }
 
         closure_type

@@ -61,21 +61,22 @@ impl<'tcx> DefUseAnalysis<'tcx> {
     }
 
     fn mutate_defs_and_uses<F>(&self, local: Local, mir: &mut Mir<'tcx>, mut callback: F)
-                               where F: for<'a> FnMut(&'a mut Local,
-                                                      LvalueContext<'tcx>,
-                                                      Location) {
+    where
+        F: for<'a> FnMut(&'a mut Local, LvalueContext<'tcx>, Location),
+    {
         for lvalue_use in &self.info[local].defs_and_uses {
-            MutateUseVisitor::new(local,
-                                  &mut callback,
-                                  mir).visit_location(mir, lvalue_use.location)
+            MutateUseVisitor::new(local, &mut callback, mir)
+                .visit_location(mir, lvalue_use.location)
         }
     }
 
     /// FIXME(pcwalton): This should update the def-use chains.
-    pub fn replace_all_defs_and_uses_with(&self,
-                                          local: Local,
-                                          mir: &mut Mir<'tcx>,
-                                          new_local: Local) {
+    pub fn replace_all_defs_and_uses_with(
+        &self,
+        local: Local,
+        mir: &mut Mir<'tcx>,
+        new_local: Local,
+    ) {
         self.mutate_defs_and_uses(local, mir, |local, _, _| *local = new_local)
     }
 }
@@ -85,14 +86,10 @@ struct DefUseFinder<'tcx> {
 }
 
 impl<'tcx> Visitor<'tcx> for DefUseFinder<'tcx> {
-    fn visit_local(&mut self,
-                   &local: &Local,
-                   context: LvalueContext<'tcx>,
-                   location: Location) {
-        self.info[local].defs_and_uses.push(Use {
-            context,
-            location,
-        });
+    fn visit_local(&mut self, &local: &Local, context: LvalueContext<'tcx>, location: Location) {
+        self.info[local]
+            .defs_and_uses
+            .push(Use { context, location });
     }
 }
 
@@ -108,7 +105,10 @@ impl<'tcx> Info<'tcx> {
     }
 
     pub fn def_count(&self) -> usize {
-        self.defs_and_uses.iter().filter(|lvalue_use| lvalue_use.context.is_mutating_use()).count()
+        self.defs_and_uses
+            .iter()
+            .filter(|lvalue_use| lvalue_use.context.is_mutating_use())
+            .count()
     }
 
     pub fn def_count_not_including_drop(&self) -> usize {
@@ -124,9 +124,10 @@ impl<'tcx> Info<'tcx> {
     }
 
     pub fn use_count(&self) -> usize {
-        self.defs_and_uses.iter().filter(|lvalue_use| {
-            lvalue_use.context.is_nonmutating_use()
-        }).count()
+        self.defs_and_uses
+            .iter()
+            .filter(|lvalue_use| lvalue_use.context.is_nonmutating_use())
+            .count()
     }
 }
 
@@ -137,9 +138,10 @@ struct MutateUseVisitor<'tcx, F> {
 }
 
 impl<'tcx, F> MutateUseVisitor<'tcx, F> {
-    fn new(query: Local, callback: F, _: &Mir<'tcx>)
-           -> MutateUseVisitor<'tcx, F>
-           where F: for<'a> FnMut(&'a mut Local, LvalueContext<'tcx>, Location) {
+    fn new(query: Local, callback: F, _: &Mir<'tcx>) -> MutateUseVisitor<'tcx, F>
+    where
+        F: for<'a> FnMut(&'a mut Local, LvalueContext<'tcx>, Location),
+    {
         MutateUseVisitor {
             query,
             callback,
@@ -149,11 +151,10 @@ impl<'tcx, F> MutateUseVisitor<'tcx, F> {
 }
 
 impl<'tcx, F> MutVisitor<'tcx> for MutateUseVisitor<'tcx, F>
-              where F: for<'a> FnMut(&'a mut Local, LvalueContext<'tcx>, Location) {
-    fn visit_local(&mut self,
-                    local: &mut Local,
-                    context: LvalueContext<'tcx>,
-                    location: Location) {
+where
+    F: for<'a> FnMut(&'a mut Local, LvalueContext<'tcx>, Location),
+{
+    fn visit_local(&mut self, local: &mut Local, context: LvalueContext<'tcx>, location: Location) {
         if *local == self.query {
             (self.callback)(local, context, location)
         }

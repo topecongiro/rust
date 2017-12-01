@@ -10,7 +10,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::default::Default;
-use std::hash::{Hasher, Hash, BuildHasherDefault};
+use std::hash::{BuildHasherDefault, Hash, Hasher};
 use std::ops::BitXor;
 
 pub type FxHashMap<K, V> = HashMap<K, V, BuildHasherDefault<FxHasher>>;
@@ -38,7 +38,7 @@ pub fn FxHashSet<V: Hash + Eq>() -> FxHashSet<V> {
 /// similar or slightly worse than FNV, but the speed of the hash function
 /// itself is much higher because it works on up to 8 bytes at a time.
 pub struct FxHasher {
-    hash: usize
+    hash: usize,
 }
 
 #[cfg(target_pointer_width = "32")]

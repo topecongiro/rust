@@ -37,7 +37,8 @@ use ty::TyVar;
 use ty::{self, Ty};
 use ty::relate::{RelateResult, TypeRelation};
 
-pub trait LatticeDir<'f, 'gcx: 'f+'tcx, 'tcx: 'f> : TypeRelation<'f, 'gcx, 'tcx> {
+pub trait LatticeDir<'f, 'gcx: 'f + 'tcx, 'tcx: 'f>
+    : TypeRelation<'f, 'gcx, 'tcx> {
     fn infcx(&self) -> &'f InferCtxt<'f, 'gcx, 'tcx>;
 
     fn cause(&self) -> &ObligationCause<'tcx>;
@@ -51,16 +52,17 @@ pub trait LatticeDir<'f, 'gcx: 'f+'tcx, 'tcx: 'f> : TypeRelation<'f, 'gcx, 'tcx>
     fn relate_bound(&mut self, v: Ty<'tcx>, a: Ty<'tcx>, b: Ty<'tcx>) -> RelateResult<'tcx, ()>;
 }
 
-pub fn super_lattice_tys<'a, 'gcx, 'tcx, L>(this: &mut L,
-                                            a: Ty<'tcx>,
-                                            b: Ty<'tcx>)
-                                            -> RelateResult<'tcx, Ty<'tcx>>
-    where L: LatticeDir<'a, 'gcx, 'tcx>, 'gcx: 'a+'tcx, 'tcx: 'a
+pub fn super_lattice_tys<'a, 'gcx, 'tcx, L>(
+    this: &mut L,
+    a: Ty<'tcx>,
+    b: Ty<'tcx>,
+) -> RelateResult<'tcx, Ty<'tcx>>
+where
+    L: LatticeDir<'a, 'gcx, 'tcx>,
+    'gcx: 'a + 'tcx,
+    'tcx: 'a,
 {
-    debug!("{}.lattice_tys({:?}, {:?})",
-           this.tag(),
-           a,
-           b);
+    debug!("{}.lattice_tys({:?}, {:?})", this.tag(), a, b);
 
     if a == b {
         return Ok(a);
@@ -71,9 +73,10 @@ pub fn super_lattice_tys<'a, 'gcx, 'tcx, L>(this: &mut L,
     let b = infcx.type_variables.borrow_mut().replace_if_possible(b);
     match (&a.sty, &b.sty) {
         (&ty::TyInfer(TyVar(..)), &ty::TyInfer(TyVar(..)))
-            if infcx.type_var_diverges(a) && infcx.type_var_diverges(b) => {
-            let v = infcx.next_diverging_ty_var(
-                TypeVariableOrigin::LatticeVariable(this.cause().span));
+            if infcx.type_var_diverges(a) && infcx.type_var_diverges(b) =>
+        {
+            let v =
+                infcx.next_diverging_ty_var(TypeVariableOrigin::LatticeVariable(this.cause().span));
             this.relate_bound(v, a, b)?;
             Ok(v)
         }
@@ -107,8 +110,6 @@ pub fn super_lattice_tys<'a, 'gcx, 'tcx, L>(this: &mut L,
             Ok(v)
         }
 
-        _ => {
-            infcx.super_combine_tys(this, a, b)
-        }
+        _ => infcx.super_combine_tys(this, a, b),
     }
 }

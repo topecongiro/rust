@@ -279,13 +279,13 @@ impl<'l, 'tcx: 'l, 'll, O: DumpOutput + 'll> DumpVisitor<'l, 'tcx, 'll, O> {
                     ref_id: ::id_from_def_id(def_id),
                 });
             }
-            HirDef::Struct(..) |
-            HirDef::Variant(..) |
-            HirDef::Union(..) |
-            HirDef::Enum(..) |
-            HirDef::TyAlias(..) |
-            HirDef::TyForeign(..) |
-            HirDef::Trait(_) => {
+            HirDef::Struct(..)
+            | HirDef::Variant(..)
+            | HirDef::Union(..)
+            | HirDef::Enum(..)
+            | HirDef::TyAlias(..)
+            | HirDef::TyForeign(..)
+            | HirDef::Trait(_) => {
                 let span = self.span_from_span(sub_span.expect("No span found for type ref"));
                 self.dumper.dump_ref(Ref {
                     kind: RefKind::Type,
@@ -293,10 +293,10 @@ impl<'l, 'tcx: 'l, 'll, O: DumpOutput + 'll> DumpVisitor<'l, 'tcx, 'll, O> {
                     ref_id: ::id_from_def_id(def_id),
                 });
             }
-            HirDef::Static(..) |
-            HirDef::Const(..) |
-            HirDef::StructCtor(..) |
-            HirDef::VariantCtor(..) => {
+            HirDef::Static(..)
+            | HirDef::Const(..)
+            | HirDef::StructCtor(..)
+            | HirDef::VariantCtor(..) => {
                 let span = self.span_from_span(sub_span.expect("No span found for var ref"));
                 self.dumper.dump_ref(Ref {
                     kind: RefKind::Variable,
@@ -315,17 +315,17 @@ impl<'l, 'tcx: 'l, 'll, O: DumpOutput + 'll> DumpVisitor<'l, 'tcx, 'll, O> {
             // With macros 2.0, we can legitimately get a ref to a macro, but
             // we don't handle it properly for now (FIXME).
             HirDef::Macro(..) => {}
-            HirDef::Local(..) |
-            HirDef::Upvar(..) |
-            HirDef::SelfTy(..) |
-            HirDef::Label(_) |
-            HirDef::TyParam(..) |
-            HirDef::Method(..) |
-            HirDef::AssociatedTy(..) |
-            HirDef::AssociatedConst(..) |
-            HirDef::PrimTy(_) |
-            HirDef::GlobalAsm(_) |
-            HirDef::Err => {
+            HirDef::Local(..)
+            | HirDef::Upvar(..)
+            | HirDef::SelfTy(..)
+            | HirDef::Label(_)
+            | HirDef::TyParam(..)
+            | HirDef::Method(..)
+            | HirDef::AssociatedTy(..)
+            | HirDef::AssociatedConst(..)
+            | HirDef::PrimTy(_)
+            | HirDef::GlobalAsm(_)
+            | HirDef::Err => {
                 span_bug!(span, "process_def_kind for unexpected item: {:?}", def);
             }
         }
@@ -389,10 +389,9 @@ impl<'l, 'tcx: 'l, 'll, O: DumpOutput + 'll> DumpVisitor<'l, 'tcx, 'll, O> {
         if let Some(mut method_data) = self.save_ctxt.get_method_data(id, name.name, span) {
             let sig_str = ::make_signature(&sig.decl, &generics);
             if body.is_some() {
-                self.nest_tables(
-                    id,
-                    |v| v.process_formals(&sig.decl.inputs, &method_data.qualname),
-                );
+                self.nest_tables(id, |v| {
+                    v.process_formals(&sig.decl.inputs, &method_data.qualname)
+                });
             }
 
             self.process_generic_params(&generics, span, &method_data.qualname, id);
@@ -404,7 +403,8 @@ impl<'l, 'tcx: 'l, 'll, O: DumpOutput + 'll> DumpVisitor<'l, 'tcx, 'll, O> {
                     public: vis == ast::Visibility::Public,
                     reachable: self.save_ctxt.analysis.access_levels.is_reachable(id),
                 },
-                method_data);
+                method_data,
+            );
         }
 
         // walk arg and return types
@@ -425,7 +425,8 @@ impl<'l, 'tcx: 'l, 'll, O: DumpOutput + 'll> DumpVisitor<'l, 'tcx, 'll, O> {
     fn process_struct_field_def(&mut self, field: &ast::StructField, parent_id: NodeId) {
         let field_data = self.save_ctxt.get_field_data(field, parent_id);
         if let Some(field_data) = field_data {
-            self.dumper.dump_def(&access_from!(self.save_ctxt, field), field_data);
+            self.dumper
+                .dump_def(&access_from!(self.save_ctxt, field), field_data);
         }
     }
 
@@ -480,12 +481,12 @@ impl<'l, 'tcx: 'l, 'll, O: DumpOutput + 'll> DumpVisitor<'l, 'tcx, 'll, O> {
     ) {
         if let Some(fn_data) = self.save_ctxt.get_item_data(item) {
             down_cast_data!(fn_data, DefData, item.span);
-            self.nest_tables(
-                item.id,
-                |v| v.process_formals(&decl.inputs, &fn_data.qualname),
-            );
+            self.nest_tables(item.id, |v| {
+                v.process_formals(&decl.inputs, &fn_data.qualname)
+            });
             self.process_generic_params(ty_params, item.span, &fn_data.qualname, item.id);
-            self.dumper.dump_def(&access_from!(self.save_ctxt, item), fn_data);
+            self.dumper
+                .dump_def(&access_from!(self.save_ctxt, item), fn_data);
         }
 
         for arg in &decl.inputs {
@@ -508,7 +509,8 @@ impl<'l, 'tcx: 'l, 'll, O: DumpOutput + 'll> DumpVisitor<'l, 'tcx, 'll, O> {
         self.nest_tables(item.id, |v| {
             if let Some(var_data) = v.save_ctxt.get_item_data(item) {
                 down_cast_data!(var_data, DefData, item.span);
-                v.dumper.dump_def(&access_from!(v.save_ctxt, item), var_data);
+                v.dumper
+                    .dump_def(&access_from!(v.save_ctxt, item), var_data);
             }
             v.visit_ty(&typ);
             v.visit_expr(expr);
@@ -582,8 +584,8 @@ impl<'l, 'tcx: 'l, 'll, O: DumpOutput + 'll> DumpVisitor<'l, 'tcx, 'll, O> {
 
         let sub_span = self.span.sub_span_after_keyword(item.span, keyword);
         let (value, fields) = match item.node {
-            ast::ItemKind::Struct(ast::VariantData::Struct(ref fields, _), _) |
-            ast::ItemKind::Union(ast::VariantData::Struct(ref fields, _), _) => {
+            ast::ItemKind::Struct(ast::VariantData::Struct(ref fields, _), _)
+            | ast::ItemKind::Union(ast::VariantData::Struct(ref fields, _), _) => {
                 let include_priv_fields = !self.save_ctxt.config.pub_only;
                 let fields_str = fields
                     .iter()
@@ -667,15 +669,14 @@ impl<'l, 'tcx: 'l, 'll, O: DumpOutput + 'll> DumpVisitor<'l, 'tcx, 'll, O> {
                     let fields_str = fields
                         .iter()
                         .enumerate()
-                        .map(|(i, f)| {
-                            f.ident.map(|i| i.to_string()).unwrap_or(i.to_string())
-                        })
+                        .map(|(i, f)| f.ident.map(|i| i.to_string()).unwrap_or(i.to_string()))
                         .collect::<Vec<_>>()
                         .join(", ");
                     let value = format!("{}::{} {{ {} }}", enum_data.name, name, fields_str);
                     if !self.span.filter_generated(sub_span, variant.span) {
-                        let span = self
-                            .span_from_span(sub_span.expect("No span found for struct variant"));
+                        let span = self.span_from_span(
+                            sub_span.expect("No span found for struct variant"),
+                        );
                         let id = ::id_from_node_id(variant.node.data.id(), &self.save_ctxt);
                         let parent = Some(::id_from_node_id(item.id, &self.save_ctxt));
 
@@ -865,7 +866,8 @@ impl<'l, 'tcx: 'l, 'll, O: DumpOutput + 'll> DumpVisitor<'l, 'tcx, 'll, O> {
     fn process_mod(&mut self, item: &ast::Item) {
         if let Some(mod_data) = self.save_ctxt.get_item_data(item) {
             down_cast_data!(mod_data, DefData, item.span);
-            self.dumper.dump_def(&access_from!(self.save_ctxt, item), mod_data);
+            self.dumper
+                .dump_def(&access_from!(self.save_ctxt, item), mod_data);
         }
     }
 
@@ -910,19 +912,19 @@ impl<'l, 'tcx: 'l, 'll, O: DumpOutput + 'll> DumpVisitor<'l, 'tcx, 'll, O> {
                     self.write_sub_path_trait_truncated(path);
                 }
             }
-            HirDef::Fn(..) |
-            HirDef::Const(..) |
-            HirDef::Static(..) |
-            HirDef::StructCtor(..) |
-            HirDef::VariantCtor(..) |
-            HirDef::AssociatedConst(..) |
-            HirDef::Local(..) |
-            HirDef::Upvar(..) |
-            HirDef::Struct(..) |
-            HirDef::Union(..) |
-            HirDef::Variant(..) |
-            HirDef::TyAlias(..) |
-            HirDef::AssociatedTy(..) => self.write_sub_paths_truncated(path),
+            HirDef::Fn(..)
+            | HirDef::Const(..)
+            | HirDef::Static(..)
+            | HirDef::StructCtor(..)
+            | HirDef::VariantCtor(..)
+            | HirDef::AssociatedConst(..)
+            | HirDef::Local(..)
+            | HirDef::Upvar(..)
+            | HirDef::Struct(..)
+            | HirDef::Union(..)
+            | HirDef::Variant(..)
+            | HirDef::TyAlias(..)
+            | HirDef::AssociatedTy(..) => self.write_sub_paths_truncated(path),
             _ => {}
         }
     }
@@ -1558,8 +1560,8 @@ impl<'l, 'tcx: 'l, 'll, O: DumpOutput + 'll> Visitor<'l> for DumpVisitor<'l, 'tc
                     v.nest_scope(ex.id, |v| v.visit_expr(body))
                 });
             }
-            ast::ExprKind::ForLoop(ref pattern, ref subexpression, ref block, _) |
-            ast::ExprKind::WhileLet(ref pattern, ref subexpression, ref block, _) => {
+            ast::ExprKind::ForLoop(ref pattern, ref subexpression, ref block, _)
+            | ast::ExprKind::WhileLet(ref pattern, ref subexpression, ref block, _) => {
                 let value = self.span.snippet(subexpression.span);
                 self.process_var_decl(pattern, value);
                 debug!("for loop, walk sub-expr: {:?}", subexpression.node);
@@ -1649,15 +1651,15 @@ impl<'l, 'tcx: 'l, 'll, O: DumpOutput + 'll> Visitor<'l> for DumpVisitor<'l, 'tc
                         );
                     }
                 }
-                HirDef::StructCtor(..) |
-                HirDef::VariantCtor(..) |
-                HirDef::Const(..) |
-                HirDef::AssociatedConst(..) |
-                HirDef::Struct(..) |
-                HirDef::Variant(..) |
-                HirDef::TyAlias(..) |
-                HirDef::AssociatedTy(..) |
-                HirDef::SelfTy(..) => {
+                HirDef::StructCtor(..)
+                | HirDef::VariantCtor(..)
+                | HirDef::Const(..)
+                | HirDef::AssociatedConst(..)
+                | HirDef::Struct(..)
+                | HirDef::Variant(..)
+                | HirDef::TyAlias(..)
+                | HirDef::AssociatedTy(..)
+                | HirDef::SelfTy(..) => {
                     self.dump_path_ref(id, &ast::Path::from_ident(sp, i));
                 }
                 def => error!(
@@ -1704,10 +1706,9 @@ impl<'l, 'tcx: 'l, 'll, O: DumpOutput + 'll> Visitor<'l> for DumpVisitor<'l, 'tc
                 if let Some(fn_data) = self.save_ctxt.get_extern_item_data(item) {
                     down_cast_data!(fn_data, DefData, item.span);
 
-                    self.nest_tables(
-                        item.id,
-                        |v| v.process_formals(&decl.inputs, &fn_data.qualname),
-                    );
+                    self.nest_tables(item.id, |v| {
+                        v.process_formals(&decl.inputs, &fn_data.qualname)
+                    });
                     self.process_generic_params(generics, item.span, &fn_data.qualname, item.id);
                     self.dumper.dump_def(&access, fn_data);
                 }

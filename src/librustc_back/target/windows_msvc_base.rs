@@ -14,9 +14,10 @@ use std::default::Default;
 
 pub fn opts() -> TargetOptions {
     let mut args = LinkArgs::new();
-    args.insert(LinkerFlavor::Msvc,
-                vec!["/NOLOGO".to_string(),
-                     "/NXCOMPAT".to_string()]);
+    args.insert(
+        LinkerFlavor::Msvc,
+        vec!["/NOLOGO".to_string(), "/NXCOMPAT".to_string()],
+    );
 
     TargetOptions {
         function_sections: true,
@@ -35,6 +36,6 @@ pub fn opts() -> TargetOptions {
         crt_static_allows_dylibs: true,
         crt_static_respected: true,
 
-        .. Default::default()
+        ..Default::default()
     }
 }

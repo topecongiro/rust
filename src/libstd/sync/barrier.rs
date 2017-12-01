@@ -9,7 +9,7 @@
 // except according to those terms.
 
 use fmt;
-use sync::{Mutex, Condvar};
+use sync::{Condvar, Mutex};
 
 /// A barrier enables multiple threads to synchronize the beginning
 /// of some computation.
@@ -145,8 +145,7 @@ impl Barrier {
         if lock.count < self.num_threads {
             // We need a while loop to guard against spurious wakeups.
             // http://en.wikipedia.org/wiki/Spurious_wakeup
-            while local_gen == lock.generation_id &&
-                  lock.count < self.num_threads {
+            while local_gen == lock.generation_id && lock.count < self.num_threads {
                 lock = self.cvar.wait(lock).unwrap();
             }
             BarrierWaitResult(false)
@@ -186,7 +185,9 @@ impl BarrierWaitResult {
     /// println!("{:?}", barrier_wait_result.is_leader());
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    pub fn is_leader(&self) -> bool { self.0 }
+    pub fn is_leader(&self) -> bool {
+        self.0
+    }
 }
 
 #[cfg(test)]
@@ -206,7 +207,7 @@ mod tests {
         for _ in 0..N - 1 {
             let c = barrier.clone();
             let tx = tx.clone();
-            thread::spawn(move|| {
+            thread::spawn(move || {
                 tx.send(c.wait().is_leader()).unwrap();
             });
         }

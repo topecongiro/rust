@@ -16,7 +16,7 @@ extern crate cc;
 use std::env;
 use std::path::PathBuf;
 use std::process::Command;
-use build_helper::{run, native_lib_boilerplate, BuildExpectation};
+use build_helper::{native_lib_boilerplate, run, BuildExpectation};
 
 fn main() {
     // FIXME: This is a hack to support building targets that don't
@@ -29,9 +29,11 @@ fn main() {
     // for targets like emscripten, even if we don't use it.
     let target = env::var("TARGET").expect("TARGET was not set");
     let host = env::var("HOST").expect("HOST was not set");
-    if target.contains("rumprun") || target.contains("bitrig") || target.contains("openbsd") ||
-       target.contains("msvc") || target.contains("emscripten") || target.contains("fuchsia") ||
-       target.contains("redox") || target.contains("wasm32") {
+    if target.contains("rumprun") || target.contains("bitrig") || target.contains("openbsd")
+        || target.contains("msvc") || target.contains("emscripten")
+        || target.contains("fuchsia") || target.contains("redox")
+        || target.contains("wasm32")
+    {
         println!("cargo:rustc-cfg=dummy_jemalloc");
         return;
     }
@@ -44,8 +46,10 @@ fn main() {
 
     if let Some(jemalloc) = env::var_os("JEMALLOC_OVERRIDE") {
         let jemalloc = PathBuf::from(jemalloc);
-        println!("cargo:rustc-link-search=native={}",
-                 jemalloc.parent().unwrap().display());
+        println!(
+            "cargo:rustc-link-search=native={}",
+            jemalloc.parent().unwrap().display()
+        );
         let stem = jemalloc.file_stem().unwrap().to_str().unwrap();
         let name = jemalloc.file_name().unwrap().to_str().unwrap();
         let kind = if name.ends_with(".a") {
@@ -57,7 +61,11 @@ fn main() {
         return;
     }
 
-    let link_name = if target.contains("windows") { "jemalloc" } else { "jemalloc_pic" };
+    let link_name = if target.contains("windows") {
+        "jemalloc"
+    } else {
+        "jemalloc_pic"
+    };
     let native = match native_lib_boilerplate("jemalloc", "jemalloc", link_name, "lib") {
         Ok(native) => native,
         _ => return,
@@ -116,8 +124,7 @@ fn main() {
     run(&mut cmd, BuildExpectation::None);
 
     let mut make = Command::new(build_helper::make(&host));
-    make.current_dir(&native.out_dir)
-        .arg("build_lib_static");
+    make.current_dir(&native.out_dir).arg("build_lib_static");
 
     // These are intended for mingw32-make which we don't use
     if cfg!(windows) {

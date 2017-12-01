@@ -129,32 +129,40 @@ fn dump_mir_results<'a, 'gcx, 'tcx>(
         })
         .collect();
 
-    mir_util::dump_mir(infcx.tcx, None, "nll", &0, source, mir, |pass_where, out| {
-        match pass_where {
-            // Before the CFG, dump out the values for each region variable.
-            PassWhere::BeforeCFG => for region in regioncx.regions() {
-                writeln!(out, "| {:?}: {:?}", region, regioncx.region_value(region))?;
-            },
+    mir_util::dump_mir(
+        infcx.tcx,
+        None,
+        "nll",
+        &0,
+        source,
+        mir,
+        |pass_where, out| {
+            match pass_where {
+                // Before the CFG, dump out the values for each region variable.
+                PassWhere::BeforeCFG => for region in regioncx.regions() {
+                    writeln!(out, "| {:?}: {:?}", region, regioncx.region_value(region))?;
+                },
 
-            // Before each basic block, dump out the values
-            // that are live on entry to the basic block.
-            PassWhere::BeforeBlock(bb) => {
-                let s = live_variable_set(&liveness.regular.ins[bb], &liveness.drop.ins[bb]);
-                writeln!(out, "    | Live variables on entry to {:?}: {}", bb, s)?;
+                // Before each basic block, dump out the values
+                // that are live on entry to the basic block.
+                PassWhere::BeforeBlock(bb) => {
+                    let s = live_variable_set(&liveness.regular.ins[bb], &liveness.drop.ins[bb]);
+                    writeln!(out, "    | Live variables on entry to {:?}: {}", bb, s)?;
+                }
+
+                PassWhere::InCFG(location) => {
+                    let s = live_variable_set(
+                        &regular_liveness_per_location[&location],
+                        &drop_liveness_per_location[&location],
+                    );
+                    writeln!(out, "            | Live variables at {:?}: {}", location, s)?;
+                }
+
+                PassWhere::AfterCFG => {}
             }
-
-            PassWhere::InCFG(location) => {
-                let s = live_variable_set(
-                    &regular_liveness_per_location[&location],
-                    &drop_liveness_per_location[&location],
-                );
-                writeln!(out, "            | Live variables at {:?}: {}", location, s)?;
-            }
-
-            PassWhere::AfterCFG => {}
-        }
-        Ok(())
-    });
+            Ok(())
+        },
+    );
 }
 
 /// Right now, we piggy back on the `ReVar` to store our NLL inference

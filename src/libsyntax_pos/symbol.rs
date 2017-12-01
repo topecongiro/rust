@@ -27,7 +27,10 @@ pub struct Ident {
 
 impl Ident {
     pub const fn with_empty_ctxt(name: Symbol) -> Ident {
-        Ident { name: name, ctxt: SyntaxContext::empty() }
+        Ident {
+            name: name,
+            ctxt: SyntaxContext::empty(),
+        }
     }
 
     /// Maps a string to an identifier with an empty syntax context.
@@ -36,7 +39,10 @@ impl Ident {
     }
 
     pub fn modern(self) -> Ident {
-        Ident { name: self.name, ctxt: self.ctxt.modern() }
+        Ident {
+            name: self.name,
+            ctxt: self.ctxt.modern(),
+        }
     }
 }
 
@@ -56,7 +62,8 @@ impl Encodable for Ident {
     fn encode<S: Encoder>(&self, s: &mut S) -> Result<(), S::Error> {
         if self.ctxt.modern() == SyntaxContext::empty() {
             s.emit_str(&self.name.as_str())
-        } else { // FIXME(jseyfried) intercrate hygiene
+        } else {
+            // FIXME(jseyfried) intercrate hygiene
             let mut string = "#".to_owned();
             string.push_str(&self.name.as_str());
             s.emit_str(&string)
@@ -69,7 +76,8 @@ impl Decodable for Ident {
         let string = d.read_str()?;
         Ok(if !string.starts_with('#') {
             Ident::from_str(&string)
-        } else { // FIXME(jseyfried) intercrate hygiene
+        } else {
+            // FIXME(jseyfried) intercrate hygiene
             Ident::with_empty_ctxt(Symbol::gensym(&string[1..]))
         })
     }
@@ -80,8 +88,8 @@ impl Decodable for Ident {
 pub struct Symbol(u32);
 
 // The interner in thread-local, so `Symbol` shouldn't move between threads.
-impl !Send for Symbol { }
-impl !Sync for Symbol { }
+impl !Send for Symbol {}
+impl !Sync for Symbol {}
 
 impl Symbol {
     /// Maps a string to its interned representation.
@@ -105,7 +113,7 @@ impl Symbol {
     pub fn as_str(self) -> InternedString {
         with_interner(|interner| unsafe {
             InternedString {
-                string: ::std::mem::transmute::<&str, &str>(interner.get(self))
+                string: ::std::mem::transmute::<&str, &str>(interner.get(self)),
             }
         })
     }
@@ -145,7 +153,7 @@ impl Decodable for Symbol {
     }
 }
 
-impl<T: ::std::ops::Deref<Target=str>> PartialEq<T> for Symbol {
+impl<T: ::std::ops::Deref<Target = str>> PartialEq<T> for Symbol {
     fn eq(&self, other: &T) -> bool {
         self.as_str() == other.deref()
     }
@@ -339,7 +347,10 @@ pub struct InternedString {
     string: &'static str,
 }
 
-impl<U: ?Sized> ::std::convert::AsRef<U> for InternedString where str: ::std::convert::AsRef<U> {
+impl<U: ?Sized> ::std::convert::AsRef<U> for InternedString
+where
+    str: ::std::convert::AsRef<U>,
+{
     fn as_ref(&self) -> &U {
         self.string.as_ref()
     }
@@ -375,11 +386,13 @@ impl<'a> ::std::cmp::PartialEq<InternedString> for &'a String {
     }
 }
 
-impl !Send for InternedString { }
+impl !Send for InternedString {}
 
 impl ::std::ops::Deref for InternedString {
     type Target = str;
-    fn deref(&self) -> &str { self.string }
+    fn deref(&self) -> &str {
+        self.string
+    }
 }
 
 impl fmt::Debug for InternedString {

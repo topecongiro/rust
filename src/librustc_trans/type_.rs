@@ -11,8 +11,8 @@
 #![allow(non_upper_case_globals)]
 
 use llvm;
-use llvm::{ContextRef, TypeRef, Bool, False, True, TypeKind};
-use llvm::{Float, Double, X86_FP80, PPC_FP128, FP128};
+use llvm::{Bool, ContextRef, False, True, TypeKind, TypeRef};
+use llvm::{Double, FP128, Float, PPC_FP128, X86_FP80};
 
 use context::CrateContext;
 
@@ -29,7 +29,7 @@ use libc::c_uint;
 #[derive(Clone, Copy, PartialEq)]
 #[repr(C)]
 pub struct Type {
-    rf: TypeRef
+    rf: TypeRef,
 }
 
 impl fmt::Debug for Type {
@@ -48,9 +48,7 @@ macro_rules! ty {
 impl Type {
     #[inline(always)]
     pub fn from_ref(r: TypeRef) -> Type {
-        Type {
-            rf: r
-        }
+        Type { rf: r }
     }
 
     #[inline(always)] // So it doesn't kill --opt-level=0 builds of the compiler
@@ -176,21 +174,32 @@ impl Type {
 
     pub fn func(args: &[Type], ret: &Type) -> Type {
         let slice: &[TypeRef] = Type::to_ref_slice(args);
-        ty!(llvm::LLVMFunctionType(ret.to_ref(), slice.as_ptr(),
-                                   args.len() as c_uint, False))
+        ty!(llvm::LLVMFunctionType(
+            ret.to_ref(),
+            slice.as_ptr(),
+            args.len() as c_uint,
+            False
+        ))
     }
 
     pub fn variadic_func(args: &[Type], ret: &Type) -> Type {
         let slice: &[TypeRef] = Type::to_ref_slice(args);
-        ty!(llvm::LLVMFunctionType(ret.to_ref(), slice.as_ptr(),
-                                   args.len() as c_uint, True))
+        ty!(llvm::LLVMFunctionType(
+            ret.to_ref(),
+            slice.as_ptr(),
+            args.len() as c_uint,
+            True
+        ))
     }
 
     pub fn struct_(ccx: &CrateContext, els: &[Type], packed: bool) -> Type {
         let els: &[TypeRef] = Type::to_ref_slice(els);
-        ty!(llvm::LLVMStructTypeInContext(ccx.llcx(), els.as_ptr(),
-                                          els.len() as c_uint,
-                                          packed as Bool))
+        ty!(llvm::LLVMStructTypeInContext(
+            ccx.llcx(),
+            els.as_ptr(),
+            els.len() as c_uint,
+            packed as Bool
+        ))
     }
 
     pub fn named_struct(ccx: &CrateContext, name: &str) -> Type {
@@ -208,16 +217,18 @@ impl Type {
     }
 
     pub fn kind(&self) -> TypeKind {
-        unsafe {
-            llvm::LLVMRustGetTypeKind(self.to_ref())
-        }
+        unsafe { llvm::LLVMRustGetTypeKind(self.to_ref()) }
     }
 
     pub fn set_struct_body(&mut self, els: &[Type], packed: bool) {
         let slice: &[TypeRef] = Type::to_ref_slice(els);
         unsafe {
-            llvm::LLVMStructSetBody(self.to_ref(), slice.as_ptr(),
-                                    els.len() as c_uint, packed as Bool)
+            llvm::LLVMStructSetBody(
+                self.to_ref(),
+                slice.as_ptr(),
+                els.len() as c_uint,
+                packed as Bool,
+            )
         }
     }
 
@@ -226,24 +237,24 @@ impl Type {
     }
 
     pub fn element_type(&self) -> Type {
-        unsafe {
-            Type::from_ref(llvm::LLVMGetElementType(self.to_ref()))
-        }
+        unsafe { Type::from_ref(llvm::LLVMGetElementType(self.to_ref())) }
     }
 
     /// Return the number of elements in `self` if it is a LLVM vector type.
     pub fn vector_length(&self) -> usize {
-        unsafe {
-            llvm::LLVMGetVectorSize(self.to_ref()) as usize
-        }
+        unsafe { llvm::LLVMGetVectorSize(self.to_ref()) as usize }
     }
 
     pub fn func_params(&self) -> Vec<Type> {
         unsafe {
             let n_args = llvm::LLVMCountParamTypes(self.to_ref()) as usize;
-            let mut args = vec![Type { rf: ptr::null_mut() }; n_args];
-            llvm::LLVMGetParamTypes(self.to_ref(),
-                                    args.as_mut_ptr() as *mut TypeRef);
+            let mut args = vec![
+                Type {
+                    rf: ptr::null_mut(),
+                };
+                n_args
+            ];
+            llvm::LLVMGetParamTypes(self.to_ref(), args.as_mut_ptr() as *mut TypeRef);
             args
         }
     }
@@ -254,15 +265,13 @@ impl Type {
             Double => 64,
             X86_FP80 => 80,
             FP128 | PPC_FP128 => 128,
-            _ => bug!("llvm_float_width called on a non-float type")
+            _ => bug!("llvm_float_width called on a non-float type"),
         }
     }
 
     /// Retrieve the bit width of the integer type `self`.
     pub fn int_width(&self) -> u64 {
-        unsafe {
-            llvm::LLVMGetIntTypeWidth(self.to_ref()) as u64
-        }
+        unsafe { llvm::LLVMGetIntTypeWidth(self.to_ref()) as u64 }
     }
 
     pub fn from_integer(cx: &CrateContext, i: layout::Integer) -> Type {

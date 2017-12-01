@@ -19,7 +19,9 @@ pub struct NodeIndex {
 impl NodeIndex {
     pub fn new(value: usize) -> NodeIndex {
         assert!(value < (u32::MAX as usize));
-        NodeIndex { index: NonZero::new((value as u32) + 1).unwrap() }
+        NodeIndex {
+            index: NonZero::new((value as u32) + 1).unwrap(),
+        }
     }
 
     pub fn get(self) -> usize {

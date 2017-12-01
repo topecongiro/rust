@@ -204,8 +204,7 @@ impl Condvar {
     /// }
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    pub fn wait<'a, T>(&self, guard: MutexGuard<'a, T>)
-                       -> LockResult<MutexGuard<'a, T>> {
+    pub fn wait<'a, T>(&self, guard: MutexGuard<'a, T>) -> LockResult<MutexGuard<'a, T>> {
         let poisoned = unsafe {
             let lock = mutex::guard_lock(&guard);
             self.verify(lock);
@@ -274,12 +273,13 @@ impl Condvar {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     #[rustc_deprecated(since = "1.6.0", reason = "replaced by `std::sync::Condvar::wait_timeout`")]
-    pub fn wait_timeout_ms<'a, T>(&self, guard: MutexGuard<'a, T>, ms: u32)
-                                  -> LockResult<(MutexGuard<'a, T>, bool)> {
+    pub fn wait_timeout_ms<'a, T>(
+        &self,
+        guard: MutexGuard<'a, T>,
+        ms: u32,
+    ) -> LockResult<(MutexGuard<'a, T>, bool)> {
         let res = self.wait_timeout(guard, Duration::from_millis(ms as u64));
-        poison::map_result(res, |(a, b)| {
-            (a, !b.timed_out())
-        })
+        poison::map_result(res, |(a, b)| (a, !b.timed_out()))
     }
 
     /// Waits on this condition variable for a notification, timing out after a
@@ -337,14 +337,19 @@ impl Condvar {
     /// }
     /// ```
     #[stable(feature = "wait_timeout", since = "1.5.0")]
-    pub fn wait_timeout<'a, T>(&self, guard: MutexGuard<'a, T>,
-                               dur: Duration)
-                               -> LockResult<(MutexGuard<'a, T>, WaitTimeoutResult)> {
+    pub fn wait_timeout<'a, T>(
+        &self,
+        guard: MutexGuard<'a, T>,
+        dur: Duration,
+    ) -> LockResult<(MutexGuard<'a, T>, WaitTimeoutResult)> {
         let (poisoned, result) = unsafe {
             let lock = mutex::guard_lock(&guard);
             self.verify(lock);
             let success = self.inner.wait_timeout(lock, dur);
-            (mutex::guard_poison(&guard).get(), WaitTimeoutResult(!success))
+            (
+                mutex::guard_poison(&guard).get(),
+                WaitTimeoutResult(!success),
+            )
         };
         if poisoned {
             Err(PoisonError::new((guard, result)))
@@ -448,8 +453,10 @@ impl Condvar {
 
             // Anything else and we're using more than one mutex on this cvar,
             // which is currently disallowed.
-            _ => panic!("attempted to use a condition variable with two \
-                         mutexes"),
+            _ => panic!(
+                "attempted to use a condition variable with two \
+                 mutexes"
+            ),
         }
     }
 }
@@ -479,7 +486,7 @@ impl Drop for Condvar {
 #[cfg(test)]
 mod tests {
     use sync::mpsc::channel;
-    use sync::{Condvar, Mutex, Arc};
+    use sync::{Arc, Condvar, Mutex};
     use sync::atomic::{AtomicBool, Ordering};
     use thread;
     use time::Duration;
@@ -501,7 +508,7 @@ mod tests {
         let c2 = c.clone();
 
         let g = m.lock().unwrap();
-        let _t = thread::spawn(move|| {
+        let _t = thread::spawn(move || {
             let _g = m2.lock().unwrap();
             c2.notify_one();
         });
@@ -519,7 +526,7 @@ mod tests {
         for _ in 0..N {
             let data = data.clone();
             let tx = tx.clone();
-            thread::spawn(move|| {
+            thread::spawn(move || {
                 let &(ref lock, ref cond) = &*data;
                 let mut cnt = lock.lock().unwrap();
                 *cnt += 1;
@@ -612,7 +619,7 @@ mod tests {
         let c2 = c.clone();
 
         let mut g = m.lock().unwrap();
-        let _t = thread::spawn(move|| {
+        let _t = thread::spawn(move || {
             let _g = m2.lock().unwrap();
             c2.notify_one();
         });

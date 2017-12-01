@@ -14,7 +14,7 @@
 //! of MIR building, and only after this pass we think of the program has having the
 //! normal MIR semantics.
 
-use rustc::ty::{self, TyCtxt, RegionKind};
+use rustc::ty::{self, RegionKind, TyCtxt};
 use rustc::hir;
 use rustc::mir::*;
 use rustc::middle::region;
@@ -26,9 +26,10 @@ pub struct AddValidation;
 fn lval_context<'a, 'tcx, D>(
     lval: &Lvalue<'tcx>,
     local_decls: &D,
-    tcx: TyCtxt<'a, 'tcx, 'tcx>
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
 ) -> (Option<region::Scope>, hir::Mutability)
-    where D: HasLocalDecls<'tcx>
+where
+    D: HasLocalDecls<'tcx>,
 {
     use rustc::mir::Lvalue::*;
 
@@ -72,7 +73,6 @@ fn lval_context<'a, 'tcx, D>(
                         let mutbl = context.1.and(base_context.1);
                         (re, mutbl)
                     }
-
                 }
                 _ => lval_context(&proj.base, local_decls, tcx),
             }
@@ -82,7 +82,7 @@ fn lval_context<'a, 'tcx, D>(
 
 /// Check if this function contains an unsafe block or is an unsafe function.
 fn fn_contains_unsafe<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, src: MirSource) -> bool {
-    use rustc::hir::intravisit::{self, Visitor, FnKind};
+    use rustc::hir::intravisit::{self, FnKind, Visitor};
     use rustc::hir::map::blocks::FnLikeNode;
     use rustc::hir::map::Node;
 
@@ -114,7 +114,7 @@ fn fn_contains_unsafe<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, src: MirSource) -> 
                 None => return false, // e.g. struct ctor shims -- such auto-generated code cannot
                                       // contain unsafe.
             }
-        },
+        }
         _ => return false, // only functions can have unsafe
     };
 
@@ -141,7 +141,10 @@ fn fn_contains_unsafe<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, src: MirSource) -> 
             }
             // Check if this is an unsafe block, or an item
             match node {
-                Node::NodeExpr(&hir::Expr { node: hir::ExprBlock(ref block), ..}) => {
+                Node::NodeExpr(&hir::Expr {
+                    node: hir::ExprBlock(ref block),
+                    ..
+                }) => {
                     if block_is_unsafe(&*block) {
                         // Found an unsafe block, we can bail out here.
                         return true;
@@ -151,7 +154,7 @@ fn fn_contains_unsafe<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, src: MirSource) -> 
                     // No walking up beyond items.  This makes sure the loop always terminates.
                     break;
                 }
-                _ => {},
+                _ => {}
             }
         }
     }
@@ -160,7 +163,9 @@ fn fn_contains_unsafe<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, src: MirSource) -> 
     struct FindUnsafe {
         found_unsafe: bool,
     }
-    let mut finder = FindUnsafe { found_unsafe: false };
+    let mut finder = FindUnsafe {
+        found_unsafe: false,
+    };
     // Run the visitor on the NodeId we got.  Seems like there is no uniform way to do that.
     finder.visit_body(tcx.hir.body(fn_like.body()));
 
@@ -170,7 +175,9 @@ fn fn_contains_unsafe<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, src: MirSource) -> 
         }
 
         fn visit_block(&mut self, b: &'tcx hir::Block) {
-            if self.found_unsafe { return; } // short-circuit
+            if self.found_unsafe {
+                return;
+            } // short-circuit
 
             if block_is_unsafe(b) {
                 // We found an unsafe block.  We can stop searching.
@@ -186,11 +193,7 @@ fn fn_contains_unsafe<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, src: MirSource) -> 
 }
 
 impl MirPass for AddValidation {
-    fn run_pass<'a, 'tcx>(&self,
-                          tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                          src: MirSource,
-                          mir: &mut Mir<'tcx>)
-    {
+    fn run_pass<'a, 'tcx>(&self, tcx: TyCtxt<'a, 'tcx, 'tcx>, src: MirSource, mir: &mut Mir<'tcx>) {
         let emit_validate = tcx.sess.opts.debugging_opts.mir_emit_validate;
         if emit_validate == 0 {
             return;
@@ -202,7 +205,12 @@ impl MirPass for AddValidation {
         let lval_to_operand = |lval: Lvalue<'tcx>| -> ValidationOperand<'tcx, Lvalue<'tcx>> {
             let (re, mutbl) = lval_context(&lval, &local_decls, tcx);
             let ty = lval.ty(&local_decls, tcx).to_ty(tcx);
-            ValidationOperand { lval, ty, re, mutbl }
+            ValidationOperand {
+                lval,
+                ty,
+                re,
+                mutbl,
+            }
         };
 
         // Emit an Acquire at the beginning of the given block.  If we are in restricted emission
@@ -236,37 +244,53 @@ impl MirPass for AddValidation {
                                 // argument declaration.
             };
             // Gather all arguments, skip return value.
-            let operands = mir.local_decls.iter_enumerated().skip(1).take(mir.arg_count)
-                    .map(|(local, _)| lval_to_operand(Lvalue::Local(local))).collect();
-            emit_acquire(&mut mir.basic_blocks_mut()[START_BLOCK], source_info, operands);
+            let operands = mir.local_decls
+                .iter_enumerated()
+                .skip(1)
+                .take(mir.arg_count)
+                .map(|(local, _)| lval_to_operand(Lvalue::Local(local)))
+                .collect();
+            emit_acquire(
+                &mut mir.basic_blocks_mut()[START_BLOCK],
+                source_info,
+                operands,
+            );
         }
 
         // PART 2
         // Add ReleaseValid/AcquireValid around function call terminators.  We don't use a visitor
         // because we need to access the block that a Call jumps to.
-        let mut returns : Vec<(SourceInfo, Lvalue<'tcx>, BasicBlock)> = Vec::new();
+        let mut returns: Vec<(SourceInfo, Lvalue<'tcx>, BasicBlock)> = Vec::new();
         for block_data in mir.basic_blocks_mut() {
             match block_data.terminator {
-                Some(Terminator { kind: TerminatorKind::Call { ref args, ref destination, .. },
-                                  source_info }) => {
+                Some(Terminator {
+                    kind:
+                        TerminatorKind::Call {
+                            ref args,
+                            ref destination,
+                            ..
+                        },
+                    source_info,
+                }) => {
                     // Before the call: Release all arguments *and* the return value.
                     // The callee may write into the return value!  Note that this relies
                     // on "release of uninitialized" to be a NOP.
                     if !restricted_validation {
                         let release_stmt = Statement {
                             source_info,
-                            kind: StatementKind::Validate(ValidationOp::Release,
-                                destination.iter().map(|dest| lval_to_operand(dest.0.clone()))
-                                .chain(
-                                    args.iter().filter_map(|op| {
-                                        match op {
-                                            &Operand::Copy(ref lval) |
-                                            &Operand::Move(ref lval) =>
-                                                Some(lval_to_operand(lval.clone())),
-                                            &Operand::Constant(..) => { None },
+                            kind: StatementKind::Validate(
+                                ValidationOp::Release,
+                                destination
+                                    .iter()
+                                    .map(|dest| lval_to_operand(dest.0.clone()))
+                                    .chain(args.iter().filter_map(|op| match op {
+                                        &Operand::Copy(ref lval) | &Operand::Move(ref lval) => {
+                                            Some(lval_to_operand(lval.clone()))
                                         }
-                                    })
-                                ).collect())
+                                        &Operand::Constant(..) => None,
+                                    }))
+                                    .collect(),
+                            ),
                         };
                         block_data.statements.push(release_stmt);
                     }
@@ -275,16 +299,28 @@ impl MirPass for AddValidation {
                         returns.push((source_info, destination.0.clone(), destination.1));
                     }
                 }
-                Some(Terminator { kind: TerminatorKind::Drop { location: ref lval, .. },
-                                  source_info }) |
-                Some(Terminator { kind: TerminatorKind::DropAndReplace { location: ref lval, .. },
-                                  source_info }) => {
+                Some(Terminator {
+                    kind:
+                        TerminatorKind::Drop {
+                            location: ref lval, ..
+                        },
+                    source_info,
+                })
+                | Some(Terminator {
+                    kind:
+                        TerminatorKind::DropAndReplace {
+                            location: ref lval, ..
+                        },
+                    source_info,
+                }) => {
                     // Before the call: Release all arguments
                     if !restricted_validation {
                         let release_stmt = Statement {
                             source_info,
-                            kind: StatementKind::Validate(ValidationOp::Release,
-                                    vec![lval_to_operand(lval.clone())]),
+                            kind: StatementKind::Validate(
+                                ValidationOp::Release,
+                                vec![lval_to_operand(lval.clone())],
+                            ),
                         };
                         block_data.statements.push(release_stmt);
                     }
@@ -300,7 +336,7 @@ impl MirPass for AddValidation {
             emit_acquire(
                 &mut mir.basic_blocks_mut()[dest_block],
                 source_info,
-                vec![lval_to_operand(dest_lval)]
+                vec![lval_to_operand(dest_lval)],
             );
         }
 
@@ -322,29 +358,35 @@ impl MirPass for AddValidation {
                         // Due to a lack of NLL; we can't capture anything directly here.
                         // Instead, we have to re-match and clone there.
                         let (dest_lval, re, src_lval) = match block_data.statements[i].kind {
-                            StatementKind::Assign(ref dest_lval,
-                                                  Rvalue::Ref(re, _, ref src_lval)) => {
-                                (dest_lval.clone(), re, src_lval.clone())
-                            },
+                            StatementKind::Assign(
+                                ref dest_lval,
+                                Rvalue::Ref(re, _, ref src_lval),
+                            ) => (dest_lval.clone(), re, src_lval.clone()),
                             _ => bug!("We already matched this."),
                         };
                         // So this is a ref, and we got all the data we wanted.
                         // Do an acquire of the result -- but only what it points to, so add a Deref
                         // projection.
-                        let dest_lval = Projection { base: dest_lval, elem: ProjectionElem::Deref };
+                        let dest_lval = Projection {
+                            base: dest_lval,
+                            elem: ProjectionElem::Deref,
+                        };
                         let dest_lval = Lvalue::Projection(Box::new(dest_lval));
                         let acquire_stmt = Statement {
                             source_info: block_data.statements[i].source_info,
-                            kind: StatementKind::Validate(ValidationOp::Acquire,
-                                    vec![lval_to_operand(dest_lval)]),
+                            kind: StatementKind::Validate(
+                                ValidationOp::Acquire,
+                                vec![lval_to_operand(dest_lval)],
+                            ),
                         };
-                        block_data.statements.insert(i+1, acquire_stmt);
+                        block_data.statements.insert(i + 1, acquire_stmt);
 
                         // The source is released until the region of the borrow ends.
                         let op = match re {
                             &RegionKind::ReScope(ce) => ValidationOp::Suspend(ce),
-                            &RegionKind::ReErased =>
-                                bug!("AddValidation pass must be run before erasing lifetimes"),
+                            &RegionKind::ReErased => {
+                                bug!("AddValidation pass must be run before erasing lifetimes")
+                            }
                             _ => ValidationOp::Release,
                         };
                         let release_stmt = Statement {
@@ -354,40 +396,45 @@ impl MirPass for AddValidation {
                         block_data.statements.insert(i, release_stmt);
                     }
                     // Casts can change what validation does (e.g. unsizing)
-                    StatementKind::Assign(_, Rvalue::Cast(kind, Operand::Copy(_), _)) |
-                    StatementKind::Assign(_, Rvalue::Cast(kind, Operand::Move(_), _))
+                    StatementKind::Assign(_, Rvalue::Cast(kind, Operand::Copy(_), _))
+                    | StatementKind::Assign(_, Rvalue::Cast(kind, Operand::Move(_), _))
                         if kind != CastKind::Misc =>
                     {
                         // Due to a lack of NLL; we can't capture anything directly here.
                         // Instead, we have to re-match and clone there.
                         let (dest_lval, src_lval) = match block_data.statements[i].kind {
-                            StatementKind::Assign(ref dest_lval,
-                                    Rvalue::Cast(_, Operand::Copy(ref src_lval), _)) |
-                            StatementKind::Assign(ref dest_lval,
-                                    Rvalue::Cast(_, Operand::Move(ref src_lval), _)) =>
-                            {
-                                (dest_lval.clone(), src_lval.clone())
-                            },
+                            StatementKind::Assign(
+                                ref dest_lval,
+                                Rvalue::Cast(_, Operand::Copy(ref src_lval), _),
+                            )
+                            | StatementKind::Assign(
+                                ref dest_lval,
+                                Rvalue::Cast(_, Operand::Move(ref src_lval), _),
+                            ) => (dest_lval.clone(), src_lval.clone()),
                             _ => bug!("We already matched this."),
                         };
 
                         // Acquire of the result
                         let acquire_stmt = Statement {
                             source_info: block_data.statements[i].source_info,
-                            kind: StatementKind::Validate(ValidationOp::Acquire,
-                                    vec![lval_to_operand(dest_lval)]),
+                            kind: StatementKind::Validate(
+                                ValidationOp::Acquire,
+                                vec![lval_to_operand(dest_lval)],
+                            ),
                         };
-                        block_data.statements.insert(i+1, acquire_stmt);
+                        block_data.statements.insert(i + 1, acquire_stmt);
 
                         // Release of the input
                         let release_stmt = Statement {
                             source_info: block_data.statements[i].source_info,
-                            kind: StatementKind::Validate(ValidationOp::Release,
-                                                            vec![lval_to_operand(src_lval)]),
+                            kind: StatementKind::Validate(
+                                ValidationOp::Release,
+                                vec![lval_to_operand(src_lval)],
+                            ),
                         };
                         block_data.statements.insert(i, release_stmt);
                     }
-                    _ => {},
+                    _ => {}
                 }
             }
         }

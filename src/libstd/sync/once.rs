@@ -67,7 +67,7 @@
 use fmt;
 use marker;
 use ptr;
-use sync::atomic::{AtomicUsize, AtomicBool, Ordering};
+use sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use thread::{self, Thread};
 
 /// A synchronization primitive which can be used to run a one-time global
@@ -217,10 +217,13 @@ impl Once {
     ///
     /// [poison]: struct.Mutex.html#poisoning
     #[stable(feature = "rust1", since = "1.0.0")]
-    pub fn call_once<F>(&'static self, f: F) where F: FnOnce() {
+    pub fn call_once<F>(&'static self, f: F)
+    where
+        F: FnOnce(),
+    {
         // Fast path, just see if we've completed initialization.
         if self.state.load(Ordering::SeqCst) == COMPLETE {
-            return
+            return;
         }
 
         let mut f = Some(f);
@@ -274,16 +277,17 @@ impl Once {
     /// INIT.call_once(|| {});
     /// ```
     #[unstable(feature = "once_poison", issue = "33577")]
-    pub fn call_once_force<F>(&'static self, f: F) where F: FnOnce(&OnceState) {
+    pub fn call_once_force<F>(&'static self, f: F)
+    where
+        F: FnOnce(&OnceState),
+    {
         // same as above, just with a different parameter to `call_inner`.
         if self.state.load(Ordering::SeqCst) == COMPLETE {
-            return
+            return;
         }
 
         let mut f = Some(f);
-        self.call_inner(true, &mut |p| {
-            f.take().unwrap()(&OnceState { poisoned: p })
-        });
+        self.call_inner(true, &mut |p| f.take().unwrap()(&OnceState { poisoned: p }));
     }
 
     // This is a non-generic function to reduce the monomorphization cost of
@@ -298,9 +302,7 @@ impl Once {
     // currently no way to take an `FnOnce` and call it via virtual dispatch
     // without some allocation overhead.
     #[cold]
-    fn call_inner(&'static self,
-                  ignore_poisoning: bool,
-                  init: &mut FnMut(bool)) {
+    fn call_inner(&'static self, ignore_poisoning: bool, init: &mut FnMut(bool)) {
         let mut state = self.state.load(Ordering::SeqCst);
 
         'outer: loop {
@@ -319,13 +321,12 @@ impl Once {
                 // we will attempt to move ourselves into the RUNNING state. If
                 // we succeed, then the queue of waiters starts at null (all 0
                 // bits).
-                POISONED |
-                INCOMPLETE => {
-                    let old = self.state.compare_and_swap(state, RUNNING,
-                                                          Ordering::SeqCst);
+                POISONED | INCOMPLETE => {
+                    let old = self.state
+                        .compare_and_swap(state, RUNNING, Ordering::SeqCst);
                     if old != state {
                         state = old;
-                        continue
+                        continue;
                     }
 
                     // Run the initialization routine, letting it know if we're
@@ -339,7 +340,7 @@ impl Once {
                     };
                     init(state == POISONED);
                     complete.panicked = false;
-                    return
+                    return;
                 }
 
                 // All other values we find should correspond to the RUNNING
@@ -359,12 +360,12 @@ impl Once {
 
                     while state & STATE_MASK == RUNNING {
                         node.next = (state & !STATE_MASK) as *mut Waiter;
-                        let old = self.state.compare_and_swap(state,
-                                                              me | RUNNING,
-                                                              Ordering::SeqCst);
+                        let old =
+                            self.state
+                                .compare_and_swap(state, me | RUNNING, Ordering::SeqCst);
                         if old != state {
                             state = old;
-                            continue
+                            continue;
                         }
 
                         // Once we've enqueued ourselves, wait in a loop.
@@ -374,7 +375,7 @@ impl Once {
                             thread::park();
                         }
                         state = self.state.load(Ordering::SeqCst);
-                        continue 'outer
+                        continue 'outer;
                     }
                 }
             }
@@ -490,8 +491,10 @@ mod tests {
         let (tx, rx) = channel();
         for _ in 0..10 {
             let tx = tx.clone();
-            thread::spawn(move|| {
-                for _ in 0..4 { thread::yield_now() }
+            thread::spawn(move || {
+                for _ in 0..4 {
+                    thread::yield_now()
+                }
                 unsafe {
                     O.call_once(|| {
                         assert!(!RUN);
@@ -580,6 +583,5 @@ mod tests {
 
         assert!(t1.join().is_ok());
         assert!(t2.join().is_ok());
-
     }
 }

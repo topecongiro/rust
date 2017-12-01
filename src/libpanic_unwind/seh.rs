@@ -277,19 +277,31 @@ pub unsafe fn panic(data: Box<Any + Send>) -> u32 {
     //
     // In any case, we basically need to do something like this until we can
     // express more operations in statics (and we may never be able to).
-    atomic_store(&mut THROW_INFO.pCatchableTypeArray as *mut _ as *mut u32,
-                 ptr!(&CATCHABLE_TYPE_ARRAY as *const _) as u32);
-    atomic_store(&mut CATCHABLE_TYPE_ARRAY.arrayOfCatchableTypes[0] as *mut _ as *mut u32,
-                 ptr!(&CATCHABLE_TYPE1 as *const _) as u32);
-    atomic_store(&mut CATCHABLE_TYPE_ARRAY.arrayOfCatchableTypes[1] as *mut _ as *mut u32,
-                 ptr!(&CATCHABLE_TYPE2 as *const _) as u32);
-    atomic_store(&mut CATCHABLE_TYPE1.pType as *mut _ as *mut u32,
-                 ptr!(&TYPE_DESCRIPTOR1 as *const _) as u32);
-    atomic_store(&mut CATCHABLE_TYPE2.pType as *mut _ as *mut u32,
-                 ptr!(&TYPE_DESCRIPTOR2 as *const _) as u32);
+    atomic_store(
+        &mut THROW_INFO.pCatchableTypeArray as *mut _ as *mut u32,
+        ptr!(&CATCHABLE_TYPE_ARRAY as *const _) as u32,
+    );
+    atomic_store(
+        &mut CATCHABLE_TYPE_ARRAY.arrayOfCatchableTypes[0] as *mut _ as *mut u32,
+        ptr!(&CATCHABLE_TYPE1 as *const _) as u32,
+    );
+    atomic_store(
+        &mut CATCHABLE_TYPE_ARRAY.arrayOfCatchableTypes[1] as *mut _ as *mut u32,
+        ptr!(&CATCHABLE_TYPE2 as *const _) as u32,
+    );
+    atomic_store(
+        &mut CATCHABLE_TYPE1.pType as *mut _ as *mut u32,
+        ptr!(&TYPE_DESCRIPTOR1 as *const _) as u32,
+    );
+    atomic_store(
+        &mut CATCHABLE_TYPE2.pType as *mut _ as *mut u32,
+        ptr!(&TYPE_DESCRIPTOR2 as *const _) as u32,
+    );
 
-    c::_CxxThrowException(&mut ptrs_ptr as *mut _ as *mut _,
-                          &mut THROW_INFO as *mut _ as *mut _);
+    c::_CxxThrowException(
+        &mut ptrs_ptr as *mut _ as *mut _,
+        &mut THROW_INFO as *mut _ as *mut _,
+    );
     u32::max_value()
 }
 

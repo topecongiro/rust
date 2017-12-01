@@ -16,7 +16,7 @@ use rustc::hir;
 use rustc::hir::intravisit as hir_visit;
 use rustc::util::common::to_readable_str;
 use rustc::util::nodemap::{FxHashMap, FxHashSet};
-use syntax::ast::{self, NodeId, AttrId};
+use syntax::ast::{self, AttrId, NodeId};
 use syntax::visit as ast_visit;
 use syntax_pos::Span;
 
@@ -59,18 +59,16 @@ pub fn print_ast_stats<'v>(krate: &'v ast::Crate, title: &str) {
 }
 
 impl<'k> StatCollector<'k> {
-
     fn record<T>(&mut self, label: &'static str, id: Id, node: &T) {
         if id != Id::None {
             if !self.seen.insert(id) {
-                return
+                return;
             }
         }
 
-        let entry = self.data.entry(label).or_insert(NodeData {
-            count: 0,
-            size: 0,
-        });
+        let entry = self.data
+            .entry(label)
+            .or_insert(NodeData { count: 0, size: 0 });
 
         entry.count += 1;
         entry.size = ::std::mem::size_of_val(node);
@@ -85,23 +83,28 @@ impl<'k> StatCollector<'k> {
 
         println!("\n{}\n", title);
 
-        println!("{:<18}{:>18}{:>14}{:>14}",
-            "Name", "Accumulated Size", "Count", "Item Size");
+        println!(
+            "{:<18}{:>18}{:>14}{:>14}",
+            "Name",
+            "Accumulated Size",
+            "Count",
+            "Item Size"
+        );
         println!("----------------------------------------------------------------");
 
         for (label, data) in stats {
-            println!("{:<18}{:>18}{:>14}{:>14}",
+            println!(
+                "{:<18}{:>18}{:>14}{:>14}",
                 label,
                 to_readable_str(data.count * data.size),
                 to_readable_str(data.count),
-                to_readable_str(data.size));
+                to_readable_str(data.size)
+            );
 
             total_size += data.count * data.size;
         }
         println!("----------------------------------------------------------------");
-        println!("{:<18}{:>18}\n",
-                "Total",
-                to_readable_str(total_size));
+        println!("{:<18}{:>18}\n", "Total", to_readable_str(total_size));
     }
 }
 
@@ -179,12 +182,14 @@ impl<'v> hir_visit::Visitor<'v> for StatCollector<'v> {
         hir_visit::walk_ty(self, t)
     }
 
-    fn visit_fn(&mut self,
-                fk: hir_visit::FnKind<'v>,
-                fd: &'v hir::FnDecl,
-                b: hir::BodyId,
-                s: Span,
-                id: NodeId) {
+    fn visit_fn(
+        &mut self,
+        fk: hir_visit::FnKind<'v>,
+        fd: &'v hir::FnDecl,
+        b: hir::BodyId,
+        s: Span,
+        id: NodeId,
+    ) {
         self.record("FnDecl", Id::None, fd);
         hir_visit::walk_fn(self, fk, fd, b, s, id)
     }
@@ -213,10 +218,7 @@ impl<'v> hir_visit::Visitor<'v> for StatCollector<'v> {
         hir_visit::walk_struct_field(self, s)
     }
 
-    fn visit_variant(&mut self,
-                     v: &'v hir::Variant,
-                     g: &'v hir::Generics,
-                     item_id: NodeId) {
+    fn visit_variant(&mut self, v: &'v hir::Variant, g: &'v hir::Generics, item_id: NodeId) {
         self.record("Variant", Id::None, v);
         hir_visit::walk_variant(self, v, g, item_id)
     }
@@ -236,9 +238,7 @@ impl<'v> hir_visit::Visitor<'v> for StatCollector<'v> {
         self.record("Path", Id::None, path);
         hir_visit::walk_path(self, path)
     }
-    fn visit_path_segment(&mut self,
-                          path_span: Span,
-                          path_segment: &'v hir::PathSegment) {
+    fn visit_path_segment(&mut self, path_span: Span, path_segment: &'v hir::PathSegment) {
         self.record("PathSegment", Id::None, path_segment);
         hir_visit::walk_path_segment(self, path_span, path_segment)
     }
@@ -256,7 +256,6 @@ impl<'v> hir_visit::Visitor<'v> for StatCollector<'v> {
 }
 
 impl<'v> ast_visit::Visitor<'v> for StatCollector<'v> {
-
     fn visit_mod(&mut self, m: &'v ast::Mod, _s: Span, _a: &[ast::Attribute], _n: NodeId) {
         self.record("Mod", Id::None, m);
         ast_visit::walk_mod(self, m)
@@ -307,11 +306,7 @@ impl<'v> ast_visit::Visitor<'v> for StatCollector<'v> {
         ast_visit::walk_ty(self, t)
     }
 
-    fn visit_fn(&mut self,
-                fk: ast_visit::FnKind<'v>,
-                fd: &'v ast::FnDecl,
-                s: Span,
-                _: NodeId) {
+    fn visit_fn(&mut self, fk: ast_visit::FnKind<'v>, fd: &'v ast::FnDecl, s: Span, _: NodeId) {
         self.record("FnDecl", Id::None, fd);
         ast_visit::walk_fn(self, fk, fd, s)
     }
@@ -336,10 +331,7 @@ impl<'v> ast_visit::Visitor<'v> for StatCollector<'v> {
         ast_visit::walk_struct_field(self, s)
     }
 
-    fn visit_variant(&mut self,
-                     v: &'v ast::Variant,
-                     g: &'v ast::Generics,
-                     item_id: NodeId) {
+    fn visit_variant(&mut self, v: &'v ast::Variant, g: &'v ast::Generics, item_id: NodeId) {
         self.record("Variant", Id::None, v);
         ast_visit::walk_variant(self, v, g, item_id)
     }
@@ -358,16 +350,12 @@ impl<'v> ast_visit::Visitor<'v> for StatCollector<'v> {
         self.record("Mac", Id::None, mac);
     }
 
-    fn visit_path_list_item(&mut self,
-                            prefix: &'v ast::Path,
-                            item: &'v ast::PathListItem) {
+    fn visit_path_list_item(&mut self, prefix: &'v ast::Path, item: &'v ast::PathListItem) {
         self.record("PathListItem", Id::None, item);
         ast_visit::walk_path_list_item(self, prefix, item)
     }
 
-    fn visit_path_segment(&mut self,
-                          path_span: Span,
-                          path_segment: &'v ast::PathSegment) {
+    fn visit_path_segment(&mut self, path_span: Span, path_segment: &'v ast::PathSegment) {
         self.record("PathSegment", Id::None, path_segment);
         ast_visit::walk_path_segment(self, path_span, path_segment)
     }

@@ -11,7 +11,7 @@
 //! An iterator over the type substructure.
 //! WARNING: this does not keep track of the region depth.
 
-use middle::const_val::{ConstVal, ConstAggregate};
+use middle::const_val::{ConstAggregate, ConstVal};
 use ty::{self, Ty};
 use rustc_data_structures::small_vec::SmallVec;
 use rustc_data_structures::accumulate_vec::IntoIter as AccIntoIter;
@@ -28,7 +28,10 @@ pub struct TypeWalker<'tcx> {
 
 impl<'tcx> TypeWalker<'tcx> {
     pub fn new(ty: Ty<'tcx>) -> TypeWalker<'tcx> {
-        TypeWalker { stack: SmallVec::one(ty), last_subtree: 1, }
+        TypeWalker {
+            stack: SmallVec::one(ty),
+            last_subtree: 1,
+        }
     }
 
     /// Skips the subtree of types corresponding to the last type
@@ -81,10 +84,17 @@ pub fn walk_shallow<'tcx>(ty: Ty<'tcx>) -> AccIntoIter<TypeWalkerArray<'tcx>> {
 // types as they are written).
 fn push_subtypes<'tcx>(stack: &mut TypeWalkerStack<'tcx>, parent_ty: Ty<'tcx>) {
     match parent_ty.sty {
-        ty::TyBool | ty::TyChar | ty::TyInt(_) | ty::TyUint(_) | ty::TyFloat(_) |
-        ty::TyStr | ty::TyInfer(_) | ty::TyParam(_) | ty::TyNever | ty::TyError |
-        ty::TyForeign(..) => {
-        }
+        ty::TyBool
+        | ty::TyChar
+        | ty::TyInt(_)
+        | ty::TyUint(_)
+        | ty::TyFloat(_)
+        | ty::TyStr
+        | ty::TyInfer(_)
+        | ty::TyParam(_)
+        | ty::TyNever
+        | ty::TyError
+        | ty::TyForeign(..) => {}
         ty::TyArray(ty, len) => {
             push_const(stack, len);
             stack.push(ty);
@@ -137,27 +147,23 @@ fn push_subtypes<'tcx>(stack: &mut TypeWalkerStack<'tcx>, parent_ty: Ty<'tcx>) {
 
 fn push_const<'tcx>(stack: &mut TypeWalkerStack<'tcx>, constant: &'tcx ty::Const<'tcx>) {
     match constant.val {
-        ConstVal::Integral(_) |
-        ConstVal::Float(_) |
-        ConstVal::Str(_) |
-        ConstVal::ByteStr(_) |
-        ConstVal::Bool(_) |
-        ConstVal::Char(_) |
-        ConstVal::Variant(_) => {}
+        ConstVal::Integral(_)
+        | ConstVal::Float(_)
+        | ConstVal::Str(_)
+        | ConstVal::ByteStr(_)
+        | ConstVal::Bool(_)
+        | ConstVal::Char(_)
+        | ConstVal::Variant(_) => {}
         ConstVal::Function(_, substs) => {
             stack.extend(substs.types().rev());
         }
-        ConstVal::Aggregate(ConstAggregate::Struct(fields)) => {
-            for &(_, v) in fields.iter().rev() {
-                push_const(stack, v);
-            }
-        }
-        ConstVal::Aggregate(ConstAggregate::Tuple(fields)) |
-        ConstVal::Aggregate(ConstAggregate::Array(fields)) => {
-            for v in fields.iter().rev() {
-                push_const(stack, v);
-            }
-        }
+        ConstVal::Aggregate(ConstAggregate::Struct(fields)) => for &(_, v) in fields.iter().rev() {
+            push_const(stack, v);
+        },
+        ConstVal::Aggregate(ConstAggregate::Tuple(fields))
+        | ConstVal::Aggregate(ConstAggregate::Array(fields)) => for v in fields.iter().rev() {
+            push_const(stack, v);
+        },
         ConstVal::Aggregate(ConstAggregate::Repeat(v, _)) => {
             push_const(stack, v);
         }

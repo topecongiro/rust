@@ -19,31 +19,32 @@ use rustc_data_structures::indexed_vec::Idx;
 
 impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
     /// Compile `expr`, yielding an lvalue that we can move from etc.
-    pub fn as_lvalue<M>(&mut self,
-                        block: BasicBlock,
-                        expr: M)
-                        -> BlockAnd<Lvalue<'tcx>>
-        where M: Mirror<'tcx, Output=Expr<'tcx>>
+    pub fn as_lvalue<M>(&mut self, block: BasicBlock, expr: M) -> BlockAnd<Lvalue<'tcx>>
+    where
+        M: Mirror<'tcx, Output = Expr<'tcx>>,
     {
         let expr = self.hir.mirror(expr);
         self.expr_as_lvalue(block, expr)
     }
 
-    fn expr_as_lvalue(&mut self,
-                      mut block: BasicBlock,
-                      expr: Expr<'tcx>)
-                      -> BlockAnd<Lvalue<'tcx>> {
+    fn expr_as_lvalue(
+        &mut self,
+        mut block: BasicBlock,
+        expr: Expr<'tcx>,
+    ) -> BlockAnd<Lvalue<'tcx>> {
         debug!("expr_as_lvalue(block={:?}, expr={:?})", block, expr);
 
         let this = self;
         let expr_span = expr.span;
         let source_info = this.source_info(expr_span);
         match expr.kind {
-            ExprKind::Scope { region_scope, lint_level, value } => {
-                this.in_scope((region_scope, source_info), lint_level, block, |this| {
-                    this.as_lvalue(block, value)
-                })
-            }
+            ExprKind::Scope {
+                region_scope,
+                lint_level,
+                value,
+            } => this.in_scope((region_scope, source_info), lint_level, block, |this| {
+                this.as_lvalue(block, value)
+            }),
             ExprKind::Field { lhs, name } => {
                 let lvalue = unpack!(block = this.as_lvalue(block, lhs));
                 let lvalue = lvalue.field(name, expr.ty);
@@ -64,64 +65,74 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
                 let idx = unpack!(block = this.as_temp(block, None, index));
 
                 // bounds check:
-                let (len, lt) = (this.temp(usize_ty.clone(), expr_span),
-                                 this.temp(bool_ty, expr_span));
-                this.cfg.push_assign(block, source_info, // len = len(slice)
-                                     &len, Rvalue::Len(slice.clone()));
-                this.cfg.push_assign(block, source_info, // lt = idx < len
-                                     &lt, Rvalue::BinaryOp(BinOp::Lt,
-                                                           Operand::Copy(Lvalue::Local(idx)),
-                                                           Operand::Copy(len.clone())));
+                let (len, lt) = (
+                    this.temp(usize_ty.clone(), expr_span),
+                    this.temp(bool_ty, expr_span),
+                );
+                this.cfg.push_assign(
+                    block,
+                    source_info, // len = len(slice)
+                    &len,
+                    Rvalue::Len(slice.clone()),
+                );
+                this.cfg.push_assign(
+                    block,
+                    source_info, // lt = idx < len
+                    &lt,
+                    Rvalue::BinaryOp(
+                        BinOp::Lt,
+                        Operand::Copy(Lvalue::Local(idx)),
+                        Operand::Copy(len.clone()),
+                    ),
+                );
 
                 let msg = AssertMessage::BoundsCheck {
                     len: Operand::Move(len),
-                    index: Operand::Copy(Lvalue::Local(idx))
+                    index: Operand::Copy(Lvalue::Local(idx)),
                 };
-                let success = this.assert(block, Operand::Move(lt), true,
-                                          msg, expr_span);
+                let success = this.assert(block, Operand::Move(lt), true, msg, expr_span);
                 success.and(slice.index(idx))
             }
-            ExprKind::SelfRef => {
-                block.and(Lvalue::Local(Local::new(1)))
-            }
+            ExprKind::SelfRef => block.and(Lvalue::Local(Local::new(1))),
             ExprKind::VarRef { id } => {
                 let index = this.var_indices[&id];
                 block.and(Lvalue::Local(index))
             }
-            ExprKind::StaticRef { id } => {
-                block.and(Lvalue::Static(Box::new(Static { def_id: id, ty: expr.ty })))
-            }
+            ExprKind::StaticRef { id } => block.and(Lvalue::Static(Box::new(Static {
+                def_id: id,
+                ty: expr.ty,
+            }))),
 
-            ExprKind::Array { .. } |
-            ExprKind::Tuple { .. } |
-            ExprKind::Adt { .. } |
-            ExprKind::Closure { .. } |
-            ExprKind::Unary { .. } |
-            ExprKind::Binary { .. } |
-            ExprKind::LogicalOp { .. } |
-            ExprKind::Box { .. } |
-            ExprKind::Cast { .. } |
-            ExprKind::Use { .. } |
-            ExprKind::NeverToAny { .. } |
-            ExprKind::ReifyFnPointer { .. } |
-            ExprKind::ClosureFnPointer { .. } |
-            ExprKind::UnsafeFnPointer { .. } |
-            ExprKind::Unsize { .. } |
-            ExprKind::Repeat { .. } |
-            ExprKind::Borrow { .. } |
-            ExprKind::If { .. } |
-            ExprKind::Match { .. } |
-            ExprKind::Loop { .. } |
-            ExprKind::Block { .. } |
-            ExprKind::Assign { .. } |
-            ExprKind::AssignOp { .. } |
-            ExprKind::Break { .. } |
-            ExprKind::Continue { .. } |
-            ExprKind::Return { .. } |
-            ExprKind::Literal { .. } |
-            ExprKind::InlineAsm { .. } |
-            ExprKind::Yield { .. } |
-            ExprKind::Call { .. } => {
+            ExprKind::Array { .. }
+            | ExprKind::Tuple { .. }
+            | ExprKind::Adt { .. }
+            | ExprKind::Closure { .. }
+            | ExprKind::Unary { .. }
+            | ExprKind::Binary { .. }
+            | ExprKind::LogicalOp { .. }
+            | ExprKind::Box { .. }
+            | ExprKind::Cast { .. }
+            | ExprKind::Use { .. }
+            | ExprKind::NeverToAny { .. }
+            | ExprKind::ReifyFnPointer { .. }
+            | ExprKind::ClosureFnPointer { .. }
+            | ExprKind::UnsafeFnPointer { .. }
+            | ExprKind::Unsize { .. }
+            | ExprKind::Repeat { .. }
+            | ExprKind::Borrow { .. }
+            | ExprKind::If { .. }
+            | ExprKind::Match { .. }
+            | ExprKind::Loop { .. }
+            | ExprKind::Block { .. }
+            | ExprKind::Assign { .. }
+            | ExprKind::AssignOp { .. }
+            | ExprKind::Break { .. }
+            | ExprKind::Continue { .. }
+            | ExprKind::Return { .. }
+            | ExprKind::Literal { .. }
+            | ExprKind::InlineAsm { .. }
+            | ExprKind::Yield { .. }
+            | ExprKind::Call { .. } => {
                 // these are not lvalues, so we need to make a temporary.
                 debug_assert!(match Category::of(&expr.kind) {
                     Some(Category::Lvalue) => false,

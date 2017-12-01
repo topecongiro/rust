@@ -9,7 +9,7 @@
 // except according to those terms.
 
 use rustc::ich::Fingerprint;
-use rustc::session::config::{self, OutputFilenames, Input, OutputType};
+use rustc::session::config::{self, Input, OutputFilenames, OutputType};
 use rustc::session::Session;
 use rustc::middle::cstore::{self, LinkMeta};
 use rustc::hir::svh::Svh;
@@ -17,16 +17,19 @@ use std::path::{Path, PathBuf};
 use syntax::ast;
 use syntax_pos::Span;
 
-pub fn out_filename(sess: &Session,
-                crate_type: config::CrateType,
-                outputs: &OutputFilenames,
-                crate_name: &str)
-                -> PathBuf {
+pub fn out_filename(
+    sess: &Session,
+    crate_type: config::CrateType,
+    outputs: &OutputFilenames,
+    crate_name: &str,
+) -> PathBuf {
     let default_filename = filename_for_input(sess, crate_type, crate_name, outputs);
-    let out_filename = outputs.outputs.get(&OutputType::Exe)
-                              .and_then(|s| s.to_owned())
-                              .or_else(|| outputs.single_output_file.clone())
-                              .unwrap_or(default_filename);
+    let out_filename = outputs
+        .outputs
+        .get(&OutputType::Exe)
+        .and_then(|s| s.to_owned())
+        .or_else(|| outputs.single_output_file.clone())
+        .unwrap_or(default_filename);
 
     check_file_is_writeable(&out_filename, sess);
 
@@ -38,15 +41,18 @@ pub fn out_filename(sess: &Session,
 // read-only file.  We should be consistent.
 pub fn check_file_is_writeable(file: &Path, sess: &Session) {
     if !is_writeable(file) {
-        sess.fatal(&format!("output file {} is not writeable -- check its \
-                            permissions", file.display()));
+        sess.fatal(&format!(
+            "output file {} is not writeable -- check its \
+             permissions",
+            file.display()
+        ));
     }
 }
 
 fn is_writeable(p: &Path) -> bool {
     match p.metadata() {
         Err(..) => true,
-        Ok(m) => !m.permissions().readonly()
+        Ok(m) => !m.permissions().readonly(),
     }
 }
 
@@ -58,9 +64,7 @@ pub fn build_link_meta(crate_hash: Fingerprint) -> LinkMeta {
     return r;
 }
 
-pub fn find_crate_name(sess: Option<&Session>,
-                       attrs: &[ast::Attribute],
-                       input: &Input) -> String {
+pub fn find_crate_name(sess: Option<&Session>, attrs: &[ast::Attribute], input: &Input) -> String {
     let validate = |s: String, span: Option<Span>| {
         cstore::validate_crate_name(sess, &s, span);
         s
@@ -70,16 +74,21 @@ pub fn find_crate_name(sess: Option<&Session>,
     // as used. After doing this, however, we still prioritize a crate name from
     // the command line over one found in the #[crate_name] attribute. If we
     // find both we ensure that they're the same later on as well.
-    let attr_crate_name = attrs.iter().find(|at| at.check_name("crate_name"))
-                               .and_then(|at| at.value_str().map(|s| (at, s)));
+    let attr_crate_name = attrs
+        .iter()
+        .find(|at| at.check_name("crate_name"))
+        .and_then(|at| at.value_str().map(|s| (at, s)));
 
     if let Some(sess) = sess {
         if let Some(ref s) = sess.opts.crate_name {
             if let Some((attr, name)) = attr_crate_name {
                 if name != &**s {
-                    let msg = format!("--crate-name and #[crate_name] are \
-                                       required to match, but `{}` != `{}`",
-                                      s, name);
+                    let msg = format!(
+                        "--crate-name and #[crate_name] are \
+                         required to match, but `{}` != `{}`",
+                        s,
+                        name
+                    );
                     sess.span_err(attr.span, &msg);
                 }
             }
@@ -93,8 +102,11 @@ pub fn find_crate_name(sess: Option<&Session>,
     if let Input::File(ref path) = *input {
         if let Some(s) = path.file_stem().and_then(|s| s.to_str()) {
             if s.starts_with("-") {
-                let msg = format!("crate names cannot start with a `-`, but \
-                                   `{}` has a leading hyphen", s);
+                let msg = format!(
+                    "crate names cannot start with a `-`, but \
+                     `{}` has a leading hyphen",
+                    s
+                );
                 if let Some(sess) = sess {
                     sess.err(&msg);
                 }
@@ -107,29 +119,33 @@ pub fn find_crate_name(sess: Option<&Session>,
     "rust_out".to_string()
 }
 
-pub fn filename_for_input(sess: &Session,
-                          crate_type: config::CrateType,
-                          crate_name: &str,
-                          outputs: &OutputFilenames) -> PathBuf {
+pub fn filename_for_input(
+    sess: &Session,
+    crate_type: config::CrateType,
+    crate_name: &str,
+    outputs: &OutputFilenames,
+) -> PathBuf {
     let libname = format!("{}{}", crate_name, sess.opts.cg.extra_filename);
 
     match crate_type {
-        config::CrateTypeRlib => {
-            outputs.out_directory.join(&format!("lib{}.rlib", libname))
-        }
-        config::CrateTypeCdylib |
-        config::CrateTypeProcMacro |
-        config::CrateTypeDylib => {
-            let (prefix, suffix) = (&sess.target.target.options.dll_prefix,
-                                    &sess.target.target.options.dll_suffix);
-            outputs.out_directory.join(&format!("{}{}{}", prefix, libname,
-                                                suffix))
+        config::CrateTypeRlib => outputs.out_directory.join(&format!("lib{}.rlib", libname)),
+        config::CrateTypeCdylib | config::CrateTypeProcMacro | config::CrateTypeDylib => {
+            let (prefix, suffix) = (
+                &sess.target.target.options.dll_prefix,
+                &sess.target.target.options.dll_suffix,
+            );
+            outputs
+                .out_directory
+                .join(&format!("{}{}{}", prefix, libname, suffix))
         }
         config::CrateTypeStaticlib => {
-            let (prefix, suffix) = (&sess.target.target.options.staticlib_prefix,
-                                    &sess.target.target.options.staticlib_suffix);
-            outputs.out_directory.join(&format!("{}{}{}", prefix, libname,
-                                                suffix))
+            let (prefix, suffix) = (
+                &sess.target.target.options.staticlib_prefix,
+                &sess.target.target.options.staticlib_suffix,
+            );
+            outputs
+                .out_directory
+                .join(&format!("{}{}{}", prefix, libname, suffix))
         }
         config::CrateTypeExecutable => {
             let suffix = &sess.target.target.options.exe_suffix;
@@ -161,17 +177,14 @@ pub fn default_output_for_target(sess: &Session) -> config::CrateType {
 }
 
 /// Checks if target supports crate_type as output
-pub fn invalid_output_for_target(sess: &Session,
-                                 crate_type: config::CrateType) -> bool {
+pub fn invalid_output_for_target(sess: &Session, crate_type: config::CrateType) -> bool {
     match crate_type {
-        config::CrateTypeCdylib |
-        config::CrateTypeDylib |
-        config::CrateTypeProcMacro => {
+        config::CrateTypeCdylib | config::CrateTypeDylib | config::CrateTypeProcMacro => {
             if !sess.target.target.options.dynamic_linking {
-                return true
+                return true;
             }
             if sess.crt_static() && !sess.target.target.options.crt_static_allows_dylibs {
-                return true
+                return true;
             }
         }
         _ => {}
@@ -184,7 +197,7 @@ pub fn invalid_output_for_target(sess: &Session,
     }
     if !sess.target.target.options.executables {
         if crate_type == config::CrateTypeExecutable {
-            return true
+            return true;
         }
     }
 

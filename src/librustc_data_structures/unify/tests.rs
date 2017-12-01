@@ -12,7 +12,7 @@
 
 extern crate test;
 use self::test::Bencher;
-use unify::{UnifyKey, UnificationTable};
+use unify::{UnificationTable, UnifyKey};
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 struct UnitKey(u32);

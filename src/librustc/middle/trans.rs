@@ -12,9 +12,8 @@ use syntax::ast::NodeId;
 use syntax::symbol::InternedString;
 use ty::Instance;
 use util::nodemap::FxHashMap;
-use rustc_data_structures::stable_hasher::{HashStable, StableHasherResult,
-                                           StableHasher};
-use ich::{Fingerprint, StableHashingContext, NodeIdHashingMode};
+use rustc_data_structures::stable_hasher::{HashStable, StableHasher, StableHasherResult};
+use ich::{Fingerprint, NodeIdHashingMode, StableHashingContext};
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
 pub enum TransItem<'tcx> {
@@ -24,17 +23,18 @@ pub enum TransItem<'tcx> {
 }
 
 impl<'tcx> HashStable<StableHashingContext<'tcx>> for TransItem<'tcx> {
-    fn hash_stable<W: StableHasherResult>(&self,
-                                           hcx: &mut StableHashingContext<'tcx>,
-                                           hasher: &mut StableHasher<W>) {
+    fn hash_stable<W: StableHasherResult>(
+        &self,
+        hcx: &mut StableHashingContext<'tcx>,
+        hasher: &mut StableHasher<W>,
+    ) {
         ::std::mem::discriminant(self).hash_stable(hcx, hasher);
 
         match *self {
             TransItem::Fn(ref instance) => {
                 instance.hash_stable(hcx, hasher);
             }
-            TransItem::Static(node_id)    |
-            TransItem::GlobalAsm(node_id) => {
+            TransItem::Static(node_id) | TransItem::GlobalAsm(node_id) => {
                 hcx.with_node_id_hashing_mode(NodeIdHashingMode::HashDefPath, |hcx| {
                     node_id.hash_stable(hcx, hasher);
                 })
@@ -114,30 +114,30 @@ impl<'tcx> CodegenUnit<'tcx> {
         &self.items
     }
 
-    pub fn items_mut(&mut self)
-        -> &mut FxHashMap<TransItem<'tcx>, (Linkage, Visibility)>
-    {
+    pub fn items_mut(&mut self) -> &mut FxHashMap<TransItem<'tcx>, (Linkage, Visibility)> {
         &mut self.items
     }
 }
 
 impl<'tcx> HashStable<StableHashingContext<'tcx>> for CodegenUnit<'tcx> {
-    fn hash_stable<W: StableHasherResult>(&self,
-                                           hcx: &mut StableHashingContext<'tcx>,
-                                           hasher: &mut StableHasher<W>) {
-        let CodegenUnit {
-            ref items,
-            name,
-        } = *self;
+    fn hash_stable<W: StableHasherResult>(
+        &self,
+        hcx: &mut StableHashingContext<'tcx>,
+        hasher: &mut StableHasher<W>,
+    ) {
+        let CodegenUnit { ref items, name } = *self;
 
         name.hash_stable(hcx, hasher);
 
-        let mut items: Vec<(Fingerprint, _)> = items.iter().map(|(trans_item, &attrs)| {
-            let mut hasher = StableHasher::new();
-            trans_item.hash_stable(hcx, &mut hasher);
-            let trans_item_fingerprint = hasher.finish();
-            (trans_item_fingerprint, attrs)
-        }).collect();
+        let mut items: Vec<(Fingerprint, _)> = items
+            .iter()
+            .map(|(trans_item, &attrs)| {
+                let mut hasher = StableHasher::new();
+                trans_item.hash_stable(hcx, &mut hasher);
+                let trans_item_fingerprint = hasher.finish();
+                (trans_item_fingerprint, attrs)
+            })
+            .collect();
 
         items.sort_unstable_by_key(|i| i.0);
         items.hash_stable(hcx, hasher);
@@ -186,4 +186,3 @@ impl Stats {
         self.fn_stats.extend(stats.fn_stats);
     }
 }
-

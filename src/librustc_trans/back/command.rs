@@ -14,7 +14,7 @@
 use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::io;
-use std::process::{self, Output, Child};
+use std::process::{self, Child, Output};
 
 pub struct Command {
     program: OsString,
@@ -41,8 +41,9 @@ impl Command {
     }
 
     pub fn args<I>(&mut self, args: I) -> &mut Command
-        where I: IntoIterator,
-              I::Item: AsRef<OsStr>,
+    where
+        I: IntoIterator,
+        I::Item: AsRef<OsStr>,
     {
         for arg in args {
             self._arg(arg.as_ref());
@@ -55,17 +56,19 @@ impl Command {
     }
 
     pub fn env<K, V>(&mut self, key: K, value: V) -> &mut Command
-        where K: AsRef<OsStr>,
-              V: AsRef<OsStr>
+    where
+        K: AsRef<OsStr>,
+        V: AsRef<OsStr>,
     {
         self._env(key.as_ref(), value.as_ref());
         self
     }
 
     pub fn envs<I, K, V>(&mut self, envs: I) -> &mut Command
-        where I: IntoIterator<Item=(K, V)>,
-              K: AsRef<OsStr>,
-              V: AsRef<OsStr>
+    where
+        I: IntoIterator<Item = (K, V)>,
+        K: AsRef<OsStr>,
+        V: AsRef<OsStr>,
     {
         for (key, value) in envs {
             self._env(key.as_ref(), value.as_ref());
@@ -89,7 +92,7 @@ impl Command {
         let mut ret = process::Command::new(&self.program);
         ret.args(&self.args);
         ret.envs(self.env.clone());
-        return ret
+        return ret;
     }
 
     // extensions

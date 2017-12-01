@@ -10,7 +10,7 @@
 
 use std::collections::VecDeque;
 use std::fmt::Debug;
-use std::collections::vec_deque::{Drain};
+use std::collections::vec_deque::Drain;
 
 use self::Taggy::*;
 use self::Taggypar::*;
@@ -155,10 +155,12 @@ fn test_param_taggy() {
 
 #[test]
 fn test_param_taggypar() {
-    test_parameterized::<Taggypar<i32>>(Onepar::<i32>(1),
-                                        Twopar::<i32>(1, 2),
-                                        Threepar::<i32>(1, 2, 3),
-                                        Twopar::<i32>(17, 42));
+    test_parameterized::<Taggypar<i32>>(
+        Onepar::<i32>(1),
+        Twopar::<i32>(1, 2),
+        Threepar::<i32>(1, 2, 3),
+        Twopar::<i32>(17, 42),
+    );
 }
 
 #[test]
@@ -327,8 +329,10 @@ fn test_mut_rev_iter_wrap() {
     assert_eq!(d.pop_front(), Some(1));
     d.push_back(4);
 
-    assert_eq!(d.iter_mut().rev().map(|x| *x).collect::<Vec<_>>(),
-               vec![4, 3, 2]);
+    assert_eq!(
+        d.iter_mut().rev().map(|x| *x).collect::<Vec<_>>(),
+        vec![4, 3, 2]
+    );
 }
 
 #[test]
@@ -379,7 +383,6 @@ fn test_mut_rev_iter() {
 
 #[test]
 fn test_into_iter() {
-
     // Empty iter
     {
         let d: VecDeque<i32> = VecDeque::new();
@@ -438,7 +441,6 @@ fn test_into_iter() {
 
 #[test]
 fn test_drain() {
-
     // Empty iter
     {
         let mut d: VecDeque<i32> = VecDeque::new();
@@ -661,8 +663,10 @@ fn test_show() {
         .iter()
         .cloned()
         .collect();
-    assert_eq!(format!("{:?}", ringbuf),
-               "[\"just\", \"one\", \"test\", \"more\"]");
+    assert_eq!(
+        format!("{:?}", ringbuf),
+        "[\"just\", \"one\", \"test\", \"more\"]"
+    );
 }
 
 #[test]
@@ -1006,11 +1010,11 @@ fn test_placement_in() {
     let mut buf: VecDeque<isize> = VecDeque::new();
     buf.place_back() <- 1;
     buf.place_back() <- 2;
-    assert_eq!(buf, [1,2]);
+    assert_eq!(buf, [1, 2]);
 
     buf.place_front() <- 3;
     buf.place_front() <- 4;
-    assert_eq!(buf, [4,3,1,2]);
+    assert_eq!(buf, [4, 3, 1, 2]);
 
     {
         let ptr_head = buf.place_front() <- 5;
@@ -1020,5 +1024,5 @@ fn test_placement_in() {
         let ptr_tail = buf.place_back() <- 6;
         assert_eq!(*ptr_tail, 6);
     }
-    assert_eq!(buf, [5,4,3,1,2,6]);
+    assert_eq!(buf, [5, 4, 3, 1, 2, 6]);
 }

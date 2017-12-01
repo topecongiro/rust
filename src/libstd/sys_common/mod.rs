@@ -55,8 +55,7 @@ cfg_if! {
 }
 
 #[cfg(feature = "backtrace")]
-#[cfg(any(all(unix, not(target_os = "emscripten")),
-          all(windows, target_env = "gnu"),
+#[cfg(any(all(unix, not(target_os = "emscripten")), all(windows, target_env = "gnu"),
           target_os = "redox"))]
 pub mod gnu;
 
@@ -97,7 +96,11 @@ pub trait FromInner<Inner> {
 /// that the closure could not be registered, meaning that it is not scheduled
 /// to be run.
 pub fn at_exit<F: FnOnce() + Send + 'static>(f: F) -> Result<(), ()> {
-    if at_exit_imp::push(Box::new(f)) {Ok(())} else {Err(())}
+    if at_exit_imp::push(Box::new(f)) {
+        Ok(())
+    } else {
+        Err(())
+    }
 }
 
 macro_rules! rtabort {
@@ -129,6 +132,8 @@ pub fn mul_div_u64(value: u64, numer: u64, denom: u64) -> u64 {
 
 #[test]
 fn test_muldiv() {
-    assert_eq!(mul_div_u64( 1_000_000_000_001, 1_000_000_000, 1_000_000),
-               1_000_000_000_001_000);
+    assert_eq!(
+        mul_div_u64(1_000_000_000_001, 1_000_000_000, 1_000_000),
+        1_000_000_000_001_000
+    );
 }

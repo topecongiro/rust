@@ -198,28 +198,32 @@ impl<N: Debug, E: Debug> Graph<N, E> {
 
     pub fn enumerated_nodes(&self) -> EnumeratedNodes<N> {
         EnumeratedNodes {
-            iter: self.nodes.iter().enumerate()
+            iter: self.nodes.iter().enumerate(),
         }
     }
 
     pub fn enumerated_edges(&self) -> EnumeratedEdges<E> {
         EnumeratedEdges {
-            iter: self.edges.iter().enumerate()
+            iter: self.edges.iter().enumerate(),
         }
     }
 
     pub fn each_node<'a, F>(&'a self, mut f: F) -> bool
-        where F: FnMut(NodeIndex, &'a Node<N>) -> bool
+    where
+        F: FnMut(NodeIndex, &'a Node<N>) -> bool,
     {
         //! Iterates over all edges defined in the graph.
-        self.enumerated_nodes().all(|(node_idx, node)| f(node_idx, node))
+        self.enumerated_nodes()
+            .all(|(node_idx, node)| f(node_idx, node))
     }
 
     pub fn each_edge<'a, F>(&'a self, mut f: F) -> bool
-        where F: FnMut(EdgeIndex, &'a Edge<E>) -> bool
+    where
+        F: FnMut(EdgeIndex, &'a Edge<E>) -> bool,
     {
         //! Iterates over all edges defined in the graph
-        self.enumerated_edges().all(|(edge_idx, edge)| f(edge_idx, edge))
+        self.enumerated_edges()
+            .all(|(edge_idx, edge)| f(edge_idx, edge))
     }
 
     pub fn outgoing_edges(&self, source: NodeIndex) -> AdjacentEdges<N, E> {
@@ -247,18 +251,19 @@ impl<N: Debug, E: Debug> Graph<N, E> {
         self.incoming_edges(target).sources()
     }
 
-    pub fn depth_traverse<'a>(&'a self,
-                              start: NodeIndex,
-                              direction: Direction)
-                              -> DepthFirstTraversal<'a, N, E> {
+    pub fn depth_traverse<'a>(
+        &'a self,
+        start: NodeIndex,
+        direction: Direction,
+    ) -> DepthFirstTraversal<'a, N, E> {
         DepthFirstTraversal::with_start_node(self, start, direction)
     }
 
-    pub fn nodes_in_postorder<'a>(&'a self,
-                                  direction: Direction,
-                                  entry_node: NodeIndex)
-                                  -> Vec<NodeIndex>
-    {
+    pub fn nodes_in_postorder<'a>(
+        &'a self,
+        direction: Direction,
+        entry_node: NodeIndex,
+    ) -> Vec<NodeIndex> {
         let mut visited = BitVector::new(self.len_nodes());
         let mut stack = vec![];
         let mut result = Vec::with_capacity(self.len_nodes());
@@ -268,7 +273,8 @@ impl<N: Debug, E: Debug> Graph<N, E> {
             }
         };
 
-        for node in Some(entry_node).into_iter()
+        for node in Some(entry_node)
+            .into_iter()
             .chain(self.enumerated_nodes().map(|(node, _)| node))
         {
             push_node(&mut stack, node);
@@ -294,9 +300,10 @@ impl<N: Debug, E: Debug> Graph<N, E> {
 // # Iterators
 
 pub struct EnumeratedNodes<'g, N>
-    where N: 'g,
+where
+    N: 'g,
 {
-    iter: ::std::iter::Enumerate<::std::slice::Iter<'g, Node<N>>>
+    iter: ::std::iter::Enumerate<::std::slice::Iter<'g, Node<N>>>,
 }
 
 impl<'g, N: Debug> Iterator for EnumeratedNodes<'g, N> {
@@ -308,9 +315,10 @@ impl<'g, N: Debug> Iterator for EnumeratedNodes<'g, N> {
 }
 
 pub struct EnumeratedEdges<'g, E>
-    where E: 'g,
+where
+    E: 'g,
 {
-    iter: ::std::iter::Enumerate<::std::slice::Iter<'g, Edge<E>>>
+    iter: ::std::iter::Enumerate<::std::slice::Iter<'g, Edge<E>>>,
 }
 
 impl<'g, E: Debug> Iterator for EnumeratedEdges<'g, E> {
@@ -322,8 +330,9 @@ impl<'g, E: Debug> Iterator for EnumeratedEdges<'g, E> {
 }
 
 pub struct AdjacentEdges<'g, N, E>
-    where N: 'g,
-          E: 'g
+where
+    N: 'g,
+    E: 'g,
 {
     graph: &'g Graph<N, E>,
     direction: Direction,
@@ -356,8 +365,9 @@ impl<'g, N: Debug, E: Debug> Iterator for AdjacentEdges<'g, N, E> {
 }
 
 pub struct AdjacentTargets<'g, N, E>
-    where N: 'g,
-          E: 'g
+where
+    N: 'g,
+    E: 'g,
 {
     edges: AdjacentEdges<'g, N, E>,
 }
@@ -371,8 +381,9 @@ impl<'g, N: Debug, E: Debug> Iterator for AdjacentTargets<'g, N, E> {
 }
 
 pub struct AdjacentSources<'g, N, E>
-    where N: 'g,
-          E: 'g
+where
+    N: 'g,
+    E: 'g,
 {
     edges: AdjacentEdges<'g, N, E>,
 }
@@ -386,8 +397,9 @@ impl<'g, N: Debug, E: Debug> Iterator for AdjacentSources<'g, N, E> {
 }
 
 pub struct DepthFirstTraversal<'g, N, E>
-    where N: 'g,
-          E: 'g
+where
+    N: 'g,
+    E: 'g,
 {
     graph: &'g Graph<N, E>,
     stack: Vec<NodeIndex>,
@@ -396,10 +408,11 @@ pub struct DepthFirstTraversal<'g, N, E>
 }
 
 impl<'g, N: Debug, E: Debug> DepthFirstTraversal<'g, N, E> {
-    pub fn with_start_node(graph: &'g Graph<N, E>,
-                           start_node: NodeIndex,
-                           direction: Direction)
-                           -> Self {
+    pub fn with_start_node(
+        graph: &'g Graph<N, E>,
+        start_node: NodeIndex,
+        direction: Direction,
+    ) -> Self {
         let mut visited = BitVector::new(graph.len_nodes());
         visited.insert(start_node.node_id());
         DepthFirstTraversal {

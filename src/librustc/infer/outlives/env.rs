@@ -9,7 +9,7 @@
 // except according to those terms.
 
 use middle::free_region::FreeRegionMap;
-use infer::{InferCtxt, GenericKind};
+use infer::{GenericKind, InferCtxt};
 use traits::FulfillmentContext;
 use ty::{self, Ty, TypeFoldable};
 use ty::outlives::Component;
@@ -174,8 +174,8 @@ impl<'a, 'gcx: 'tcx, 'tcx: 'a> OutlivesEnvironment<'tcx> {
                     ImpliedBound::RegionSubRegion(
                         r_a @ &ty::ReEarlyBound(_),
                         &ty::ReVar(vid_b),
-                    ) |
-                    ImpliedBound::RegionSubRegion(r_a @ &ty::ReFree(_), &ty::ReVar(vid_b)) => {
+                    )
+                    | ImpliedBound::RegionSubRegion(r_a @ &ty::ReFree(_), &ty::ReVar(vid_b)) => {
                         infcx.add_given(r_a, vid_b);
                     }
                     ImpliedBound::RegionSubParam(r_a, param_b) => {
@@ -264,20 +264,21 @@ impl<'a, 'gcx: 'tcx, 'tcx: 'a> OutlivesEnvironment<'tcx> {
                 obligations
                     .iter()
                     .filter(|o| o.predicate.has_infer_types())
-                    .cloned());
+                    .cloned(),
+            );
 
             // From the full set of obligations, just filter down to the
             // region relationships.
             implied_bounds.extend(obligations.into_iter().flat_map(|obligation| {
                 assert!(!obligation.has_escaping_regions());
                 match obligation.predicate {
-                    ty::Predicate::Trait(..) |
-                    ty::Predicate::Equate(..) |
-                    ty::Predicate::Subtype(..) |
-                    ty::Predicate::Projection(..) |
-                    ty::Predicate::ClosureKind(..) |
-                    ty::Predicate::ObjectSafe(..) |
-                    ty::Predicate::ConstEvaluatable(..) => vec![],
+                    ty::Predicate::Trait(..)
+                    | ty::Predicate::Equate(..)
+                    | ty::Predicate::Subtype(..)
+                    | ty::Predicate::Projection(..)
+                    | ty::Predicate::ClosureKind(..)
+                    | ty::Predicate::ObjectSafe(..)
+                    | ty::Predicate::ConstEvaluatable(..) => vec![],
 
                     ty::Predicate::WellFormed(subty) => {
                         wf_types.push(subty);

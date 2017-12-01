@@ -13,16 +13,16 @@
 
 use schema;
 
-use rustc::hir::def_id::{CRATE_DEF_INDEX, CrateNum, DefIndex};
+use rustc::hir::def_id::{CrateNum, DefIndex, CRATE_DEF_INDEX};
 use rustc::hir::map::definitions::DefPathTable;
 use rustc::hir::svh::Svh;
 use rustc::middle::cstore::{DepKind, ExternCrate, MetadataLoader};
-use rustc::session::{Session, CrateDisambiguator};
+use rustc::session::{CrateDisambiguator, Session};
 use rustc_back::PanicStrategy;
 use rustc_data_structures::indexed_vec::IndexVec;
 use rustc::util::nodemap::{FxHashMap, FxHashSet, NodeMap};
 
-use std::cell::{RefCell, Cell};
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use owning_ref::ErasedBoxRef;
 use syntax::{ast, attr};
@@ -30,7 +30,7 @@ use syntax::ext::base::SyntaxExtension;
 use syntax::symbol::Symbol;
 use syntax_pos;
 
-pub use rustc::middle::cstore::{NativeLibrary, NativeLibraryKind, LinkagePreference};
+pub use rustc::middle::cstore::{LinkagePreference, NativeLibrary, NativeLibraryKind};
 pub use rustc::middle::cstore::NativeLibraryKind::*;
 pub use rustc::middle::cstore::{CrateSource, LibSource};
 
@@ -119,7 +119,8 @@ impl CStore {
     }
 
     pub fn iter_crate_data<I>(&self, mut i: I)
-        where I: FnMut(CrateNum, &Rc<CrateMetadata>)
+    where
+        I: FnMut(CrateNum, &Rc<CrateMetadata>),
     {
         for (&k, v) in self.metas.borrow().iter() {
             i(k, v);
@@ -153,7 +154,7 @@ impl CStore {
         for (&num, _) in self.metas.borrow().iter() {
             self.push_dependencies_in_postorder(&mut ordering, num);
         }
-        return ordering
+        return ordering;
     }
 
     pub fn add_extern_mod_stmt_cnum(&self, emod_id: ast::NodeId, cnum: CrateNum) {
@@ -219,7 +220,7 @@ impl CrateMetadata {
         attr::contains_name(&attrs, "no_builtins")
     }
 
-     pub fn has_copy_closures(&self, sess: &Session) -> bool {
+    pub fn has_copy_closures(&self, sess: &Session) -> bool {
         let attrs = self.get_item_attrs(CRATE_DEF_INDEX, sess);
         attr::contains_feature_attr(&attrs, "copy_closures")
     }

@@ -10,13 +10,13 @@
 
 use llvm::{self, ValueRef};
 use rustc::ty::{self, Ty};
-use rustc::ty::layout::{self, Align, TyLayout, LayoutOf};
+use rustc::ty::layout::{self, Align, LayoutOf, TyLayout};
 use rustc::mir;
 use rustc::mir::tcx::LvalueTy;
 use rustc_data_structures::indexed_vec::Idx;
 use base;
 use builder::Builder;
-use common::{CrateContext, C_usize, C_u8, C_u32, C_uint, C_int, C_null, C_uint_big};
+use common::{C_int, C_null, C_u32, C_u8, C_uint, C_uint_big, C_usize, CrateContext};
 use consts;
 use type_of::LayoutLlvmExt;
 use type_::Type;
@@ -26,7 +26,7 @@ use glue;
 use std::ptr;
 use std::ops;
 
-use super::{MirContext, LocalRef};
+use super::{LocalRef, MirContext};
 use super::operand::{OperandRef, OperandValue};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -40,15 +40,9 @@ impl ops::BitOr for Alignment {
 
     fn bitor(self, rhs: Self) -> Self {
         match (self, rhs) {
-            (Alignment::Packed(a), Alignment::Packed(b)) => {
-                Alignment::Packed(a.min(b))
-            }
-            (Alignment::Packed(x), _) | (_, Alignment::Packed(x)) => {
-                Alignment::Packed(x)
-            }
-            (Alignment::AbiAligned, Alignment::AbiAligned) => {
-                Alignment::AbiAligned
-            }
+            (Alignment::Packed(a), Alignment::Packed(b)) => Alignment::Packed(a.min(b)),
+            (Alignment::Packed(x), _) | (_, Alignment::Packed(x)) => Alignment::Packed(x),
+            (Alignment::AbiAligned, Alignment::AbiAligned) => Alignment::AbiAligned,
         }
     }
 }
@@ -88,20 +82,20 @@ pub struct LvalueRef<'tcx> {
 }
 
 impl<'a, 'tcx> LvalueRef<'tcx> {
-    pub fn new_sized(llval: ValueRef,
-                     layout: TyLayout<'tcx>,
-                     alignment: Alignment)
-                     -> LvalueRef<'tcx> {
+    pub fn new_sized(
+        llval: ValueRef,
+        layout: TyLayout<'tcx>,
+        alignment: Alignment,
+    ) -> LvalueRef<'tcx> {
         LvalueRef {
             llval,
             llextra: ptr::null_mut(),
             layout,
-            alignment
+            alignment,
         }
     }
 
-    pub fn alloca(bcx: &Builder<'a, 'tcx>, layout: TyLayout<'tcx>, name: &str)
-                  -> LvalueRef<'tcx> {
+    pub fn alloca(bcx: &Builder<'a, 'tcx>, layout: TyLayout<'tcx>, name: &str) -> LvalueRef<'tcx> {
         debug!("alloca({:?}: {:?})", name, layout);
         let tmp = bcx.alloca(layout.llvm_type(bcx.ccx), name, layout.align);
         Self::new_sized(tmp, layout, Alignment::AbiAligned)
@@ -198,7 +192,10 @@ impl<'a, 'tcx> LvalueRef<'tcx> {
             OperandValue::Ref(self.llval, self.alignment)
         };
 
-        OperandRef { val, layout: self.layout }
+        OperandRef {
+            val,
+            layout: self.layout,
+        }
     }
 
     /// Access a field, at a point when the value's case is known.
@@ -243,13 +240,16 @@ impl<'a, 'tcx> LvalueRef<'tcx> {
         // any adjusments
         match field.ty.sty {
             ty::TySlice(..) | ty::TyStr | ty::TyForeign(..) => return simple(),
-            _ => ()
+            _ => (),
         }
 
         // There's no metadata available, log the case and just do the GEP.
         if !self.has_extra() {
-            debug!("Unsized field `{}`, of `{:?}` has no metadata for adjustment",
-                ix, Value(self.llval));
+            debug!(
+                "Unsized field `{}`, of `{:?}` has no metadata for adjustment",
+                ix,
+                Value(self.llval)
+            );
             return simple();
         }
 
@@ -282,8 +282,7 @@ impl<'a, 'tcx> LvalueRef<'tcx> {
 
         // Calculate offset
         let align_sub_1 = bcx.sub(align, C_usize(ccx, 1u64));
-        let offset = bcx.and(bcx.add(unaligned_offset, align_sub_1),
-        bcx.neg(align));
+        let offset = bcx.and(bcx.add(unaligned_offset, align_sub_1), bcx.neg(align));
 
         debug!("struct_field_ptr: DST field offset: {:?}", Value(offset));
 
@@ -310,8 +309,7 @@ impl<'a, 'tcx> LvalueRef<'tcx> {
             layout::Variants::Single { index } => {
                 return C_uint(cast_to, index as u64);
             }
-            layout::Variants::Tagged { .. } |
-            layout::Variants::NicheFilling { .. } => {},
+            layout::Variants::Tagged { .. } | layout::Variants::NicheFilling { .. } => {}
         }
 
         let discr = self.project_field(bcx, 0);
@@ -321,7 +319,7 @@ impl<'a, 'tcx> LvalueRef<'tcx> {
             layout::Variants::Tagged { ref discr, .. } => {
                 let signed = match discr.value {
                     layout::Int(_, signed) => signed,
-                    _ => false
+                    _ => false,
                 };
                 bcx.intcast(lldiscr, cast_to, signed)
             }
@@ -340,17 +338,21 @@ impl<'a, 'tcx> LvalueRef<'tcx> {
                     } else {
                         C_uint_big(niche_llty, niche_start)
                     };
-                    bcx.select(bcx.icmp(llvm::IntEQ, lldiscr, niche_llval),
+                    bcx.select(
+                        bcx.icmp(llvm::IntEQ, lldiscr, niche_llval),
                         C_uint(cast_to, niche_variants.start as u64),
-                        C_uint(cast_to, dataful_variant as u64))
+                        C_uint(cast_to, dataful_variant as u64),
+                    )
                 } else {
                     // Rebase from niche values to discriminant values.
                     let delta = niche_start.wrapping_sub(niche_variants.start as u128);
                     let lldiscr = bcx.sub(lldiscr, C_uint_big(niche_llty, delta));
                     let lldiscr_max = C_uint(niche_llty, niche_variants.end as u64);
-                    bcx.select(bcx.icmp(llvm::IntULE, lldiscr, lldiscr_max),
+                    bcx.select(
+                        bcx.icmp(llvm::IntULE, lldiscr, lldiscr_max),
                         bcx.intcast(lldiscr, cast_to, false),
-                        C_uint(cast_to, dataful_variant as u64))
+                        C_uint(cast_to, dataful_variant as u64),
+                    )
                 }
             }
         }
@@ -364,17 +366,25 @@ impl<'a, 'tcx> LvalueRef<'tcx> {
                 if index != variant_index {
                     // If the layout of an enum is `Single`, all
                     // other variants are necessarily uninhabited.
-                    assert_eq!(self.layout.for_variant(bcx.ccx, variant_index).abi,
-                               layout::Abi::Uninhabited);
+                    assert_eq!(
+                        self.layout.for_variant(bcx.ccx, variant_index).abi,
+                        layout::Abi::Uninhabited
+                    );
                 }
             }
             layout::Variants::Tagged { .. } => {
                 let ptr = self.project_field(bcx, 0);
-                let to = self.layout.ty.ty_adt_def().unwrap()
+                let to = self.layout
+                    .ty
+                    .ty_adt_def()
+                    .unwrap()
                     .discriminant_for_variant(bcx.tcx(), variant_index)
                     .to_u128_unchecked() as u64;
-                bcx.store(C_int(ptr.layout.llvm_type(bcx.ccx), to as i64),
-                    ptr.llval, ptr.alignment.non_abi());
+                bcx.store(
+                    C_int(ptr.layout.llvm_type(bcx.ccx), to as i64),
+                    ptr.llval,
+                    ptr.alignment.non_abi(),
+                );
             }
             layout::Variants::NicheFilling {
                 dataful_variant,
@@ -383,8 +393,9 @@ impl<'a, 'tcx> LvalueRef<'tcx> {
                 ..
             } => {
                 if variant_index != dataful_variant {
-                    if bcx.sess().target.target.arch == "arm" ||
-                       bcx.sess().target.target.arch == "aarch64" {
+                    if bcx.sess().target.target.arch == "arm"
+                        || bcx.sess().target.target.arch == "aarch64"
+                    {
                         // Issue #34427: As workaround for LLVM bug on ARM,
                         // use memset of 0 before assigning niche value.
                         let llptr = bcx.pointercast(self.llval, Type::i8(bcx.ccx).ptr_to());
@@ -397,8 +408,8 @@ impl<'a, 'tcx> LvalueRef<'tcx> {
 
                     let niche = self.project_field(bcx, 0);
                     let niche_llty = niche.layout.immediate_llvm_type(bcx.ccx);
-                    let niche_value = ((variant_index - niche_variants.start) as u128)
-                        .wrapping_add(niche_start);
+                    let niche_value =
+                        ((variant_index - niche_variants.start) as u128).wrapping_add(niche_start);
                     // FIXME(eddyb) Check the actual primitive type here.
                     let niche_llval = if niche_value == 0 {
                         // HACK(eddyb) Using `C_null` as it works on all types.
@@ -412,18 +423,20 @@ impl<'a, 'tcx> LvalueRef<'tcx> {
         }
     }
 
-    pub fn project_index(&self, bcx: &Builder<'a, 'tcx>, llindex: ValueRef)
-                         -> LvalueRef<'tcx> {
+    pub fn project_index(&self, bcx: &Builder<'a, 'tcx>, llindex: ValueRef) -> LvalueRef<'tcx> {
         LvalueRef {
             llval: bcx.inbounds_gep(self.llval, &[C_usize(bcx.ccx, 0), llindex]),
             llextra: ptr::null_mut(),
             layout: self.layout.field(bcx.ccx, 0),
-            alignment: self.alignment
+            alignment: self.alignment,
         }
     }
 
-    pub fn project_downcast(&self, bcx: &Builder<'a, 'tcx>, variant_index: usize)
-                            -> LvalueRef<'tcx> {
+    pub fn project_downcast(
+        &self,
+        bcx: &Builder<'a, 'tcx>,
+        variant_index: usize,
+    ) -> LvalueRef<'tcx> {
         let mut downcast = *self;
         downcast.layout = self.layout.for_variant(bcx.ccx, variant_index);
 
@@ -444,10 +457,11 @@ impl<'a, 'tcx> LvalueRef<'tcx> {
 }
 
 impl<'a, 'tcx> MirContext<'a, 'tcx> {
-    pub fn trans_lvalue(&mut self,
-                        bcx: &Builder<'a, 'tcx>,
-                        lvalue: &mir::Lvalue<'tcx>)
-                        -> LvalueRef<'tcx> {
+    pub fn trans_lvalue(
+        &mut self,
+        bcx: &Builder<'a, 'tcx>,
+        lvalue: &mir::Lvalue<'tcx>,
+    ) -> LvalueRef<'tcx> {
         debug!("trans_lvalue(lvalue={:?})", lvalue);
 
         let ccx = bcx.ccx;
@@ -466,14 +480,14 @@ impl<'a, 'tcx> MirContext<'a, 'tcx> {
 
         let result = match *lvalue {
             mir::Lvalue::Local(_) => bug!(), // handled above
-            mir::Lvalue::Static(box mir::Static { def_id, ty }) => {
-                LvalueRef::new_sized(consts::get_static(ccx, def_id),
-                                     ccx.layout_of(self.monomorphize(&ty)),
-                                     Alignment::AbiAligned)
-            },
+            mir::Lvalue::Static(box mir::Static { def_id, ty }) => LvalueRef::new_sized(
+                consts::get_static(ccx, def_id),
+                ccx.layout_of(self.monomorphize(&ty)),
+                Alignment::AbiAligned,
+            ),
             mir::Lvalue::Projection(box mir::Projection {
                 ref base,
-                elem: mir::ProjectionElem::Deref
+                elem: mir::ProjectionElem::Deref,
             }) => {
                 // Load the pointer from its location.
                 self.trans_consume(bcx, base).deref(bcx.ccx)
@@ -492,43 +506,51 @@ impl<'a, 'tcx> MirContext<'a, 'tcx> {
                         let llindex = index.immediate();
                         tr_base.project_index(bcx, llindex)
                     }
-                    mir::ProjectionElem::ConstantIndex { offset,
-                                                         from_end: false,
-                                                         min_length: _ } => {
+                    mir::ProjectionElem::ConstantIndex {
+                        offset,
+                        from_end: false,
+                        min_length: _,
+                    } => {
                         let lloffset = C_usize(bcx.ccx, offset as u64);
                         tr_base.project_index(bcx, lloffset)
                     }
-                    mir::ProjectionElem::ConstantIndex { offset,
-                                                         from_end: true,
-                                                         min_length: _ } => {
+                    mir::ProjectionElem::ConstantIndex {
+                        offset,
+                        from_end: true,
+                        min_length: _,
+                    } => {
                         let lloffset = C_usize(bcx.ccx, offset as u64);
                         let lllen = tr_base.len(bcx.ccx);
                         let llindex = bcx.sub(lllen, lloffset);
                         tr_base.project_index(bcx, llindex)
                     }
                     mir::ProjectionElem::Subslice { from, to } => {
-                        let mut subslice = tr_base.project_index(bcx,
-                            C_usize(bcx.ccx, from as u64));
-                        let projected_ty = LvalueTy::Ty { ty: tr_base.layout.ty }
-                            .projection_ty(tcx, &projection.elem).to_ty(bcx.tcx());
+                        let mut subslice =
+                            tr_base.project_index(bcx, C_usize(bcx.ccx, from as u64));
+                        let projected_ty = LvalueTy::Ty {
+                            ty: tr_base.layout.ty,
+                        }.projection_ty(tcx, &projection.elem)
+                            .to_ty(bcx.tcx());
                         subslice.layout = bcx.ccx.layout_of(self.monomorphize(&projected_ty));
 
                         if subslice.layout.is_unsized() {
                             assert!(tr_base.has_extra());
-                            subslice.llextra = bcx.sub(tr_base.llextra,
-                                C_usize(bcx.ccx, (from as u64) + (to as u64)));
+                            subslice.llextra = bcx.sub(
+                                tr_base.llextra,
+                                C_usize(bcx.ccx, (from as u64) + (to as u64)),
+                            );
                         }
 
                         // Cast the lvalue pointer type to the new
                         // array or slice type (*[%_; new_len]).
-                        subslice.llval = bcx.pointercast(subslice.llval,
-                            subslice.layout.llvm_type(bcx.ccx).ptr_to());
+                        subslice.llval = bcx.pointercast(
+                            subslice.llval,
+                            subslice.layout.llvm_type(bcx.ccx).ptr_to(),
+                        );
 
                         subslice
                     }
-                    mir::ProjectionElem::Downcast(_, v) => {
-                        tr_base.project_downcast(bcx, v)
-                    }
+                    mir::ProjectionElem::Downcast(_, v) => tr_base.project_downcast(bcx, v),
                 }
             }
         };
@@ -542,4 +564,3 @@ impl<'a, 'tcx> MirContext<'a, 'tcx> {
         self.monomorphize(&lvalue_ty.to_ty(tcx))
     }
 }
-

@@ -53,30 +53,30 @@ pub struct Module {
 impl Module {
     pub fn new(name: Option<Name>) -> Module {
         Module {
-            name       : name,
+            name: name,
             id: ast::CRATE_NODE_ID,
             vis: hir::Inherited,
             stab: None,
             depr: None,
             where_outer: syntax_pos::DUMMY_SP,
             where_inner: syntax_pos::DUMMY_SP,
-            attrs      : hir::HirVec::new(),
+            attrs: hir::HirVec::new(),
             extern_crates: Vec::new(),
-            imports    : Vec::new(),
-            structs    : Vec::new(),
-            unions     : Vec::new(),
-            enums      : Vec::new(),
-            fns        : Vec::new(),
-            mods       : Vec::new(),
-            typedefs   : Vec::new(),
-            statics    : Vec::new(),
-            constants  : Vec::new(),
-            traits     : Vec::new(),
-            impls      : Vec::new(),
-            def_traits : Vec::new(),
-            foreigns   : Vec::new(),
-            macros     : Vec::new(),
-            is_crate   : false,
+            imports: Vec::new(),
+            structs: Vec::new(),
+            unions: Vec::new(),
+            enums: Vec::new(),
+            fns: Vec::new(),
+            mods: Vec::new(),
+            typedefs: Vec::new(),
+            statics: Vec::new(),
+            constants: Vec::new(),
+            traits: Vec::new(),
+            impls: Vec::new(),
+            def_traits: Vec::new(),
+            foreigns: Vec::new(),
+            macros: Vec::new(),
+            is_crate: false,
         }
     }
 }
@@ -93,7 +93,7 @@ pub enum StructType {
 
 pub enum TypeBound {
     RegionBound,
-    TraitBound(hir::TraitRef)
+    TraitBound(hir::TraitRef),
 }
 
 pub struct Struct {

@@ -14,44 +14,55 @@
 
 use fmt;
 
-#[cfg(any(all(target_os = "linux", any(target_arch = "aarch64",
-                                       target_arch = "arm",
-                                       target_arch = "powerpc",
-                                       target_arch = "powerpc64",
-                                       target_arch = "s390x")),
-          all(target_os = "android", any(target_arch = "aarch64",
-                                         target_arch = "arm")),
+#[cfg(any(all(target_os = "linux",
+              any(target_arch = "aarch64", target_arch = "arm", target_arch = "powerpc",
+                  target_arch = "powerpc64", target_arch = "s390x")),
+          all(target_os = "android", any(target_arch = "aarch64", target_arch = "arm")),
           all(target_os = "l4re", target_arch = "x86_64"),
           all(target_os = "fuchsia", target_arch = "aarch64")))]
-#[stable(feature = "raw_os", since = "1.1.0")] pub type c_char = u8;
-#[cfg(not(any(all(target_os = "linux", any(target_arch = "aarch64",
-                                           target_arch = "arm",
-                                           target_arch = "powerpc",
-                                           target_arch = "powerpc64",
-                                           target_arch = "s390x")),
-              all(target_os = "android", any(target_arch = "aarch64",
-                                             target_arch = "arm")),
+#[stable(feature = "raw_os", since = "1.1.0")]
+pub type c_char = u8;
+#[cfg(not(any(all(target_os = "linux",
+                  any(target_arch = "aarch64", target_arch = "arm",
+                      target_arch = "powerpc", target_arch = "powerpc64",
+                      target_arch = "s390x")),
+              all(target_os = "android", any(target_arch = "aarch64", target_arch = "arm")),
               all(target_os = "l4re", target_arch = "x86_64"),
               all(target_os = "fuchsia", target_arch = "aarch64"))))]
-#[stable(feature = "raw_os", since = "1.1.0")] pub type c_char = i8;
-#[stable(feature = "raw_os", since = "1.1.0")] pub type c_schar = i8;
-#[stable(feature = "raw_os", since = "1.1.0")] pub type c_uchar = u8;
-#[stable(feature = "raw_os", since = "1.1.0")] pub type c_short = i16;
-#[stable(feature = "raw_os", since = "1.1.0")] pub type c_ushort = u16;
-#[stable(feature = "raw_os", since = "1.1.0")] pub type c_int = i32;
-#[stable(feature = "raw_os", since = "1.1.0")] pub type c_uint = u32;
+#[stable(feature = "raw_os", since = "1.1.0")]
+pub type c_char = i8;
+#[stable(feature = "raw_os", since = "1.1.0")]
+pub type c_schar = i8;
+#[stable(feature = "raw_os", since = "1.1.0")]
+pub type c_uchar = u8;
+#[stable(feature = "raw_os", since = "1.1.0")]
+pub type c_short = i16;
+#[stable(feature = "raw_os", since = "1.1.0")]
+pub type c_ushort = u16;
+#[stable(feature = "raw_os", since = "1.1.0")]
+pub type c_int = i32;
+#[stable(feature = "raw_os", since = "1.1.0")]
+pub type c_uint = u32;
 #[cfg(any(target_pointer_width = "32", windows))]
-#[stable(feature = "raw_os", since = "1.1.0")] pub type c_long = i32;
+#[stable(feature = "raw_os", since = "1.1.0")]
+pub type c_long = i32;
 #[cfg(any(target_pointer_width = "32", windows))]
-#[stable(feature = "raw_os", since = "1.1.0")] pub type c_ulong = u32;
+#[stable(feature = "raw_os", since = "1.1.0")]
+pub type c_ulong = u32;
 #[cfg(all(target_pointer_width = "64", not(windows)))]
-#[stable(feature = "raw_os", since = "1.1.0")] pub type c_long = i64;
+#[stable(feature = "raw_os", since = "1.1.0")]
+pub type c_long = i64;
 #[cfg(all(target_pointer_width = "64", not(windows)))]
-#[stable(feature = "raw_os", since = "1.1.0")] pub type c_ulong = u64;
-#[stable(feature = "raw_os", since = "1.1.0")] pub type c_longlong = i64;
-#[stable(feature = "raw_os", since = "1.1.0")] pub type c_ulonglong = u64;
-#[stable(feature = "raw_os", since = "1.1.0")] pub type c_float = f32;
-#[stable(feature = "raw_os", since = "1.1.0")] pub type c_double = f64;
+#[stable(feature = "raw_os", since = "1.1.0")]
+pub type c_ulong = u64;
+#[stable(feature = "raw_os", since = "1.1.0")]
+pub type c_longlong = i64;
+#[stable(feature = "raw_os", since = "1.1.0")]
+pub type c_ulonglong = u64;
+#[stable(feature = "raw_os", since = "1.1.0")]
+pub type c_float = f32;
+#[stable(feature = "raw_os", since = "1.1.0")]
+pub type c_double = f64;
 
 /// Type used to construct void pointers for use with C.
 ///
@@ -67,12 +78,12 @@ use fmt;
 #[repr(u8)]
 #[stable(feature = "raw_os", since = "1.1.0")]
 pub enum c_void {
-    #[unstable(feature = "c_void_variant", reason = "should not have to exist",
-               issue = "0")]
-    #[doc(hidden)] __variant1,
-    #[unstable(feature = "c_void_variant", reason = "should not have to exist",
-               issue = "0")]
-    #[doc(hidden)] __variant2,
+    #[unstable(feature = "c_void_variant", reason = "should not have to exist", issue = "0")]
+    #[doc(hidden)]
+    __variant1,
+    #[unstable(feature = "c_void_variant", reason = "should not have to exist", issue = "0")]
+    #[doc(hidden)]
+    __variant2,
 }
 
 #[stable(feature = "std_debug", since = "1.16.0")]

@@ -17,7 +17,7 @@ use infer::lexical_region_resolve::RegionResolutionError::*;
 use infer::lexical_region_resolve::RegionResolutionError;
 use hir::map as hir_map;
 use middle::resolve_lifetime as rl;
-use hir::intravisit::{self, Visitor, NestedVisitorMap};
+use hir::intravisit::{self, NestedVisitorMap, Visitor};
 use infer::error_reporting::util::AnonymousArgInfo;
 
 impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
@@ -77,22 +77,28 @@ impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
 
         let ty_sub = or_false!(self.find_anon_type(sub, &bregion_sub));
 
-        debug!("try_report_anon_anon_conflict: found_arg1={:?} sup={:?} br1={:?}",
-               ty_sub,
-               sup,
-               bregion_sup);
-        debug!("try_report_anon_anon_conflict: found_arg2={:?} sub={:?} br2={:?}",
-               ty_sup,
-               sub,
-               bregion_sub);
+        debug!(
+            "try_report_anon_anon_conflict: found_arg1={:?} sup={:?} br1={:?}",
+            ty_sub,
+            sup,
+            bregion_sup
+        );
+        debug!(
+            "try_report_anon_anon_conflict: found_arg2={:?} sub={:?} br2={:?}",
+            ty_sup,
+            sub,
+            bregion_sub
+        );
 
         let (ty_sup, ty_fndecl_sup) = ty_sup;
         let (ty_sub, ty_fndecl_sub) = ty_sub;
 
-        let AnonymousArgInfo { arg: anon_arg_sup, .. } =
-            or_false!(self.find_arg_with_region(sup, sup));
-        let AnonymousArgInfo { arg: anon_arg_sub, .. } =
-            or_false!(self.find_arg_with_region(sub, sub));
+        let AnonymousArgInfo {
+            arg: anon_arg_sup, ..
+        } = or_false!(self.find_arg_with_region(sup, sup));
+        let AnonymousArgInfo {
+            arg: anon_arg_sub, ..
+        } = or_false!(self.find_arg_with_region(sub, sub));
 
         let sup_is_ret_type =
             self.is_return_type_anon(scope_def_id_sup, bregion_sup, ty_fndecl_sup);
@@ -115,34 +121,45 @@ impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
         let (span_1, span_2, main_label, span_label) = match (sup_is_ret_type, sub_is_ret_type) {
             (None, None) => {
                 let (main_label_1, span_label_1) = if ty_sup == ty_sub {
-
-                    (format!("this type is declared with multiple lifetimes..."),
-                     format!("...but data{} flows{} here",
-                             format!(" with one lifetime"),
-                             format!(" into the other")))
+                    (
+                        format!("this type is declared with multiple lifetimes..."),
+                        format!(
+                            "...but data{} flows{} here",
+                            format!(" with one lifetime"),
+                            format!(" into the other")
+                        ),
+                    )
                 } else {
-                    (format!("these two types are declared with different lifetimes..."),
-                     format!("...but data{} flows{} here",
-                             span_label_var1,
-                             span_label_var2))
+                    (
+                        format!("these two types are declared with different lifetimes..."),
+                        format!(
+                            "...but data{} flows{} here",
+                            span_label_var1,
+                            span_label_var2
+                        ),
+                    )
                 };
                 (ty_sup.span, ty_sub.span, main_label_1, span_label_1)
             }
 
-            (Some(ret_span), _) => {
-                (ty_sub.span,
-                 ret_span,
-                 format!("this parameter and the return type are declared \
-                          with different lifetimes...",),
-                 format!("...but data{} is returned here", span_label_var1))
-            }
-            (_, Some(ret_span)) => {
-                (ty_sup.span,
-                 ret_span,
-                 format!("this parameter and the return type are declared \
-                          with different lifetimes...",),
-                 format!("...but data{} is returned here", span_label_var1))
-            }
+            (Some(ret_span), _) => (
+                ty_sub.span,
+                ret_span,
+                format!(
+                    "this parameter and the return type are declared \
+                     with different lifetimes...",
+                ),
+                format!("...but data{} is returned here", span_label_var1),
+            ),
+            (_, Some(ret_span)) => (
+                ty_sup.span,
+                ret_span,
+                format!(
+                    "this parameter and the return type are declared \
+                     with different lifetimes...",
+                ),
+                format!("...but data{} is returned here", span_label_var1),
+            ),
         };
 
 
@@ -169,32 +186,36 @@ impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
     /// ```
     /// The function returns the nested type corresponding to the anonymous region
     /// for e.g. `&u8` and Vec<`&u8`.
-    pub fn find_anon_type(&self,
-                          region: Region<'tcx>,
-                          br: &ty::BoundRegion)
-                          -> Option<(&hir::Ty, &hir::FnDecl)> {
+    pub fn find_anon_type(
+        &self,
+        region: Region<'tcx>,
+        br: &ty::BoundRegion,
+    ) -> Option<(&hir::Ty, &hir::FnDecl)> {
         if let Some(anon_reg) = self.is_suitable_region(region) {
             let def_id = anon_reg.def_id;
             if let Some(node_id) = self.tcx.hir.as_local_node_id(def_id) {
                 let fndecl = match self.tcx.hir.get(node_id) {
-                    hir_map::NodeItem(&hir::Item { node: hir::ItemFn(ref fndecl, ..), .. }) => {
-                        &fndecl
-                    }
+                    hir_map::NodeItem(&hir::Item {
+                        node: hir::ItemFn(ref fndecl, ..),
+                        ..
+                    }) => &fndecl,
                     hir_map::NodeTraitItem(&hir::TraitItem {
-                                               node: hir::TraitItemKind::Method(ref m, ..), ..
-                                           }) |
-                    hir_map::NodeImplItem(&hir::ImplItem {
-                                              node: hir::ImplItemKind::Method(ref m, ..), ..
-                                          }) => &m.decl,
+                        node: hir::TraitItemKind::Method(ref m, ..),
+                        ..
+                    })
+                    | hir_map::NodeImplItem(&hir::ImplItem {
+                        node: hir::ImplItemKind::Method(ref m, ..),
+                        ..
+                    }) => &m.decl,
                     _ => return None,
                 };
 
                 return fndecl
-                           .inputs
-                           .iter()
-                           .filter_map(|arg| self.find_component_for_bound_region(arg, br))
-                           .next()
-                           .map(|ty| (ty, &**fndecl));
+                    .inputs
+                    .iter()
+                    .filter_map(|arg| self.find_component_for_bound_region(arg, br))
+                    .next()
+                    .map(|ty| (ty, &**fndecl));
             }
         }
         None
@@ -202,10 +223,11 @@ impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
 
     // This method creates a FindNestedTypeVisitor which returns the type corresponding
     // to the anonymous region.
-    fn find_component_for_bound_region(&self,
-                                       arg: &'gcx hir::Ty,
-                                       br: &ty::BoundRegion)
-                                       -> Option<(&'gcx hir::Ty)> {
+    fn find_component_for_bound_region(
+        &self,
+        arg: &'gcx hir::Ty,
+        br: &ty::BoundRegion,
+    ) -> Option<(&'gcx hir::Ty)> {
         let mut nested_visitor = FindNestedTypeVisitor {
             infcx: &self,
             hir_map: &self.tcx.hir,
@@ -251,13 +273,11 @@ impl<'a, 'gcx, 'tcx> Visitor<'gcx> for FindNestedTypeVisitor<'a, 'gcx, 'tcx> {
                 return;
             }
 
-            hir::TyTraitObject(ref bounds, _) => {
-                for bound in bounds {
-                    self.depth += 1;
-                    self.visit_poly_trait_ref(bound, hir::TraitBoundModifier::None);
-                    self.depth -= 1;
-                }
-            }
+            hir::TyTraitObject(ref bounds, _) => for bound in bounds {
+                self.depth += 1;
+                self.visit_poly_trait_ref(bound, hir::TraitBoundModifier::None);
+                self.depth -= 1;
+            },
 
             hir::TyRptr(ref lifetime, _) => {
                 // the lifetime of the TyRptr
@@ -266,12 +286,16 @@ impl<'a, 'gcx, 'tcx> Visitor<'gcx> for FindNestedTypeVisitor<'a, 'gcx, 'tcx> {
                     // Find the index of the anonymous region that was part of the
                     // error. We will then search the function parameters for a bound
                     // region at the right depth with the same index
-                    (Some(rl::Region::LateBoundAnon(debruijn_index, anon_index)),
-                     ty::BrAnon(br_index)) => {
-                        debug!("LateBoundAnon depth = {:?} anon_index = {:?} br_index={:?}",
-                               debruijn_index.depth,
-                               anon_index,
-                               br_index);
+                    (
+                        Some(rl::Region::LateBoundAnon(debruijn_index, anon_index)),
+                        ty::BrAnon(br_index),
+                    ) => {
+                        debug!(
+                            "LateBoundAnon depth = {:?} anon_index = {:?} br_index={:?}",
+                            debruijn_index.depth,
+                            anon_index,
+                            br_index
+                        );
                         if debruijn_index.depth == self.depth && anon_index == br_index {
                             self.found_type = Some(arg);
                             return; // we can stop visiting now
@@ -282,8 +306,12 @@ impl<'a, 'gcx, 'tcx> Visitor<'gcx> for FindNestedTypeVisitor<'a, 'gcx, 'tcx> {
                     // error. We will then search the function parameters for a bound
                     // region at the right depth with the same index
                     (Some(rl::Region::EarlyBound(_, id, _)), ty::BrNamed(def_id, _)) => {
-                        debug!("EarlyBound self.infcx.tcx.hir.local_def_id(id)={:?} \
-                                        def_id={:?}", id, def_id);
+                        debug!(
+                            "EarlyBound self.infcx.tcx.hir.local_def_id(id)={:?} \
+                             def_id={:?}",
+                            id,
+                            def_id
+                        );
                         if id == def_id {
                             self.found_type = Some(arg);
                             return; // we can stop visiting now
@@ -294,11 +322,13 @@ impl<'a, 'gcx, 'tcx> Visitor<'gcx> for FindNestedTypeVisitor<'a, 'gcx, 'tcx> {
                     // error. We will then search the function parameters for a bound
                     // region at the right depth with the same index
                     (
-                     Some(rl::Region::LateBound(debruijn_index, id, _)),
-                     ty::BrNamed(def_id, _)
+                        Some(rl::Region::LateBound(debruijn_index, id, _)),
+                        ty::BrNamed(def_id, _),
                     ) => {
-                        debug!("FindNestedTypeVisitor::visit_ty: LateBound depth = {:?}",
-                               debruijn_index.depth);
+                        debug!(
+                            "FindNestedTypeVisitor::visit_ty: LateBound depth = {:?}",
+                            debruijn_index.depth
+                        );
                         debug!("self.infcx.tcx.hir.local_def_id(id)={:?}", id);
                         debug!("def_id={:?}", def_id);
                         if debruijn_index.depth == self.depth && id == def_id {
@@ -307,12 +337,12 @@ impl<'a, 'gcx, 'tcx> Visitor<'gcx> for FindNestedTypeVisitor<'a, 'gcx, 'tcx> {
                         }
                     }
 
-                    (Some(rl::Region::Static), _) |
-                    (Some(rl::Region::Free(_, _)), _) |
-                    (Some(rl::Region::EarlyBound(_, _, _)), _) |
-                    (Some(rl::Region::LateBound(_, _, _)), _) |
-                    (Some(rl::Region::LateBoundAnon(_, _)), _) |
-                    (None, _) => {
+                    (Some(rl::Region::Static), _)
+                    | (Some(rl::Region::Free(_, _)), _)
+                    | (Some(rl::Region::EarlyBound(_, _, _)), _)
+                    | (Some(rl::Region::LateBound(_, _, _)), _)
+                    | (Some(rl::Region::LateBoundAnon(_, _)), _)
+                    | (None, _) => {
                         debug!("no arg found");
                     }
                 }
@@ -320,14 +350,14 @@ impl<'a, 'gcx, 'tcx> Visitor<'gcx> for FindNestedTypeVisitor<'a, 'gcx, 'tcx> {
             // Checks if it is of type `hir::TyPath` which corresponds to a struct.
             hir::TyPath(_) => {
                 let subvisitor = &mut TyPathVisitor {
-                                          infcx: self.infcx,
-                                          found_it: false,
-                                          bound_region: self.bound_region,
-                                          hir_map: self.hir_map,
-                                          depth: self.depth,
-                                      };
+                    infcx: self.infcx,
+                    found_it: false,
+                    bound_region: self.bound_region,
+                    hir_map: self.hir_map,
+                    depth: self.depth,
+                };
                 intravisit::walk_ty(subvisitor, arg); // call walk_ty; as visit_ty is empty,
-                // this will visit only outermost type
+                                                      // this will visit only outermost type
                 if subvisitor.found_it {
                     self.found_type = Some(arg);
                 }
@@ -360,7 +390,6 @@ impl<'a, 'gcx, 'tcx> Visitor<'gcx> for TyPathVisitor<'a, 'gcx, 'tcx> {
     }
 
     fn visit_lifetime(&mut self, lifetime: &hir::Lifetime) {
-
         let hir_id = self.infcx.tcx.hir.node_to_hir_id(lifetime.id);
         match (self.infcx.tcx.named_region(hir_id), self.bound_region) {
             // the lifetime of the TyPath!
@@ -372,8 +401,12 @@ impl<'a, 'gcx, 'tcx> Visitor<'gcx> for TyPathVisitor<'a, 'gcx, 'tcx> {
             }
 
             (Some(rl::Region::EarlyBound(_, id, _)), ty::BrNamed(def_id, _)) => {
-                debug!("EarlyBound self.infcx.tcx.hir.local_def_id(id)={:?} \
-                                        def_id={:?}", id, def_id);
+                debug!(
+                    "EarlyBound self.infcx.tcx.hir.local_def_id(id)={:?} \
+                     def_id={:?}",
+                    id,
+                    def_id
+                );
                 if id == def_id {
                     self.found_it = true;
                     return; // we can stop visiting now
@@ -381,8 +414,10 @@ impl<'a, 'gcx, 'tcx> Visitor<'gcx> for TyPathVisitor<'a, 'gcx, 'tcx> {
             }
 
             (Some(rl::Region::LateBound(debruijn_index, id, _)), ty::BrNamed(def_id, _)) => {
-                debug!("FindNestedTypeVisitor::visit_ty: LateBound depth = {:?}",
-                       debruijn_index.depth);
+                debug!(
+                    "FindNestedTypeVisitor::visit_ty: LateBound depth = {:?}",
+                    debruijn_index.depth
+                );
                 debug!("id={:?}", id);
                 debug!("def_id={:?}", def_id);
                 if debruijn_index.depth == self.depth && id == def_id {
@@ -391,12 +426,12 @@ impl<'a, 'gcx, 'tcx> Visitor<'gcx> for TyPathVisitor<'a, 'gcx, 'tcx> {
                 }
             }
 
-            (Some(rl::Region::Static), _) |
-            (Some(rl::Region::EarlyBound(_, _, _)), _) |
-            (Some(rl::Region::LateBound(_, _, _)), _) |
-            (Some(rl::Region::LateBoundAnon(_, _)), _) |
-            (Some(rl::Region::Free(_, _)), _) |
-            (None, _) => {
+            (Some(rl::Region::Static), _)
+            | (Some(rl::Region::EarlyBound(_, _, _)), _)
+            | (Some(rl::Region::LateBound(_, _, _)), _)
+            | (Some(rl::Region::LateBoundAnon(_, _)), _)
+            | (Some(rl::Region::Free(_, _)), _)
+            | (None, _) => {
                 debug!("no arg found");
             }
         }

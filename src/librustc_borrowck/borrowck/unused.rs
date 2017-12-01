@@ -8,7 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use rustc::hir::intravisit::{Visitor, NestedVisitorMap};
+use rustc::hir::intravisit::{NestedVisitorMap, Visitor};
 use rustc::hir::{self, HirId};
 use rustc::lint::builtin::UNUSED_MUT;
 use rustc::ty;
@@ -51,7 +51,7 @@ impl<'a, 'tcx> UnusedMutCx<'a, 'tcx> {
 
                 // Skip anything that looks like `_foo`
                 if name.as_str().starts_with("_") {
-                    return
+                    return;
                 }
 
                 // Skip anything that looks like `&foo` or `&mut foo`, only look
@@ -66,7 +66,10 @@ impl<'a, 'tcx> UnusedMutCx<'a, 'tcx> {
                     _ => return,
                 }
 
-                mutables.entry(name).or_insert(Vec::new()).push((id, hir_id, span));
+                mutables
+                    .entry(name)
+                    .or_insert(Vec::new())
+                    .push((id, hir_id, span));
             });
         }
 
@@ -74,18 +77,19 @@ impl<'a, 'tcx> UnusedMutCx<'a, 'tcx> {
             // If any id for this name was used mutably then consider them all
             // ok, so move on to the next
             if ids.iter().any(|&(_, ref id, _)| self.used_mut.contains(id)) {
-                continue
+                continue;
             }
 
             let mut_span = tcx.sess.codemap().span_until_char(ids[0].2, ' ');
 
             // Ok, every name wasn't used mutably, so issue a warning that this
             // didn't need to be mutable.
-            tcx.struct_span_lint_node(UNUSED_MUT,
-                                      ids[0].0,
-                                      ids[0].2,
-                                      "variable does not need to be mutable")
-                .span_suggestion_short(mut_span, "remove this `mut`", "".to_owned())
+            tcx.struct_span_lint_node(
+                UNUSED_MUT,
+                ids[0].0,
+                ids[0].2,
+                "variable does not need to be mutable",
+            ).span_suggestion_short(mut_span, "remove this `mut`", "".to_owned())
                 .emit();
         }
     }
@@ -112,7 +116,14 @@ impl<'a, 'tcx> Visitor<'tcx> for UsedMutFinder<'a, 'tcx> {
 
     fn visit_nested_body(&mut self, id: hir::BodyId) {
         let def_id = self.bccx.tcx.hir.body_owner_def_id(id);
-        self.set.extend(self.bccx.tcx.borrowck(def_id).used_mut_nodes.iter().cloned());
+        self.set.extend(
+            self.bccx
+                .tcx
+                .borrowck(def_id)
+                .used_mut_nodes
+                .iter()
+                .cloned(),
+        );
         self.visit_body(self.bccx.tcx.hir.body(id));
     }
 }

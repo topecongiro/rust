@@ -89,7 +89,7 @@
 /// ```
 #[stable(feature = "rust1", since = "1.0.0")]
 #[lang = "clone"]
-pub trait Clone : Sized {
+pub trait Clone: Sized {
     /// Returns a copy of the value.
     ///
     /// # Examples
@@ -120,13 +120,15 @@ pub trait Clone : Sized {
 // These structs should never appear in user code.
 #[doc(hidden)]
 #[allow(missing_debug_implementations)]
-#[unstable(feature = "derive_clone_copy",
-           reason = "deriving hack, should not be public",
+#[unstable(feature = "derive_clone_copy", reason = "deriving hack, should not be public",
            issue = "0")]
-pub struct AssertParamIsClone<T: Clone + ?Sized> { _field: ::marker::PhantomData<T> }
+pub struct AssertParamIsClone<T: Clone + ?Sized> {
+    _field: ::marker::PhantomData<T>,
+}
 #[doc(hidden)]
 #[allow(missing_debug_implementations)]
-#[unstable(feature = "derive_clone_copy",
-           reason = "deriving hack, should not be public",
+#[unstable(feature = "derive_clone_copy", reason = "deriving hack, should not be public",
            issue = "0")]
-pub struct AssertParamIsCopy<T: Copy + ?Sized> { _field: ::marker::PhantomData<T> }
+pub struct AssertParamIsCopy<T: Copy + ?Sized> {
+    _field: ::marker::PhantomData<T>,
+}

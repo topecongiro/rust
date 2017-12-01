@@ -35,9 +35,11 @@ fn check_impl<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, node_id: ast::NodeId) {
     // base type.
 
     if let Some(trait_ref) = tcx.impl_trait_ref(impl_def_id) {
-        debug!("(checking implementation) adding impl for trait '{:?}', item '{}'",
-                trait_ref,
-                tcx.item_path_str(impl_def_id));
+        debug!(
+            "(checking implementation) adding impl for trait '{:?}', item '{}'",
+            trait_ref,
+            tcx.item_path_str(impl_def_id)
+        );
 
         // Skip impls where one of the self type is an error type.
         // This occurs with e.g. resolve failures (#30589).
@@ -56,21 +58,24 @@ fn enforce_trait_manually_implementable(tcx: TyCtxt, impl_def_id: DefId, trait_d
     // Disallow *all* explicit impls of `Sized` and `Unsize` for now.
     if did == li.sized_trait() {
         let span = tcx.span_of_impl(impl_def_id).unwrap();
-        struct_span_err!(tcx.sess,
-                         span,
-                         E0322,
-                         "explicit impls for the `Sized` trait are not permitted")
-            .span_label(span, "impl of 'Sized' not allowed")
+        struct_span_err!(
+            tcx.sess,
+            span,
+            E0322,
+            "explicit impls for the `Sized` trait are not permitted"
+        ).span_label(span, "impl of 'Sized' not allowed")
             .emit();
         return;
     }
 
     if did == li.unsize_trait() {
         let span = tcx.span_of_impl(impl_def_id).unwrap();
-        span_err!(tcx.sess,
-                  span,
-                  E0328,
-                  "explicit impls for the `Unsize` trait are not permitted");
+        span_err!(
+            tcx.sess,
+            span,
+            E0328,
+            "explicit impls for the `Unsize` trait are not permitted"
+        );
         return;
     }
 
@@ -88,13 +93,17 @@ fn enforce_trait_manually_implementable(tcx: TyCtxt, impl_def_id: DefId, trait_d
     } else {
         return; // everything OK
     };
-    let mut err = struct_span_err!(tcx.sess,
-                                   tcx.span_of_impl(impl_def_id).unwrap(),
-                                   E0183,
-                                   "manual implementations of `{}` are experimental",
-                                   trait_name);
-    help!(&mut err,
-          "add `#![feature(unboxed_closures)]` to the crate attributes to enable");
+    let mut err = struct_span_err!(
+        tcx.sess,
+        tcx.span_of_impl(impl_def_id).unwrap(),
+        E0183,
+        "manual implementations of `{}` are experimental",
+        trait_name
+    );
+    help!(
+        &mut err,
+        "add `#![feature(unboxed_closures)]` to the crate attributes to enable"
+    );
     err.emit();
 }
 
@@ -113,8 +122,7 @@ pub fn provide(providers: &mut Providers) {
     };
 }
 
-fn coherent_trait<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                            (_, def_id): (CrateNum, DefId)) {
+fn coherent_trait<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, (_, def_id): (CrateNum, DefId)) {
     let impls = tcx.hir.trait_impls(def_id);
     for &impl_id in impls {
         check_impl(tcx, impl_id);

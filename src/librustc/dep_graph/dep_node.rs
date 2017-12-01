@@ -65,9 +65,9 @@ use hir::map::DefPathHash;
 use hir::{HirId, ItemLocalId};
 
 use ich::Fingerprint;
-use ty::{TyCtxt, Instance, InstanceDef, ParamEnv, ParamEnvAnd, PolyTraitRef, Ty};
+use ty::{Instance, InstanceDef, ParamEnv, ParamEnvAnd, PolyTraitRef, Ty, TyCtxt};
 use ty::subst::Substs;
-use rustc_data_structures::stable_hasher::{StableHasher, HashStable};
+use rustc_data_structures::stable_hasher::{HashStable, StableHasher};
 use ich::StableHashingContext;
 use std::fmt;
 use std::hash::Hash;
@@ -428,8 +428,7 @@ impl DepKind {
     #[inline]
     pub fn fingerprint_needed_for_crate_hash(self) -> bool {
         match self {
-            DepKind::HirBody |
-            DepKind::Krate => true,
+            DepKind::HirBody | DepKind::Krate => true,
             _ => false,
         }
     }
@@ -634,7 +633,7 @@ define_dep_nodes!( <'tcx>
     [] Null,
 );
 
-trait DepNodeParams<'a, 'gcx: 'tcx + 'a, 'tcx: 'a> : fmt::Debug {
+trait DepNodeParams<'a, 'gcx: 'tcx + 'a, 'tcx: 'a>: fmt::Debug {
     const CAN_RECONSTRUCT_QUERY_KEY: bool;
 
     /// This method turns the parameters of a DepNodeConstructor into an opaque
@@ -651,7 +650,8 @@ trait DepNodeParams<'a, 'gcx: 'tcx + 'a, 'tcx: 'a> : fmt::Debug {
 }
 
 impl<'a, 'gcx: 'tcx + 'a, 'tcx: 'a, T> DepNodeParams<'a, 'gcx, 'tcx> for T
-    where T: HashStable<StableHashingContext<'gcx>> + fmt::Debug
+where
+    T: HashStable<StableHashingContext<'gcx>> + fmt::Debug,
 {
     default const CAN_RECONSTRUCT_QUERY_KEY: bool = false;
 
@@ -727,9 +727,11 @@ impl<'a, 'gcx: 'tcx + 'a, 'tcx: 'a> DepNodeParams<'a, 'gcx, 'tcx> for (DefId, De
     fn to_debug_str(&self, tcx: TyCtxt<'a, 'gcx, 'tcx>) -> String {
         let (def_id_0, def_id_1) = *self;
 
-        format!("({}, {})",
-                tcx.def_path_debug_str(def_id_0),
-                tcx.def_path_debug_str(def_id_1))
+        format!(
+            "({}, {})",
+            tcx.def_path_debug_str(def_id_0),
+            tcx.def_path_debug_str(def_id_1)
+        )
     }
 }
 
@@ -757,10 +759,9 @@ impl<'a, 'gcx: 'tcx + 'a, 'tcx: 'a> DepNodeParams<'a, 'gcx, 'tcx> for (HirId,) {
 /// some independent path or string that persists between runs without
 /// the need to be mapped or unmapped. (This ensures we can serialize
 /// them even in the absence of a tcx.)
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
-         RustcEncodable, RustcDecodable)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, RustcEncodable, RustcDecodable)]
 pub struct WorkProductId {
-    hash: Fingerprint
+    hash: Fingerprint,
 }
 
 impl WorkProductId {
@@ -769,14 +770,12 @@ impl WorkProductId {
         cgu_name.len().hash(&mut hasher);
         cgu_name.hash(&mut hasher);
         WorkProductId {
-            hash: hasher.finish()
+            hash: hasher.finish(),
         }
     }
 
     pub fn from_fingerprint(fingerprint: Fingerprint) -> WorkProductId {
-        WorkProductId {
-            hash: fingerprint
-        }
+        WorkProductId { hash: fingerprint }
     }
 }
 

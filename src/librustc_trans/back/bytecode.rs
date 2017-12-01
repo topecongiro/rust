@@ -61,8 +61,8 @@ pub fn encode(identifier: &str, bytecode: &[u8]) -> Vec<u8> {
     // Next is the LLVM module identifier length + contents
     let identifier_len = identifier.len();
     encoded.extend_from_slice(&[
-        (identifier_len >>  0) as u8,
-        (identifier_len >>  8) as u8,
+        (identifier_len >> 0) as u8,
+        (identifier_len >> 8) as u8,
         (identifier_len >> 16) as u8,
         (identifier_len >> 24) as u8,
     ]);
@@ -81,8 +81,8 @@ pub fn encode(identifier: &str, bytecode: &[u8]) -> Vec<u8> {
 
     // Fill in the length we reserved space for before
     let bytecode_len = (after - before) as u64;
-    encoded[deflated_size_pos + 0] = (bytecode_len >>  0) as u8;
-    encoded[deflated_size_pos + 1] = (bytecode_len >>  8) as u8;
+    encoded[deflated_size_pos + 0] = (bytecode_len >> 0) as u8;
+    encoded[deflated_size_pos + 1] = (bytecode_len >> 8) as u8;
     encoded[deflated_size_pos + 2] = (bytecode_len >> 16) as u8;
     encoded[deflated_size_pos + 3] = (bytecode_len >> 24) as u8;
     encoded[deflated_size_pos + 4] = (bytecode_len >> 32) as u8;
@@ -97,7 +97,7 @@ pub fn encode(identifier: &str, bytecode: &[u8]) -> Vec<u8> {
         encoded.push(0);
     }
 
-    return encoded
+    return encoded;
 }
 
 pub struct DecodedBytecode<'a> {
@@ -108,37 +108,37 @@ pub struct DecodedBytecode<'a> {
 impl<'a> DecodedBytecode<'a> {
     pub fn new(data: &'a [u8]) -> Result<DecodedBytecode<'a>, String> {
         if !data.starts_with(RLIB_BYTECODE_OBJECT_MAGIC) {
-            return Err(format!("magic bytecode prefix not found"))
+            return Err(format!("magic bytecode prefix not found"));
         }
         let data = &data[RLIB_BYTECODE_OBJECT_MAGIC.len()..];
         if !data.starts_with(&[RLIB_BYTECODE_OBJECT_VERSION, 0, 0, 0]) {
-            return Err(format!("wrong version prefix found in bytecode"))
+            return Err(format!("wrong version prefix found in bytecode"));
         }
         let data = &data[4..];
         if data.len() < 4 {
-            return Err(format!("bytecode corrupted"))
+            return Err(format!("bytecode corrupted"));
         }
         let identifier_len = unsafe {
             u32::from_le(ptr::read_unaligned(data.as_ptr() as *const u32)) as usize
         };
         let data = &data[4..];
         if data.len() < identifier_len {
-            return Err(format!("bytecode corrupted"))
+            return Err(format!("bytecode corrupted"));
         }
         let identifier = match str::from_utf8(&data[..identifier_len]) {
             Ok(s) => s,
-            Err(_) => return Err(format!("bytecode corrupted"))
+            Err(_) => return Err(format!("bytecode corrupted")),
         };
         let data = &data[identifier_len..];
         if data.len() < 8 {
-            return Err(format!("bytecode corrupted"))
+            return Err(format!("bytecode corrupted"));
         }
         let bytecode_len = unsafe {
             u64::from_le(ptr::read_unaligned(data.as_ptr() as *const u64)) as usize
         };
         let data = &data[8..];
         if data.len() < bytecode_len {
-            return Err(format!("bytecode corrupted"))
+            return Err(format!("bytecode corrupted"));
         }
         let encoded_bytecode = &data[..bytecode_len];
 
@@ -150,8 +150,10 @@ impl<'a> DecodedBytecode<'a> {
 
     pub fn bytecode(&self) -> Vec<u8> {
         let mut data = Vec::new();
-        DeflateDecoder::new(self.encoded_bytecode).read_to_end(&mut data).unwrap();
-        return data
+        DeflateDecoder::new(self.encoded_bytecode)
+            .read_to_end(&mut data)
+            .unwrap();
+        return data;
     }
 
     pub fn identifier(&self) -> &'a str {

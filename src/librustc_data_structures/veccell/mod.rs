@@ -17,7 +17,9 @@ pub struct VecCell<T> {
 
 impl<T> VecCell<T> {
     pub fn with_capacity(capacity: usize) -> VecCell<T> {
-        VecCell { data: UnsafeCell::new(Vec::with_capacity(capacity)) }
+        VecCell {
+            data: UnsafeCell::new(Vec::with_capacity(capacity)),
+        }
     }
 
     #[inline]

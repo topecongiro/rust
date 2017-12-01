@@ -328,8 +328,8 @@ impl<'a, 'gcx, 'tcx> InferBorrowKind<'a, 'gcx, 'tcx> {
             guarantor.cat
         );
         match guarantor.cat {
-            Categorization::Deref(_, mc::BorrowedPtr(..)) |
-            Categorization::Deref(_, mc::Implicit(..)) => {
+            Categorization::Deref(_, mc::BorrowedPtr(..))
+            | Categorization::Deref(_, mc::Implicit(..)) => {
                 debug!(
                     "adjust_upvar_borrow_kind_for_consume: found deref with note {:?}",
                     cmt.note
@@ -381,16 +381,16 @@ impl<'a, 'gcx, 'tcx> InferBorrowKind<'a, 'gcx, 'tcx> {
         debug!("adjust_upvar_borrow_kind_for_mut(cmt={:?})", cmt);
 
         match cmt.cat.clone() {
-            Categorization::Deref(base, mc::Unique) |
-            Categorization::Interior(base, _) |
-            Categorization::Downcast(base, _) => {
+            Categorization::Deref(base, mc::Unique)
+            | Categorization::Interior(base, _)
+            | Categorization::Downcast(base, _) => {
                 // Interior or owned data is mutable if base is
                 // mutable, so iterate to the base.
                 self.adjust_upvar_borrow_kind_for_mut(base);
             }
 
-            Categorization::Deref(base, mc::BorrowedPtr(..)) |
-            Categorization::Deref(base, mc::Implicit(..)) => {
+            Categorization::Deref(base, mc::BorrowedPtr(..))
+            | Categorization::Deref(base, mc::Implicit(..)) => {
                 if !self.try_adjust_upvar_deref(cmt, ty::MutBorrow) {
                     // assignment to deref of an `&mut`
                     // borrowed pointer implies that the
@@ -400,11 +400,11 @@ impl<'a, 'gcx, 'tcx> InferBorrowKind<'a, 'gcx, 'tcx> {
                 }
             }
 
-            Categorization::Deref(_, mc::UnsafePtr(..)) |
-            Categorization::StaticItem |
-            Categorization::Rvalue(..) |
-            Categorization::Local(_) |
-            Categorization::Upvar(..) => {
+            Categorization::Deref(_, mc::UnsafePtr(..))
+            | Categorization::StaticItem
+            | Categorization::Rvalue(..)
+            | Categorization::Local(_)
+            | Categorization::Upvar(..) => {
                 return;
             }
         }
@@ -414,16 +414,16 @@ impl<'a, 'gcx, 'tcx> InferBorrowKind<'a, 'gcx, 'tcx> {
         debug!("adjust_upvar_borrow_kind_for_unique(cmt={:?})", cmt);
 
         match cmt.cat.clone() {
-            Categorization::Deref(base, mc::Unique) |
-            Categorization::Interior(base, _) |
-            Categorization::Downcast(base, _) => {
+            Categorization::Deref(base, mc::Unique)
+            | Categorization::Interior(base, _)
+            | Categorization::Downcast(base, _) => {
                 // Interior or owned data is unique if base is
                 // unique.
                 self.adjust_upvar_borrow_kind_for_unique(base);
             }
 
-            Categorization::Deref(base, mc::BorrowedPtr(..)) |
-            Categorization::Deref(base, mc::Implicit(..)) => {
+            Categorization::Deref(base, mc::BorrowedPtr(..))
+            | Categorization::Deref(base, mc::Implicit(..)) => {
                 if !self.try_adjust_upvar_deref(cmt, ty::UniqueImmBorrow) {
                     // for a borrowed pointer to be unique, its
                     // base must be unique
@@ -431,11 +431,11 @@ impl<'a, 'gcx, 'tcx> InferBorrowKind<'a, 'gcx, 'tcx> {
                 }
             }
 
-            Categorization::Deref(_, mc::UnsafePtr(..)) |
-            Categorization::StaticItem |
-            Categorization::Rvalue(..) |
-            Categorization::Local(_) |
-            Categorization::Upvar(..) => {}
+            Categorization::Deref(_, mc::UnsafePtr(..))
+            | Categorization::StaticItem
+            | Categorization::Rvalue(..)
+            | Categorization::Local(_)
+            | Categorization::Upvar(..) => {}
         }
     }
 
@@ -509,18 +509,18 @@ impl<'a, 'gcx, 'tcx> InferBorrowKind<'a, 'gcx, 'tcx> {
             ty::UpvarCapture::ByRef(mut upvar_borrow) => {
                 match (upvar_borrow.kind, kind) {
                     // Take RHS:
-                    (ty::ImmBorrow, ty::UniqueImmBorrow) |
-                    (ty::ImmBorrow, ty::MutBorrow) |
-                    (ty::UniqueImmBorrow, ty::MutBorrow) => {
+                    (ty::ImmBorrow, ty::UniqueImmBorrow)
+                    | (ty::ImmBorrow, ty::MutBorrow)
+                    | (ty::UniqueImmBorrow, ty::MutBorrow) => {
                         upvar_borrow.kind = kind;
                         self.adjust_upvar_captures
                             .insert(upvar_id, ty::UpvarCapture::ByRef(upvar_borrow));
                     }
                     // Take LHS:
-                    (ty::ImmBorrow, ty::ImmBorrow) |
-                    (ty::UniqueImmBorrow, ty::ImmBorrow) |
-                    (ty::UniqueImmBorrow, ty::UniqueImmBorrow) |
-                    (ty::MutBorrow, _) => {}
+                    (ty::ImmBorrow, ty::ImmBorrow)
+                    | (ty::UniqueImmBorrow, ty::ImmBorrow)
+                    | (ty::UniqueImmBorrow, ty::UniqueImmBorrow)
+                    | (ty::MutBorrow, _) => {}
                 }
             }
         }
@@ -558,16 +558,16 @@ impl<'a, 'gcx, 'tcx> InferBorrowKind<'a, 'gcx, 'tcx> {
         );
 
         match (existing_kind, new_kind) {
-            (ty::ClosureKind::Fn, ty::ClosureKind::Fn) |
-            (ty::ClosureKind::FnMut, ty::ClosureKind::Fn) |
-            (ty::ClosureKind::FnMut, ty::ClosureKind::FnMut) |
-            (ty::ClosureKind::FnOnce, _) => {
+            (ty::ClosureKind::Fn, ty::ClosureKind::Fn)
+            | (ty::ClosureKind::FnMut, ty::ClosureKind::Fn)
+            | (ty::ClosureKind::FnMut, ty::ClosureKind::FnMut)
+            | (ty::ClosureKind::FnOnce, _) => {
                 // no change needed
             }
 
-            (ty::ClosureKind::Fn, ty::ClosureKind::FnMut) |
-            (ty::ClosureKind::Fn, ty::ClosureKind::FnOnce) |
-            (ty::ClosureKind::FnMut, ty::ClosureKind::FnOnce) => {
+            (ty::ClosureKind::Fn, ty::ClosureKind::FnMut)
+            | (ty::ClosureKind::Fn, ty::ClosureKind::FnOnce)
+            | (ty::ClosureKind::FnMut, ty::ClosureKind::FnOnce) => {
                 // new kind is stronger than the old kind
                 self.current_closure_kind = new_kind;
                 self.current_origin = Some((upvar_span, var_name));

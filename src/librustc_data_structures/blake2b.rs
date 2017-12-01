@@ -32,8 +32,7 @@ struct Blake2bCtx {
     outlen: u16,
     finalized: bool,
 
-    #[cfg(debug_assertions)]
-    fnv_hash: u64,
+    #[cfg(debug_assertions)] fnv_hash: u64,
 }
 
 #[cfg(debug_assertions)]
@@ -51,14 +50,7 @@ impl ::std::fmt::Debug for Blake2bCtx {
 }
 
 #[inline(always)]
-fn b2b_g(v: &mut [u64; 16],
-         a: usize,
-         b: usize,
-         c: usize,
-         d: usize,
-         x: u64,
-         y: u64)
-{
+fn b2b_g(v: &mut [u64; 16], a: usize, b: usize, c: usize, d: usize, x: u64, y: u64) {
     v[a] = v[a].wrapping_add(v[b]).wrapping_add(x);
     v[d] = (v[d] ^ v[a]).rotate_right(32);
     v[c] = v[c].wrapping_add(v[d]);
@@ -71,27 +63,30 @@ fn b2b_g(v: &mut [u64; 16],
 
 // Initialization vector
 const BLAKE2B_IV: [u64; 8] = [
-   0x6A09E667F3BCC908, 0xBB67AE8584CAA73B,
-   0x3C6EF372FE94F82B, 0xA54FF53A5F1D36F1,
-   0x510E527FADE682D1, 0x9B05688C2B3E6C1F,
-   0x1F83D9ABFB41BD6B, 0x5BE0CD19137E2179
+    0x6A09E667F3BCC908,
+    0xBB67AE8584CAA73B,
+    0x3C6EF372FE94F82B,
+    0xA54FF53A5F1D36F1,
+    0x510E527FADE682D1,
+    0x9B05688C2B3E6C1F,
+    0x1F83D9ABFB41BD6B,
+    0x5BE0CD19137E2179,
 ];
 
 fn blake2b_compress(ctx: &mut Blake2bCtx, last: bool) {
-
     const SIGMA: [[usize; 16]; 12] = [
-        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 ],
-        [14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3 ],
-        [11, 8, 12, 0, 5, 2, 15, 13, 10, 14, 3, 6, 7, 1, 9, 4 ],
-        [7, 9, 3, 1, 13, 12, 11, 14, 2, 6, 5, 10, 4, 0, 15, 8 ],
-        [9, 0, 5, 7, 2, 4, 10, 15, 14, 1, 11, 12, 6, 8, 3, 13 ],
-        [2, 12, 6, 10, 0, 11, 8, 3, 4, 13, 7, 5, 15, 14, 1, 9 ],
-        [12, 5, 1, 15, 14, 13, 4, 10, 0, 7, 6, 3, 9, 2, 8, 11 ],
-        [13, 11, 7, 14, 12, 1, 3, 9, 5, 0, 15, 4, 8, 6, 2, 10 ],
-        [6, 15, 14, 9, 11, 3, 0, 8, 12, 2, 13, 7, 1, 4, 10, 5 ],
-        [10, 2, 8, 4, 7, 6, 1, 5, 15, 11, 9, 14, 3, 12, 13, 0 ],
-        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 ],
-        [14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3 ]
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+        [14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3],
+        [11, 8, 12, 0, 5, 2, 15, 13, 10, 14, 3, 6, 7, 1, 9, 4],
+        [7, 9, 3, 1, 13, 12, 11, 14, 2, 6, 5, 10, 4, 0, 15, 8],
+        [9, 0, 5, 7, 2, 4, 10, 15, 14, 1, 11, 12, 6, 8, 3, 13],
+        [2, 12, 6, 10, 0, 11, 8, 3, 4, 13, 7, 5, 15, 14, 1, 9],
+        [12, 5, 1, 15, 14, 13, 4, 10, 0, 7, 6, 3, 9, 2, 8, 11],
+        [13, 11, 7, 14, 12, 1, 3, 9, 5, 0, 15, 4, 8, 6, 2, 10],
+        [6, 15, 14, 9, 11, 3, 0, 8, 12, 2, 13, 7, 1, 4, 10, 5],
+        [10, 2, 8, 4, 7, 6, 1, 5, 15, 11, 9, 14, 3, 12, 13, 0],
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+        [14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3],
     ];
 
     let mut v: [u64; 16] = [
@@ -103,7 +98,6 @@ fn blake2b_compress(ctx: &mut Blake2bCtx, last: bool) {
         ctx.h[5],
         ctx.h[6],
         ctx.h[7],
-
         BLAKE2B_IV[0],
         BLAKE2B_IV[1],
         BLAKE2B_IV[2],
@@ -138,19 +132,19 @@ fn blake2b_compress(ctx: &mut Blake2bCtx, last: bool) {
             }
         }
 
-        for i in 0 .. 12 {
-            b2b_g(&mut v, 0, 4,  8, 12, m[SIGMA[i][ 0]], m[SIGMA[i][ 1]]);
-            b2b_g(&mut v, 1, 5,  9, 13, m[SIGMA[i][ 2]], m[SIGMA[i][ 3]]);
-            b2b_g(&mut v, 2, 6, 10, 14, m[SIGMA[i][ 4]], m[SIGMA[i][ 5]]);
-            b2b_g(&mut v, 3, 7, 11, 15, m[SIGMA[i][ 6]], m[SIGMA[i][ 7]]);
-            b2b_g(&mut v, 0, 5, 10, 15, m[SIGMA[i][ 8]], m[SIGMA[i][ 9]]);
+        for i in 0..12 {
+            b2b_g(&mut v, 0, 4, 8, 12, m[SIGMA[i][0]], m[SIGMA[i][1]]);
+            b2b_g(&mut v, 1, 5, 9, 13, m[SIGMA[i][2]], m[SIGMA[i][3]]);
+            b2b_g(&mut v, 2, 6, 10, 14, m[SIGMA[i][4]], m[SIGMA[i][5]]);
+            b2b_g(&mut v, 3, 7, 11, 15, m[SIGMA[i][6]], m[SIGMA[i][7]]);
+            b2b_g(&mut v, 0, 5, 10, 15, m[SIGMA[i][8]], m[SIGMA[i][9]]);
             b2b_g(&mut v, 1, 6, 11, 12, m[SIGMA[i][10]], m[SIGMA[i][11]]);
-            b2b_g(&mut v, 2, 7,  8, 13, m[SIGMA[i][12]], m[SIGMA[i][13]]);
-            b2b_g(&mut v, 3, 4,  9, 14, m[SIGMA[i][14]], m[SIGMA[i][15]]);
+            b2b_g(&mut v, 2, 7, 8, 13, m[SIGMA[i][12]], m[SIGMA[i][13]]);
+            b2b_g(&mut v, 3, 4, 9, 14, m[SIGMA[i][14]], m[SIGMA[i][15]]);
         }
     }
 
-    for i in 0 .. 8 {
+    for i in 0..8 {
         ctx.h[i] ^= v[i] ^ v[i + 8];
     }
 }
@@ -173,8 +167,8 @@ fn blake2b_new(outlen: usize, key: &[u8]) -> Blake2bCtx {
     ctx.h[0] ^= 0x01010000 ^ ((key.len() << 8) as u64) ^ (outlen as u64);
 
     if key.len() > 0 {
-       blake2b_update(&mut ctx, key);
-       ctx.c = ctx.b.len();
+        blake2b_update(&mut ctx, key);
+        ctx.c = ctx.b.len();
     }
 
     ctx
@@ -187,7 +181,7 @@ fn blake2b_update(ctx: &mut Blake2bCtx, mut data: &[u8]) {
     let mut space_in_buffer = ctx.b.len() - ctx.c;
 
     while bytes_to_copy > space_in_buffer {
-        checked_mem_copy(data, &mut ctx.b[ctx.c .. ], space_in_buffer);
+        checked_mem_copy(data, &mut ctx.b[ctx.c..], space_in_buffer);
 
         ctx.t[0] = ctx.t[0].wrapping_add(ctx.b.len() as u64);
         if ctx.t[0] < (ctx.b.len() as u64) {
@@ -196,13 +190,13 @@ fn blake2b_update(ctx: &mut Blake2bCtx, mut data: &[u8]) {
         blake2b_compress(ctx, false);
         ctx.c = 0;
 
-        data = &data[space_in_buffer .. ];
+        data = &data[space_in_buffer..];
         bytes_to_copy -= space_in_buffer;
         space_in_buffer = ctx.b.len();
     }
 
     if bytes_to_copy > 0 {
-        checked_mem_copy(data, &mut ctx.b[ctx.c .. ], bytes_to_copy);
+        checked_mem_copy(data, &mut ctx.b[ctx.c..], bytes_to_copy);
         ctx.c += bytes_to_copy;
     }
 
@@ -217,8 +211,7 @@ fn blake2b_update(ctx: &mut Blake2bCtx, mut data: &[u8]) {
     }
 }
 
-fn blake2b_final(ctx: &mut Blake2bCtx)
-{
+fn blake2b_final(ctx: &mut Blake2bCtx) {
     assert!(!ctx.finalized, "Blake2bCtx already finalized");
 
     ctx.t[0] = ctx.t[0].wrapping_add(ctx.c as u64);
@@ -251,15 +244,14 @@ fn checked_mem_copy<T1, T2>(from: &[T1], to: &mut [T2], byte_count: usize) {
     let to_size = to.len() * mem::size_of::<T2>();
     assert!(from_size >= byte_count);
     assert!(to_size >= byte_count);
-    let from_byte_ptr = from.as_ptr() as * const u8;
-    let to_byte_ptr = to.as_mut_ptr() as * mut u8;
+    let from_byte_ptr = from.as_ptr() as *const u8;
+    let to_byte_ptr = to.as_mut_ptr() as *mut u8;
     unsafe {
         ::std::ptr::copy_nonoverlapping(from_byte_ptr, to_byte_ptr, byte_count);
     }
 }
 
-pub fn blake2b(out: &mut [u8], key: &[u8],  data: &[u8])
-{
+pub fn blake2b(out: &mut [u8], key: &[u8], data: &[u8]) {
     let mut ctx = blake2b_new(out.len(), key);
     blake2b_update(&mut ctx, data);
     blake2b_final(&mut ctx);
@@ -274,8 +266,10 @@ impl ::std::hash::Hasher for Blake2bHasher {
     }
 
     fn finish(&self) -> u64 {
-        assert!(self.0.outlen == 8,
-                "Hasher initialized with incompatible output length");
+        assert!(
+            self.0.outlen == 8,
+            "Hasher initialized with incompatible output length"
+        );
         u64::from_le(self.0.h[0])
     }
 }
@@ -290,10 +284,8 @@ impl Blake2bHasher {
             blake2b_final(&mut self.0);
         }
         debug_assert!(mem::size_of_val(&self.0.h) >= self.0.outlen as usize);
-        let raw_ptr = (&self.0.h[..]).as_ptr() as * const u8;
-        unsafe {
-            slice::from_raw_parts(raw_ptr, self.0.outlen as usize)
-        }
+        let raw_ptr = (&self.0.h[..]).as_ptr() as *const u8;
+        unsafe { slice::from_raw_parts(raw_ptr, self.0.outlen as usize) }
     }
 }
 
@@ -304,30 +296,56 @@ impl ::std::fmt::Debug for Blake2bHasher {
 }
 
 #[cfg(test)]
-fn selftest_seq(out: &mut [u8], seed: u32)
-{
-   let mut a: u32 = 0xDEAD4BADu32.wrapping_mul(seed);
-   let mut b: u32 = 1;
+fn selftest_seq(out: &mut [u8], seed: u32) {
+    let mut a: u32 = 0xDEAD4BADu32.wrapping_mul(seed);
+    let mut b: u32 = 1;
 
-   for i in 0 .. out.len() {
-       let t: u32 = a.wrapping_add(b);
-       a = b;
-       b = t;
-       out[i] = ((t >> 24) & 0xFF) as u8;
-   }
+    for i in 0..out.len() {
+        let t: u32 = a.wrapping_add(b);
+        a = b;
+        b = t;
+        out[i] = ((t >> 24) & 0xFF) as u8;
+    }
 }
 
 #[test]
-fn blake2b_selftest()
-{
+fn blake2b_selftest() {
     use std::hash::Hasher;
 
     // grand hash of hash results
     const BLAKE2B_RES: [u8; 32] = [
-        0xC2, 0x3A, 0x78, 0x00, 0xD9, 0x81, 0x23, 0xBD,
-        0x10, 0xF5, 0x06, 0xC6, 0x1E, 0x29, 0xDA, 0x56,
-        0x03, 0xD7, 0x63, 0xB8, 0xBB, 0xAD, 0x2E, 0x73,
-        0x7F, 0x5E, 0x76, 0x5A, 0x7B, 0xCC, 0xD4, 0x75
+        0xC2,
+        0x3A,
+        0x78,
+        0x00,
+        0xD9,
+        0x81,
+        0x23,
+        0xBD,
+        0x10,
+        0xF5,
+        0x06,
+        0xC6,
+        0x1E,
+        0x29,
+        0xDA,
+        0x56,
+        0x03,
+        0xD7,
+        0x63,
+        0xB8,
+        0xBB,
+        0xAD,
+        0x2E,
+        0x73,
+        0x7F,
+        0x5E,
+        0x76,
+        0x5A,
+        0x7B,
+        0xCC,
+        0xD4,
+        0x75,
     ];
 
     // parameter sets
@@ -340,24 +358,24 @@ fn blake2b_selftest()
 
     let mut hasher = Blake2bHasher::new(32, &[]);
 
-    for i in 0 .. 4 {
-       let outlen = B2B_MD_LEN[i];
-       for j in 0 .. 6 {
+    for i in 0..4 {
+        let outlen = B2B_MD_LEN[i];
+        for j in 0..6 {
             let inlen = B2B_IN_LEN[j];
 
-            selftest_seq(&mut data[.. inlen], inlen as u32); // unkeyed hash
-            blake2b(&mut md[.. outlen], &[], &data[.. inlen]);
-            hasher.write(&md[.. outlen]); // hash the hash
+            selftest_seq(&mut data[..inlen], inlen as u32); // unkeyed hash
+            blake2b(&mut md[..outlen], &[], &data[..inlen]);
+            hasher.write(&md[..outlen]); // hash the hash
 
-            selftest_seq(&mut key[0 .. outlen], outlen as u32); // keyed hash
-            blake2b(&mut md[.. outlen], &key[.. outlen], &data[.. inlen]);
-            hasher.write(&md[.. outlen]); // hash the hash
-       }
+            selftest_seq(&mut key[0..outlen], outlen as u32); // keyed hash
+            blake2b(&mut md[..outlen], &key[..outlen], &data[..inlen]);
+            hasher.write(&md[..outlen]); // hash the hash
+        }
     }
 
     // compute and compare the hash of hashes
     let md = hasher.finalize();
-    for i in 0 .. 32 {
+    for i in 0..32 {
         assert_eq!(md[i], BLAKE2B_RES[i]);
     }
 }

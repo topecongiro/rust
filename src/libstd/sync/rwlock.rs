@@ -370,7 +370,10 @@ impl<T: ?Sized> RwLock<T> {
     /// assert_eq!(lock.into_inner().unwrap(), "modified");
     /// ```
     #[stable(feature = "rwlock_into_inner", since = "1.6.0")]
-    pub fn into_inner(self) -> LockResult<T> where T: Sized {
+    pub fn into_inner(self) -> LockResult<T>
+    where
+        T: Sized,
+    {
         // We know statically that there are no outstanding references to
         // `self` so there's no need to lock the inner lock.
         //
@@ -380,7 +383,11 @@ impl<T: ?Sized> RwLock<T> {
         unsafe {
             // Like `let RwLock { inner, poison, data } = self`.
             let (inner, poison, data) = {
-                let RwLock { ref inner, ref poison, ref data } = self;
+                let RwLock {
+                    ref inner,
+                    ref poison,
+                    ref data,
+                } = self;
                 (ptr::read(inner), ptr::read(poison), ptr::read(data))
             };
             mem::forget(self);
@@ -434,16 +441,20 @@ impl<T: ?Sized + fmt::Debug> fmt::Debug for RwLock<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.try_read() {
             Ok(guard) => f.debug_struct("RwLock").field("data", &&*guard).finish(),
-            Err(TryLockError::Poisoned(err)) => {
-                f.debug_struct("RwLock").field("data", &&**err.get_ref()).finish()
-            },
+            Err(TryLockError::Poisoned(err)) => f.debug_struct("RwLock")
+                .field("data", &&**err.get_ref())
+                .finish(),
             Err(TryLockError::WouldBlock) => {
                 struct LockedPlaceholder;
                 impl fmt::Debug for LockedPlaceholder {
-                    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { f.write_str("<locked>") }
+                    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                        f.write_str("<locked>")
+                    }
                 }
 
-                f.debug_struct("RwLock").field("data", &LockedPlaceholder).finish()
+                f.debug_struct("RwLock")
+                    .field("data", &LockedPlaceholder)
+                    .finish()
             }
         }
     }
@@ -469,19 +480,13 @@ impl<T> From<T> for RwLock<T> {
 }
 
 impl<'rwlock, T: ?Sized> RwLockReadGuard<'rwlock, T> {
-    unsafe fn new(lock: &'rwlock RwLock<T>)
-                  -> LockResult<RwLockReadGuard<'rwlock, T>> {
-        poison::map_result(lock.poison.borrow(), |_| {
-            RwLockReadGuard {
-                __lock: lock,
-            }
-        })
+    unsafe fn new(lock: &'rwlock RwLock<T>) -> LockResult<RwLockReadGuard<'rwlock, T>> {
+        poison::map_result(lock.poison.borrow(), |_| RwLockReadGuard { __lock: lock })
     }
 }
 
 impl<'rwlock, T: ?Sized> RwLockWriteGuard<'rwlock, T> {
-    unsafe fn new(lock: &'rwlock RwLock<T>)
-                  -> LockResult<RwLockWriteGuard<'rwlock, T>> {
+    unsafe fn new(lock: &'rwlock RwLock<T>) -> LockResult<RwLockWriteGuard<'rwlock, T>> {
         poison::map_result(lock.poison.borrow(), |guard| {
             RwLockWriteGuard {
                 __lock: lock,
@@ -551,7 +556,9 @@ impl<'rwlock, T: ?Sized> DerefMut for RwLockWriteGuard<'rwlock, T> {
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<'a, T: ?Sized> Drop for RwLockReadGuard<'a, T> {
     fn drop(&mut self) {
-        unsafe { self.__lock.inner.read_unlock(); }
+        unsafe {
+            self.__lock.inner.read_unlock();
+        }
     }
 }
 
@@ -559,7 +566,9 @@ impl<'a, T: ?Sized> Drop for RwLockReadGuard<'a, T> {
 impl<'a, T: ?Sized> Drop for RwLockWriteGuard<'a, T> {
     fn drop(&mut self) {
         self.__lock.poison.done(&self.__poison);
-        unsafe { self.__lock.inner.write_unlock(); }
+        unsafe {
+            self.__lock.inner.write_unlock();
+        }
     }
 }
 
@@ -736,7 +745,10 @@ mod tests {
         let write_result = lock.try_write();
         match write_result {
             Err(TryLockError::WouldBlock) => (),
-            Ok(_) => assert!(false, "try_write should not succeed while read_guard is in scope"),
+            Ok(_) => assert!(
+                false,
+                "try_write should not succeed while read_guard is in scope"
+            ),
             Err(_) => assert!(false, "unexpected error"),
         }
 

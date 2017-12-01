@@ -11,7 +11,7 @@
 use std::default::Default;
 use std::fs::File;
 use std::io::prelude::*;
-use std::path::{PathBuf, Path};
+use std::path::{Path, PathBuf};
 
 use getopts;
 use testing;
@@ -19,14 +19,14 @@ use rustc::session::search_paths::SearchPaths;
 use rustc::session::config::Externs;
 use syntax::codemap::DUMMY_SP;
 
-use externalfiles::{ExternalHtml, LoadStringError, load_string};
+use externalfiles::{load_string, ExternalHtml, LoadStringError};
 
 use html::render::reset_ids;
 use html::escape::Escape;
 use html::markdown;
-use html::markdown::{Markdown, MarkdownWithToc, find_testable_code, old_find_testable_code};
+use html::markdown::{find_testable_code, old_find_testable_code, Markdown, MarkdownWithToc};
 use html::markdown::RenderType;
-use test::{TestOptions, Collector};
+use test::{Collector, TestOptions};
 
 /// Separate any lines at the start of the file that begin with `# ` or `%`.
 fn extract_leading_metadata<'a>(s: &'a str) -> (Vec<&'a str>, &'a str) {
@@ -49,16 +49,24 @@ fn extract_leading_metadata<'a>(s: &'a str) -> (Vec<&'a str>, &'a str) {
 
 /// Render `input` (e.g. "foo.md") into an HTML file in `output`
 /// (e.g. output = "bar" => "bar/foo.html").
-pub fn render(input: &str, mut output: PathBuf, matches: &getopts::Matches,
-              external_html: &ExternalHtml, include_toc: bool,
-              render_type: RenderType) -> isize {
+pub fn render(
+    input: &str,
+    mut output: PathBuf,
+    matches: &getopts::Matches,
+    external_html: &ExternalHtml,
+    include_toc: bool,
+    render_type: RenderType,
+) -> isize {
     let input_p = Path::new(input);
     output.push(input_p.file_stem().unwrap());
     output.set_extension("html");
 
     let mut css = String::new();
     for name in &matches.opt_strs("markdown-css") {
-        let s = format!("<link rel=\"stylesheet\" type=\"text/css\" href=\"{}\">\n", name);
+        let s = format!(
+            "<link rel=\"stylesheet\" type=\"text/css\" href=\"{}\">\n",
+            name
+        );
         css.push_str(&s)
     }
 
@@ -67,9 +75,13 @@ pub fn render(input: &str, mut output: PathBuf, matches: &getopts::Matches,
         Err(LoadStringError::ReadFail) => return 1,
         Err(LoadStringError::BadUtf8) => return 2,
     };
-    if let Some(playground) = matches.opt_str("markdown-playground-url").or(
-                              matches.opt_str("playground-url")) {
-        markdown::PLAYGROUND.with(|s| { *s.borrow_mut() = Some((None, playground)); });
+    if let Some(playground) = matches
+        .opt_str("markdown-playground-url")
+        .or(matches.opt_str("playground-url"))
+    {
+        markdown::PLAYGROUND.with(|s| {
+            *s.borrow_mut() = Some((None, playground));
+        });
     }
 
     let mut out = match File::create(&output) {
@@ -77,7 +89,7 @@ pub fn render(input: &str, mut output: PathBuf, matches: &getopts::Matches,
             eprintln!("rustdoc: {}: {}", output.display(), e);
             return 4;
         }
-        Ok(f) => f
+        Ok(f) => f,
     };
 
     let (metadata, text) = extract_leading_metadata(&input_str);
@@ -128,21 +140,29 @@ pub fn render(input: &str, mut output: PathBuf, matches: &getopts::Matches,
         before_content = external_html.before_content,
         text = rendered,
         after_content = external_html.after_content,
-        );
+    );
 
     match err {
         Err(e) => {
             eprintln!("rustdoc: cannot write to `{}`: {}", output.display(), e);
             6
         }
-        Ok(_) => 0
+        Ok(_) => 0,
     }
 }
 
 /// Run any tests/code examples in the markdown file `input`.
-pub fn test(input: &str, cfgs: Vec<String>, libs: SearchPaths, externs: Externs,
-            mut test_args: Vec<String>, maybe_sysroot: Option<PathBuf>,
-            render_type: RenderType, display_warnings: bool, linker: Option<String>) -> isize {
+pub fn test(
+    input: &str,
+    cfgs: Vec<String>,
+    libs: SearchPaths,
+    externs: Externs,
+    mut test_args: Vec<String>,
+    maybe_sysroot: Option<PathBuf>,
+    render_type: RenderType,
+    display_warnings: bool,
+    linker: Option<String>,
+) -> isize {
     let input_str = match load_string(input) {
         Ok(s) => s,
         Err(LoadStringError::ReadFail) => return 1,
@@ -151,10 +171,19 @@ pub fn test(input: &str, cfgs: Vec<String>, libs: SearchPaths, externs: Externs,
 
     let mut opts = TestOptions::default();
     opts.no_crate_inject = true;
-    let mut collector = Collector::new(input.to_string(), cfgs, libs, externs,
-                                       true, opts, maybe_sysroot, None,
-                                       Some(input.to_owned()),
-                                       render_type, linker);
+    let mut collector = Collector::new(
+        input.to_string(),
+        cfgs,
+        libs,
+        externs,
+        true,
+        opts,
+        maybe_sysroot,
+        None,
+        Some(input.to_owned()),
+        render_type,
+        linker,
+    );
     if render_type == RenderType::Pulldown {
         old_find_testable_code(&input_str, &mut collector, DUMMY_SP);
         find_testable_code(&input_str, &mut collector, DUMMY_SP);
@@ -162,7 +191,10 @@ pub fn test(input: &str, cfgs: Vec<String>, libs: SearchPaths, externs: Externs,
         old_find_testable_code(&input_str, &mut collector, DUMMY_SP);
     }
     test_args.insert(0, "rustdoctest".to_string());
-    testing::test_main(&test_args, collector.tests,
-                       testing::Options::new().display_output(display_warnings));
+    testing::test_main(
+        &test_args,
+        collector.tests,
+        testing::Options::new().display_output(display_warnings),
+    );
     0
 }

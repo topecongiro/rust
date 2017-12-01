@@ -16,7 +16,7 @@ use std::io::prelude::*;
 use std::rc::Rc;
 use std::str;
 use std::sync::{Arc, Mutex};
-use syntax_pos::{BytePos, NO_EXPANSION, Span, MultiSpan};
+use syntax_pos::{BytePos, MultiSpan, Span, NO_EXPANSION};
 
 /// Identify a position in the text by the Nth occurrence of a string.
 struct Position {
@@ -59,14 +59,20 @@ fn test_harness(file_text: &str, span_labels: Vec<SpanLabel>, expected_output: &
         println!("text: {:?}", code_map.span_to_snippet(span));
     }
 
-    let emitter = EmitterWriter::new(Box::new(Shared { data: output.clone() }),
-                                     Some(code_map.clone()),
-                                     false);
+    let emitter = EmitterWriter::new(
+        Box::new(Shared {
+            data: output.clone(),
+        }),
+        Some(code_map.clone()),
+        false,
+    );
     let handler = Handler::with_emitter(true, false, Box::new(emitter));
     handler.span_err(msp, "foo");
 
-    assert!(expected_output.chars().next() == Some('\n'),
-            "expected output should begin with newline");
+    assert!(
+        expected_output.chars().next() == Some('\n'),
+        "expected output should begin with newline"
+    );
     let expected_output = &expected_output[1..];
 
     let bytes = output.lock().unwrap();
@@ -92,10 +98,12 @@ fn make_pos(file_text: &str, pos: &Position) -> usize {
             offset += n;
             remainder = &remainder[n + 1..];
         } else {
-            panic!("failed to find {} instances of {:?} in {:?}",
-                   pos.count,
-                   pos.string,
-                   file_text);
+            panic!(
+                "failed to find {} instances of {:?} in {:?}",
+                pos.count,
+                pos.string,
+                file_text
+            );
         }
     }
     offset
@@ -103,24 +111,25 @@ fn make_pos(file_text: &str, pos: &Position) -> usize {
 
 #[test]
 fn ends_on_col0() {
-    test_harness(r#"
+    test_harness(
+        r#"
 fn foo() {
 }
 "#,
-    vec![
-        SpanLabel {
-           start: Position {
-               string: "{",
-               count: 1,
-           },
-           end: Position {
-               string: "}",
-               count: 1,
-           },
-           label: "test",
-       },
-    ],
-    r#"
+        vec![
+            SpanLabel {
+                start: Position {
+                    string: "{",
+                    count: 1,
+                },
+                end: Position {
+                    string: "}",
+                    count: 1,
+                },
+                label: "test",
+            },
+        ],
+        r#"
 error: foo
  --> test.rs:2:10
   |
@@ -129,31 +138,33 @@ error: foo
 3 | | }
   | |_^ test
 
-"#);
+"#,
+    );
 }
 
 #[test]
 fn ends_on_col2() {
-    test_harness(r#"
+    test_harness(
+        r#"
 fn foo() {
 
 
   }
 "#,
-     vec![
-        SpanLabel {
-            start: Position {
-                string: "{",
-                count: 1,
+        vec![
+            SpanLabel {
+                start: Position {
+                    string: "{",
+                    count: 1,
+                },
+                end: Position {
+                    string: "}",
+                    count: 1,
+                },
+                label: "test",
             },
-            end: Position {
-                string: "}",
-                count: 1,
-            },
-            label: "test",
-        },
-     ],
-     r#"
+        ],
+        r#"
 error: foo
  --> test.rs:2:10
   |
@@ -164,42 +175,44 @@ error: foo
 5 | |   }
   | |___^ test
 
-"#);
+"#,
+    );
 }
 #[test]
 fn non_nested() {
-    test_harness(r#"
+    test_harness(
+        r#"
 fn foo() {
   X0 Y0
   X1 Y1
   X2 Y2
 }
 "#,
-    vec![
-        SpanLabel {
-            start: Position {
-                string: "X0",
-                count: 1,
+        vec![
+            SpanLabel {
+                start: Position {
+                    string: "X0",
+                    count: 1,
+                },
+                end: Position {
+                    string: "X2",
+                    count: 1,
+                },
+                label: "`X` is a good letter",
             },
-            end: Position {
-                string: "X2",
-                count: 1,
+            SpanLabel {
+                start: Position {
+                    string: "Y0",
+                    count: 1,
+                },
+                end: Position {
+                    string: "Y2",
+                    count: 1,
+                },
+                label: "`Y` is a good letter too",
             },
-            label: "`X` is a good letter",
-        },
-        SpanLabel {
-            start: Position {
-                string: "Y0",
-                count: 1,
-            },
-            end: Position {
-                string: "Y2",
-                count: 1,
-            },
-            label: "`Y` is a good letter too",
-        },
-    ],
-    r#"
+        ],
+        r#"
 error: foo
  --> test.rs:3:3
   |
@@ -213,42 +226,44 @@ error: foo
   |  |____|
   |       `X` is a good letter
 
-"#);
+"#,
+    );
 }
 
 #[test]
 fn nested() {
-    test_harness(r#"
+    test_harness(
+        r#"
 fn foo() {
   X0 Y0
   Y1 X1
 }
 "#,
-    vec![
-        SpanLabel {
-            start: Position {
-                string: "X0",
-                count: 1,
+        vec![
+            SpanLabel {
+                start: Position {
+                    string: "X0",
+                    count: 1,
+                },
+                end: Position {
+                    string: "X1",
+                    count: 1,
+                },
+                label: "`X` is a good letter",
             },
-            end: Position {
-                string: "X1",
-                count: 1,
+            SpanLabel {
+                start: Position {
+                    string: "Y0",
+                    count: 1,
+                },
+                end: Position {
+                    string: "Y1",
+                    count: 1,
+                },
+                label: "`Y` is a good letter too",
             },
-            label: "`X` is a good letter",
-        },
-        SpanLabel {
-            start: Position {
-                string: "Y0",
-                count: 1,
-            },
-            end: Position {
-                string: "Y1",
-                count: 1,
-            },
-            label: "`Y` is a good letter too",
-        },
-    ],
-r#"
+        ],
+        r#"
 error: foo
  --> test.rs:3:3
   |
@@ -261,12 +276,14 @@ error: foo
   | |_____|
   |       `Y` is a good letter too
 
-"#);
+"#,
+    );
 }
 
 #[test]
 fn different_overlap() {
-    test_harness(r#"
+    test_harness(
+        r#"
 fn foo() {
   X0 Y0 Z0
   X1 Y1 Z1
@@ -274,31 +291,31 @@ fn foo() {
   X3 Y3 Z3
 }
 "#,
-    vec![
-        SpanLabel {
-            start: Position {
-                string: "Y0",
-                count: 1,
+        vec![
+            SpanLabel {
+                start: Position {
+                    string: "Y0",
+                    count: 1,
+                },
+                end: Position {
+                    string: "X2",
+                    count: 1,
+                },
+                label: "`X` is a good letter",
             },
-            end: Position {
-                string: "X2",
-                count: 1,
+            SpanLabel {
+                start: Position {
+                    string: "Z1",
+                    count: 1,
+                },
+                end: Position {
+                    string: "X3",
+                    count: 1,
+                },
+                label: "`Y` is a good letter too",
             },
-            label: "`X` is a good letter",
-        },
-        SpanLabel {
-            start: Position {
-                string: "Z1",
-                count: 1,
-            },
-            end: Position {
-                string: "X3",
-                count: 1,
-            },
-            label: "`Y` is a good letter too",
-        },
-    ],
-    r#"
+        ],
+        r#"
 error: foo
  --> test.rs:3:6
   |
@@ -311,54 +328,56 @@ error: foo
 6 | |    X3 Y3 Z3
   | |_____- `Y` is a good letter too
 
-"#);
+"#,
+    );
 }
 
 #[test]
 fn triple_overlap() {
-    test_harness(r#"
+    test_harness(
+        r#"
 fn foo() {
   X0 Y0 Z0
   X1 Y1 Z1
   X2 Y2 Z2
 }
 "#,
-    vec![
-        SpanLabel {
-            start: Position {
-                string: "X0",
-                count: 1,
+        vec![
+            SpanLabel {
+                start: Position {
+                    string: "X0",
+                    count: 1,
+                },
+                end: Position {
+                    string: "X2",
+                    count: 1,
+                },
+                label: "`X` is a good letter",
             },
-            end: Position {
-                string: "X2",
-                count: 1,
+            SpanLabel {
+                start: Position {
+                    string: "Y0",
+                    count: 1,
+                },
+                end: Position {
+                    string: "Y2",
+                    count: 1,
+                },
+                label: "`Y` is a good letter too",
             },
-            label: "`X` is a good letter",
-        },
-        SpanLabel {
-            start: Position {
-                string: "Y0",
-                count: 1,
+            SpanLabel {
+                start: Position {
+                    string: "Z0",
+                    count: 1,
+                },
+                end: Position {
+                    string: "Z2",
+                    count: 1,
+                },
+                label: "`Z` label",
             },
-            end: Position {
-                string: "Y2",
-                count: 1,
-            },
-            label: "`Y` is a good letter too",
-        },
-        SpanLabel {
-            start: Position {
-                string: "Z0",
-                count: 1,
-            },
-            end: Position {
-                string: "Z2",
-                count: 1,
-            },
-            label: "`Z` label",
-        },
-    ],
-    r#"
+        ],
+        r#"
 error: foo
  --> test.rs:3:3
   |
@@ -374,12 +393,14 @@ error: foo
   |   |____|  `Y` is a good letter too
   |        `X` is a good letter
 
-"#);
+"#,
+    );
 }
 
 #[test]
 fn minimum_depth() {
-    test_harness(r#"
+    test_harness(
+        r#"
 fn foo() {
   X0 Y0 Z0
   X1 Y1 Z1
@@ -387,42 +408,42 @@ fn foo() {
   X3 Y3 Z3
 }
 "#,
-    vec![
-        SpanLabel {
-            start: Position {
-                string: "Y0",
-                count: 1,
+        vec![
+            SpanLabel {
+                start: Position {
+                    string: "Y0",
+                    count: 1,
+                },
+                end: Position {
+                    string: "X1",
+                    count: 1,
+                },
+                label: "`X` is a good letter",
             },
-            end: Position {
-                string: "X1",
-                count: 1,
+            SpanLabel {
+                start: Position {
+                    string: "Y1",
+                    count: 1,
+                },
+                end: Position {
+                    string: "Z2",
+                    count: 1,
+                },
+                label: "`Y` is a good letter too",
             },
-            label: "`X` is a good letter",
-        },
-        SpanLabel {
-            start: Position {
-                string: "Y1",
-                count: 1,
+            SpanLabel {
+                start: Position {
+                    string: "X2",
+                    count: 1,
+                },
+                end: Position {
+                    string: "Y3",
+                    count: 1,
+                },
+                label: "`Z`",
             },
-            end: Position {
-                string: "Z2",
-                count: 1,
-            },
-            label: "`Y` is a good letter too",
-        },
-        SpanLabel {
-            start: Position {
-                string: "X2",
-                count: 1,
-            },
-            end: Position {
-                string: "Y3",
-                count: 1,
-            },
-            label: "`Z`",
-        },
-    ],
-    r#"
+        ],
+        r#"
 error: foo
  --> test.rs:3:6
   |
@@ -439,12 +460,14 @@ error: foo
 6 | |    X3 Y3 Z3
   | |________- `Z`
 
-"#);
+"#,
+    );
 }
 
 #[test]
 fn non_overlaping() {
-    test_harness(r#"
+    test_harness(
+        r#"
 fn foo() {
   X0 Y0 Z0
   X1 Y1 Z1
@@ -452,31 +475,31 @@ fn foo() {
   X3 Y3 Z3
 }
 "#,
-    vec![
-        SpanLabel {
-            start: Position {
-                string: "X0",
-                count: 1,
+        vec![
+            SpanLabel {
+                start: Position {
+                    string: "X0",
+                    count: 1,
+                },
+                end: Position {
+                    string: "X1",
+                    count: 1,
+                },
+                label: "`X` is a good letter",
             },
-            end: Position {
-                string: "X1",
-                count: 1,
+            SpanLabel {
+                start: Position {
+                    string: "Y2",
+                    count: 1,
+                },
+                end: Position {
+                    string: "Z3",
+                    count: 1,
+                },
+                label: "`Y` is a good letter too",
             },
-            label: "`X` is a good letter",
-        },
-        SpanLabel {
-            start: Position {
-                string: "Y2",
-                count: 1,
-            },
-            end: Position {
-                string: "Z3",
-                count: 1,
-            },
-            label: "`Y` is a good letter too",
-        },
-    ],
-    r#"
+        ],
+        r#"
 error: foo
  --> test.rs:3:3
   |
@@ -488,12 +511,14 @@ error: foo
 6 | |   X3 Y3 Z3
   | |__________- `Y` is a good letter too
 
-"#);
+"#,
+    );
 }
 
 #[test]
 fn overlaping_start_and_end() {
-    test_harness(r#"
+    test_harness(
+        r#"
 fn foo() {
   X0 Y0 Z0
   X1 Y1 Z1
@@ -501,31 +526,31 @@ fn foo() {
   X3 Y3 Z3
 }
 "#,
-    vec![
-        SpanLabel {
-            start: Position {
-                string: "Y0",
-                count: 1,
+        vec![
+            SpanLabel {
+                start: Position {
+                    string: "Y0",
+                    count: 1,
+                },
+                end: Position {
+                    string: "X1",
+                    count: 1,
+                },
+                label: "`X` is a good letter",
             },
-            end: Position {
-                string: "X1",
-                count: 1,
+            SpanLabel {
+                start: Position {
+                    string: "Z1",
+                    count: 1,
+                },
+                end: Position {
+                    string: "Z3",
+                    count: 1,
+                },
+                label: "`Y` is a good letter too",
             },
-            label: "`X` is a good letter",
-        },
-        SpanLabel {
-            start: Position {
-                string: "Z1",
-                count: 1,
-            },
-            end: Position {
-                string: "Z3",
-                count: 1,
-            },
-            label: "`Y` is a good letter too",
-        },
-    ],
-    r#"
+        ],
+        r#"
 error: foo
  --> test.rs:3:6
   |
@@ -539,145 +564,151 @@ error: foo
 6 | |    X3 Y3 Z3
   | |___________- `Y` is a good letter too
 
-"#);
+"#,
+    );
 }
 
 #[test]
 fn multiple_labels_primary_without_message() {
-    test_harness(r#"
+    test_harness(
+        r#"
 fn foo() {
   a { b { c } d }
 }
 "#,
-    vec![
-        SpanLabel {
-            start: Position {
-                string: "b",
-                count: 1,
+        vec![
+            SpanLabel {
+                start: Position {
+                    string: "b",
+                    count: 1,
+                },
+                end: Position {
+                    string: "}",
+                    count: 1,
+                },
+                label: "",
             },
-            end: Position {
-                string: "}",
-                count: 1,
+            SpanLabel {
+                start: Position {
+                    string: "a",
+                    count: 1,
+                },
+                end: Position {
+                    string: "d",
+                    count: 1,
+                },
+                label: "`a` is a good letter",
             },
-            label: "",
-        },
-        SpanLabel {
-            start: Position {
-                string: "a",
-                count: 1,
+            SpanLabel {
+                start: Position {
+                    string: "c",
+                    count: 1,
+                },
+                end: Position {
+                    string: "c",
+                    count: 1,
+                },
+                label: "",
             },
-            end: Position {
-                string: "d",
-                count: 1,
-            },
-            label: "`a` is a good letter",
-        },
-        SpanLabel {
-            start: Position {
-                string: "c",
-                count: 1,
-            },
-            end: Position {
-                string: "c",
-                count: 1,
-            },
-            label: "",
-        },
-    ],
-    r#"
+        ],
+        r#"
 error: foo
  --> test.rs:3:7
   |
 3 |   a { b { c } d }
   |   ----^^^^-^^-- `a` is a good letter
 
-"#);
+"#,
+    );
 }
 
 #[test]
 fn multiple_labels_secondary_without_message() {
-    test_harness(r#"
+    test_harness(
+        r#"
 fn foo() {
   a { b { c } d }
 }
 "#,
-    vec![
-        SpanLabel {
-            start: Position {
-                string: "a",
-                count: 1,
+        vec![
+            SpanLabel {
+                start: Position {
+                    string: "a",
+                    count: 1,
+                },
+                end: Position {
+                    string: "d",
+                    count: 1,
+                },
+                label: "`a` is a good letter",
             },
-            end: Position {
-                string: "d",
-                count: 1,
+            SpanLabel {
+                start: Position {
+                    string: "b",
+                    count: 1,
+                },
+                end: Position {
+                    string: "}",
+                    count: 1,
+                },
+                label: "",
             },
-            label: "`a` is a good letter",
-        },
-        SpanLabel {
-            start: Position {
-                string: "b",
-                count: 1,
-            },
-            end: Position {
-                string: "}",
-                count: 1,
-            },
-            label: "",
-        },
-    ],
-    r#"
+        ],
+        r#"
 error: foo
  --> test.rs:3:3
   |
 3 |   a { b { c } d }
   |   ^^^^-------^^ `a` is a good letter
 
-"#);
+"#,
+    );
 }
 
 #[test]
 fn multiple_labels_primary_without_message_2() {
-    test_harness(r#"
+    test_harness(
+        r#"
 fn foo() {
   a { b { c } d }
 }
 "#,
-    vec![
-        SpanLabel {
-            start: Position {
-                string: "b",
-                count: 1,
+        vec![
+            SpanLabel {
+                start: Position {
+                    string: "b",
+                    count: 1,
+                },
+                end: Position {
+                    string: "}",
+                    count: 1,
+                },
+                label: "`b` is a good letter",
             },
-            end: Position {
-                string: "}",
-                count: 1,
+            SpanLabel {
+                start: Position {
+                    string: "a",
+                    count: 1,
+                },
+                end: Position {
+                    string: "d",
+                    count: 1,
+                },
+                label: "",
             },
-            label: "`b` is a good letter",
-        },
-        SpanLabel {
-            start: Position {
-                string: "a",
-                count: 1,
+            SpanLabel {
+                start: Position {
+                    string: "c",
+                    count: 1,
+                },
+                end: Position {
+                    string: "c",
+                    count: 1,
+                },
+                label: "",
             },
-            end: Position {
-                string: "d",
-                count: 1,
-            },
-            label: "",
-        },
-        SpanLabel {
-            start: Position {
-                string: "c",
-                count: 1,
-            },
-            end: Position {
-                string: "c",
-                count: 1,
-            },
-            label: "",
-        },
-    ],
-    r#"
+        ],
+        r#"
 error: foo
  --> test.rs:3:7
   |
@@ -686,41 +717,43 @@ error: foo
   |       |
   |       `b` is a good letter
 
-"#);
+"#,
+    );
 }
 
 #[test]
 fn multiple_labels_secondary_without_message_2() {
-    test_harness(r#"
+    test_harness(
+        r#"
 fn foo() {
   a { b { c } d }
 }
 "#,
-    vec![
-        SpanLabel {
-            start: Position {
-                string: "a",
-                count: 1,
+        vec![
+            SpanLabel {
+                start: Position {
+                    string: "a",
+                    count: 1,
+                },
+                end: Position {
+                    string: "d",
+                    count: 1,
+                },
+                label: "",
             },
-            end: Position {
-                string: "d",
-                count: 1,
+            SpanLabel {
+                start: Position {
+                    string: "b",
+                    count: 1,
+                },
+                end: Position {
+                    string: "}",
+                    count: 1,
+                },
+                label: "`b` is a good letter",
             },
-            label: "",
-        },
-        SpanLabel {
-            start: Position {
-                string: "b",
-                count: 1,
-            },
-            end: Position {
-                string: "}",
-                count: 1,
-            },
-            label: "`b` is a good letter",
-        },
-    ],
-    r#"
+        ],
+        r#"
 error: foo
  --> test.rs:3:3
   |
@@ -729,41 +762,43 @@ error: foo
   |       |
   |       `b` is a good letter
 
-"#);
+"#,
+    );
 }
 
 #[test]
 fn multiple_labels_secondary_without_message_3() {
-    test_harness(r#"
+    test_harness(
+        r#"
 fn foo() {
   a  bc  d
 }
 "#,
-    vec![
-        SpanLabel {
-            start: Position {
-                string: "a",
-                count: 1,
+        vec![
+            SpanLabel {
+                start: Position {
+                    string: "a",
+                    count: 1,
+                },
+                end: Position {
+                    string: "b",
+                    count: 1,
+                },
+                label: "`a` is a good letter",
             },
-            end: Position {
-                string: "b",
-                count: 1,
+            SpanLabel {
+                start: Position {
+                    string: "c",
+                    count: 1,
+                },
+                end: Position {
+                    string: "d",
+                    count: 1,
+                },
+                label: "",
             },
-            label: "`a` is a good letter",
-        },
-        SpanLabel {
-            start: Position {
-                string: "c",
-                count: 1,
-            },
-            end: Position {
-                string: "d",
-                count: 1,
-            },
-            label: "",
-        },
-    ],
-    r#"
+        ],
+        r#"
 error: foo
  --> test.rs:3:3
   |
@@ -772,134 +807,140 @@ error: foo
   |   |
   |   `a` is a good letter
 
-"#);
+"#,
+    );
 }
 
 #[test]
 fn multiple_labels_without_message() {
-    test_harness(r#"
+    test_harness(
+        r#"
 fn foo() {
   a { b { c } d }
 }
 "#,
-    vec![
-        SpanLabel {
-            start: Position {
-                string: "a",
-                count: 1,
+        vec![
+            SpanLabel {
+                start: Position {
+                    string: "a",
+                    count: 1,
+                },
+                end: Position {
+                    string: "d",
+                    count: 1,
+                },
+                label: "",
             },
-            end: Position {
-                string: "d",
-                count: 1,
+            SpanLabel {
+                start: Position {
+                    string: "b",
+                    count: 1,
+                },
+                end: Position {
+                    string: "}",
+                    count: 1,
+                },
+                label: "",
             },
-            label: "",
-        },
-        SpanLabel {
-            start: Position {
-                string: "b",
-                count: 1,
-            },
-            end: Position {
-                string: "}",
-                count: 1,
-            },
-            label: "",
-        },
-    ],
-    r#"
+        ],
+        r#"
 error: foo
  --> test.rs:3:3
   |
 3 |   a { b { c } d }
   |   ^^^^-------^^
 
-"#);
+"#,
+    );
 }
 
 #[test]
 fn multiple_labels_without_message_2() {
-    test_harness(r#"
+    test_harness(
+        r#"
 fn foo() {
   a { b { c } d }
 }
 "#,
-    vec![
-        SpanLabel {
-            start: Position {
-                string: "b",
-                count: 1,
+        vec![
+            SpanLabel {
+                start: Position {
+                    string: "b",
+                    count: 1,
+                },
+                end: Position {
+                    string: "}",
+                    count: 1,
+                },
+                label: "",
             },
-            end: Position {
-                string: "}",
-                count: 1,
+            SpanLabel {
+                start: Position {
+                    string: "a",
+                    count: 1,
+                },
+                end: Position {
+                    string: "d",
+                    count: 1,
+                },
+                label: "",
             },
-            label: "",
-        },
-        SpanLabel {
-            start: Position {
-                string: "a",
-                count: 1,
+            SpanLabel {
+                start: Position {
+                    string: "c",
+                    count: 1,
+                },
+                end: Position {
+                    string: "c",
+                    count: 1,
+                },
+                label: "",
             },
-            end: Position {
-                string: "d",
-                count: 1,
-            },
-            label: "",
-        },
-        SpanLabel {
-            start: Position {
-                string: "c",
-                count: 1,
-            },
-            end: Position {
-                string: "c",
-                count: 1,
-            },
-            label: "",
-        },
-    ],
-    r#"
+        ],
+        r#"
 error: foo
  --> test.rs:3:7
   |
 3 |   a { b { c } d }
   |   ----^^^^-^^--
 
-"#);
+"#,
+    );
 }
 
 #[test]
 fn multiple_labels_with_message() {
-    test_harness(r#"
+    test_harness(
+        r#"
 fn foo() {
   a { b { c } d }
 }
 "#,
-    vec![
-        SpanLabel {
-            start: Position {
-                string: "a",
-                count: 1,
+        vec![
+            SpanLabel {
+                start: Position {
+                    string: "a",
+                    count: 1,
+                },
+                end: Position {
+                    string: "d",
+                    count: 1,
+                },
+                label: "`a` is a good letter",
             },
-            end: Position {
-                string: "d",
-                count: 1,
+            SpanLabel {
+                start: Position {
+                    string: "b",
+                    count: 1,
+                },
+                end: Position {
+                    string: "}",
+                    count: 1,
+                },
+                label: "`b` is a good letter",
             },
-            label: "`a` is a good letter",
-        },
-        SpanLabel {
-            start: Position {
-                string: "b",
-                count: 1,
-            },
-            end: Position {
-                string: "}",
-                count: 1,
-            },
-            label: "`b` is a good letter",
-        },
-    ],
-    r#"
+        ],
+        r#"
 error: foo
  --> test.rs:3:3
   |
@@ -909,72 +950,78 @@ error: foo
   |   |   `b` is a good letter
   |   `a` is a good letter
 
-"#);
+"#,
+    );
 }
 
 #[test]
 fn single_label_with_message() {
-    test_harness(r#"
+    test_harness(
+        r#"
 fn foo() {
   a { b { c } d }
 }
 "#,
-    vec![
-        SpanLabel {
-            start: Position {
-                string: "a",
-                count: 1,
+        vec![
+            SpanLabel {
+                start: Position {
+                    string: "a",
+                    count: 1,
+                },
+                end: Position {
+                    string: "d",
+                    count: 1,
+                },
+                label: "`a` is a good letter",
             },
-            end: Position {
-                string: "d",
-                count: 1,
-            },
-            label: "`a` is a good letter",
-        },
-    ],
-    r#"
+        ],
+        r#"
 error: foo
  --> test.rs:3:3
   |
 3 |   a { b { c } d }
   |   ^^^^^^^^^^^^^ `a` is a good letter
 
-"#);
+"#,
+    );
 }
 
 #[test]
 fn single_label_without_message() {
-    test_harness(r#"
+    test_harness(
+        r#"
 fn foo() {
   a { b { c } d }
 }
 "#,
-    vec![
-        SpanLabel {
-            start: Position {
-                string: "a",
-                count: 1,
+        vec![
+            SpanLabel {
+                start: Position {
+                    string: "a",
+                    count: 1,
+                },
+                end: Position {
+                    string: "d",
+                    count: 1,
+                },
+                label: "",
             },
-            end: Position {
-                string: "d",
-                count: 1,
-            },
-            label: "",
-        },
-    ],
-    r#"
+        ],
+        r#"
 error: foo
  --> test.rs:3:3
   |
 3 |   a { b { c } d }
   |   ^^^^^^^^^^^^^
 
-"#);
+"#,
+    );
 }
 
 #[test]
 fn long_snippet() {
-    test_harness(r#"
+    test_harness(
+        r#"
 fn foo() {
   X0 Y0 Z0
   X1 Y1 Z1
@@ -992,31 +1039,31 @@ fn foo() {
   X3 Y3 Z3
 }
 "#,
-    vec![
-        SpanLabel {
-            start: Position {
-                string: "Y0",
-                count: 1,
+        vec![
+            SpanLabel {
+                start: Position {
+                    string: "Y0",
+                    count: 1,
+                },
+                end: Position {
+                    string: "X1",
+                    count: 1,
+                },
+                label: "`X` is a good letter",
             },
-            end: Position {
-                string: "X1",
-                count: 1,
+            SpanLabel {
+                start: Position {
+                    string: "Z1",
+                    count: 1,
+                },
+                end: Position {
+                    string: "Z3",
+                    count: 1,
+                },
+                label: "`Y` is a good letter too",
             },
-            label: "`X` is a good letter",
-        },
-        SpanLabel {
-            start: Position {
-                string: "Z1",
-                count: 1,
-            },
-            end: Position {
-                string: "Z3",
-                count: 1,
-            },
-            label: "`Y` is a good letter too",
-        },
-    ],
-    r#"
+        ],
+        r#"
 error: foo
   --> test.rs:3:6
    |
@@ -1034,12 +1081,14 @@ error: foo
 16 | |    X3 Y3 Z3
    | |___________- `Y` is a good letter too
 
-"#);
+"#,
+    );
 }
 
 #[test]
 fn long_snippet_multiple_spans() {
-    test_harness(r#"
+    test_harness(
+        r#"
 fn foo() {
   X0 Y0 Z0
 1
@@ -1057,31 +1106,31 @@ fn foo() {
   X3 Y3 Z3
 }
 "#,
-    vec![
-        SpanLabel {
-            start: Position {
-                string: "Y0",
-                count: 1,
+        vec![
+            SpanLabel {
+                start: Position {
+                    string: "Y0",
+                    count: 1,
+                },
+                end: Position {
+                    string: "Y3",
+                    count: 1,
+                },
+                label: "`Y` is a good letter",
             },
-            end: Position {
-                string: "Y3",
-                count: 1,
+            SpanLabel {
+                start: Position {
+                    string: "Z1",
+                    count: 1,
+                },
+                end: Position {
+                    string: "Z2",
+                    count: 1,
+                },
+                label: "`Z` is a good letter too",
             },
-            label: "`Y` is a good letter",
-        },
-        SpanLabel {
-            start: Position {
-                string: "Z1",
-                count: 1,
-            },
-            end: Position {
-                string: "Z2",
-                count: 1,
-            },
-            label: "`Z` is a good letter too",
-        },
-    ],
-    r#"
+        ],
+        r#"
 error: foo
   --> test.rs:3:6
    |
@@ -1102,6 +1151,6 @@ error: foo
 16 |  |   X3 Y3 Z3
    |  |_______^ `Y` is a good letter
 
-"#);
+"#,
+    );
 }
-

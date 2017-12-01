@@ -46,12 +46,10 @@ impl<'a> fmt::Debug for VarianceTerm<'a> {
         match *self {
             ConstantTerm(c1) => write!(f, "{:?}", c1),
             TransformTerm(v1, v2) => write!(f, "({:?} \u{00D7} {:?})", v1, v2),
-            InferredTerm(id) => {
-                write!(f, "[{}]", {
-                    let InferredIndex(i) = id;
-                    i
-                })
-            }
+            InferredTerm(id) => write!(f, "[{}]", {
+                let InferredIndex(i) = id;
+                i
+            }),
         }
     }
 }
@@ -75,9 +73,10 @@ pub struct TermsContext<'a, 'tcx: 'a> {
     pub inferred_terms: Vec<VarianceTermPtr<'a>>,
 }
 
-pub fn determine_parameters_to_be_inferred<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                                                     arena: &'a mut TypedArena<VarianceTerm<'a>>)
-                                                     -> TermsContext<'a, 'tcx> {
+pub fn determine_parameters_to_be_inferred<'a, 'tcx>(
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    arena: &'a mut TypedArena<VarianceTerm<'a>>,
+) -> TermsContext<'a, 'tcx> {
     let mut terms_cx = TermsContext {
         tcx,
         arena,
@@ -98,7 +97,7 @@ fn lang_items(tcx: TyCtxt) -> Vec<(ast::NodeId, Vec<ty::Variance>)> {
     let all = vec![
         (lang_items.phantom_data(), vec![ty::Covariant]),
         (lang_items.unsafe_cell_type(), vec![ty::Invariant]),
-        ];
+    ];
 
     all.into_iter() // iterating over (Option<DefId>, Variance)
        .filter(|&(ref d,_)| d.is_some())
@@ -119,7 +118,9 @@ impl<'a, 'tcx> TermsContext<'a, 'tcx> {
 
         // Record the start of this item's inferreds.
         let start = self.inferred_terms.len();
-        let newly_added = self.inferred_starts.insert(id, InferredIndex(start)).is_none();
+        let newly_added = self.inferred_starts
+            .insert(id, InferredIndex(start))
+            .is_none();
         assert!(newly_added);
 
         // NB: In the code below for writing the results back into the
@@ -127,20 +128,20 @@ impl<'a, 'tcx> TermsContext<'a, 'tcx> {
         // for a particular item are assigned continuous indices.
 
         let arena = self.arena;
-        self.inferred_terms.extend((start..start+count).map(|i| {
-            &*arena.alloc(InferredTerm(InferredIndex(i)))
-        }));
+        self.inferred_terms
+            .extend((start..start + count).map(|i| &*arena.alloc(InferredTerm(InferredIndex(i)))));
     }
 }
 
 impl<'a, 'tcx, 'v> ItemLikeVisitor<'v> for TermsContext<'a, 'tcx> {
     fn visit_item(&mut self, item: &hir::Item) {
-        debug!("add_inferreds for item {}",
-               self.tcx.hir.node_to_string(item.id));
+        debug!(
+            "add_inferreds for item {}",
+            self.tcx.hir.node_to_string(item.id)
+        );
 
         match item.node {
-            hir::ItemStruct(ref struct_def, _) |
-            hir::ItemUnion(ref struct_def, _) => {
+            hir::ItemStruct(ref struct_def, _) | hir::ItemUnion(ref struct_def, _) => {
                 self.add_inferreds_for_item(item.id);
 
                 if let hir::VariantData::Tuple(..) = *struct_def {
@@ -162,13 +163,11 @@ impl<'a, 'tcx, 'v> ItemLikeVisitor<'v> for TermsContext<'a, 'tcx> {
                 self.add_inferreds_for_item(item.id);
             }
 
-            hir::ItemForeignMod(ref foreign_mod) => {
-                for foreign_item in &foreign_mod.items {
-                    if let hir::ForeignItemFn(..) = foreign_item.node {
-                        self.add_inferreds_for_item(foreign_item.id);
-                    }
+            hir::ItemForeignMod(ref foreign_mod) => for foreign_item in &foreign_mod.items {
+                if let hir::ForeignItemFn(..) = foreign_item.node {
+                    self.add_inferreds_for_item(foreign_item.id);
                 }
-            }
+            },
 
             _ => {}
         }

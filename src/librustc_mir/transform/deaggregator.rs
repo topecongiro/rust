@@ -17,10 +17,12 @@ use transform::{MirPass, MirSource};
 pub struct Deaggregator;
 
 impl MirPass for Deaggregator {
-    fn run_pass<'a, 'tcx>(&self,
-                          tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                          source: MirSource,
-                          mir: &mut Mir<'tcx>) {
+    fn run_pass<'a, 'tcx>(
+        &self,
+        tcx: TyCtxt<'a, 'tcx, 'tcx>,
+        source: MirSource,
+        mir: &mut Mir<'tcx>,
+    ) {
         let node_path = tcx.item_path_str(source.def_id);
         debug!("running on: {:?}", node_path);
         // we only run when mir_opt_level > 2
@@ -33,8 +35,8 @@ impl MirPass for Deaggregator {
         // FIXME(eddyb) Remove check after miri is merged.
         let id = tcx.hir.as_local_node_id(source.def_id).unwrap();
         match (tcx.hir.body_owner_kind(id), source.promoted) {
-            (hir::BodyOwnerKind::Fn, None) => {},
-            _ => return
+            (hir::BodyOwnerKind::Fn, None) => {}
+            _ => return,
         }
         // In fact, we might not want to trigger in other cases.
         // Ex: when we could use SROA.  See issue #35259
@@ -45,7 +47,7 @@ impl MirPass for Deaggregator {
                 // do the replacement
                 debug!("removing statement {:?}", idx);
                 let src_info = bb.statements[idx].source_info;
-                let suffix_stmts = bb.statements.split_off(idx+1);
+                let suffix_stmts = bb.statements.split_off(idx + 1);
                 let orig_stmt = bb.statements.pop().unwrap();
                 let (lhs, rhs) = match orig_stmt.kind {
                     StatementKind::Assign(ref lhs, ref rhs) => (lhs, rhs),
@@ -56,12 +58,14 @@ impl MirPass for Deaggregator {
                     _ => span_bug!(src_info.span, "expected aggregate, not {:?}", rhs),
                 };
                 let (adt_def, variant, substs) = match **agg_kind {
-                    AggregateKind::Adt(adt_def, variant, substs, None)
-                        => (adt_def, variant, substs),
+                    AggregateKind::Adt(adt_def, variant, substs, None) => {
+                        (adt_def, variant, substs)
+                    }
                     _ => span_bug!(src_info.span, "expected struct, not {:?}", rhs),
                 };
                 let n = bb.statements.len();
-                bb.statements.reserve(n + operands.len() + suffix_stmts.len());
+                bb.statements
+                    .reserve(n + operands.len() + suffix_stmts.len());
                 for (i, op) in operands.iter().enumerate() {
                     let ref variant_def = adt_def.variants[variant];
                     let ty = variant_def.fields[i].ty(tcx, substs);
@@ -107,9 +111,10 @@ impl MirPass for Deaggregator {
     }
 }
 
-fn get_aggregate_statement_index<'a, 'tcx, 'b>(start: usize,
-                                         statements: &Vec<Statement<'tcx>>)
-                                         -> Option<usize> {
+fn get_aggregate_statement_index<'a, 'tcx, 'b>(
+    start: usize,
+    statements: &Vec<Statement<'tcx>>,
+) -> Option<usize> {
     for i in start..statements.len() {
         let ref statement = statements[i];
         let rhs = match statement.kind {
@@ -131,6 +136,6 @@ fn get_aggregate_statement_index<'a, 'tcx, 'b>(start: usize,
         debug!("getting variant {:?}", variant);
         debug!("for adt_def {:?}", adt_def);
         return Some(i);
-    };
+    }
     None
 }

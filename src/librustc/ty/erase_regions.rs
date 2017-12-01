@@ -9,7 +9,7 @@
 // except according to those terms.
 
 use ty::{self, Ty, TyCtxt};
-use ty::fold::{TypeFolder, TypeFoldable};
+use ty::fold::{TypeFoldable, TypeFolder};
 
 pub(super) fn provide(providers: &mut ty::maps::Providers) {
     *providers = ty::maps::Providers {
@@ -29,7 +29,8 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
     /// that late-bound regions remain, because they are important for
     /// subtyping, but they are anonymized and normalized as well)..
     pub fn erase_regions<T>(self, value: &T) -> T
-        where T : TypeFoldable<'tcx>
+    where
+        T: TypeFoldable<'tcx>,
     {
         let value1 = value.fold_with(&mut RegionEraserVisitor { tcx: self });
         debug!("erase_regions({:?}) = {:?}", value, value1);
@@ -55,7 +56,8 @@ impl<'a, 'gcx, 'tcx> TypeFolder<'gcx, 'tcx> for RegionEraserVisitor<'a, 'gcx, 't
     }
 
     fn fold_binder<T>(&mut self, t: &ty::Binder<T>) -> ty::Binder<T>
-        where T : TypeFoldable<'tcx>
+    where
+        T: TypeFoldable<'tcx>,
     {
         let u = self.tcx.anonymize_late_bound_regions(t);
         u.super_fold_with(self)
@@ -72,8 +74,7 @@ impl<'a, 'gcx, 'tcx> TypeFolder<'gcx, 'tcx> for RegionEraserVisitor<'a, 'gcx, 't
         // whenever a substitution occurs.
         match *r {
             ty::ReLateBound(..) => r,
-            _ => self.tcx.types.re_erased
+            _ => self.tcx.types.re_erased,
         }
     }
 }
-

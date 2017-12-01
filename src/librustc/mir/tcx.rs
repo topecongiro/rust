@@ -26,9 +26,11 @@ pub enum LvalueTy<'tcx> {
     Ty { ty: Ty<'tcx> },
 
     /// Downcast to a particular variant of an enum.
-    Downcast { adt_def: &'tcx AdtDef,
-               substs: &'tcx Substs<'tcx>,
-               variant_index: usize },
+    Downcast {
+        adt_def: &'tcx AdtDef,
+        substs: &'tcx Substs<'tcx>,
+        variant_index: usize,
+    },
 }
 
 impl<'a, 'gcx, 'tcx> LvalueTy<'tcx> {
@@ -38,33 +40,31 @@ impl<'a, 'gcx, 'tcx> LvalueTy<'tcx> {
 
     pub fn to_ty(&self, tcx: TyCtxt<'a, 'gcx, 'tcx>) -> Ty<'tcx> {
         match *self {
-            LvalueTy::Ty { ty } =>
-                ty,
-            LvalueTy::Downcast { adt_def, substs, variant_index: _ } =>
-                tcx.mk_adt(adt_def, substs),
+            LvalueTy::Ty { ty } => ty,
+            LvalueTy::Downcast {
+                adt_def,
+                substs,
+                variant_index: _,
+            } => tcx.mk_adt(adt_def, substs),
         }
     }
 
-    pub fn projection_ty(self, tcx: TyCtxt<'a, 'gcx, 'tcx>,
-                         elem: &LvalueElem<'tcx>)
-                         -> LvalueTy<'tcx>
-    {
+    pub fn projection_ty(
+        self,
+        tcx: TyCtxt<'a, 'gcx, 'tcx>,
+        elem: &LvalueElem<'tcx>,
+    ) -> LvalueTy<'tcx> {
         match *elem {
             ProjectionElem::Deref => {
                 let ty = self.to_ty(tcx)
-                             .builtin_deref(true, ty::LvaluePreference::NoPreference)
-                             .unwrap_or_else(|| {
-                                 bug!("deref projection of non-dereferencable ty {:?}", self)
-                             })
-                             .ty;
-                LvalueTy::Ty {
-                    ty,
-                }
+                    .builtin_deref(true, ty::LvaluePreference::NoPreference)
+                    .unwrap_or_else(|| bug!("deref projection of non-dereferencable ty {:?}", self))
+                    .ty;
+                LvalueTy::Ty { ty }
             }
-            ProjectionElem::Index(_) | ProjectionElem::ConstantIndex { .. } =>
-                LvalueTy::Ty {
-                    ty: self.to_ty(tcx).builtin_index().unwrap()
-                },
+            ProjectionElem::Index(_) | ProjectionElem::ConstantIndex { .. } => LvalueTy::Ty {
+                ty: self.to_ty(tcx).builtin_index().unwrap(),
+            },
             ProjectionElem::Subslice { from, to } => {
                 let ty = self.to_ty(tcx);
                 LvalueTy::Ty {
@@ -75,27 +75,24 @@ impl<'a, 'gcx, 'tcx> LvalueTy<'tcx> {
                             tcx.mk_array(inner, len)
                         }
                         ty::TySlice(..) => ty,
-                        _ => {
-                            bug!("cannot subslice non-array type: `{:?}`", self)
-                        }
-                    }
+                        _ => bug!("cannot subslice non-array type: `{:?}`", self),
+                    },
                 }
             }
-            ProjectionElem::Downcast(adt_def1, index) =>
-                match self.to_ty(tcx).sty {
-                    ty::TyAdt(adt_def, substs) => {
-                        assert!(adt_def.is_enum());
-                        assert!(index < adt_def.variants.len());
-                        assert_eq!(adt_def, adt_def1);
-                        LvalueTy::Downcast { adt_def,
-                                             substs,
-                                             variant_index: index }
+            ProjectionElem::Downcast(adt_def1, index) => match self.to_ty(tcx).sty {
+                ty::TyAdt(adt_def, substs) => {
+                    assert!(adt_def.is_enum());
+                    assert!(index < adt_def.variants.len());
+                    assert_eq!(adt_def, adt_def1);
+                    LvalueTy::Downcast {
+                        adt_def,
+                        substs,
+                        variant_index: index,
                     }
-                    _ => {
-                        bug!("cannot downcast non-ADT type: `{:?}`", self)
-                    }
-                },
-            ProjectionElem::Field(_, fty) => LvalueTy::Ty { ty: fty }
+                }
+                _ => bug!("cannot downcast non-ADT type: `{:?}`", self),
+            },
+            ProjectionElem::Field(_, fty) => LvalueTy::Ty { ty: fty },
         }
     }
 }
@@ -103,48 +100,55 @@ impl<'a, 'gcx, 'tcx> LvalueTy<'tcx> {
 impl<'tcx> TypeFoldable<'tcx> for LvalueTy<'tcx> {
     fn super_fold_with<'gcx: 'tcx, F: TypeFolder<'gcx, 'tcx>>(&self, folder: &mut F) -> Self {
         match *self {
-            LvalueTy::Ty { ty } => LvalueTy::Ty { ty: ty.fold_with(folder) },
-            LvalueTy::Downcast { adt_def, substs, variant_index } => {
-                LvalueTy::Downcast {
-                    adt_def,
-                    substs: substs.fold_with(folder),
-                    variant_index,
-                }
-            }
+            LvalueTy::Ty { ty } => LvalueTy::Ty {
+                ty: ty.fold_with(folder),
+            },
+            LvalueTy::Downcast {
+                adt_def,
+                substs,
+                variant_index,
+            } => LvalueTy::Downcast {
+                adt_def,
+                substs: substs.fold_with(folder),
+                variant_index,
+            },
         }
     }
 
     fn super_visit_with<V: TypeVisitor<'tcx>>(&self, visitor: &mut V) -> bool {
         match *self {
             LvalueTy::Ty { ty } => ty.visit_with(visitor),
-            LvalueTy::Downcast { substs, .. } => substs.visit_with(visitor)
+            LvalueTy::Downcast { substs, .. } => substs.visit_with(visitor),
         }
     }
 }
 
 impl<'tcx> Lvalue<'tcx> {
     pub fn ty<'a, 'gcx, D>(&self, local_decls: &D, tcx: TyCtxt<'a, 'gcx, 'tcx>) -> LvalueTy<'tcx>
-        where D: HasLocalDecls<'tcx>
+    where
+        D: HasLocalDecls<'tcx>,
     {
         match *self {
-            Lvalue::Local(index) =>
-                LvalueTy::Ty { ty: local_decls.local_decls()[index].ty },
-            Lvalue::Static(ref data) =>
-                LvalueTy::Ty { ty: data.ty },
-            Lvalue::Projection(ref proj) =>
-                proj.base.ty(local_decls, tcx).projection_ty(tcx, &proj.elem),
+            Lvalue::Local(index) => LvalueTy::Ty {
+                ty: local_decls.local_decls()[index].ty,
+            },
+            Lvalue::Static(ref data) => LvalueTy::Ty { ty: data.ty },
+            Lvalue::Projection(ref proj) => proj.base
+                .ty(local_decls, tcx)
+                .projection_ty(tcx, &proj.elem),
         }
     }
 }
 
 pub enum RvalueInitializationState {
     Shallow,
-    Deep
+    Deep,
 }
 
 impl<'tcx> Rvalue<'tcx> {
     pub fn ty<'a, 'gcx, D>(&self, local_decls: &D, tcx: TyCtxt<'a, 'gcx, 'tcx>) -> Ty<'tcx>
-        where D: HasLocalDecls<'tcx>
+    where
+        D: HasLocalDecls<'tcx>,
     {
         match *self {
             Rvalue::Use(ref operand) => operand.ty(local_decls, tcx),
@@ -153,11 +157,12 @@ impl<'tcx> Rvalue<'tcx> {
             }
             Rvalue::Ref(reg, bk, ref lv) => {
                 let lv_ty = lv.ty(local_decls, tcx).to_ty(tcx);
-                tcx.mk_ref(reg,
+                tcx.mk_ref(
+                    reg,
                     ty::TypeAndMut {
                         ty: lv_ty,
-                        mutbl: bk.to_mutbl_lossy()
-                    }
+                        mutbl: bk.to_mutbl_lossy(),
+                    },
                 )
             }
             Rvalue::Len(..) => tcx.types.usize,
@@ -173,8 +178,7 @@ impl<'tcx> Rvalue<'tcx> {
                 let ty = op.ty(tcx, lhs_ty, rhs_ty);
                 tcx.intern_tup(&[ty, tcx.types.bool], false)
             }
-            Rvalue::UnaryOp(UnOp::Not, ref operand) |
-            Rvalue::UnaryOp(UnOp::Neg, ref operand) => {
+            Rvalue::UnaryOp(UnOp::Not, ref operand) | Rvalue::UnaryOp(UnOp::Neg, ref operand) => {
                 operand.ty(local_decls, tcx)
             }
             Rvalue::Discriminant(ref lval) => {
@@ -189,28 +193,19 @@ impl<'tcx> Rvalue<'tcx> {
             }
             Rvalue::NullaryOp(NullOp::Box, t) => tcx.mk_box(t),
             Rvalue::NullaryOp(NullOp::SizeOf, _) => tcx.types.usize,
-            Rvalue::Aggregate(ref ak, ref ops) => {
-                match **ak {
-                    AggregateKind::Array(ty) => {
-                        tcx.mk_array(ty, ops.len() as u64)
-                    }
-                    AggregateKind::Tuple => {
-                        tcx.mk_tup(
-                            ops.iter().map(|op| op.ty(local_decls, tcx)),
-                            false
-                        )
-                    }
-                    AggregateKind::Adt(def, _, substs, _) => {
-                        tcx.type_of(def.did).subst(tcx, substs)
-                    }
-                    AggregateKind::Closure(did, substs) => {
-                        tcx.mk_closure_from_closure_substs(did, substs)
-                    }
-                    AggregateKind::Generator(did, substs, interior) => {
-                        tcx.mk_generator(did, substs, interior)
-                    }
+            Rvalue::Aggregate(ref ak, ref ops) => match **ak {
+                AggregateKind::Array(ty) => tcx.mk_array(ty, ops.len() as u64),
+                AggregateKind::Tuple => {
+                    tcx.mk_tup(ops.iter().map(|op| op.ty(local_decls, tcx)), false)
                 }
-            }
+                AggregateKind::Adt(def, _, substs, _) => tcx.type_of(def.did).subst(tcx, substs),
+                AggregateKind::Closure(did, substs) => {
+                    tcx.mk_closure_from_closure_substs(did, substs)
+                }
+                AggregateKind::Generator(did, substs, interior) => {
+                    tcx.mk_generator(did, substs, interior)
+                }
+            },
         }
     }
 
@@ -220,32 +215,40 @@ impl<'tcx> Rvalue<'tcx> {
     pub fn initialization_state(&self) -> RvalueInitializationState {
         match *self {
             Rvalue::NullaryOp(NullOp::Box, _) => RvalueInitializationState::Shallow,
-            _ => RvalueInitializationState::Deep
+            _ => RvalueInitializationState::Deep,
         }
     }
 }
 
 impl<'tcx> Operand<'tcx> {
     pub fn ty<'a, 'gcx, D>(&self, local_decls: &D, tcx: TyCtxt<'a, 'gcx, 'tcx>) -> Ty<'tcx>
-        where D: HasLocalDecls<'tcx>
+    where
+        D: HasLocalDecls<'tcx>,
     {
         match self {
-            &Operand::Copy(ref l) |
-            &Operand::Move(ref l) => l.ty(local_decls, tcx).to_ty(tcx),
+            &Operand::Copy(ref l) | &Operand::Move(ref l) => l.ty(local_decls, tcx).to_ty(tcx),
             &Operand::Constant(ref c) => c.ty,
         }
     }
 }
 
 impl<'tcx> BinOp {
-      pub fn ty<'a, 'gcx>(&self, tcx: TyCtxt<'a, 'gcx, 'tcx>,
-                    lhs_ty: Ty<'tcx>,
-                    rhs_ty: Ty<'tcx>)
-                    -> Ty<'tcx> {
+    pub fn ty<'a, 'gcx>(
+        &self,
+        tcx: TyCtxt<'a, 'gcx, 'tcx>,
+        lhs_ty: Ty<'tcx>,
+        rhs_ty: Ty<'tcx>,
+    ) -> Ty<'tcx> {
         // FIXME: handle SIMD correctly
         match self {
-            &BinOp::Add | &BinOp::Sub | &BinOp::Mul | &BinOp::Div | &BinOp::Rem |
-            &BinOp::BitXor | &BinOp::BitAnd | &BinOp::BitOr => {
+            &BinOp::Add
+            | &BinOp::Sub
+            | &BinOp::Mul
+            | &BinOp::Div
+            | &BinOp::Rem
+            | &BinOp::BitXor
+            | &BinOp::BitAnd
+            | &BinOp::BitOr => {
                 // these should be integers or floats of the same size.
                 assert_eq!(lhs_ty, rhs_ty);
                 lhs_ty
@@ -253,8 +256,7 @@ impl<'tcx> BinOp {
             &BinOp::Shl | &BinOp::Shr | &BinOp::Offset => {
                 lhs_ty // lhs_ty can be != rhs_ty
             }
-            &BinOp::Eq | &BinOp::Lt | &BinOp::Le |
-            &BinOp::Ne | &BinOp::Ge | &BinOp::Gt => {
+            &BinOp::Eq | &BinOp::Lt | &BinOp::Le | &BinOp::Ne | &BinOp::Ge | &BinOp::Gt => {
                 tcx.types.bool
             }
         }
@@ -294,7 +296,7 @@ impl BinOp {
             BinOp::Gt => hir::BinOp_::BiGt,
             BinOp::Le => hir::BinOp_::BiLe,
             BinOp::Ge => hir::BinOp_::BiGe,
-            BinOp::Offset => unreachable!()
+            BinOp::Offset => unreachable!(),
         }
     }
 }

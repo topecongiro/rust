@@ -12,12 +12,10 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 #![allow(dead_code)]
-
 #![doc(html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
        html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
        html_root_url = "https://doc.rust-lang.org/nightly/")]
 #![deny(warnings)]
-
 #![feature(box_syntax)]
 #![feature(concat_idents)]
 #![feature(libc)]
@@ -43,9 +41,9 @@ pub use self::Linkage::*;
 
 use std::str::FromStr;
 use std::slice;
-use std::ffi::{CString, CStr};
+use std::ffi::{CStr, CString};
 use std::cell::RefCell;
-use libc::{c_uint, c_char, size_t};
+use libc::{c_char, c_uint, size_t};
 
 pub mod archive_ro;
 pub mod diagnostic;
@@ -62,15 +60,9 @@ impl LLVMRustResult {
     }
 }
 
-pub fn AddFunctionAttrStringValue(llfn: ValueRef,
-                                  idx: AttributePlace,
-                                  attr: &CStr,
-                                  value: &CStr) {
+pub fn AddFunctionAttrStringValue(llfn: ValueRef, idx: AttributePlace, attr: &CStr, value: &CStr) {
     unsafe {
-        LLVMRustAddFunctionAttrStringValue(llfn,
-                                           idx.as_uint(),
-                                           attr.as_ptr(),
-                                           value.as_ptr())
+        LLVMRustAddFunctionAttrStringValue(llfn, idx.as_uint(), attr.as_ptr(), value.as_ptr())
     }
 }
 
@@ -120,9 +112,11 @@ type RustStringRepr = *mut RefCell<Vec<u8>>;
 
 /// Appending to a Rust string -- used by RawRustStringOstream.
 #[no_mangle]
-pub unsafe extern "C" fn LLVMRustStringWriteImpl(sr: RustStringRef,
-                                                 ptr: *const c_char,
-                                                 size: size_t) {
+pub unsafe extern "C" fn LLVMRustStringWriteImpl(
+    sr: RustStringRef,
+    ptr: *const c_char,
+    size: size_t,
+) {
     let slice = slice::from_raw_parts(ptr as *const u8, size as usize);
 
     let sr = sr as RustStringRepr;
@@ -213,7 +207,9 @@ impl Drop for TargetData {
 
 fn mk_target_data(string_rep: &str) -> TargetData {
     let string_rep = CString::new(string_rep).unwrap();
-    TargetData { lltd: unsafe { LLVMCreateTargetData(string_rep.as_ptr()) } }
+    TargetData {
+        lltd: unsafe { LLVMCreateTargetData(string_rep.as_ptr()) },
+    }
 }
 
 // Memory-managed interface to object files.
@@ -260,14 +256,22 @@ impl Drop for SectionIter {
 }
 
 pub fn mk_section_iter(llof: ObjectFileRef) -> SectionIter {
-    unsafe { SectionIter { llsi: LLVMGetSections(llof) } }
+    unsafe {
+        SectionIter {
+            llsi: LLVMGetSections(llof),
+        }
+    }
 }
 
 /// Safe wrapper around `LLVMGetParam`, because segfaults are no fun.
 pub fn get_param(llfn: ValueRef, index: c_uint) -> ValueRef {
     unsafe {
-        assert!(index < LLVMCountParams(llfn),
-            "out of bounds argument access: {} out of {} arguments", index, LLVMCountParams(llfn));
+        assert!(
+            index < LLVMCountParams(llfn),
+            "out of bounds argument access: {} out of {} arguments",
+            index,
+            LLVMCountParams(llfn)
+        );
         LLVMGetParam(llfn, index)
     }
 }
@@ -285,7 +289,8 @@ fn get_params(llfn: ValueRef) -> Vec<ValueRef> {
 }
 
 pub fn build_string<F>(f: F) -> Option<String>
-    where F: FnOnce(RustStringRef)
+where
+    F: FnOnce(RustStringRef),
 {
     let mut buf = RefCell::new(Vec::new());
     f(&mut buf as RustStringRepr as RustStringRef);
@@ -318,73 +323,97 @@ pub fn initialize_available_targets() {
             init();
         } }
     );
-    init_target!(llvm_component = "x86",
-                 LLVMInitializeX86TargetInfo,
-                 LLVMInitializeX86Target,
-                 LLVMInitializeX86TargetMC,
-                 LLVMInitializeX86AsmPrinter,
-                 LLVMInitializeX86AsmParser);
-    init_target!(llvm_component = "arm",
-                 LLVMInitializeARMTargetInfo,
-                 LLVMInitializeARMTarget,
-                 LLVMInitializeARMTargetMC,
-                 LLVMInitializeARMAsmPrinter,
-                 LLVMInitializeARMAsmParser);
-    init_target!(llvm_component = "aarch64",
-                 LLVMInitializeAArch64TargetInfo,
-                 LLVMInitializeAArch64Target,
-                 LLVMInitializeAArch64TargetMC,
-                 LLVMInitializeAArch64AsmPrinter,
-                 LLVMInitializeAArch64AsmParser);
-    init_target!(llvm_component = "mips",
-                 LLVMInitializeMipsTargetInfo,
-                 LLVMInitializeMipsTarget,
-                 LLVMInitializeMipsTargetMC,
-                 LLVMInitializeMipsAsmPrinter,
-                 LLVMInitializeMipsAsmParser);
-    init_target!(llvm_component = "powerpc",
-                 LLVMInitializePowerPCTargetInfo,
-                 LLVMInitializePowerPCTarget,
-                 LLVMInitializePowerPCTargetMC,
-                 LLVMInitializePowerPCAsmPrinter,
-                 LLVMInitializePowerPCAsmParser);
-    init_target!(llvm_component = "systemz",
-                 LLVMInitializeSystemZTargetInfo,
-                 LLVMInitializeSystemZTarget,
-                 LLVMInitializeSystemZTargetMC,
-                 LLVMInitializeSystemZAsmPrinter,
-                 LLVMInitializeSystemZAsmParser);
-    init_target!(llvm_component = "jsbackend",
-                 LLVMInitializeJSBackendTargetInfo,
-                 LLVMInitializeJSBackendTarget,
-                 LLVMInitializeJSBackendTargetMC);
-    init_target!(llvm_component = "msp430",
-                 LLVMInitializeMSP430TargetInfo,
-                 LLVMInitializeMSP430Target,
-                 LLVMInitializeMSP430TargetMC,
-                 LLVMInitializeMSP430AsmPrinter);
-    init_target!(llvm_component = "sparc",
-                 LLVMInitializeSparcTargetInfo,
-                 LLVMInitializeSparcTarget,
-                 LLVMInitializeSparcTargetMC,
-                 LLVMInitializeSparcAsmPrinter,
-                 LLVMInitializeSparcAsmParser);
-    init_target!(llvm_component = "nvptx",
-                 LLVMInitializeNVPTXTargetInfo,
-                 LLVMInitializeNVPTXTarget,
-                 LLVMInitializeNVPTXTargetMC,
-                 LLVMInitializeNVPTXAsmPrinter);
-    init_target!(llvm_component = "hexagon",
-                 LLVMInitializeHexagonTargetInfo,
-                 LLVMInitializeHexagonTarget,
-                 LLVMInitializeHexagonTargetMC,
-                 LLVMInitializeHexagonAsmPrinter,
-                 LLVMInitializeHexagonAsmParser);
-    init_target!(llvm_component = "webassembly",
-                 LLVMInitializeWebAssemblyTargetInfo,
-                 LLVMInitializeWebAssemblyTarget,
-                 LLVMInitializeWebAssemblyTargetMC,
-                 LLVMInitializeWebAssemblyAsmPrinter);
+    init_target!(
+        llvm_component = "x86",
+        LLVMInitializeX86TargetInfo,
+        LLVMInitializeX86Target,
+        LLVMInitializeX86TargetMC,
+        LLVMInitializeX86AsmPrinter,
+        LLVMInitializeX86AsmParser
+    );
+    init_target!(
+        llvm_component = "arm",
+        LLVMInitializeARMTargetInfo,
+        LLVMInitializeARMTarget,
+        LLVMInitializeARMTargetMC,
+        LLVMInitializeARMAsmPrinter,
+        LLVMInitializeARMAsmParser
+    );
+    init_target!(
+        llvm_component = "aarch64",
+        LLVMInitializeAArch64TargetInfo,
+        LLVMInitializeAArch64Target,
+        LLVMInitializeAArch64TargetMC,
+        LLVMInitializeAArch64AsmPrinter,
+        LLVMInitializeAArch64AsmParser
+    );
+    init_target!(
+        llvm_component = "mips",
+        LLVMInitializeMipsTargetInfo,
+        LLVMInitializeMipsTarget,
+        LLVMInitializeMipsTargetMC,
+        LLVMInitializeMipsAsmPrinter,
+        LLVMInitializeMipsAsmParser
+    );
+    init_target!(
+        llvm_component = "powerpc",
+        LLVMInitializePowerPCTargetInfo,
+        LLVMInitializePowerPCTarget,
+        LLVMInitializePowerPCTargetMC,
+        LLVMInitializePowerPCAsmPrinter,
+        LLVMInitializePowerPCAsmParser
+    );
+    init_target!(
+        llvm_component = "systemz",
+        LLVMInitializeSystemZTargetInfo,
+        LLVMInitializeSystemZTarget,
+        LLVMInitializeSystemZTargetMC,
+        LLVMInitializeSystemZAsmPrinter,
+        LLVMInitializeSystemZAsmParser
+    );
+    init_target!(
+        llvm_component = "jsbackend",
+        LLVMInitializeJSBackendTargetInfo,
+        LLVMInitializeJSBackendTarget,
+        LLVMInitializeJSBackendTargetMC
+    );
+    init_target!(
+        llvm_component = "msp430",
+        LLVMInitializeMSP430TargetInfo,
+        LLVMInitializeMSP430Target,
+        LLVMInitializeMSP430TargetMC,
+        LLVMInitializeMSP430AsmPrinter
+    );
+    init_target!(
+        llvm_component = "sparc",
+        LLVMInitializeSparcTargetInfo,
+        LLVMInitializeSparcTarget,
+        LLVMInitializeSparcTargetMC,
+        LLVMInitializeSparcAsmPrinter,
+        LLVMInitializeSparcAsmParser
+    );
+    init_target!(
+        llvm_component = "nvptx",
+        LLVMInitializeNVPTXTargetInfo,
+        LLVMInitializeNVPTXTarget,
+        LLVMInitializeNVPTXTargetMC,
+        LLVMInitializeNVPTXAsmPrinter
+    );
+    init_target!(
+        llvm_component = "hexagon",
+        LLVMInitializeHexagonTargetInfo,
+        LLVMInitializeHexagonTarget,
+        LLVMInitializeHexagonTargetMC,
+        LLVMInitializeHexagonAsmPrinter,
+        LLVMInitializeHexagonAsmParser
+    );
+    init_target!(
+        llvm_component = "webassembly",
+        LLVMInitializeWebAssemblyTargetInfo,
+        LLVMInitializeWebAssemblyTarget,
+        LLVMInitializeWebAssemblyTargetMC,
+        LLVMInitializeWebAssemblyAsmPrinter
+    );
 }
 
 pub fn last_error() -> Option<String> {

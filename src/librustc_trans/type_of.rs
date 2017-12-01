@@ -19,10 +19,11 @@ use type_::Type;
 
 use std::fmt::Write;
 
-fn uncached_llvm_type<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
-                                layout: TyLayout<'tcx>,
-                                defer: &mut Option<(Type, TyLayout<'tcx>)>)
-                                -> Type {
+fn uncached_llvm_type<'a, 'tcx>(
+    ccx: &CrateContext<'a, 'tcx>,
+    layout: TyLayout<'tcx>,
+    defer: &mut Option<(Type, TyLayout<'tcx>)>,
+) -> Type {
     match layout.abi {
         layout::Abi::Scalar(_) => bug!("handled elsewhere"),
         layout::Abi::Vector => {
@@ -33,34 +34,38 @@ fn uncached_llvm_type<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
             // x86_mmx" type. In general there shouldn't be a need for other
             // one-element SIMD vectors, so it's assumed this won't clash with
             // much else.
-            let use_x86_mmx = layout.fields.count() == 1 &&
-                layout.size.bits() == 64 &&
-                (ccx.sess().target.target.arch == "x86" ||
-                 ccx.sess().target.target.arch == "x86_64");
+            let use_x86_mmx = layout.fields.count() == 1 && layout.size.bits() == 64
+                && (ccx.sess().target.target.arch == "x86"
+                    || ccx.sess().target.target.arch == "x86_64");
             if use_x86_mmx {
-                return Type::x86_mmx(ccx)
+                return Type::x86_mmx(ccx);
             } else {
-                return Type::vector(&layout.field(ccx, 0).llvm_type(ccx),
-                                    layout.fields.count() as u64);
+                return Type::vector(
+                    &layout.field(ccx, 0).llvm_type(ccx),
+                    layout.fields.count() as u64,
+                );
             }
         }
         layout::Abi::ScalarPair(..) => {
-            return Type::struct_(ccx, &[
-                layout.scalar_pair_element_llvm_type(ccx, 0),
-                layout.scalar_pair_element_llvm_type(ccx, 1),
-            ], false);
+            return Type::struct_(
+                ccx,
+                &[
+                    layout.scalar_pair_element_llvm_type(ccx, 0),
+                    layout.scalar_pair_element_llvm_type(ccx, 1),
+                ],
+                false,
+            );
         }
-        layout::Abi::Uninhabited |
-        layout::Abi::Aggregate { .. } => {}
+        layout::Abi::Uninhabited | layout::Abi::Aggregate { .. } => {}
     }
 
     let name = match layout.ty.sty {
-        ty::TyClosure(..) |
-        ty::TyGenerator(..) |
-        ty::TyAdt(..) |
-        ty::TyDynamic(..) |
-        ty::TyForeign(..) |
-        ty::TyStr => {
+        ty::TyClosure(..)
+        | ty::TyGenerator(..)
+        | ty::TyAdt(..)
+        | ty::TyDynamic(..)
+        | ty::TyForeign(..)
+        | ty::TyStr => {
             let mut name = String::with_capacity(32);
             let printer = DefPathBasedNames::new(ccx.tcx(), true, true);
             printer.push_type_name(layout.ty, &mut name);
@@ -74,7 +79,7 @@ fn uncached_llvm_type<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
             }
             Some(name)
         }
-        _ => None
+        _ => None,
     };
 
     match layout.fields {
@@ -82,9 +87,7 @@ fn uncached_llvm_type<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
             let size = layout.size.bytes();
             let fill = Type::array(&Type::i8(ccx), size);
             match name {
-                None => {
-                    Type::struct_(ccx, &[fill], layout.is_packed())
-                }
+                None => Type::struct_(ccx, &[fill], layout.is_packed()),
                 Some(ref name) => {
                     let mut llty = Type::named_struct(ccx, name);
                     llty.set_struct_body(&[fill], layout.is_packed());
@@ -95,23 +98,18 @@ fn uncached_llvm_type<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
         layout::FieldPlacement::Array { count, .. } => {
             Type::array(&layout.field(ccx, 0).llvm_type(ccx), count)
         }
-        layout::FieldPlacement::Arbitrary { .. } => {
-            match name {
-                None => {
-                    Type::struct_(ccx, &struct_llfields(ccx, layout), layout.is_packed())
-                }
-                Some(ref name) => {
-                    let llty = Type::named_struct(ccx, name);
-                    *defer = Some((llty, layout));
-                    llty
-                }
+        layout::FieldPlacement::Arbitrary { .. } => match name {
+            None => Type::struct_(ccx, &struct_llfields(ccx, layout), layout.is_packed()),
+            Some(ref name) => {
+                let llty = Type::named_struct(ccx, name);
+                *defer = Some((llty, layout));
+                llty
             }
-        }
+        },
     }
 }
 
-fn struct_llfields<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
-                             layout: TyLayout<'tcx>) -> Vec<Type> {
+fn struct_llfields<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>, layout: TyLayout<'tcx>) -> Vec<Type> {
     debug!("struct_llfields: {:#?}", layout);
     let field_count = layout.fields.count();
 
@@ -120,8 +118,13 @@ fn struct_llfields<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
     for i in layout.fields.index_by_increasing_offset() {
         let field = layout.field(ccx, i);
         let target_offset = layout.fields.offset(i as usize);
-        debug!("struct_llfields: {}: {:?} offset: {:?} target_offset: {:?}",
-            i, field, offset, target_offset);
+        debug!(
+            "struct_llfields: {}: {:?} offset: {:?} target_offset: {:?}",
+            i,
+            field,
+            offset,
+            target_offset
+        );
         assert!(target_offset >= offset);
         let padding = target_offset - offset;
         result.push(Type::array(&Type::i8(ccx), padding.bytes()));
@@ -132,26 +135,40 @@ fn struct_llfields<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
         if layout.is_packed() {
             assert_eq!(padding.bytes(), 0);
         } else {
-            assert!(field.align.abi() <= layout.align.abi(),
-                    "non-packed type has field with larger align ({}): {:#?}",
-                    field.align.abi(), layout);
+            assert!(
+                field.align.abi() <= layout.align.abi(),
+                "non-packed type has field with larger align ({}): {:#?}",
+                field.align.abi(),
+                layout
+            );
         }
 
         offset = target_offset + field.size;
     }
     if !layout.is_unsized() && field_count > 0 {
         if offset > layout.size {
-            bug!("layout: {:#?} stride: {:?} offset: {:?}",
-                 layout, layout.size, offset);
+            bug!(
+                "layout: {:#?} stride: {:?} offset: {:?}",
+                layout,
+                layout.size,
+                offset
+            );
         }
         let padding = layout.size - offset;
-        debug!("struct_llfields: pad_bytes: {:?} offset: {:?} stride: {:?}",
-               padding, offset, layout.size);
+        debug!(
+            "struct_llfields: pad_bytes: {:?} offset: {:?} stride: {:?}",
+            padding,
+            offset,
+            layout.size
+        );
         result.push(Type::array(&Type::i8(ccx), padding.bytes()));
         assert!(result.len() == 1 + field_count * 2);
     } else {
-        debug!("struct_llfields: offset: {:?} stride: {:?}",
-               offset, layout.size);
+        debug!(
+            "struct_llfields: offset: {:?} stride: {:?}",
+            offset,
+            layout.size
+        );
     }
 
     result
@@ -183,7 +200,7 @@ pub enum PointerKind {
     UniqueBorrowed,
 
     /// `Box<T>`, unlike `UniqueBorrowed`, it also has `noalias` on returns.
-    UniqueOwned
+    UniqueOwned,
 }
 
 #[derive(Copy, Clone)]
@@ -198,31 +215,32 @@ pub trait LayoutLlvmExt<'tcx> {
     fn is_llvm_scalar_pair<'a>(&self) -> bool;
     fn llvm_type<'a>(&self, ccx: &CrateContext<'a, 'tcx>) -> Type;
     fn immediate_llvm_type<'a>(&self, ccx: &CrateContext<'a, 'tcx>) -> Type;
-    fn scalar_pair_element_llvm_type<'a>(&self, ccx: &CrateContext<'a, 'tcx>,
-                                         index: usize) -> Type;
+    fn scalar_pair_element_llvm_type<'a>(&self, ccx: &CrateContext<'a, 'tcx>, index: usize)
+        -> Type;
     fn llvm_field_index(&self, index: usize) -> u64;
-    fn pointee_info_at<'a>(&self, ccx: &CrateContext<'a, 'tcx>, offset: Size)
-                           -> Option<PointeeInfo>;
+    fn pointee_info_at<'a>(
+        &self,
+        ccx: &CrateContext<'a, 'tcx>,
+        offset: Size,
+    ) -> Option<PointeeInfo>;
 }
 
 impl<'tcx> LayoutLlvmExt<'tcx> for TyLayout<'tcx> {
     fn is_llvm_immediate(&self) -> bool {
         match self.abi {
-            layout::Abi::Uninhabited |
-            layout::Abi::Scalar(_) |
-            layout::Abi::Vector => true,
+            layout::Abi::Uninhabited | layout::Abi::Scalar(_) | layout::Abi::Vector => true,
             layout::Abi::ScalarPair(..) => false,
-            layout::Abi::Aggregate { .. } => self.is_zst()
+            layout::Abi::Aggregate { .. } => self.is_zst(),
         }
     }
 
     fn is_llvm_scalar_pair<'a>(&self) -> bool {
         match self.abi {
             layout::Abi::ScalarPair(..) => true,
-            layout::Abi::Uninhabited |
-            layout::Abi::Scalar(_) |
-            layout::Abi::Vector |
-            layout::Abi::Aggregate { .. } => false
+            layout::Abi::Uninhabited
+            | layout::Abi::Scalar(_)
+            | layout::Abi::Vector
+            | layout::Abi::Aggregate { .. } => false,
         }
     }
 
@@ -250,8 +268,8 @@ impl<'tcx> LayoutLlvmExt<'tcx> for TyLayout<'tcx> {
                 layout::F64 => Type::f64(ccx),
                 layout::Pointer => {
                     let pointee = match self.ty.sty {
-                        ty::TyRef(_, ty::TypeAndMut { ty, .. }) |
-                        ty::TyRawPtr(ty::TypeAndMut { ty, .. }) => {
+                        ty::TyRef(_, ty::TypeAndMut { ty, .. })
+                        | ty::TyRawPtr(ty::TypeAndMut { ty, .. }) => {
                             ccx.layout_of(ty).llvm_type(ccx)
                         }
                         ty::TyAdt(def, _) if def.is_box() => {
@@ -281,7 +299,7 @@ impl<'tcx> LayoutLlvmExt<'tcx> for TyLayout<'tcx> {
         // Check the cache.
         let variant_index = match self.variants {
             layout::Variants::Single { index } => Some(index),
-            _ => None
+            _ => None,
         };
         if let Some(&llty) = ccx.lltypes().borrow().get(&(self.ty, variant_index)) {
             return llty;
@@ -289,7 +307,11 @@ impl<'tcx> LayoutLlvmExt<'tcx> for TyLayout<'tcx> {
 
         debug!("llvm_type({:#?})", self);
 
-        assert!(!self.ty.has_escaping_regions(), "{:?} has escaping regions", self.ty);
+        assert!(
+            !self.ty.has_escaping_regions(),
+            "{:?} has escaping regions",
+            self.ty
+        );
 
         // Make sure lifetimes are erased, to avoid generating distinct LLVM
         // types for Rust types that only differ in the choice of lifetimes.
@@ -307,7 +329,9 @@ impl<'tcx> LayoutLlvmExt<'tcx> for TyLayout<'tcx> {
         };
         debug!("--> mapped {:#?} to llty={:?}", self, llty);
 
-        ccx.lltypes().borrow_mut().insert((self.ty, variant_index), llty);
+        ccx.lltypes()
+            .borrow_mut()
+            .insert((self.ty, variant_index), llty);
 
         if let Some((mut llty, layout)) = defer {
             llty.set_struct_body(&struct_llfields(ccx, layout), layout.is_packed())
@@ -325,25 +349,31 @@ impl<'tcx> LayoutLlvmExt<'tcx> for TyLayout<'tcx> {
         self.llvm_type(ccx)
     }
 
-    fn scalar_pair_element_llvm_type<'a>(&self, ccx: &CrateContext<'a, 'tcx>,
-                                         index: usize) -> Type {
+    fn scalar_pair_element_llvm_type<'a>(
+        &self,
+        ccx: &CrateContext<'a, 'tcx>,
+        index: usize,
+    ) -> Type {
         // HACK(eddyb) special-case fat pointers until LLVM removes
         // pointee types, to avoid bitcasting every `OperandRef::deref`.
         match self.ty.sty {
-            ty::TyRef(..) |
-            ty::TyRawPtr(_) => {
+            ty::TyRef(..) | ty::TyRawPtr(_) => {
                 return self.field(ccx, index).llvm_type(ccx);
             }
             ty::TyAdt(def, _) if def.is_box() => {
                 let ptr_ty = ccx.tcx().mk_mut_ptr(self.ty.boxed_ty());
-                return ccx.layout_of(ptr_ty).scalar_pair_element_llvm_type(ccx, index);
+                return ccx.layout_of(ptr_ty)
+                    .scalar_pair_element_llvm_type(ccx, index);
             }
             _ => {}
         }
 
         let (a, b) = match self.abi {
             layout::Abi::ScalarPair(ref a, ref b) => (a, b),
-            _ => bug!("TyLayout::scalar_pair_element_llty({:?}): not applicable", self)
+            _ => bug!(
+                "TyLayout::scalar_pair_element_llty({:?}): not applicable",
+                self
+            ),
         };
         let scalar = [a, b][index];
 
@@ -381,8 +411,7 @@ impl<'tcx> LayoutLlvmExt<'tcx> for TyLayout<'tcx> {
 
     fn llvm_field_index(&self, index: usize) -> u64 {
         match self.abi {
-            layout::Abi::Scalar(_) |
-            layout::Abi::ScalarPair(..) => {
+            layout::Abi::Scalar(_) | layout::Abi::ScalarPair(..) => {
                 bug!("TyLayout::llvm_field_index({:?}): not applicable", self)
             }
             _ => {}
@@ -392,9 +421,7 @@ impl<'tcx> LayoutLlvmExt<'tcx> for TyLayout<'tcx> {
                 bug!("TyLayout::llvm_field_index({:?}): not applicable", self)
             }
 
-            layout::FieldPlacement::Array { .. } => {
-                index as u64
-            }
+            layout::FieldPlacement::Array { .. } => index as u64,
 
             layout::FieldPlacement::Arbitrary { .. } => {
                 1 + (self.fields.memory_index(index) as u64) * 2
@@ -402,8 +429,11 @@ impl<'tcx> LayoutLlvmExt<'tcx> for TyLayout<'tcx> {
         }
     }
 
-    fn pointee_info_at<'a>(&self, ccx: &CrateContext<'a, 'tcx>, offset: Size)
-                           -> Option<PointeeInfo> {
+    fn pointee_info_at<'a>(
+        &self,
+        ccx: &CrateContext<'a, 'tcx>,
+        offset: Size,
+    ) -> Option<PointeeInfo> {
         if let Some(&pointee) = ccx.pointee_infos().borrow().get(&(self.ty, offset)) {
             return pointee;
         }
@@ -415,7 +445,7 @@ impl<'tcx> LayoutLlvmExt<'tcx> for TyLayout<'tcx> {
                 result = Some(PointeeInfo {
                     size,
                     align,
-                    safe: None
+                    safe: None,
                 });
             }
 
@@ -429,8 +459,9 @@ impl<'tcx> LayoutLlvmExt<'tcx> for TyLayout<'tcx> {
                         PointerKind::Shared
                     },
                     hir::MutMutable => {
-                        if ccx.shared().tcx().sess.opts.debugging_opts.mutable_noalias ||
-                           ccx.shared().tcx().sess.panic_strategy() == PanicStrategy::Abort {
+                        if ccx.shared().tcx().sess.opts.debugging_opts.mutable_noalias
+                            || ccx.shared().tcx().sess.panic_strategy() == PanicStrategy::Abort
+                        {
                             PointerKind::UniqueBorrowed
                         } else {
                             PointerKind::Shared
@@ -441,13 +472,15 @@ impl<'tcx> LayoutLlvmExt<'tcx> for TyLayout<'tcx> {
                 result = Some(PointeeInfo {
                     size,
                     align,
-                    safe: Some(kind)
+                    safe: Some(kind),
                 });
             }
 
             _ => {
                 let mut data_variant = match self.variants {
-                    layout::Variants::NicheFilling { dataful_variant, .. } => {
+                    layout::Variants::NicheFilling {
+                        dataful_variant, ..
+                    } => {
                         // Only the niche itself is always initialized,
                         // so only check for a pointer at its offset.
                         //
@@ -465,7 +498,7 @@ impl<'tcx> LayoutLlvmExt<'tcx> for TyLayout<'tcx> {
                             None
                         }
                     }
-                    _ => Some(*self)
+                    _ => Some(*self),
                 };
 
                 if let Some(variant) = data_variant {
@@ -501,7 +534,9 @@ impl<'tcx> LayoutLlvmExt<'tcx> for TyLayout<'tcx> {
             }
         }
 
-        ccx.pointee_infos().borrow_mut().insert((self.ty, offset), result);
+        ccx.pointee_infos()
+            .borrow_mut()
+            .insert((self.ty, offset), result);
         result
     }
 }

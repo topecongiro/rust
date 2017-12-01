@@ -19,9 +19,7 @@ pub struct IgnoreTask<'graph> {
 impl<'graph> IgnoreTask<'graph> {
     pub(super) fn new(graph: &'graph RefCell<CurrentDepGraph>) -> IgnoreTask<'graph> {
         graph.borrow_mut().push_ignore();
-        IgnoreTask {
-            graph,
-        }
+        IgnoreTask { graph }
     }
 }
 
@@ -30,4 +28,3 @@ impl<'graph> Drop for IgnoreTask<'graph> {
         self.graph.borrow_mut().pop_ignore();
     }
 }
-

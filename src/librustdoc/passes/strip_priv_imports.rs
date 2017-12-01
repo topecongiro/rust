@@ -13,6 +13,6 @@ use fold::DocFolder;
 use plugins;
 use passes::ImportStripper;
 
-pub fn strip_priv_imports(krate: clean::Crate)  -> plugins::PluginResult {
+pub fn strip_priv_imports(krate: clean::Crate) -> plugins::PluginResult {
     ImportStripper.fold_crate(krate)
 }

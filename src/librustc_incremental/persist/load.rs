@@ -28,7 +28,7 @@ use super::work_product;
 
 pub fn dep_graph_tcx_init<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>) {
     if !tcx.dep_graph.is_fully_enabled() {
-        return
+        return;
     }
 
     tcx.allocate_metadata_dep_nodes();
@@ -38,7 +38,7 @@ pub fn dep_graph_tcx_init<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>) {
         // If we are only building with -Zquery-dep-graph but without an actual
         // incr. comp. session directory, we exit here. Otherwise we'd fail
         // when trying to load work products.
-        return
+        return;
     }
 
     let work_products_path = work_products_path(tcx.sess);
@@ -47,8 +47,11 @@ pub fn dep_graph_tcx_init<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>) {
         let mut work_product_decoder = Decoder::new(&work_products_data[..], start_pos);
         let work_products: Vec<SerializedWorkProduct> =
             RustcDecodable::decode(&mut work_product_decoder).unwrap_or_else(|e| {
-                let msg = format!("Error decoding `work-products` from incremental \
-                                   compilation session directory: {}", e);
+                let msg = format!(
+                    "Error decoding `work-products` from incremental \
+                     compilation session directory: {}",
+                    e
+                );
                 tcx.sess.fatal(&msg[..])
             });
 
@@ -60,17 +63,24 @@ pub fn dep_graph_tcx_init<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>) {
                     all_files_exist = false;
 
                     if tcx.sess.opts.debugging_opts.incremental_info {
-                        eprintln!("incremental: could not find file for work \
-                                   product: {}", path.display());
+                        eprintln!(
+                            "incremental: could not find file for work \
+                             product: {}",
+                            path.display()
+                        );
                     }
                 }
             }
 
             if all_files_exist {
                 debug!("reconcile_work_products: all files for {:?} exist", swp);
-                tcx.dep_graph.insert_previous_work_product(&swp.id, swp.work_product);
+                tcx.dep_graph
+                    .insert_previous_work_product(&swp.id, swp.work_product);
             } else {
-                debug!("reconcile_work_products: some file for {:?} does not exist", swp);
+                debug!(
+                    "reconcile_work_products: some file for {:?} does not exist",
+                    swp
+                );
                 delete_dirty_work_product(tcx, swp);
             }
         }
@@ -85,23 +95,27 @@ fn load_data(sess: &Session, path: &Path) -> Option<(Vec<u8>, usize)> {
             // compiler version. Neither is an error.
         }
         Err(err) => {
-            sess.err(
-                &format!("could not load dep-graph from `{}`: {}",
-                         path.display(), err));
+            sess.err(&format!(
+                "could not load dep-graph from `{}`: {}",
+                path.display(),
+                err
+            ));
         }
     }
 
     if let Err(err) = delete_all_session_dir_contents(sess) {
-        sess.err(&format!("could not clear incompatible incremental \
-                           compilation session directory `{}`: {}",
-                          path.display(), err));
+        sess.err(&format!(
+            "could not clear incompatible incremental \
+             compilation session directory `{}`: {}",
+            path.display(),
+            err
+        ));
     }
 
     None
 }
 
-fn delete_dirty_work_product(tcx: TyCtxt,
-                             swp: SerializedWorkProduct) {
+fn delete_dirty_work_product(tcx: TyCtxt, swp: SerializedWorkProduct) {
     debug!("delete_dirty_work_product({:?})", swp);
     work_product::delete_workproduct_files(tcx.sess, &swp.work_product);
 }
@@ -111,7 +125,7 @@ pub fn load_prev_metadata_hashes(tcx: TyCtxt) -> DefIdMap<Fingerprint> {
 
     if !tcx.sess.opts.debugging_opts.query_dep_graph {
         // Previous metadata hashes are only needed for testing.
-        return output
+        return output;
     }
 
     debug!("load_prev_metadata_hashes() - Loading previous metadata hashes");
@@ -119,24 +133,36 @@ pub fn load_prev_metadata_hashes(tcx: TyCtxt) -> DefIdMap<Fingerprint> {
     let file_path = metadata_hash_export_path(tcx.sess);
 
     if !file_path.exists() {
-        debug!("load_prev_metadata_hashes() - Couldn't find file containing \
-                hashes at `{}`", file_path.display());
-        return output
+        debug!(
+            "load_prev_metadata_hashes() - Couldn't find file containing \
+             hashes at `{}`",
+            file_path.display()
+        );
+        return output;
     }
 
-    debug!("load_prev_metadata_hashes() - File: {}", file_path.display());
+    debug!(
+        "load_prev_metadata_hashes() - File: {}",
+        file_path.display()
+    );
 
     let (data, start_pos) = match file_format::read_file(tcx.sess, &file_path) {
         Ok(Some(data_and_pos)) => data_and_pos,
         Ok(None) => {
-            debug!("load_prev_metadata_hashes() - File produced by incompatible \
-                    compiler version: {}", file_path.display());
-            return output
+            debug!(
+                "load_prev_metadata_hashes() - File produced by incompatible \
+                 compiler version: {}",
+                file_path.display()
+            );
+            return output;
         }
         Err(err) => {
-            debug!("load_prev_metadata_hashes() - Error reading file `{}`: {}",
-                   file_path.display(), err);
-            return output
+            debug!(
+                "load_prev_metadata_hashes() - Error reading file `{}`: {}",
+                file_path.display(),
+                err
+            );
+            return output;
         }
     };
 
@@ -147,7 +173,10 @@ pub fn load_prev_metadata_hashes(tcx: TyCtxt) -> DefIdMap<Fingerprint> {
 
     debug!("load_prev_metadata_hashes() - Mapping DefIds");
 
-    assert_eq!(serialized_hashes.index_map.len(), serialized_hashes.entry_hashes.len());
+    assert_eq!(
+        serialized_hashes.index_map.len(),
+        serialized_hashes.entry_hashes.len()
+    );
     let def_path_hash_to_def_id = tcx.def_path_hash_to_def_id.as_ref().unwrap();
 
     for serialized_hash in serialized_hashes.entry_hashes {
@@ -158,8 +187,10 @@ pub fn load_prev_metadata_hashes(tcx: TyCtxt) -> DefIdMap<Fingerprint> {
         }
     }
 
-    debug!("load_prev_metadata_hashes() - successfully loaded {} hashes",
-           serialized_hashes.index_map.len());
+    debug!(
+        "load_prev_metadata_hashes() - successfully loaded {} hashes",
+        serialized_hashes.index_map.len()
+    );
 
     output
 }
@@ -168,7 +199,7 @@ pub fn load_dep_graph(sess: &Session) -> PreviousDepGraph {
     let empty = PreviousDepGraph::new(SerializedDepGraph::new());
 
     if sess.opts.incremental.is_none() {
-        return empty
+        return empty;
     }
 
     if let Some((bytes, start_pos)) = load_data(sess, &dep_graph_path(sess)) {
@@ -178,22 +209,25 @@ pub fn load_dep_graph(sess: &Session) -> PreviousDepGraph {
 
         if prev_commandline_args_hash != sess.opts.dep_tracking_hash() {
             if sess.opts.debugging_opts.incremental_info {
-                println!("[incremental] completely ignoring cache because of \
-                          differing commandline arguments");
+                println!(
+                    "[incremental] completely ignoring cache because of \
+                     differing commandline arguments"
+                );
             }
             // We can't reuse the cache, purge it.
             debug!("load_dep_graph_new: differing commandline arg hashes");
 
-            delete_all_session_dir_contents(sess)
-                .expect("Failed to delete invalidated incr. comp. session \
-                         directory contents.");
+            delete_all_session_dir_contents(sess).expect(
+                "Failed to delete invalidated incr. comp. session \
+                 directory contents.",
+            );
 
             // No need to do any further work
-            return empty
+            return empty;
         }
 
-        let dep_graph = SerializedDepGraph::decode(&mut decoder)
-            .expect("Error reading cached dep-graph");
+        let dep_graph =
+            SerializedDepGraph::decode(&mut decoder).expect("Error reading cached dep-graph");
 
         PreviousDepGraph::new(dep_graph)
     } else {
@@ -202,8 +236,7 @@ pub fn load_dep_graph(sess: &Session) -> PreviousDepGraph {
 }
 
 pub fn load_query_result_cache<'sess>(sess: &'sess Session) -> OnDiskCache<'sess> {
-    if sess.opts.incremental.is_none() ||
-       !sess.opts.debugging_opts.incremental_queries {
+    if sess.opts.incremental.is_none() || !sess.opts.debugging_opts.incremental_queries {
         return OnDiskCache::new_empty(sess.codemap());
     }
 

@@ -21,7 +21,7 @@ use core::cmp::Ordering;
 use core::fmt;
 use core::iter::{repeat, FromIterator, FusedIterator};
 use core::mem;
-use core::ops::{Index, IndexMut, Place, Placer, InPlace};
+use core::ops::{InPlace, Index, IndexMut, Place, Placer};
 use core::ptr;
 use core::ptr::Shared;
 use core::slice;
@@ -166,41 +166,53 @@ impl<T> VecDeque<T> {
     /// Copies a contiguous block of memory len long from src to dst
     #[inline]
     unsafe fn copy(&self, dst: usize, src: usize, len: usize) {
-        debug_assert!(dst + len <= self.cap(),
-                      "cpy dst={} src={} len={} cap={}",
-                      dst,
-                      src,
-                      len,
-                      self.cap());
-        debug_assert!(src + len <= self.cap(),
-                      "cpy dst={} src={} len={} cap={}",
-                      dst,
-                      src,
-                      len,
-                      self.cap());
-        ptr::copy(self.ptr().offset(src as isize),
-                  self.ptr().offset(dst as isize),
-                  len);
+        debug_assert!(
+            dst + len <= self.cap(),
+            "cpy dst={} src={} len={} cap={}",
+            dst,
+            src,
+            len,
+            self.cap()
+        );
+        debug_assert!(
+            src + len <= self.cap(),
+            "cpy dst={} src={} len={} cap={}",
+            dst,
+            src,
+            len,
+            self.cap()
+        );
+        ptr::copy(
+            self.ptr().offset(src as isize),
+            self.ptr().offset(dst as isize),
+            len,
+        );
     }
 
     /// Copies a contiguous block of memory len long from src to dst
     #[inline]
     unsafe fn copy_nonoverlapping(&self, dst: usize, src: usize, len: usize) {
-        debug_assert!(dst + len <= self.cap(),
-                      "cno dst={} src={} len={} cap={}",
-                      dst,
-                      src,
-                      len,
-                      self.cap());
-        debug_assert!(src + len <= self.cap(),
-                      "cno dst={} src={} len={} cap={}",
-                      dst,
-                      src,
-                      len,
-                      self.cap());
-        ptr::copy_nonoverlapping(self.ptr().offset(src as isize),
-                                 self.ptr().offset(dst as isize),
-                                 len);
+        debug_assert!(
+            dst + len <= self.cap(),
+            "cno dst={} src={} len={} cap={}",
+            dst,
+            src,
+            len,
+            self.cap()
+        );
+        debug_assert!(
+            src + len <= self.cap(),
+            "cno dst={} src={} len={} cap={}",
+            dst,
+            src,
+            len,
+            self.cap()
+        );
+        ptr::copy_nonoverlapping(
+            self.ptr().offset(src as isize),
+            self.ptr().offset(dst as isize),
+            len,
+        );
     }
 
     /// Copies a potentially wrapping block of memory len long from src to dest.
@@ -209,14 +221,20 @@ impl<T> VecDeque<T> {
     unsafe fn wrap_copy(&self, dst: usize, src: usize, len: usize) {
         #[allow(dead_code)]
         fn diff(a: usize, b: usize) -> usize {
-            if a <= b { b - a } else { a - b }
+            if a <= b {
+                b - a
+            } else {
+                a - b
+            }
         }
-        debug_assert!(cmp::min(diff(dst, src), self.cap() - diff(dst, src)) + len <= self.cap(),
-                      "wrc dst={} src={} len={} cap={}",
-                      dst,
-                      src,
-                      len,
-                      self.cap());
+        debug_assert!(
+            cmp::min(diff(dst, src), self.cap() - diff(dst, src)) + len <= self.cap(),
+            "wrc dst={} src={} len={} cap={}",
+            dst,
+            src,
+            len,
+            self.cap()
+        );
 
         if src == dst || len == 0 {
             return;
@@ -485,8 +503,10 @@ impl<T> VecDeque<T> {
         let ri = self.wrap_add(self.tail, i);
         let rj = self.wrap_add(self.tail, j);
         unsafe {
-            ptr::swap(self.ptr().offset(ri as isize),
-                      self.ptr().offset(rj as isize))
+            ptr::swap(
+                self.ptr().offset(ri as isize),
+                self.ptr().offset(rj as isize),
+            )
         }
     }
 
@@ -554,7 +574,8 @@ impl<T> VecDeque<T> {
     pub fn reserve(&mut self, additional: usize) {
         let old_cap = self.cap();
         let used_cap = self.len() + 1;
-        let new_cap = used_cap.checked_add(additional)
+        let new_cap = used_cap
+            .checked_add(additional)
             .and_then(|needed_cap| needed_cap.checked_next_power_of_two())
             .expect("capacity overflow");
 
@@ -844,7 +865,8 @@ impl<T> VecDeque<T> {
     #[inline]
     #[stable(feature = "drain", since = "1.6.0")]
     pub fn drain<R>(&mut self, range: R) -> Drain<T>
-        where R: RangeArgument<usize>
+    where
+        R: RangeArgument<usize>,
     {
         // Memory safety
         //
@@ -860,12 +882,12 @@ impl<T> VecDeque<T> {
         let start = match range.start() {
             Included(&n) => n,
             Excluded(&n) => n + 1,
-            Unbounded    => 0,
+            Unbounded => 0,
         };
         let end = match range.end() {
             Included(&n) => n + 1,
             Excluded(&n) => n,
-            Unbounded    => len,
+            Unbounded => len,
         };
         assert!(start <= end, "drain lower bound was too large");
         assert!(end <= len, "drain upper bound was too large");
@@ -942,7 +964,8 @@ impl<T> VecDeque<T> {
     /// ```
     #[stable(feature = "vec_deque_contains", since = "1.12.0")]
     pub fn contains(&self, x: &T) -> bool
-        where T: PartialEq<T>
+    where
+        T: PartialEq<T>,
     {
         let (a, b) = self.as_slices();
         a.contains(x) || b.contains(x)
@@ -1281,7 +1304,11 @@ impl<T> VecDeque<T> {
 
         let contiguous = self.is_contiguous();
 
-        match (contiguous, distance_to_tail <= distance_to_head, idx >= self.tail) {
+        match (
+            contiguous,
+            distance_to_tail <= distance_to_head,
+            idx >= self.tail,
+        ) {
             (true, true, _) if index == 0 => {
                 // push_front
                 //
@@ -1500,7 +1527,11 @@ impl<T> VecDeque<T> {
 
         let contiguous = self.is_contiguous();
 
-        match (contiguous, distance_to_tail <= distance_to_head, idx >= self.tail) {
+        match (
+            contiguous,
+            distance_to_tail <= distance_to_head,
+            idx >= self.tail,
+        ) {
             (true, true, _) => {
                 unsafe {
                     // contiguous, remove closer to tail:
@@ -1665,22 +1696,28 @@ impl<T> VecDeque<T> {
                 // `at` lies in the first half.
                 let amount_in_first = first_len - at;
 
-                ptr::copy_nonoverlapping(first_half.as_ptr().offset(at as isize),
-                                         other.ptr(),
-                                         amount_in_first);
+                ptr::copy_nonoverlapping(
+                    first_half.as_ptr().offset(at as isize),
+                    other.ptr(),
+                    amount_in_first,
+                );
 
                 // just take all of the second half.
-                ptr::copy_nonoverlapping(second_half.as_ptr(),
-                                         other.ptr().offset(amount_in_first as isize),
-                                         second_len);
+                ptr::copy_nonoverlapping(
+                    second_half.as_ptr(),
+                    other.ptr().offset(amount_in_first as isize),
+                    second_len,
+                );
             } else {
                 // `at` lies in the second half, need to factor in the elements we skipped
                 // in the first half.
                 let offset = at - first_len;
                 let amount_in_second = second_len - offset;
-                ptr::copy_nonoverlapping(second_half.as_ptr().offset(offset as isize),
-                                         other.ptr(),
-                                         amount_in_second);
+                ptr::copy_nonoverlapping(
+                    second_half.as_ptr().offset(offset as isize),
+                    other.ptr(),
+                    amount_in_second,
+                );
             }
         }
 
@@ -1733,7 +1770,8 @@ impl<T> VecDeque<T> {
     /// ```
     #[stable(feature = "vec_deque_retain", since = "1.4.0")]
     pub fn retain<F>(&mut self, mut f: F)
-        where F: FnMut(&T) -> bool
+    where
+        F: FnMut(&T) -> bool,
     {
         let len = self.len();
         let mut del = 0;
@@ -1781,8 +1819,7 @@ impl<T> VecDeque<T> {
     /// assert_eq!(&buf, &[3, 4]);
     /// ```
     #[unstable(feature = "collection_placement",
-               reason = "placement protocol is subject to change",
-               issue = "30172")]
+               reason = "placement protocol is subject to change", issue = "30172")]
     pub fn place_back(&mut self) -> PlaceBack<T> {
         PlaceBack { vec_deque: self }
     }
@@ -1806,8 +1843,7 @@ impl<T> VecDeque<T> {
     /// assert_eq!(&buf, &[4, 3]);
     /// ```
     #[unstable(feature = "collection_placement",
-               reason = "placement protocol is subject to change",
-               issue = "30172")]
+               reason = "placement protocol is subject to change", issue = "30172")]
     pub fn place_front(&mut self) -> PlaceFront<T> {
         PlaceFront { vec_deque: self }
     }
@@ -1915,10 +1951,10 @@ pub struct Iter<'a, T: 'a> {
 impl<'a, T: 'a + fmt::Debug> fmt::Debug for Iter<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("Iter")
-         .field(&self.ring)
-         .field(&self.tail)
-         .field(&self.head)
-         .finish()
+            .field(&self.ring)
+            .field(&self.tail)
+            .field(&self.head)
+            .finish()
     }
 }
 
@@ -1955,7 +1991,8 @@ impl<'a, T> Iterator for Iter<'a, T> {
     }
 
     fn fold<Acc, F>(self, mut accum: Acc, mut f: F) -> Acc
-        where F: FnMut(Acc, Self::Item) -> Acc
+    where
+        F: FnMut(Acc, Self::Item) -> Acc,
     {
         let (front, back) = RingSlices::ring_slices(self.ring, self.head, self.tail);
         accum = front.iter().fold(accum, &mut f);
@@ -1975,7 +2012,8 @@ impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
     }
 
     fn rfold<Acc, F>(self, mut accum: Acc, mut f: F) -> Acc
-        where F: FnMut(Acc, Self::Item) -> Acc
+    where
+        F: FnMut(Acc, Self::Item) -> Acc,
     {
         let (front, back) = RingSlices::ring_slices(self.ring, self.head, self.tail);
         accum = back.iter().rfold(accum, &mut f);
@@ -2012,10 +2050,10 @@ pub struct IterMut<'a, T: 'a> {
 impl<'a, T: 'a + fmt::Debug> fmt::Debug for IterMut<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("IterMut")
-         .field(&self.ring)
-         .field(&self.tail)
-         .field(&self.head)
-         .finish()
+            .field(&self.ring)
+            .field(&self.tail)
+            .field(&self.head)
+            .finish()
     }
 }
 
@@ -2044,7 +2082,8 @@ impl<'a, T> Iterator for IterMut<'a, T> {
     }
 
     fn fold<Acc, F>(self, mut accum: Acc, mut f: F) -> Acc
-        where F: FnMut(Acc, Self::Item) -> Acc
+    where
+        F: FnMut(Acc, Self::Item) -> Acc,
     {
         let (front, back) = RingSlices::ring_slices(self.ring, self.head, self.tail);
         accum = front.iter_mut().fold(accum, &mut f);
@@ -2068,7 +2107,8 @@ impl<'a, T> DoubleEndedIterator for IterMut<'a, T> {
     }
 
     fn rfold<Acc, F>(self, mut accum: Acc, mut f: F) -> Acc
-        where F: FnMut(Acc, Self::Item) -> Acc
+    where
+        F: FnMut(Acc, Self::Item) -> Acc,
     {
         let (front, back) = RingSlices::ring_slices(self.ring, self.head, self.tail);
         accum = back.iter_mut().rfold(accum, &mut f);
@@ -2102,9 +2142,7 @@ pub struct IntoIter<T> {
 #[stable(feature = "collection_debug", since = "1.17.0")]
 impl<T: fmt::Debug> fmt::Debug for IntoIter<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("IntoIter")
-         .field(&self.inner)
-         .finish()
+        f.debug_tuple("IntoIter").field(&self.inner).finish()
     }
 }
 
@@ -2161,10 +2199,10 @@ pub struct Drain<'a, T: 'a> {
 impl<'a, T: 'a + fmt::Debug> fmt::Debug for Drain<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("Drain")
-         .field(&self.after_tail)
-         .field(&self.after_head)
-         .field(&self.iter)
-         .finish()
+            .field(&self.after_tail)
+            .field(&self.after_head)
+            .field(&self.iter)
+            .finish()
     }
 }
 
@@ -2451,8 +2489,9 @@ impl<T> From<Vec<T>> for VecDeque<T> {
 
             // We need to extend the buf if it's not a power of two, too small
             // or doesn't have at least one free space
-            if !buf.cap().is_power_of_two() || (buf.cap() < (MINIMUM_CAPACITY + 1)) ||
-               (buf.cap() == len) {
+            if !buf.cap().is_power_of_two() || (buf.cap() < (MINIMUM_CAPACITY + 1))
+                || (buf.cap() == len)
+            {
                 let cap = cmp::max(buf.cap() + 1, MINIMUM_CAPACITY + 1).next_power_of_two();
                 buf.reserve_exact(len, cap - len);
             }
@@ -2485,9 +2524,11 @@ impl<T> From<VecDeque<T>> for Vec<T> {
                     // do this in at most three copy moves.
                     if (cap - tail) > head {
                         // right hand block is the long one; move that enough for the left
-                        ptr::copy(buf.offset(tail as isize),
-                                  buf.offset((tail - head) as isize),
-                                  cap - tail);
+                        ptr::copy(
+                            buf.offset(tail as isize),
+                            buf.offset((tail - head) as isize),
+                            cap - tail,
+                        );
                         // copy left in the end
                         ptr::copy(buf, buf.offset((cap - head) as isize), head);
                         // shift the new thing to the start
@@ -2525,10 +2566,8 @@ impl<T> From<VecDeque<T>> for Vec<T> {
                         let n_ops = right_edge - left_edge;
                         left_edge += n_ops;
                         right_edge += right_offset + 1;
-
                     }
                 }
-
             }
             let out = Vec::from_raw_parts(buf, len, cap);
             mem::forget(other);
@@ -2542,15 +2581,13 @@ impl<T> From<VecDeque<T>> for Vec<T> {
 /// See [`VecDeque::place_back`](struct.VecDeque.html#method.place_back) for details.
 #[must_use = "places do nothing unless written to with `<-` syntax"]
 #[unstable(feature = "collection_placement",
-           reason = "struct name and placement protocol are subject to change",
-           issue = "30172")]
+           reason = "struct name and placement protocol are subject to change", issue = "30172")]
 #[derive(Debug)]
 pub struct PlaceBack<'a, T: 'a> {
     vec_deque: &'a mut VecDeque<T>,
 }
 
-#[unstable(feature = "collection_placement",
-           reason = "placement protocol is subject to change",
+#[unstable(feature = "collection_placement", reason = "placement protocol is subject to change",
            issue = "30172")]
 impl<'a, T> Placer<T> for PlaceBack<'a, T> {
     type Place = PlaceBack<'a, T>;
@@ -2561,8 +2598,7 @@ impl<'a, T> Placer<T> for PlaceBack<'a, T> {
     }
 }
 
-#[unstable(feature = "collection_placement",
-           reason = "placement protocol is subject to change",
+#[unstable(feature = "collection_placement", reason = "placement protocol is subject to change",
            issue = "30172")]
 impl<'a, T> Place<T> for PlaceBack<'a, T> {
     fn pointer(&mut self) -> *mut T {
@@ -2570,8 +2606,7 @@ impl<'a, T> Place<T> for PlaceBack<'a, T> {
     }
 }
 
-#[unstable(feature = "collection_placement",
-           reason = "placement protocol is subject to change",
+#[unstable(feature = "collection_placement", reason = "placement protocol is subject to change",
            issue = "30172")]
 impl<'a, T> InPlace<T> for PlaceBack<'a, T> {
     type Owner = &'a mut T;
@@ -2588,15 +2623,13 @@ impl<'a, T> InPlace<T> for PlaceBack<'a, T> {
 /// See [`VecDeque::place_front`](struct.VecDeque.html#method.place_front) for details.
 #[must_use = "places do nothing unless written to with `<-` syntax"]
 #[unstable(feature = "collection_placement",
-           reason = "struct name and placement protocol are subject to change",
-           issue = "30172")]
+           reason = "struct name and placement protocol are subject to change", issue = "30172")]
 #[derive(Debug)]
 pub struct PlaceFront<'a, T: 'a> {
     vec_deque: &'a mut VecDeque<T>,
 }
 
-#[unstable(feature = "collection_placement",
-           reason = "placement protocol is subject to change",
+#[unstable(feature = "collection_placement", reason = "placement protocol is subject to change",
            issue = "30172")]
 impl<'a, T> Placer<T> for PlaceFront<'a, T> {
     type Place = PlaceFront<'a, T>;
@@ -2607,8 +2640,7 @@ impl<'a, T> Placer<T> for PlaceFront<'a, T> {
     }
 }
 
-#[unstable(feature = "collection_placement",
-           reason = "placement protocol is subject to change",
+#[unstable(feature = "collection_placement", reason = "placement protocol is subject to change",
            issue = "30172")]
 impl<'a, T> Place<T> for PlaceFront<'a, T> {
     fn pointer(&mut self) -> *mut T {
@@ -2617,8 +2649,7 @@ impl<'a, T> Place<T> for PlaceFront<'a, T> {
     }
 }
 
-#[unstable(feature = "collection_placement",
-           reason = "placement protocol is subject to change",
+#[unstable(feature = "collection_placement", reason = "placement protocol is subject to change",
            issue = "30172")]
 impl<'a, T> InPlace<T> for PlaceFront<'a, T> {
     type Owner = &'a mut T;
@@ -2827,9 +2858,8 @@ mod tests {
                         assert!(tester.head < tester.cap());
 
                         // We should see the correct values in the VecDeque
-                        let expected: VecDeque<_> = (0..drain_start)
-                            .chain(drain_end..len)
-                            .collect();
+                        let expected: VecDeque<_> =
+                            (0..drain_start).chain(drain_end..len).collect();
                         assert_eq!(expected, tester);
                     }
                 }

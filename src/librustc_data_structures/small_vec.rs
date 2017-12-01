@@ -17,29 +17,33 @@
 //! The N above is determined by Array's implementor, by way of an associated constant.
 
 use std::ops::{Deref, DerefMut};
-use std::iter::{IntoIterator, FromIterator};
+use std::iter::{FromIterator, IntoIterator};
 use std::fmt::{self, Debug};
 use std::mem;
 use std::ptr;
 
-use rustc_serialize::{Encodable, Encoder, Decodable, Decoder};
+use rustc_serialize::{Decodable, Decoder, Encodable, Encoder};
 
-use accumulate_vec::{IntoIter, AccumulateVec};
+use accumulate_vec::{AccumulateVec, IntoIter};
 use array_vec::Array;
 
 pub struct SmallVec<A: Array>(AccumulateVec<A>);
 
 impl<A> Clone for SmallVec<A>
-    where A: Array,
-          A::Element: Clone {
+where
+    A: Array,
+    A::Element: Clone,
+{
     fn clone(&self) -> Self {
         SmallVec(self.0.clone())
     }
 }
 
 impl<A> Debug for SmallVec<A>
-    where A: Array + Debug,
-          A::Element: Debug {
+where
+    A: Array + Debug,
+    A::Element: Debug,
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("SmallVec").field(&self.0).finish()
     }
@@ -60,7 +64,7 @@ impl<A: Array> SmallVec<A> {
         SmallVec(AccumulateVec::one(el))
     }
 
-    pub fn many<I: IntoIterator<Item=A::Element>>(els: I) -> Self {
+    pub fn many<I: IntoIterator<Item = A::Element>>(els: I) -> Self {
         SmallVec(AccumulateVec::many(els))
     }
 
@@ -86,17 +90,19 @@ impl<A: Array> SmallVec<A> {
             AccumulateVec::Array(_) => {
                 if self.len() + n > A::LEN {
                     let len = self.len();
-                    let array = mem::replace(&mut self.0,
-                            AccumulateVec::Heap(Vec::with_capacity(len + n)));
+                    let array = mem::replace(
+                        &mut self.0,
+                        AccumulateVec::Heap(Vec::with_capacity(len + n)),
+                    );
                     if let AccumulateVec::Array(array) = array {
                         match self.0 {
                             AccumulateVec::Heap(ref mut vec) => vec.extend(array),
-                            _ => unreachable!()
+                            _ => unreachable!(),
                         }
                     }
                 }
             }
-            AccumulateVec::Heap(ref mut vec) => vec.reserve(n)
+            AccumulateVec::Heap(ref mut vec) => vec.reserve(n),
         }
     }
 
@@ -158,13 +164,16 @@ impl<A: Array> DerefMut for SmallVec<A> {
 }
 
 impl<A: Array> FromIterator<A::Element> for SmallVec<A> {
-    fn from_iter<I>(iter: I) -> Self where I: IntoIterator<Item=A::Element> {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = A::Element>,
+    {
         SmallVec(iter.into_iter().collect())
     }
 }
 
 impl<A: Array> Extend<A::Element> for SmallVec<A> {
-    fn extend<I: IntoIterator<Item=A::Element>>(&mut self, iter: I) {
+    fn extend<I: IntoIterator<Item = A::Element>>(&mut self, iter: I) {
         let iter = iter.into_iter();
         self.reserve(iter.size_hint().0);
         for el in iter {
@@ -188,8 +197,10 @@ impl<A: Array> Default for SmallVec<A> {
 }
 
 impl<A> Encodable for SmallVec<A>
-    where A: Array,
-          A::Element: Encodable {
+where
+    A: Array,
+    A::Element: Encodable,
+{
     fn encode<S: Encoder>(&self, s: &mut S) -> Result<(), S::Error> {
         s.emit_seq(self.len(), |s| {
             for (i, e) in self.iter().enumerate() {
@@ -201,8 +212,10 @@ impl<A> Encodable for SmallVec<A>
 }
 
 impl<A> Decodable for SmallVec<A>
-    where A: Array,
-          A::Element: Decodable {
+where
+    A: Array,
+    A::Element: Decodable,
+{
     fn decode<D: Decoder>(d: &mut D) -> Result<SmallVec<A>, D::Error> {
         d.read_seq(|d, len| {
             let mut vec = SmallVec::with_capacity(len);

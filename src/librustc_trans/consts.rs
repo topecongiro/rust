@@ -9,15 +9,15 @@
 // except according to those terms.
 
 use llvm;
-use llvm::{SetUnnamedAddr};
-use llvm::{ValueRef, True};
+use llvm::SetUnnamedAddr;
+use llvm::{True, ValueRef};
 use rustc::hir::def_id::DefId;
 use rustc::hir::map as hir_map;
 use rustc::middle::const_val::ConstEvalErr;
 use debuginfo;
 use base;
 use trans_item::{TransItem, TransItemExt};
-use common::{self, CrateContext, val_ty};
+use common::{self, val_ty, CrateContext};
 use declare;
 use monomorphize::Instance;
 use type_::Type;
@@ -32,20 +32,14 @@ use syntax::ast;
 use syntax::attr;
 
 pub fn ptrcast(val: ValueRef, ty: Type) -> ValueRef {
-    unsafe {
-        llvm::LLVMConstPointerCast(val, ty.to_ref())
-    }
+    unsafe { llvm::LLVMConstPointerCast(val, ty.to_ref()) }
 }
 
 pub fn bitcast(val: ValueRef, ty: Type) -> ValueRef {
-    unsafe {
-        llvm::LLVMConstBitCast(val, ty.to_ref())
-    }
+    unsafe { llvm::LLVMConstBitCast(val, ty.to_ref()) }
 }
 
-fn set_global_alignment(ccx: &CrateContext,
-                        gv: ValueRef,
-                        mut align: Align) {
+fn set_global_alignment(ccx: &CrateContext, gv: ValueRef, mut align: Align) {
     // The target may require greater alignment for globals than the type does.
     // Note: GCC and Clang also allow `__attribute__((aligned))` on variables,
     // which can force it to be smaller.  Rust doesn't support this yet.
@@ -53,7 +47,8 @@ fn set_global_alignment(ccx: &CrateContext,
         match ty::layout::Align::from_bits(min, min) {
             Ok(min) => align = align.max(min),
             Err(err) => {
-                ccx.sess().err(&format!("invalid minimum global alignment: {}", err));
+                ccx.sess()
+                    .err(&format!("invalid minimum global alignment: {}", err));
             }
         }
     }
@@ -62,14 +57,10 @@ fn set_global_alignment(ccx: &CrateContext,
     }
 }
 
-pub fn addr_of_mut(ccx: &CrateContext,
-                   cv: ValueRef,
-                   align: Align,
-                   kind: &str)
-                    -> ValueRef {
+pub fn addr_of_mut(ccx: &CrateContext, cv: ValueRef, align: Align, kind: &str) -> ValueRef {
     unsafe {
         let name = ccx.generate_local_symbol_name(kind);
-        let gv = declare::define_global(ccx, &name[..], val_ty(cv)).unwrap_or_else(||{
+        let gv = declare::define_global(ccx, &name[..], val_ty(cv)).unwrap_or_else(|| {
             bug!("symbol `{}` is already defined", name);
         });
         llvm::LLVMSetInitializer(gv, cv);
@@ -80,11 +71,7 @@ pub fn addr_of_mut(ccx: &CrateContext,
     }
 }
 
-pub fn addr_of(ccx: &CrateContext,
-               cv: ValueRef,
-               align: Align,
-               kind: &str)
-               -> ValueRef {
+pub fn addr_of(ccx: &CrateContext, cv: ValueRef, align: Align, kind: &str) -> ValueRef {
     if let Some(&gv) = ccx.const_globals().borrow().get(&cv) {
         unsafe {
             // Upgrade the alignment in cases where the same constant is used with different
@@ -112,17 +99,19 @@ pub fn get_static(ccx: &CrateContext, def_id: DefId) -> ValueRef {
 
     let ty = common::instance_ty(ccx.tcx(), &instance);
     let g = if let Some(id) = ccx.tcx().hir.as_local_node_id(def_id) {
-
         let llty = ccx.layout_of(ty).llvm_type(ccx);
         let (g, attrs) = match ccx.tcx().hir.get(id) {
             hir_map::NodeItem(&hir::Item {
-                ref attrs, span, node: hir::ItemStatic(..), ..
+                ref attrs,
+                span,
+                node: hir::ItemStatic(..),
+                ..
             }) => {
                 let sym = TransItem::Static(id).symbol_name(ccx.tcx());
 
                 let defined_in_current_codegen_unit = ccx.codegen_unit()
-                                                         .items()
-                                                         .contains_key(&TransItem::Static(id));
+                    .items()
+                    .contains_key(&TransItem::Static(id));
                 assert!(!defined_in_current_codegen_unit);
 
                 if declare::get_declared_value(ccx, &sym[..]).is_some() {
@@ -141,11 +130,13 @@ pub fn get_static(ccx: &CrateContext, def_id: DefId) -> ValueRef {
             }
 
             hir_map::NodeForeignItem(&hir::ForeignItem {
-                ref attrs, span, node: hir::ForeignItemStatic(..), ..
+                ref attrs,
+                span,
+                node: hir::ForeignItemStatic(..),
+                ..
             }) => {
                 let sym = ccx.tcx().symbol_name(instance);
-                let g = if let Some(name) =
-                        attr::first_attr_value_str_by_name(&attrs, "linkage") {
+                let g = if let Some(name) = attr::first_attr_value_str_by_name(&attrs, "linkage") {
                     // If this is a static with a linkage specified, then we need to handle
                     // it a little specially. The typesystem prevents things like &T and
                     // extern "C" fn() from being non-null, so we can't just declare a
@@ -160,7 +151,8 @@ pub fn get_static(ccx: &CrateContext, def_id: DefId) -> ValueRef {
                     let llty2 = match ty.sty {
                         ty::TyRawPtr(ref mt) => ccx.layout_of(mt.ty).llvm_type(ccx),
                         _ => {
-                            ccx.sess().span_fatal(span, "must have type `*const T` or `*mut T`");
+                            ccx.sess()
+                                .span_fatal(span, "must have type `*const T` or `*mut T`");
                         }
                     };
                     unsafe {
@@ -176,10 +168,13 @@ pub fn get_static(ccx: &CrateContext, def_id: DefId) -> ValueRef {
                         // zero.
                         let mut real_name = "_rust_extern_with_linkage_".to_string();
                         real_name.push_str(&sym);
-                        let g2 = declare::define_global(ccx, &real_name, llty).unwrap_or_else(||{
-                            ccx.sess().span_fatal(span,
-                                &format!("symbol `{}` is already defined", &sym))
-                        });
+                        let g2 =
+                            declare::define_global(ccx, &real_name, llty).unwrap_or_else(|| {
+                                ccx.sess().span_fatal(
+                                    span,
+                                    &format!("symbol `{}` is already defined", &sym),
+                                )
+                            });
                         llvm::LLVMRustSetLinkage(g2, llvm::Linkage::InternalLinkage);
                         llvm::LLVMSetInitializer(g2, g1);
                         g2
@@ -192,7 +187,7 @@ pub fn get_static(ccx: &CrateContext, def_id: DefId) -> ValueRef {
                 (g, attrs)
             }
 
-            item => bug!("get_static: expected static, found {:?}", item)
+            item => bug!("get_static: expected static, found {:?}", item),
         };
 
         for attr in attrs {
@@ -244,11 +239,12 @@ pub fn get_static(ccx: &CrateContext, def_id: DefId) -> ValueRef {
     g
 }
 
-pub fn trans_static<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
-                              m: hir::Mutability,
-                              id: ast::NodeId,
-                              attrs: &[ast::Attribute])
-                              -> Result<ValueRef, ConstEvalErr<'tcx>> {
+pub fn trans_static<'a, 'tcx>(
+    ccx: &CrateContext<'a, 'tcx>,
+    m: hir::Mutability,
+    id: ast::NodeId,
+    attrs: &[ast::Attribute],
+) -> Result<ValueRef, ConstEvalErr<'tcx>> {
     unsafe {
         let def_id = ccx.tcx().hir.local_def_id(id);
         let g = get_static(ccx, def_id);
@@ -282,7 +278,10 @@ pub fn trans_static<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
             let visibility = llvm::LLVMRustGetVisibility(g);
 
             let new_g = llvm::LLVMRustGetOrInsertGlobal(
-                ccx.llmod(), name_string.as_ptr(), val_llty.to_ref());
+                ccx.llmod(),
+                name_string.as_ptr(),
+                val_llty.to_ref(),
+            );
 
             llvm::LLVMRustSetLinkage(new_g, linkage);
             llvm::LLVMRustSetVisibility(new_g, visibility);

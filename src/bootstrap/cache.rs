@@ -54,7 +54,7 @@ impl<T> Eq for Interned<T> {}
 
 impl PartialEq<str> for Interned<String> {
     fn eq(&self, other: &str) -> bool {
-       *self == other
+        *self == other
     }
 }
 impl<'a> PartialEq<&'a str> for Interned<String> {
@@ -170,14 +170,14 @@ impl<T: Hash + Clone + Eq> TyIntern<T> {
 
     fn intern_borrow<B>(&mut self, item: &B) -> Interned<T>
     where
-        B: Eq + Hash + ToOwned<Owned=T> + ?Sized,
+        B: Eq + Hash + ToOwned<Owned = T> + ?Sized,
         T: Borrow<B>,
     {
         if let Some(i) = self.set.get(&item) {
             return *i;
         }
         let item = item.to_owned();
-        let interned =  Interned(self.items.len(), PhantomData::<*const T>);
+        let interned = Interned(self.items.len(), PhantomData::<*const T>);
         self.set.insert(item.clone(), interned);
         self.items.push(item);
         interned
@@ -187,7 +187,7 @@ impl<T: Hash + Clone + Eq> TyIntern<T> {
         if let Some(i) = self.set.get(&item) {
             return *i;
         }
-        let interned =  Interned(self.items.len(), PhantomData::<*const T>);
+        let interned = Interned(self.items.len(), PhantomData::<*const T>);
         self.set.insert(item.clone(), interned);
         self.items.push(item);
         interned
@@ -233,10 +233,12 @@ lazy_static! {
 /// get() method.
 #[derive(Debug)]
 pub struct Cache(
-    RefCell<HashMap<
-        TypeId,
-        Box<Any>, // actually a HashMap<Step, Interned<Step::Output>>
-    >>
+    RefCell<
+        HashMap<
+            TypeId,
+            Box<Any>, // actually a HashMap<Step, Interned<Step::Output>>
+        >,
+    >,
 );
 
 impl Cache {
@@ -247,21 +249,27 @@ impl Cache {
     pub fn put<S: Step>(&self, step: S, value: S::Output) {
         let mut cache = self.0.borrow_mut();
         let type_id = TypeId::of::<S>();
-        let stepcache = cache.entry(type_id)
-                        .or_insert_with(|| Box::new(HashMap::<S, S::Output>::new()))
-                        .downcast_mut::<HashMap<S, S::Output>>()
-                        .expect("invalid type mapped");
-        assert!(!stepcache.contains_key(&step), "processing {:?} a second time", step);
+        let stepcache = cache
+            .entry(type_id)
+            .or_insert_with(|| Box::new(HashMap::<S, S::Output>::new()))
+            .downcast_mut::<HashMap<S, S::Output>>()
+            .expect("invalid type mapped");
+        assert!(
+            !stepcache.contains_key(&step),
+            "processing {:?} a second time",
+            step
+        );
         stepcache.insert(step, value);
     }
 
     pub fn get<S: Step>(&self, step: &S) -> Option<S::Output> {
         let mut cache = self.0.borrow_mut();
         let type_id = TypeId::of::<S>();
-        let stepcache = cache.entry(type_id)
-                        .or_insert_with(|| Box::new(HashMap::<S, S::Output>::new()))
-                        .downcast_mut::<HashMap<S, S::Output>>()
-                        .expect("invalid type mapped");
+        let stepcache = cache
+            .entry(type_id)
+            .or_insert_with(|| Box::new(HashMap::<S, S::Output>::new()))
+            .downcast_mut::<HashMap<S, S::Output>>()
+            .expect("invalid type mapped");
         stepcache.get(step).cloned()
     }
 }

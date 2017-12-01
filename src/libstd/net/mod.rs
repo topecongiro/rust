@@ -47,7 +47,7 @@ pub use self::ip::{IpAddr, Ipv4Addr, Ipv6Addr, Ipv6MulticastScope};
 #[stable(feature = "rust1", since = "1.0.0")]
 pub use self::addr::{SocketAddr, SocketAddrV4, SocketAddrV6, ToSocketAddrs};
 #[stable(feature = "rust1", since = "1.0.0")]
-pub use self::tcp::{TcpStream, TcpListener, Incoming};
+pub use self::tcp::{Incoming, TcpListener, TcpStream};
 #[stable(feature = "rust1", since = "1.0.0")]
 pub use self::udp::UdpSocket;
 #[stable(feature = "rust1", since = "1.0.0")]
@@ -110,11 +110,16 @@ macro_rules! doit {
 }
 doit! { i8 i16 i32 i64 isize u8 u16 u32 u64 usize }
 
-fn hton<I: NetInt>(i: I) -> I { i.to_be() }
-fn ntoh<I: NetInt>(i: I) -> I { I::from_be(i) }
+fn hton<I: NetInt>(i: I) -> I {
+    i.to_be()
+}
+fn ntoh<I: NetInt>(i: I) -> I {
+    I::from_be(i)
+}
 
 fn each_addr<A: ToSocketAddrs, F, T>(addr: A, mut f: F) -> io::Result<T>
-    where F: FnMut(&SocketAddr) -> io::Result<T>
+where
+    F: FnMut(&SocketAddr) -> io::Result<T>,
 {
     let mut last_err = None;
     for addr in addr.to_socket_addrs()? {
@@ -124,30 +129,37 @@ fn each_addr<A: ToSocketAddrs, F, T>(addr: A, mut f: F) -> io::Result<T>
         }
     }
     Err(last_err.unwrap_or_else(|| {
-        Error::new(ErrorKind::InvalidInput,
-                   "could not resolve to any addresses")
+        Error::new(
+            ErrorKind::InvalidInput,
+            "could not resolve to any addresses",
+        )
     }))
 }
 
 /// An iterator over `SocketAddr` values returned from a host lookup operation.
-#[unstable(feature = "lookup_host", reason = "unsure about the returned \
-                                              iterator and returning socket \
-                                              addresses",
+#[unstable(feature = "lookup_host",
+           reason = "unsure about the returned \
+                     iterator and returning socket \
+                     addresses",
            issue = "27705")]
 pub struct LookupHost(net_imp::LookupHost);
 
-#[unstable(feature = "lookup_host", reason = "unsure about the returned \
-                                              iterator and returning socket \
-                                              addresses",
+#[unstable(feature = "lookup_host",
+           reason = "unsure about the returned \
+                     iterator and returning socket \
+                     addresses",
            issue = "27705")]
 impl Iterator for LookupHost {
     type Item = SocketAddr;
-    fn next(&mut self) -> Option<SocketAddr> { self.0.next() }
+    fn next(&mut self) -> Option<SocketAddr> {
+        self.0.next()
+    }
 }
 
-#[unstable(feature = "lookup_host", reason = "unsure about the returned \
-                                              iterator and returning socket \
-                                              addresses",
+#[unstable(feature = "lookup_host",
+           reason = "unsure about the returned \
+                     iterator and returning socket \
+                     addresses",
            issue = "27705")]
 impl fmt::Debug for LookupHost {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -177,9 +189,10 @@ impl fmt::Debug for LookupHost {
 /// # Ok(())
 /// # }
 /// ```
-#[unstable(feature = "lookup_host", reason = "unsure about the returned \
-                                              iterator and returning socket \
-                                              addresses",
+#[unstable(feature = "lookup_host",
+           reason = "unsure about the returned \
+                     iterator and returning socket \
+                     addresses",
            issue = "27705")]
 pub fn lookup_host(host: &str) -> io::Result<LookupHost> {
     net_imp::lookup_host(host).map(LookupHost)

@@ -55,9 +55,7 @@ impl_stable_hash_for!(struct middle::cstore::CrateSource {
 });
 
 impl<HCX> HashStable<HCX> for middle::cstore::ExternBodyNestedBodies {
-    fn hash_stable<W: StableHasherResult>(&self,
-                                          hcx: &mut HCX,
-                                          hasher: &mut StableHasher<W>) {
+    fn hash_stable<W: StableHasherResult>(&self, hcx: &mut HCX, hasher: &mut StableHasher<W>) {
         let middle::cstore::ExternBodyNestedBodies {
             nested_bodies: _,
             fingerprint,
@@ -68,9 +66,7 @@ impl<HCX> HashStable<HCX> for middle::cstore::ExternBodyNestedBodies {
 }
 
 impl<'a, HCX> HashStable<HCX> for middle::cstore::ExternConstBody<'a> {
-    fn hash_stable<W: StableHasherResult>(&self,
-                                          hcx: &mut HCX,
-                                          hasher: &mut StableHasher<W>) {
+    fn hash_stable<W: StableHasherResult>(&self, hcx: &mut HCX, hasher: &mut StableHasher<W>) {
         let middle::cstore::ExternConstBody {
             body: _,
             fingerprint,

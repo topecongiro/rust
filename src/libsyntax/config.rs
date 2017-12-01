@@ -9,8 +9,8 @@
 // except according to those terms.
 
 use attr::HasAttrs;
-use feature_gate::{feature_err, EXPLAIN_STMT_ATTR_SYNTAX, Features, get_features, GateIssue};
-use {fold, attr};
+use feature_gate::{feature_err, get_features, Features, GateIssue, EXPLAIN_STMT_ATTR_SYNTAX};
+use {attr, fold};
 use ast;
 use codemap::Spanned;
 use parse::{token, ParseSess};
@@ -26,8 +26,11 @@ pub struct StripUnconfigured<'a> {
 }
 
 // `cfg_attr`-process the crate's attributes and compute the crate's features.
-pub fn features(mut krate: ast::Crate, sess: &ParseSess, should_test: bool)
-                -> (ast::Crate, Features) {
+pub fn features(
+    mut krate: ast::Crate,
+    sess: &ParseSess,
+    should_test: bool,
+) -> (ast::Crate, Features) {
     let features;
     {
         let mut strip_unconfigured = StripUnconfigured {
@@ -40,7 +43,8 @@ pub fn features(mut krate: ast::Crate, sess: &ParseSess, should_test: bool)
         let err_count = sess.span_diagnostic.err_count();
         if let Some(attrs) = strip_unconfigured.configure(krate.attrs) {
             krate.attrs = attrs;
-        } else { // the entire crate is unconfigured
+        } else {
+            // the entire crate is unconfigured
             krate.attrs = Vec::new();
             krate.module.items = Vec::new();
             return (krate, Features::new());
@@ -70,12 +74,19 @@ macro_rules! configure {
 impl<'a> StripUnconfigured<'a> {
     pub fn configure<T: HasAttrs>(&mut self, node: T) -> Option<T> {
         let node = self.process_cfg_attrs(node);
-        if self.in_cfg(node.attrs()) { Some(node) } else { None }
+        if self.in_cfg(node.attrs()) {
+            Some(node)
+        } else {
+            None
+        }
     }
 
     pub fn process_cfg_attrs<T: HasAttrs>(&mut self, node: T) -> T {
         node.map_attrs(|attrs| {
-            attrs.into_iter().filter_map(|attr| self.process_cfg_attr(attr)).collect()
+            attrs
+                .into_iter()
+                .filter_map(|attr| self.process_cfg_attr(attr))
+                .collect()
         })
     }
 
@@ -131,12 +142,16 @@ impl<'a> StripUnconfigured<'a> {
             };
 
             if mis.len() != 1 {
-                self.sess.span_diagnostic.span_err(attr.span, "expected 1 cfg-pattern");
+                self.sess
+                    .span_diagnostic
+                    .span_err(attr.span, "expected 1 cfg-pattern");
                 return true;
             }
 
             if !mis[0].is_meta_item() {
-                self.sess.span_diagnostic.span_err(mis[0].span, "unexpected literal");
+                self.sess
+                    .span_diagnostic
+                    .span_err(mis[0].span, "unexpected literal");
                 return true;
             }
 
@@ -148,12 +163,17 @@ impl<'a> StripUnconfigured<'a> {
     fn visit_expr_attrs(&mut self, attrs: &[ast::Attribute]) {
         // flag the offending attributes
         for attr in attrs.iter() {
-            if !self.features.map(|features| features.stmt_expr_attributes).unwrap_or(true) {
-                let mut err = feature_err(self.sess,
-                                          "stmt_expr_attributes",
-                                          attr.span,
-                                          GateIssue::Language,
-                                          EXPLAIN_STMT_ATTR_SYNTAX);
+            if !self.features
+                .map(|features| features.stmt_expr_attributes)
+                .unwrap_or(true)
+            {
+                let mut err = feature_err(
+                    self.sess,
+                    "stmt_expr_attributes",
+                    attr.span,
+                    GateIssue::Language,
+                    EXPLAIN_STMT_ATTR_SYNTAX,
+                );
                 if attr.is_sugared_doc {
                     err.help("`///` is for documentation comments. For a plain comment, use `//`.");
                 }
@@ -165,7 +185,11 @@ impl<'a> StripUnconfigured<'a> {
     pub fn configure_foreign_mod(&mut self, foreign_mod: ast::ForeignMod) -> ast::ForeignMod {
         ast::ForeignMod {
             abi: foreign_mod.abi,
-            items: foreign_mod.items.into_iter().filter_map(|item| self.configure(item)).collect(),
+            items: foreign_mod
+                .items
+                .into_iter()
+                .filter_map(|item| self.configure(item))
+                .collect(),
         }
     }
 
@@ -179,7 +203,7 @@ impl<'a> StripUnconfigured<'a> {
                 let fields = fields.into_iter().filter_map(|field| self.configure(field));
                 ast::VariantData::Tuple(fields.collect(), id)
             }
-            ast::VariantData::Unit(id) => ast::VariantData::Unit(id)
+            ast::VariantData::Unit(id) => ast::VariantData::Unit(id),
         }
     }
 
@@ -201,13 +225,16 @@ impl<'a> StripUnconfigured<'a> {
                                 data: self.configure_variant_data(v.node.data),
                                 disr_expr: v.node.disr_expr,
                             },
-                            span: v.span
+                            span: v.span,
                         }
                     })
                 });
-                ast::ItemKind::Enum(ast::EnumDef {
-                    variants: variants.collect(),
-                }, generics)
+                ast::ItemKind::Enum(
+                    ast::EnumDef {
+                        variants: variants.collect(),
+                    },
+                    generics,
+                )
             }
             item => item,
         }
@@ -220,10 +247,9 @@ impl<'a> StripUnconfigured<'a> {
                 ast::ExprKind::Match(m, arms)
             }
             ast::ExprKind::Struct(path, fields, base) => {
-                let fields = fields.into_iter()
-                    .filter_map(|field| {
-                        self.configure(field)
-                    })
+                let fields = fields
+                    .into_iter()
+                    .filter_map(|field| self.configure(field))
                     .collect();
                 ast::ExprKind::Struct(path, fields, base)
             }
@@ -241,7 +267,10 @@ impl<'a> StripUnconfigured<'a> {
         //
         // NB: This is intentionally not part of the fold_expr() function
         //     in order for fold_opt_expr() to be able to avoid this check
-        if let Some(attr) = expr.attrs().iter().find(|a| is_cfg(a) || is_test_or_bench(a)) {
+        if let Some(attr) = expr.attrs()
+            .iter()
+            .find(|a| is_cfg(a) || is_test_or_bench(a))
+        {
             let msg = "removing an expression is not supported in this position";
             self.sess.span_diagnostic.span_err(attr.span, msg);
         }
@@ -260,10 +289,9 @@ impl<'a> StripUnconfigured<'a> {
     pub fn configure_pat(&mut self, pattern: P<ast::Pat>) -> P<ast::Pat> {
         pattern.map(|mut pattern| {
             if let ast::PatKind::Struct(path, fields, etc) = pattern.node {
-                let fields = fields.into_iter()
-                    .filter_map(|field| {
-                        self.configure(field)
-                    })
+                let fields = fields
+                    .into_iter()
+                    .filter_map(|field| self.configure(field))
                     .collect();
                 pattern.node = ast::PatKind::Struct(path, fields, etc);
             }

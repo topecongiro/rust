@@ -12,7 +12,7 @@ use self::Context::*;
 use rustc::session::Session;
 
 use rustc::hir::map::Map;
-use rustc::hir::intravisit::{self, Visitor, NestedVisitorMap};
+use rustc::hir::intravisit::{self, NestedVisitorMap, Visitor};
 use rustc::hir;
 use syntax::ast;
 use syntax_pos::Span;
@@ -87,17 +87,15 @@ impl<'a, 'hir> Visitor<'hir> for CheckLoopVisitor<'a, 'hir> {
             hir::ExprBreak(label, ref opt_expr) => {
                 let loop_id = match label.target_id {
                     hir::ScopeTarget::Block(_) => return,
-                    hir::ScopeTarget::Loop(loop_res) => {
-                        match loop_res.into() {
-                            Ok(loop_id) => loop_id,
-                            Err(hir::LoopIdError::OutsideLoopScope) => ast::DUMMY_NODE_ID,
-                            Err(hir::LoopIdError::UnlabeledCfInWhileCondition) => {
-                                self.emit_unlabled_cf_in_while_condition(e.span, "break");
-                                ast::DUMMY_NODE_ID
-                            },
-                            Err(hir::LoopIdError::UnresolvedLabel) => ast::DUMMY_NODE_ID,
+                    hir::ScopeTarget::Loop(loop_res) => match loop_res.into() {
+                        Ok(loop_id) => loop_id,
+                        Err(hir::LoopIdError::OutsideLoopScope) => ast::DUMMY_NODE_ID,
+                        Err(hir::LoopIdError::UnlabeledCfInWhileCondition) => {
+                            self.emit_unlabled_cf_in_while_condition(e.span, "break");
+                            ast::DUMMY_NODE_ID
                         }
-                    }
+                        Err(hir::LoopIdError::UnresolvedLabel) => ast::DUMMY_NODE_ID,
+                    },
                 };
 
                 if opt_expr.is_some() {
@@ -107,18 +105,21 @@ impl<'a, 'hir> Visitor<'hir> for CheckLoopVisitor<'a, 'hir> {
                         Some(match self.hir_map.expect_expr(loop_id).node {
                             hir::ExprWhile(..) => LoopKind::WhileLoop,
                             hir::ExprLoop(_, _, source) => LoopKind::Loop(source),
-                            ref r => span_bug!(e.span,
-                                               "break label resolved to a non-loop: {:?}", r),
+                            ref r => {
+                                span_bug!(e.span, "break label resolved to a non-loop: {:?}", r)
+                            }
                         })
                     };
                     match loop_kind {
                         None | Some(LoopKind::Loop(hir::LoopSource::Loop)) => (),
                         Some(kind) => {
-                            struct_span_err!(self.sess, e.span, E0571,
-                                             "`break` with value from a `{}` loop",
-                                             kind.name())
-                                .span_label(e.span,
-                                            "can only break with a value inside `loop`")
+                            struct_span_err!(
+                                self.sess,
+                                e.span,
+                                E0571,
+                                "`break` with value from a `{}` loop",
+                                kind.name()
+                            ).span_label(e.span, "can only break with a value inside `loop`")
                                 .emit();
                         }
                     }
@@ -127,13 +128,14 @@ impl<'a, 'hir> Visitor<'hir> for CheckLoopVisitor<'a, 'hir> {
                 self.require_loop("break", e.span);
             }
             hir::ExprAgain(label) => {
-                if let hir::ScopeTarget::Loop(
-                    hir::LoopIdResult::Err(
-                        hir::LoopIdError::UnlabeledCfInWhileCondition)) = label.target_id {
+                if let hir::ScopeTarget::Loop(hir::LoopIdResult::Err(
+                    hir::LoopIdError::UnlabeledCfInWhileCondition,
+                )) = label.target_id
+                {
                     self.emit_unlabled_cf_in_while_condition(e.span, "continue");
                 }
                 self.require_loop("continue", e.span)
-            },
+            }
             _ => intravisit::walk_expr(self, e),
         }
     }
@@ -141,7 +143,8 @@ impl<'a, 'hir> Visitor<'hir> for CheckLoopVisitor<'a, 'hir> {
 
 impl<'a, 'hir> CheckLoopVisitor<'a, 'hir> {
     fn with_context<F>(&mut self, cx: Context, f: F)
-        where F: FnOnce(&mut CheckLoopVisitor<'a, 'hir>)
+    where
+        F: FnOnce(&mut CheckLoopVisitor<'a, 'hir>),
     {
         let old_cx = self.cx;
         self.cx = cx;
@@ -154,22 +157,27 @@ impl<'a, 'hir> CheckLoopVisitor<'a, 'hir> {
             Loop(_) => {}
             Closure => {
                 struct_span_err!(self.sess, span, E0267, "`{}` inside of a closure", name)
-                .span_label(span, "cannot break inside of a closure")
-                .emit();
+                    .span_label(span, "cannot break inside of a closure")
+                    .emit();
             }
             Normal => {
                 struct_span_err!(self.sess, span, E0268, "`{}` outside of loop", name)
-                .span_label(span, "cannot break outside of a loop")
-                .emit();
+                    .span_label(span, "cannot break outside of a loop")
+                    .emit();
             }
         }
     }
 
     fn emit_unlabled_cf_in_while_condition(&mut self, span: Span, cf_type: &str) {
-        struct_span_err!(self.sess, span, E0590,
-                         "`break` or `continue` with no label in the condition of a `while` loop")
-            .span_label(span,
-                        format!("unlabeled `{}` in the condition of a `while` loop", cf_type))
+        struct_span_err!(
+            self.sess,
+            span,
+            E0590,
+            "`break` or `continue` with no label in the condition of a `while` loop"
+        ).span_label(
+            span,
+            format!("unlabeled `{}` in the condition of a `while` loop", cf_type),
+        )
             .emit();
     }
 }

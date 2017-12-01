@@ -9,12 +9,12 @@
 // except according to those terms.
 
 use rustc_lint;
-use rustc_driver::{driver, target_features, abort_on_err};
+use rustc_driver::{abort_on_err, driver, target_features};
 use rustc::session::{self, config};
 use rustc::hir::def_id::DefId;
 use rustc::hir::def::Def;
 use rustc::middle::privacy::AccessLevels;
-use rustc::ty::{self, TyCtxt, GlobalArenas};
+use rustc::ty::{self, GlobalArenas, TyCtxt};
 use rustc::hir::map as hir_map;
 use rustc::lint;
 use rustc::util::nodemap::FxHashMap;
@@ -28,7 +28,7 @@ use syntax::feature_gate::UnstableFeatures;
 use errors;
 use errors::emitter::ColorConfig;
 
-use std::cell::{RefCell, Cell};
+use std::cell::{Cell, RefCell};
 use std::mem;
 use std::rc::Rc;
 use std::path::PathBuf;
@@ -59,7 +59,6 @@ pub struct DocContext<'a, 'tcx: 'a> {
 
     // The current set of type and lifetime substitutions,
     // for expanding type aliases at the HIR level:
-
     /// Table type parameter definition -> substituted type
     pub ty_substs: RefCell<FxHashMap<Def, clean::Type>>,
     /// Table node id of lifetime parameter definition -> substituted lifetime
@@ -73,14 +72,19 @@ impl<'a, 'tcx> DocContext<'a, 'tcx> {
 
     /// Call the closure with the given parameters set as
     /// the substitutions for a type alias' RHS.
-    pub fn enter_alias<F, R>(&self,
-                             ty_substs: FxHashMap<Def, clean::Type>,
-                             lt_substs: FxHashMap<DefId, clean::Lifetime>,
-                             f: F) -> R
-    where F: FnOnce() -> R {
-        let (old_tys, old_lts) =
-            (mem::replace(&mut *self.ty_substs.borrow_mut(), ty_substs),
-             mem::replace(&mut *self.lt_substs.borrow_mut(), lt_substs));
+    pub fn enter_alias<F, R>(
+        &self,
+        ty_substs: FxHashMap<Def, clean::Type>,
+        lt_substs: FxHashMap<DefId, clean::Lifetime>,
+        f: F,
+    ) -> R
+    where
+        F: FnOnce() -> R,
+    {
+        let (old_tys, old_lts) = (
+            mem::replace(&mut *self.ty_substs.borrow_mut(), ty_substs),
+            mem::replace(&mut *self.lt_substs.borrow_mut(), lt_substs),
+        );
         let r = f();
         *self.ty_substs.borrow_mut() = old_tys;
         *self.lt_substs.borrow_mut() = old_lts;
@@ -99,20 +103,21 @@ impl DocAccessLevels for AccessLevels<DefId> {
 }
 
 
-pub fn run_core(search_paths: SearchPaths,
-                cfgs: Vec<String>,
-                externs: config::Externs,
-                input: Input,
-                triple: Option<String>,
-                maybe_sysroot: Option<PathBuf>,
-                allow_warnings: bool,
-                force_unstable_if_unmarked: bool) -> (clean::Crate, RenderInfo)
-{
+pub fn run_core(
+    search_paths: SearchPaths,
+    cfgs: Vec<String>,
+    externs: config::Externs,
+    input: Input,
+    triple: Option<String>,
+    maybe_sysroot: Option<PathBuf>,
+    allow_warnings: bool,
+    force_unstable_if_unmarked: bool,
+) -> (clean::Crate, RenderInfo) {
     // Parse, resolve, and typecheck the given crate.
 
     let cpath = match input {
         Input::File(ref p) => Some(p.clone()),
-        _ => None
+        _ => None,
     };
 
     let warning_lint = lint::builtin::WARNINGS.name_lower();
@@ -121,7 +126,11 @@ pub fn run_core(search_paths: SearchPaths,
         maybe_sysroot,
         search_paths,
         crate_types: vec![config::CrateTypeRlib],
-        lint_opts: if !allow_warnings { vec![(warning_lint, lint::Allow)] } else { vec![] },
+        lint_opts: if !allow_warnings {
+            vec![(warning_lint, lint::Allow)]
+        } else {
+            vec![]
+        },
         lint_cap: Some(lint::Allow),
         externs,
         target_triple: triple.unwrap_or(config::host_triple().to_string()),
@@ -136,15 +145,11 @@ pub fn run_core(search_paths: SearchPaths,
     };
 
     let codemap = Rc::new(codemap::CodeMap::new(sessopts.file_path_mapping()));
-    let diagnostic_handler = errors::Handler::with_tty_emitter(ColorConfig::Auto,
-                                                               true,
-                                                               false,
-                                                               Some(codemap.clone()));
+    let diagnostic_handler =
+        errors::Handler::with_tty_emitter(ColorConfig::Auto, true, false, Some(codemap.clone()));
 
     let cstore = Rc::new(CStore::new(box rustc_trans::LlvmMetadataLoader));
-    let mut sess = session::build_session_(
-        sessopts, cpath, diagnostic_handler, codemap,
-    );
+    let mut sess = session::build_session_(sessopts, cpath, diagnostic_handler, codemap);
     rustc_trans::init(&sess);
     rustc_lint::register_builtins(&mut sess.lint_store.borrow_mut(), Some(&sess));
 
@@ -158,69 +163,80 @@ pub fn run_core(search_paths: SearchPaths,
 
     let name = link::find_crate_name(Some(&sess), &krate.attrs, &input);
 
-    let driver::ExpansionResult { defs, analysis, resolutions, mut hir_forest, .. } = {
-        let result = driver::phase_2_configure_and_expand(&sess,
-                                                          &cstore,
-                                                          krate,
-                                                          None,
-                                                          &name,
-                                                          None,
-                                                          resolve::MakeGlobMap::No,
-                                                          |_| Ok(()));
+    let driver::ExpansionResult {
+        defs,
+        analysis,
+        resolutions,
+        mut hir_forest,
+        ..
+    } = {
+        let result = driver::phase_2_configure_and_expand(
+            &sess,
+            &cstore,
+            krate,
+            None,
+            &name,
+            None,
+            resolve::MakeGlobMap::No,
+            |_| Ok(()),
+        );
         abort_on_err(result, &sess)
     };
 
     let arena = DroplessArena::new();
     let arenas = GlobalArenas::new();
     let hir_map = hir_map::map_crate(&sess, &*cstore, &mut hir_forest, &defs);
-    let output_filenames = driver::build_output_filenames(&input,
-                                                          &None,
-                                                          &None,
-                                                          &[],
-                                                          &sess);
+    let output_filenames = driver::build_output_filenames(&input, &None, &None, &[], &sess);
 
-    abort_on_err(driver::phase_3_run_analysis_passes(control,
-                                                     &sess,
-                                                     &*cstore,
-                                                     hir_map,
-                                                     analysis,
-                                                     resolutions,
-                                                     &arena,
-                                                     &arenas,
-                                                     &name,
-                                                     &output_filenames,
-                                                     |tcx, analysis, _, result| {
-        if let Err(_) = result {
-            sess.fatal("Compilation failed, aborting rustdoc");
-        }
+    abort_on_err(
+        driver::phase_3_run_analysis_passes(
+            control,
+            &sess,
+            &*cstore,
+            hir_map,
+            analysis,
+            resolutions,
+            &arena,
+            &arenas,
+            &name,
+            &output_filenames,
+            |tcx, analysis, _, result| {
+                if let Err(_) = result {
+                    sess.fatal("Compilation failed, aborting rustdoc");
+                }
 
-        let ty::CrateAnalysis { access_levels, .. } = analysis;
+                let ty::CrateAnalysis { access_levels, .. } = analysis;
 
-        // Convert from a NodeId set to a DefId set since we don't always have easy access
-        // to the map from defid -> nodeid
-        let access_levels = AccessLevels {
-            map: access_levels.map.iter()
-                                  .map(|(&k, &v)| (tcx.hir.local_def_id(k), v))
-                                  .collect()
-        };
+                // Convert from a NodeId set to a DefId set since we don't always have easy access
+                // to the map from defid -> nodeid
+                let access_levels = AccessLevels {
+                    map: access_levels
+                        .map
+                        .iter()
+                        .map(|(&k, &v)| (tcx.hir.local_def_id(k), v))
+                        .collect(),
+                };
 
-        let ctxt = DocContext {
-            tcx,
-            populated_all_crate_impls: Cell::new(false),
-            access_levels: RefCell::new(access_levels),
-            external_traits: Default::default(),
-            renderinfo: Default::default(),
-            ty_substs: Default::default(),
-            lt_substs: Default::default(),
-        };
-        debug!("crate: {:?}", tcx.hir.krate());
+                let ctxt = DocContext {
+                    tcx,
+                    populated_all_crate_impls: Cell::new(false),
+                    access_levels: RefCell::new(access_levels),
+                    external_traits: Default::default(),
+                    renderinfo: Default::default(),
+                    ty_substs: Default::default(),
+                    lt_substs: Default::default(),
+                };
+                debug!("crate: {:?}", tcx.hir.krate());
 
-        let krate = {
-            let mut v = RustdocVisitor::new(&*cstore, &ctxt);
-            v.visit(tcx.hir.krate());
-            v.clean(&ctxt)
-        };
+                let krate = {
+                    let mut v = RustdocVisitor::new(&*cstore, &ctxt);
+                    v.visit(tcx.hir.krate());
+                    v.clean(&ctxt)
+                };
 
-        (krate, ctxt.renderinfo.into_inner())
-    }), &sess)
+                (krate, ctxt.renderinfo.into_inner())
+            },
+        ),
+        &sess,
+    )
 }

@@ -200,7 +200,8 @@ pub trait Hash {
     /// [`Hasher`]: trait.Hasher.html
     #[stable(feature = "hash_slice", since = "1.3.0")]
     fn hash_slice<H: Hasher>(data: &[Self], state: &mut H)
-        where Self: Sized
+    where
+        Self: Sized,
     {
         for piece in data {
             piece.hash(state);
@@ -627,7 +628,7 @@ mod impls {
         ($a:ident, $($rest_a:ident,)+) => { last_type!($($rest_a,)+) };
     }
 
-    impl_hash_tuple! {}
+    impl_hash_tuple!{}
     impl_hash_tuple! { A }
     impl_hash_tuple! { A B }
     impl_hash_tuple! { A B C }
@@ -672,9 +673,7 @@ mod impls {
                 state.write_usize(*self as *const () as usize);
             } else {
                 // Fat pointer
-                let (a, b) = unsafe {
-                    *(self as *const Self as *const (usize, usize))
-                };
+                let (a, b) = unsafe { *(self as *const Self as *const (usize, usize)) };
                 state.write_usize(a);
                 state.write_usize(b);
             }
@@ -689,9 +688,7 @@ mod impls {
                 state.write_usize(*self as *const () as usize);
             } else {
                 // Fat pointer
-                let (a, b) = unsafe {
-                    *(self as *const Self as *const (usize, usize))
-                };
+                let (a, b) = unsafe { *(self as *const Self as *const (usize, usize)) };
                 state.write_usize(a);
                 state.write_usize(b);
             }

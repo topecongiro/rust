@@ -16,17 +16,16 @@ fn main() {
     build_helper::rerun_if_changed_anything_in_dir(src_dir);
     let mut cfg = cc::Build::new();
     cfg.file("../rt/hoedown/src/autolink.c")
-       .file("../rt/hoedown/src/buffer.c")
-       .file("../rt/hoedown/src/document.c")
-       .file("../rt/hoedown/src/escape.c")
-       .file("../rt/hoedown/src/html.c")
-       .file("../rt/hoedown/src/html_blocks.c")
-       .file("../rt/hoedown/src/html_smartypants.c")
-       .file("../rt/hoedown/src/stack.c")
-       .file("../rt/hoedown/src/version.c")
-       .warnings(false)
-       .include(src_dir)
-       .warnings(false)
-       .compile("libhoedown.a");
+        .file("../rt/hoedown/src/buffer.c")
+        .file("../rt/hoedown/src/document.c")
+        .file("../rt/hoedown/src/escape.c")
+        .file("../rt/hoedown/src/html.c")
+        .file("../rt/hoedown/src/html_blocks.c")
+        .file("../rt/hoedown/src/html_smartypants.c")
+        .file("../rt/hoedown/src/stack.c")
+        .file("../rt/hoedown/src/version.c")
+        .warnings(false)
+        .include(src_dir)
+        .warnings(false)
+        .compile("libhoedown.a");
 }
-

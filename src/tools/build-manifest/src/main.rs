@@ -8,15 +8,15 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-extern crate toml;
 #[macro_use]
 extern crate serde_derive;
+extern crate toml;
 
 use std::collections::BTreeMap;
 use std::env;
 use std::fs::File;
 use std::io::{self, Read, Write};
-use std::path::{PathBuf, Path};
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 static HOSTS: &'static [&'static str] = &[
@@ -101,10 +101,7 @@ static TARGETS: &'static [&'static str] = &[
     "x86_64-unknown-redox",
 ];
 
-static MINGW: &'static [&'static str] = &[
-    "i686-pc-windows-gnu",
-    "x86_64-pc-windows-gnu",
-];
+static MINGW: &'static [&'static str] = &["i686-pc-windows-gnu", "x86_64-pc-windows-gnu"];
 
 #[derive(Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -112,7 +109,7 @@ struct Manifest {
     manifest_version: String,
     date: String,
     pkg: BTreeMap<String, Package>,
-    renames: BTreeMap<String, Rename>
+    renames: BTreeMap<String, Rename>,
 }
 
 #[derive(Serialize)]
@@ -279,14 +276,19 @@ impl Builder {
         let rustfmt_present = manifest.pkg.contains_key("rustfmt-preview");
 
         if rls_present {
-            manifest.renames.insert("rls".to_owned(), Rename { to: "rls-preview".to_owned() });
+            manifest.renames.insert(
+                "rls".to_owned(),
+                Rename {
+                    to: "rls-preview".to_owned(),
+                },
+            );
         }
 
         let mut pkg = Package {
             version: self.cached_version("rust")
-                         .as_ref()
-                         .expect("Couldn't find Rust version")
-                         .clone(),
+                .as_ref()
+                .expect("Couldn't find Rust version")
+                .clone(),
             git_commit_hash: self.cached_git_commit_hash("rust").clone(),
             target: BTreeMap::new(),
         };
@@ -296,7 +298,7 @@ impl Builder {
                 Some(digest) => digest,
                 None => {
                     pkg.target.insert(host.to_string(), Target::unavailable());
-                    continue
+                    continue;
                 }
             };
             let xz_filename = filename.replace(".tar.gz", ".tar.xz");
@@ -307,10 +309,22 @@ impl Builder {
             // rustc/rust-std/cargo/docs are all required, and so is rust-mingw
             // if it's available for the target.
             components.extend(vec![
-                Component { pkg: "rustc".to_string(), target: host.to_string() },
-                Component { pkg: "rust-std".to_string(), target: host.to_string() },
-                Component { pkg: "cargo".to_string(), target: host.to_string() },
-                Component { pkg: "rust-docs".to_string(), target: host.to_string() },
+                Component {
+                    pkg: "rustc".to_string(),
+                    target: host.to_string(),
+                },
+                Component {
+                    pkg: "rust-std".to_string(),
+                    target: host.to_string(),
+                },
+                Component {
+                    pkg: "cargo".to_string(),
+                    target: host.to_string(),
+                },
+                Component {
+                    pkg: "rust-docs".to_string(),
+                    target: host.to_string(),
+                },
             ]);
             if host.contains("pc-windows-gnu") {
                 components.push(Component {
@@ -348,25 +362,25 @@ impl Builder {
                 target: "*".to_string(),
             });
 
-            pkg.target.insert(host.to_string(), Target {
-                available: true,
-                url: Some(self.url(&filename)),
-                hash: Some(digest),
-                xz_url: xz_digest.as_ref().map(|_| self.url(&xz_filename)),
-                xz_hash: xz_digest,
-                components: Some(components),
-                extensions: Some(extensions),
-            });
+            pkg.target.insert(
+                host.to_string(),
+                Target {
+                    available: true,
+                    url: Some(self.url(&filename)),
+                    hash: Some(digest),
+                    xz_url: xz_digest.as_ref().map(|_| self.url(&xz_filename)),
+                    xz_hash: xz_digest,
+                    components: Some(components),
+                    extensions: Some(extensions),
+                },
+            );
         }
         manifest.pkg.insert("rust".to_string(), pkg);
 
         return manifest;
     }
 
-    fn package(&mut self,
-               pkgname: &str,
-               dst: &mut BTreeMap<String, Package>,
-               targets: &[&str]) {
+    fn package(&mut self, pkgname: &str, dst: &mut BTreeMap<String, Package>, targets: &[&str]) {
         let version = match *self.cached_version(pkgname) {
             Some(ref version) => version.clone(),
             None => {
@@ -375,38 +389,44 @@ impl Builder {
             }
         };
 
-        let targets = targets.iter().map(|name| {
-            let filename = self.filename(pkgname, name);
-            let digest = match self.digests.remove(&filename) {
-                Some(digest) => digest,
-                None => return (name.to_string(), Target::unavailable()),
-            };
-            let xz_filename = filename.replace(".tar.gz", ".tar.xz");
-            let xz_digest = self.digests.remove(&xz_filename);
+        let targets = targets
+            .iter()
+            .map(|name| {
+                let filename = self.filename(pkgname, name);
+                let digest = match self.digests.remove(&filename) {
+                    Some(digest) => digest,
+                    None => return (name.to_string(), Target::unavailable()),
+                };
+                let xz_filename = filename.replace(".tar.gz", ".tar.xz");
+                let xz_digest = self.digests.remove(&xz_filename);
 
-            (name.to_string(), Target {
-                available: true,
-                url: Some(self.url(&filename)),
-                hash: Some(digest),
-                xz_url: xz_digest.as_ref().map(|_| self.url(&xz_filename)),
-                xz_hash: xz_digest,
-                components: None,
-                extensions: None,
+                (
+                    name.to_string(),
+                    Target {
+                        available: true,
+                        url: Some(self.url(&filename)),
+                        hash: Some(digest),
+                        xz_url: xz_digest.as_ref().map(|_| self.url(&xz_filename)),
+                        xz_hash: xz_digest,
+                        components: None,
+                        extensions: None,
+                    },
+                )
             })
-        }).collect();
+            .collect();
 
-        dst.insert(pkgname.to_string(), Package {
-            version,
-            git_commit_hash: self.cached_git_commit_hash(pkgname).clone(),
-            target: targets,
-        });
+        dst.insert(
+            pkgname.to_string(),
+            Package {
+                version,
+                git_commit_hash: self.cached_git_commit_hash(pkgname).clone(),
+                target: targets,
+            },
+        );
     }
 
     fn url(&self, filename: &str) -> String {
-        format!("{}/{}/{}",
-                self.s3_address,
-                self.date,
-                filename)
+        format!("{}/{}/{}", self.s3_address, self.date, filename)
     }
 
     fn filename(&self, component: &str, target: &str) -> String {
@@ -451,9 +471,9 @@ impl Builder {
         let mut cmd = Command::new("tar");
         let filename = self.filename(component, target);
         cmd.arg("xf")
-           .arg(self.input.join(&filename))
-           .arg(format!("{}/version", filename.replace(".tar.gz", "")))
-           .arg("-O");
+            .arg(self.input.join(&filename))
+            .arg(format!("{}/version", filename.replace(".tar.gz", "")))
+            .arg("-O");
         let output = t!(cmd.output());
         if output.status.success() {
             Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
@@ -467,9 +487,12 @@ impl Builder {
         let mut cmd = Command::new("tar");
         let filename = self.filename(component, target);
         cmd.arg("xf")
-           .arg(self.input.join(&filename))
-           .arg(format!("{}/git-commit-hash", filename.replace(".tar.gz", "")))
-           .arg("-O");
+            .arg(self.input.join(&filename))
+            .arg(format!(
+                "{}/git-commit-hash",
+                filename.replace(".tar.gz", "")
+            ))
+            .arg("-O");
         let output = t!(cmd.output());
         if output.status.success() {
             Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
@@ -479,11 +502,14 @@ impl Builder {
     }
 
     fn hash(&self, path: &Path) -> String {
-        let sha = t!(Command::new("shasum")
-                        .arg("-a").arg("256")
-                        .arg(path.file_name().unwrap())
-                        .current_dir(path.parent().unwrap())
-                        .output());
+        let sha = t!(
+            Command::new("shasum")
+                .arg("-a")
+                .arg("256")
+                .arg(path.file_name().unwrap())
+                .current_dir(path.parent().unwrap())
+                .output()
+        );
         assert!(sha.status.success());
 
         let filename = path.file_name().unwrap().to_str().unwrap();
@@ -501,26 +527,40 @@ impl Builder {
         let mut cmd = Command::new("gpg");
         cmd.arg("--no-tty")
             .arg("--yes")
-            .arg("--passphrase-fd").arg("0")
-            .arg("--personal-digest-preferences").arg("SHA512")
+            .arg("--passphrase-fd")
+            .arg("0")
+            .arg("--personal-digest-preferences")
+            .arg("SHA512")
             .arg("--armor")
-            .arg("--output").arg(&asc)
-            .arg("--detach-sign").arg(path)
+            .arg("--output")
+            .arg(&asc)
+            .arg("--detach-sign")
+            .arg(path)
             .stdin(Stdio::piped());
         let mut child = t!(cmd.spawn());
-        t!(child.stdin.take().unwrap().write_all(self.gpg_passphrase.as_bytes()));
+        t!(
+            child
+                .stdin
+                .take()
+                .unwrap()
+                .write_all(self.gpg_passphrase.as_bytes())
+        );
         assert!(t!(child.wait()).success());
     }
 
     fn write_channel_files(&self, channel_name: &str, manifest: &Manifest) {
         self.write(&toml::to_string(&manifest).unwrap(), channel_name, ".toml");
         self.write(&manifest.date, channel_name, "-date.txt");
-        self.write(manifest.pkg["rust"].git_commit_hash.as_ref().unwrap(),
-                   channel_name, "-git-commit-hash.txt");
+        self.write(
+            manifest.pkg["rust"].git_commit_hash.as_ref().unwrap(),
+            channel_name,
+            "-git-commit-hash.txt",
+        );
     }
 
     fn write(&self, contents: &str, channel_name: &str, suffix: &str) {
-        let dst = self.output.join(format!("channel-rust-{}{}", channel_name, suffix));
+        let dst = self.output
+            .join(format!("channel-rust-{}{}", channel_name, suffix));
         t!(t!(File::create(&dst)).write_all(contents.as_bytes()));
         self.hash(&dst);
         self.sign(&dst);

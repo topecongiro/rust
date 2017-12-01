@@ -85,29 +85,28 @@ pub enum InstantiationMode {
 pub trait TransItemExt<'a, 'tcx>: fmt::Debug {
     fn as_trans_item(&self) -> &TransItem<'tcx>;
 
-    fn instantiation_mode(&self,
-                          tcx: TyCtxt<'a, 'tcx, 'tcx>)
-                          -> InstantiationMode {
-        let inline_in_all_cgus =
-            tcx.sess.opts.debugging_opts.inline_in_all_cgus.unwrap_or_else(|| {
-                tcx.sess.opts.optimize != OptLevel::No
-            });
+    fn instantiation_mode(&self, tcx: TyCtxt<'a, 'tcx, 'tcx>) -> InstantiationMode {
+        let inline_in_all_cgus = tcx.sess
+            .opts
+            .debugging_opts
+            .inline_in_all_cgus
+            .unwrap_or_else(|| tcx.sess.opts.optimize != OptLevel::No);
 
         match *self.as_trans_item() {
             TransItem::Fn(ref instance) => {
                 // If this function isn't inlined or otherwise has explicit
                 // linkage, then we'll be creating a globally shared version.
-                if self.explicit_linkage(tcx).is_some() ||
-                    !common::requests_inline(tcx, instance)
-                {
-                    return InstantiationMode::GloballyShared  { may_conflict: false }
+                if self.explicit_linkage(tcx).is_some() || !common::requests_inline(tcx, instance) {
+                    return InstantiationMode::GloballyShared {
+                        may_conflict: false,
+                    };
                 }
 
                 // At this point we don't have explicit linkage and we're an
                 // inlined function. If we're inlining into all CGUs then we'll
                 // be creating a local copy per CGU
                 if inline_in_all_cgus {
-                    return InstantiationMode::LocalCopy
+                    return InstantiationMode::LocalCopy;
                 }
 
                 // Finally, if this is `#[inline(always)]` we're sure to respect
@@ -118,17 +117,15 @@ pub trait TransItemExt<'a, 'tcx>: fmt::Debug {
                 let attrs = instance.def.attrs(tcx);
                 match attr::find_inline_attr(Some(tcx.sess.diagnostic()), &attrs) {
                     InlineAttr::Always => InstantiationMode::LocalCopy,
-                    _ => {
-                        InstantiationMode::GloballyShared  { may_conflict: true }
-                    }
+                    _ => InstantiationMode::GloballyShared { may_conflict: true },
                 }
             }
-            TransItem::Static(..) => {
-                InstantiationMode::GloballyShared { may_conflict: false }
-            }
-            TransItem::GlobalAsm(..) => {
-                InstantiationMode::GloballyShared { may_conflict: false }
-            }
+            TransItem::Static(..) => InstantiationMode::GloballyShared {
+                may_conflict: false,
+            },
+            TransItem::GlobalAsm(..) => InstantiationMode::GloballyShared {
+                may_conflict: false,
+            },
         }
     }
 
@@ -148,7 +145,8 @@ pub trait TransItemExt<'a, 'tcx>: fmt::Debug {
                 if let Some(span) = span {
                     tcx.sess.span_fatal(span, "invalid linkage specified")
                 } else {
-                    tcx.sess.fatal(&format!("invalid linkage specified: {}", name))
+                    tcx.sess
+                        .fatal(&format!("invalid linkage specified: {}", name))
                 }
             }
         } else {
@@ -187,7 +185,7 @@ pub trait TransItemExt<'a, 'tcx>: fmt::Debug {
             TransItem::Fn(ref instance) => (instance.def_id(), instance.substs),
             TransItem::Static(node_id) => (tcx.hir.local_def_id(node_id), Substs::empty()),
             // global asm never has predicates
-            TransItem::GlobalAsm(..) => return true
+            TransItem::GlobalAsm(..) => return true,
         };
 
         let predicates = tcx.predicates_of(def_id).predicates.subst(tcx, substs);
@@ -198,23 +196,20 @@ pub trait TransItemExt<'a, 'tcx>: fmt::Debug {
         let hir_map = &tcx.hir;
 
         return match *self.as_trans_item() {
-            TransItem::Fn(instance) => {
-                to_string_internal(tcx, "fn ", instance)
-            },
+            TransItem::Fn(instance) => to_string_internal(tcx, "fn ", instance),
             TransItem::Static(node_id) => {
                 let def_id = hir_map.local_def_id(node_id);
                 let instance = Instance::new(def_id, tcx.intern_substs(&[]));
                 to_string_internal(tcx, "static ", instance)
-            },
-            TransItem::GlobalAsm(..) => {
-                "global_asm".to_string()
             }
+            TransItem::GlobalAsm(..) => "global_asm".to_string(),
         };
 
-        fn to_string_internal<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                                        prefix: &str,
-                                        instance: Instance<'tcx>)
-                                        -> String {
+        fn to_string_internal<'a, 'tcx>(
+            tcx: TyCtxt<'a, 'tcx, 'tcx>,
+            prefix: &str,
+            instance: Instance<'tcx>,
+        ) -> String {
             let mut result = String::with_capacity(32);
             result.push_str(prefix);
             let printer = DefPathBasedNames::new(tcx, false, false);
@@ -251,10 +246,11 @@ pub struct DefPathBasedNames<'a, 'tcx: 'a> {
 }
 
 impl<'a, 'tcx> DefPathBasedNames<'a, 'tcx> {
-    pub fn new(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-               omit_disambiguators: bool,
-               omit_local_crate_name: bool)
-               -> Self {
+    pub fn new(
+        tcx: TyCtxt<'a, 'tcx, 'tcx>,
+        omit_disambiguators: bool,
+        omit_local_crate_name: bool,
+    ) -> Self {
         DefPathBasedNames {
             tcx,
             omit_disambiguators,
@@ -264,28 +260,28 @@ impl<'a, 'tcx> DefPathBasedNames<'a, 'tcx> {
 
     pub fn push_type_name(&self, t: Ty<'tcx>, output: &mut String) {
         match t.sty {
-            ty::TyBool              => output.push_str("bool"),
-            ty::TyChar              => output.push_str("char"),
-            ty::TyStr               => output.push_str("str"),
-            ty::TyNever             => output.push_str("!"),
-            ty::TyInt(ast::IntTy::Is)    => output.push_str("isize"),
-            ty::TyInt(ast::IntTy::I8)    => output.push_str("i8"),
-            ty::TyInt(ast::IntTy::I16)   => output.push_str("i16"),
-            ty::TyInt(ast::IntTy::I32)   => output.push_str("i32"),
-            ty::TyInt(ast::IntTy::I64)   => output.push_str("i64"),
-            ty::TyInt(ast::IntTy::I128)   => output.push_str("i128"),
-            ty::TyUint(ast::UintTy::Us)   => output.push_str("usize"),
-            ty::TyUint(ast::UintTy::U8)   => output.push_str("u8"),
-            ty::TyUint(ast::UintTy::U16)  => output.push_str("u16"),
-            ty::TyUint(ast::UintTy::U32)  => output.push_str("u32"),
-            ty::TyUint(ast::UintTy::U64)  => output.push_str("u64"),
-            ty::TyUint(ast::UintTy::U128)  => output.push_str("u128"),
+            ty::TyBool => output.push_str("bool"),
+            ty::TyChar => output.push_str("char"),
+            ty::TyStr => output.push_str("str"),
+            ty::TyNever => output.push_str("!"),
+            ty::TyInt(ast::IntTy::Is) => output.push_str("isize"),
+            ty::TyInt(ast::IntTy::I8) => output.push_str("i8"),
+            ty::TyInt(ast::IntTy::I16) => output.push_str("i16"),
+            ty::TyInt(ast::IntTy::I32) => output.push_str("i32"),
+            ty::TyInt(ast::IntTy::I64) => output.push_str("i64"),
+            ty::TyInt(ast::IntTy::I128) => output.push_str("i128"),
+            ty::TyUint(ast::UintTy::Us) => output.push_str("usize"),
+            ty::TyUint(ast::UintTy::U8) => output.push_str("u8"),
+            ty::TyUint(ast::UintTy::U16) => output.push_str("u16"),
+            ty::TyUint(ast::UintTy::U32) => output.push_str("u32"),
+            ty::TyUint(ast::UintTy::U64) => output.push_str("u64"),
+            ty::TyUint(ast::UintTy::U128) => output.push_str("u128"),
             ty::TyFloat(ast::FloatTy::F32) => output.push_str("f32"),
             ty::TyFloat(ast::FloatTy::F64) => output.push_str("f64"),
             ty::TyAdt(adt_def, substs) => {
                 self.push_def_path(adt_def.did, output);
                 self.push_type_params(substs, iter::empty(), output);
-            },
+            }
             ty::TyTuple(component_types, _) => {
                 output.push('(');
                 for &component_type in component_types {
@@ -297,8 +293,11 @@ impl<'a, 'tcx> DefPathBasedNames<'a, 'tcx> {
                     output.pop();
                 }
                 output.push(')');
-            },
-            ty::TyRawPtr(ty::TypeAndMut { ty: inner_type, mutbl } ) => {
+            }
+            ty::TyRawPtr(ty::TypeAndMut {
+                ty: inner_type,
+                mutbl,
+            }) => {
                 output.push('*');
                 match mutbl {
                     hir::MutImmutable => output.push_str("const "),
@@ -306,38 +305,48 @@ impl<'a, 'tcx> DefPathBasedNames<'a, 'tcx> {
                 }
 
                 self.push_type_name(inner_type, output);
-            },
-            ty::TyRef(_, ty::TypeAndMut { ty: inner_type, mutbl }) => {
+            }
+            ty::TyRef(
+                _,
+                ty::TypeAndMut {
+                    ty: inner_type,
+                    mutbl,
+                },
+            ) => {
                 output.push('&');
                 if mutbl == hir::MutMutable {
                     output.push_str("mut ");
                 }
 
                 self.push_type_name(inner_type, output);
-            },
+            }
             ty::TyArray(inner_type, len) => {
                 output.push('[');
                 self.push_type_name(inner_type, output);
-                write!(output, "; {}",
-                    len.val.to_const_int().unwrap().to_u64().unwrap()).unwrap();
+                write!(
+                    output,
+                    "; {}",
+                    len.val.to_const_int().unwrap().to_u64().unwrap()
+                ).unwrap();
                 output.push(']');
-            },
+            }
             ty::TySlice(inner_type) => {
                 output.push('[');
                 self.push_type_name(inner_type, output);
                 output.push(']');
-            },
+            }
             ty::TyDynamic(ref trait_data, ..) => {
                 if let Some(principal) = trait_data.principal() {
                     self.push_def_path(principal.def_id(), output);
-                    self.push_type_params(principal.skip_binder().substs,
+                    self.push_type_params(
+                        principal.skip_binder().substs,
                         trait_data.projection_bounds(),
-                        output);
+                        output,
+                    );
                 }
-            },
+            }
             ty::TyForeign(did) => self.push_def_path(did, output),
-            ty::TyFnDef(..) |
-            ty::TyFnPtr(_) => {
+            ty::TyFnDef(..) | ty::TyFnPtr(_) => {
                 let sig = t.fn_sig(self.tcx);
                 if sig.unsafety() == hir::Unsafety::Unsafe {
                     output.push_str("unsafe ");
@@ -377,28 +386,29 @@ impl<'a, 'tcx> DefPathBasedNames<'a, 'tcx> {
                     output.push_str(" -> ");
                     self.push_type_name(sig.output(), output);
                 }
-            },
-            ty::TyGenerator(def_id, ref closure_substs, _) |
-            ty::TyClosure(def_id, ref closure_substs) => {
+            }
+            ty::TyGenerator(def_id, ref closure_substs, _)
+            | ty::TyClosure(def_id, ref closure_substs) => {
                 self.push_def_path(def_id, output);
                 let generics = self.tcx.generics_of(self.tcx.closure_base_def_id(def_id));
                 let substs = closure_substs.substs.truncate_to(self.tcx, generics);
                 self.push_type_params(substs, iter::empty(), output);
             }
-            ty::TyError |
-            ty::TyInfer(_) |
-            ty::TyProjection(..) |
-            ty::TyParam(_) |
-            ty::TyAnon(..) => {
-                bug!("DefPathBasedNames: Trying to create type name for \
-                                         unexpected type: {:?}", t);
+            ty::TyError
+            | ty::TyInfer(_)
+            | ty::TyProjection(..)
+            | ty::TyParam(_)
+            | ty::TyAnon(..) => {
+                bug!(
+                    "DefPathBasedNames: Trying to create type name for \
+                     unexpected type: {:?}",
+                    t
+                );
             }
         }
     }
 
-    pub fn push_def_path(&self,
-                         def_id: DefId,
-                         output: &mut String) {
+    pub fn push_def_path(&self, def_id: DefId, output: &mut String) {
         let def_path = self.tcx.def_path(def_id);
 
         // some_crate::
@@ -412,9 +422,12 @@ impl<'a, 'tcx> DefPathBasedNames<'a, 'tcx> {
             if self.omit_disambiguators {
                 write!(output, "{}::", part.data.as_interned_str()).unwrap();
             } else {
-                write!(output, "{}[{}]::",
-                       part.data.as_interned_str(),
-                       part.disambiguator).unwrap();
+                write!(
+                    output,
+                    "{}[{}]::",
+                    part.data.as_interned_str(),
+                    part.disambiguator
+                ).unwrap();
             }
         }
 
@@ -423,11 +436,9 @@ impl<'a, 'tcx> DefPathBasedNames<'a, 'tcx> {
         output.pop();
     }
 
-    fn push_type_params<I>(&self,
-                            substs: &Substs<'tcx>,
-                            projections: I,
-                            output: &mut String)
-        where I: Iterator<Item=ty::PolyExistentialProjection<'tcx>>
+    fn push_type_params<I>(&self, substs: &Substs<'tcx>, projections: I, output: &mut String)
+    where
+        I: Iterator<Item = ty::PolyExistentialProjection<'tcx>>,
     {
         let mut projections = projections.peekable();
         if substs.types().next().is_none() && projections.peek().is_none() {
@@ -443,7 +454,10 @@ impl<'a, 'tcx> DefPathBasedNames<'a, 'tcx> {
 
         for projection in projections {
             let projection = projection.skip_binder();
-            let name = &self.tcx.associated_item(projection.item_def_id).name.as_str();
+            let name = &self.tcx
+                .associated_item(projection.item_def_id)
+                .name
+                .as_str();
             output.push_str(name);
             output.push_str("=");
             self.push_type_name(projection.ty, output);
@@ -456,9 +470,7 @@ impl<'a, 'tcx> DefPathBasedNames<'a, 'tcx> {
         output.push('>');
     }
 
-    pub fn push_instance_as_string(&self,
-                                   instance: Instance<'tcx>,
-                                   output: &mut String) {
+    pub fn push_instance_as_string(&self, instance: Instance<'tcx>, output: &mut String) {
         self.push_def_path(instance.def_id(), output);
         self.push_type_params(instance.substs, iter::empty(), output);
     }

@@ -107,11 +107,7 @@ impl<'a> serialize::Encoder for Encoder<'a> {
     }
 
     fn emit_bool(&mut self, v: bool) -> EncodeResult {
-        self.emit_u8(if v {
-            1
-        } else {
-            0
-        })
+        self.emit_u8(if v { 1 } else { 0 })
     }
 
     fn emit_f64(&mut self, v: f64) -> EncodeResult {
@@ -152,10 +148,7 @@ pub struct Decoder<'a> {
 
 impl<'a> Decoder<'a> {
     pub fn new(data: &'a [u8], position: usize) -> Decoder<'a> {
-        Decoder {
-            data,
-            position,
-        }
+        Decoder { data, position }
     }
 
     pub fn position(&self) -> usize {
@@ -296,10 +289,10 @@ impl<'a> serialize::Decoder for Decoder<'a> {
 
 #[cfg(test)]
 mod tests {
-    use serialize::{Encodable, Decodable};
+    use serialize::{Decodable, Encodable};
     use std::io::Cursor;
     use std::fmt::Debug;
-    use super::{Encoder, Decoder};
+    use super::{Decoder, Encoder};
 
     #[derive(PartialEq, Clone, Debug, RustcEncodable, RustcDecodable)]
     struct Struct {
@@ -375,7 +368,17 @@ mod tests {
 
     #[test]
     fn test_usize() {
-        check_round_trip(vec![1, 2, 3, ::std::usize::MIN, 0, 1, ::std::usize::MAX, 2, 1]);
+        check_round_trip(vec![
+            1,
+            2,
+            3,
+            ::std::usize::MIN,
+            0,
+            1,
+            ::std::usize::MAX,
+            2,
+            1,
+        ]);
     }
 
     #[test]
@@ -396,17 +399,47 @@ mod tests {
 
     #[test]
     fn test_i32() {
-        check_round_trip(vec![-1, 2, -3, ::std::i32::MIN, 0, 1, ::std::i32::MAX, 2, 1]);
+        check_round_trip(vec![
+            -1,
+            2,
+            -3,
+            ::std::i32::MIN,
+            0,
+            1,
+            ::std::i32::MAX,
+            2,
+            1,
+        ]);
     }
 
     #[test]
     fn test_i64() {
-        check_round_trip(vec![-1, 2, -3, ::std::i64::MIN, 0, 1, ::std::i64::MAX, 2, 1]);
+        check_round_trip(vec![
+            -1,
+            2,
+            -3,
+            ::std::i64::MIN,
+            0,
+            1,
+            ::std::i64::MAX,
+            2,
+            1,
+        ]);
     }
 
     #[test]
     fn test_isize() {
-        check_round_trip(vec![-1, 2, -3, ::std::isize::MIN, 0, 1, ::std::isize::MAX, 2, 1]);
+        check_round_trip(vec![
+            -1,
+            2,
+            -3,
+            ::std::isize::MIN,
+            0,
+            1,
+            ::std::isize::MAX,
+            2,
+            1,
+        ]);
     }
 
     #[test]
@@ -434,19 +467,34 @@ mod tests {
 
     #[test]
     fn test_char() {
-        let vec = vec!['a', 'b', 'c', 'd', 'A', 'X', ' ', '#', 'Ö', 'Ä', 'µ', '€'];
+        let vec = vec![
+            'a',
+            'b',
+            'c',
+            'd',
+            'A',
+            'X',
+            ' ',
+            '#',
+            'Ö',
+            'Ä',
+            'µ',
+            '€',
+        ];
         check_round_trip(vec);
     }
 
     #[test]
     fn test_string() {
-        let vec = vec!["abcbuÖeiovÄnameÜavmpßvmea€µsbpnvapeapmaebn".to_string(),
-                       "abcbuÖganeiovÄnameÜavmpßvmea€µsbpnvapeapmaebn".to_string(),
-                       "abcbuÖganeiovÄnameÜavmpßvmea€µsbpapmaebn".to_string(),
-                       "abcbuÖganeiovÄnameÜavmpßvmeabpnvapeapmaebn".to_string(),
-                       "abcbuÖganeiÄnameÜavmpßvmea€µsbpnvapeapmaebn".to_string(),
-                       "abcbuÖganeiovÄnameÜavmpßvmea€µsbpmaebn".to_string(),
-                       "abcbuÖganeiovÄnameÜavmpßvmea€µnvapeapmaebn".to_string()];
+        let vec = vec![
+            "abcbuÖeiovÄnameÜavmpßvmea€µsbpnvapeapmaebn".to_string(),
+            "abcbuÖganeiovÄnameÜavmpßvmea€µsbpnvapeapmaebn".to_string(),
+            "abcbuÖganeiovÄnameÜavmpßvmea€µsbpapmaebn".to_string(),
+            "abcbuÖganeiovÄnameÜavmpßvmeabpnvapeapmaebn".to_string(),
+            "abcbuÖganeiÄnameÜavmpßvmea€µsbpnvapeapmaebn".to_string(),
+            "abcbuÖganeiovÄnameÜavmpßvmea€µsbpmaebn".to_string(),
+            "abcbuÖganeiovÄnameÜavmpßvmea€µnvapeapmaebn".to_string(),
+        ];
 
         check_round_trip(vec);
     }
@@ -477,76 +525,78 @@ mod tests {
 
     #[test]
     fn test_struct() {
-        check_round_trip(vec![Struct {
-                                  a: (),
-                                  b: 10,
-                                  c: 11,
-                                  d: 12,
-                                  e: 13,
-                                  f: 14,
+        check_round_trip(vec![
+            Struct {
+                a: (),
+                b: 10,
+                c: 11,
+                d: 12,
+                e: 13,
+                f: 14,
 
-                                  g: 15,
-                                  h: 16,
-                                  i: 17,
-                                  j: 18,
-                                  k: 19,
+                g: 15,
+                h: 16,
+                i: 17,
+                j: 18,
+                k: 19,
 
-                                  l: 'x',
-                                  m: "abc".to_string(),
-                                  n: 20.5,
-                                  o: 21.5,
-                                  p: false,
-                                  q: None,
-                              }]);
+                l: 'x',
+                m: "abc".to_string(),
+                n: 20.5,
+                o: 21.5,
+                p: false,
+                q: None,
+            },
+        ]);
 
-        check_round_trip(vec![Struct {
-                                  a: (),
-                                  b: 101,
-                                  c: 111,
-                                  d: 121,
-                                  e: 131,
-                                  f: 141,
+        check_round_trip(vec![
+            Struct {
+                a: (),
+                b: 101,
+                c: 111,
+                d: 121,
+                e: 131,
+                f: 141,
 
-                                  g: -15,
-                                  h: -16,
-                                  i: -17,
-                                  j: -18,
-                                  k: -19,
+                g: -15,
+                h: -16,
+                i: -17,
+                j: -18,
+                k: -19,
 
-                                  l: 'y',
-                                  m: "def".to_string(),
-                                  n: -20.5,
-                                  o: -21.5,
-                                  p: true,
-                                  q: Some(1234567),
-                              }]);
+                l: 'y',
+                m: "def".to_string(),
+                n: -20.5,
+                o: -21.5,
+                p: true,
+                q: Some(1234567),
+            },
+        ]);
     }
 
     #[derive(PartialEq, Clone, Debug, RustcEncodable, RustcDecodable)]
     enum Enum {
         Variant1,
         Variant2(usize, f32),
-        Variant3 {
-            a: i32,
-            b: char,
-            c: bool,
-        },
+        Variant3 { a: i32, b: char, c: bool },
     }
 
     #[test]
     fn test_enum() {
-        check_round_trip(vec![Enum::Variant1,
-                              Enum::Variant2(1, 2.5),
-                              Enum::Variant3 {
-                                  a: 3,
-                                  b: 'b',
-                                  c: false,
-                              },
-                              Enum::Variant3 {
-                                  a: -4,
-                                  b: 'f',
-                                  c: true,
-                              }]);
+        check_round_trip(vec![
+            Enum::Variant1,
+            Enum::Variant2(1, 2.5),
+            Enum::Variant3 {
+                a: 3,
+                b: 'b',
+                c: false,
+            },
+            Enum::Variant3 {
+                a: -4,
+                b: 'f',
+                c: true,
+            },
+        ]);
     }
 
     #[test]

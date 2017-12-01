@@ -41,7 +41,7 @@ use rustc::ty::TyCtxt;
 use rustc::ty::maps::Providers;
 use rustc::middle::cstore::EncodedMetadata;
 use rustc::middle::cstore::MetadataLoader as MetadataLoaderTrait;
-use rustc::dep_graph::{DepGraph, DepNode, DepKind};
+use rustc::dep_graph::{DepGraph, DepKind, DepNode};
 use rustc_back::target::Target;
 use link::{build_link_meta, out_filename};
 
@@ -55,12 +55,12 @@ pub trait TransCrate {
     fn provide_extern(_providers: &mut Providers);
     fn trans_crate<'a, 'tcx>(
         tcx: TyCtxt<'a, 'tcx, 'tcx>,
-        rx: mpsc::Receiver<Box<Any + Send>>
+        rx: mpsc::Receiver<Box<Any + Send>>,
     ) -> Self::OngoingCrateTranslation;
     fn join_trans(
         trans: Self::OngoingCrateTranslation,
         sess: &Session,
-        dep_graph: &DepGraph
+        dep_graph: &DepGraph,
     ) -> Self::TranslatedCrate;
     fn link_binary(sess: &Session, trans: &Self::TranslatedCrate, outputs: &OutputFilenames);
     fn dump_incremental_data(trans: &Self::TranslatedCrate);
@@ -87,7 +87,7 @@ impl TransCrate for DummyTransCrate {
 
     fn trans_crate<'a, 'tcx>(
         _tcx: TyCtxt<'a, 'tcx, 'tcx>,
-        _rx: mpsc::Receiver<Box<Any + Send>>
+        _rx: mpsc::Receiver<Box<Any + Send>>,
     ) -> Self::OngoingCrateTranslation {
         bug!("DummyTransCrate::trans_crate");
     }
@@ -95,7 +95,7 @@ impl TransCrate for DummyTransCrate {
     fn join_trans(
         _trans: Self::OngoingCrateTranslation,
         _sess: &Session,
-        _dep_graph: &DepGraph
+        _dep_graph: &DepGraph,
     ) -> Self::TranslatedCrate {
         bug!("DummyTransCrate::join_trans");
     }
@@ -115,7 +115,7 @@ impl MetadataLoaderTrait for DummyMetadataLoader {
     fn get_rlib_metadata(
         &self,
         _target: &Target,
-        _filename: &Path
+        _filename: &Path,
     ) -> Result<ErasedBoxRef<[u8]>, String> {
         bug!("DummyMetadataLoader::get_rlib_metadata");
     }
@@ -123,7 +123,7 @@ impl MetadataLoaderTrait for DummyMetadataLoader {
     fn get_dylib_metadata(
         &self,
         _target: &Target,
-        _filename: &Path
+        _filename: &Path,
     ) -> Result<ErasedBoxRef<[u8]>, String> {
         bug!("DummyMetadataLoader::get_dylib_metadata");
     }
@@ -133,13 +133,12 @@ pub struct NoLlvmMetadataLoader;
 
 impl MetadataLoaderTrait for NoLlvmMetadataLoader {
     fn get_rlib_metadata(&self, _: &Target, filename: &Path) -> Result<ErasedBoxRef<[u8]>, String> {
-        let file = File::open(filename)
-            .map_err(|e| format!("metadata file open err: {:?}", e))?;
+        let file = File::open(filename).map_err(|e| format!("metadata file open err: {:?}", e))?;
         let mut archive = Archive::new(file);
 
         while let Some(entry_result) = archive.next_entry() {
-            let mut entry = entry_result
-                .map_err(|e| format!("metadata section read err: {:?}", e))?;
+            let mut entry =
+                entry_result.map_err(|e| format!("metadata section read err: {:?}", e))?;
             if entry.header().identifier() == "rust.metadata.bin" {
                 let mut buf = Vec::new();
                 io::copy(&mut entry, &mut buf).unwrap();
@@ -190,7 +189,7 @@ impl TransCrate for MetadataOnlyTransCrate {
 
     fn trans_crate<'a, 'tcx>(
         tcx: TyCtxt<'a, 'tcx, 'tcx>,
-        _rx: mpsc::Receiver<Box<Any + Send>>
+        _rx: mpsc::Receiver<Box<Any + Send>>,
     ) -> Self::OngoingCrateTranslation {
         ::check_for_rustc_errors_attr(tcx);
         let _ = tcx.link_args(LOCAL_CRATE);
@@ -198,7 +197,7 @@ impl TransCrate for MetadataOnlyTransCrate {
         tcx.sess.abort_if_errors();
 
         let crate_hash = tcx.dep_graph
-                        .fingerprint_of(&DepNode::new_no_params(DepKind::Krate));
+            .fingerprint_of(&DepNode::new_no_params(DepKind::Krate));
         let link_meta = build_link_meta(crate_hash);
         let exported_symbols = ::find_exported_symbols(tcx);
         let (metadata, _hashes) = tcx.encode_metadata(&link_meta, &exported_symbols);
@@ -240,7 +239,8 @@ impl TransCrate for MetadataOnlyTransCrate {
         }
 
         if !sess.opts.crate_types.contains(&CrateType::CrateTypeRlib)
-            && !sess.opts.crate_types.contains(&CrateType::CrateTypeDylib) {
+            && !sess.opts.crate_types.contains(&CrateType::CrateTypeDylib)
+        {
             sess.fatal("Executables are not supported by the metadata-only backend.");
         }
     }

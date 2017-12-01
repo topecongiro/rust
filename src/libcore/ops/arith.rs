@@ -76,7 +76,7 @@
 #[lang = "add"]
 #[stable(feature = "rust1", since = "1.0.0")]
 #[rustc_on_unimplemented = "no implementation for `{Self} + {RHS}`"]
-pub trait Add<RHS=Self> {
+pub trait Add<RHS = Self> {
     /// The resulting type after applying the `+` operator.
     #[stable(feature = "rust1", since = "1.0.0")]
     type Output;
@@ -171,7 +171,7 @@ add_impl! { usize u8 u16 u32 u64 u128 isize i8 i16 i32 i64 i128 f32 f64 }
 #[lang = "sub"]
 #[stable(feature = "rust1", since = "1.0.0")]
 #[rustc_on_unimplemented = "no implementation for `{Self} - {RHS}`"]
-pub trait Sub<RHS=Self> {
+pub trait Sub<RHS = Self> {
     /// The resulting type after applying the `-` operator.
     #[stable(feature = "rust1", since = "1.0.0")]
     type Output;
@@ -288,7 +288,7 @@ sub_impl! { usize u8 u16 u32 u64 u128 isize i8 i16 i32 i64 i128 f32 f64 }
 #[lang = "mul"]
 #[stable(feature = "rust1", since = "1.0.0")]
 #[rustc_on_unimplemented = "no implementation for `{Self} * {RHS}`"]
-pub trait Mul<RHS=Self> {
+pub trait Mul<RHS = Self> {
     /// The resulting type after applying the `*` operator.
     #[stable(feature = "rust1", since = "1.0.0")]
     type Output;
@@ -409,7 +409,7 @@ mul_impl! { usize u8 u16 u32 u64 u128 isize i8 i16 i32 i64 i128 f32 f64 }
 #[lang = "div"]
 #[stable(feature = "rust1", since = "1.0.0")]
 #[rustc_on_unimplemented = "no implementation for `{Self} / {RHS}`"]
-pub trait Div<RHS=Self> {
+pub trait Div<RHS = Self> {
     /// The resulting type after applying the `/` operator.
     #[stable(feature = "rust1", since = "1.0.0")]
     type Output;
@@ -491,7 +491,7 @@ div_impl_float! { f32 f64 }
 #[lang = "rem"]
 #[stable(feature = "rust1", since = "1.0.0")]
 #[rustc_on_unimplemented = "no implementation for `{Self} % {RHS}`"]
-pub trait Rem<RHS=Self> {
+pub trait Rem<RHS = Self> {
     /// The resulting type after applying the `%` operator.
     #[stable(feature = "rust1", since = "1.0.0")]
     type Output = Self;
@@ -648,7 +648,7 @@ neg_impl_numeric! { isize i8 i16 i32 i64 i128 f32 f64 }
 #[lang = "add_assign"]
 #[stable(feature = "op_assign_traits", since = "1.8.0")]
 #[rustc_on_unimplemented = "no implementation for `{Self} += {Rhs}`"]
-pub trait AddAssign<Rhs=Self> {
+pub trait AddAssign<Rhs = Self> {
     /// Performs the `+=` operation.
     #[stable(feature = "op_assign_traits", since = "1.8.0")]
     fn add_assign(&mut self, rhs: Rhs);
@@ -701,7 +701,7 @@ add_assign_impl! { usize u8 u16 u32 u64 u128 isize i8 i16 i32 i64 i128 f32 f64 }
 #[lang = "sub_assign"]
 #[stable(feature = "op_assign_traits", since = "1.8.0")]
 #[rustc_on_unimplemented = "no implementation for `{Self} -= {Rhs}`"]
-pub trait SubAssign<Rhs=Self> {
+pub trait SubAssign<Rhs = Self> {
     /// Performs the `-=` operation.
     #[stable(feature = "op_assign_traits", since = "1.8.0")]
     fn sub_assign(&mut self, rhs: Rhs);
@@ -745,7 +745,7 @@ sub_assign_impl! { usize u8 u16 u32 u64 u128 isize i8 i16 i32 i64 i128 f32 f64 }
 #[lang = "mul_assign"]
 #[stable(feature = "op_assign_traits", since = "1.8.0")]
 #[rustc_on_unimplemented = "no implementation for `{Self} *= {Rhs}`"]
-pub trait MulAssign<Rhs=Self> {
+pub trait MulAssign<Rhs = Self> {
     /// Performs the `*=` operation.
     #[stable(feature = "op_assign_traits", since = "1.8.0")]
     fn mul_assign(&mut self, rhs: Rhs);
@@ -789,7 +789,7 @@ mul_assign_impl! { usize u8 u16 u32 u64 u128 isize i8 i16 i32 i64 i128 f32 f64 }
 #[lang = "div_assign"]
 #[stable(feature = "op_assign_traits", since = "1.8.0")]
 #[rustc_on_unimplemented = "no implementation for `{Self} /= {Rhs}`"]
-pub trait DivAssign<Rhs=Self> {
+pub trait DivAssign<Rhs = Self> {
     /// Performs the `/=` operation.
     #[stable(feature = "op_assign_traits", since = "1.8.0")]
     fn div_assign(&mut self, rhs: Rhs);
@@ -836,7 +836,7 @@ div_assign_impl! { usize u8 u16 u32 u64 u128 isize i8 i16 i32 i64 i128 f32 f64 }
 #[lang = "rem_assign"]
 #[stable(feature = "op_assign_traits", since = "1.8.0")]
 #[rustc_on_unimplemented = "no implementation for `{Self} %= {Rhs}`"]
-pub trait RemAssign<Rhs=Self> {
+pub trait RemAssign<Rhs = Self> {
     /// Performs the `%=` operation.
     #[stable(feature = "op_assign_traits", since = "1.8.0")]
     fn rem_assign(&mut self, rhs: Rhs);

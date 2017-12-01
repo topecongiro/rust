@@ -27,10 +27,21 @@ pub type NodeSet = FxHashSet<ast::NodeId>;
 pub type DefIdSet = FxHashSet<DefId>;
 pub type ItemLocalSet = FxHashSet<ItemLocalId>;
 
-pub fn NodeMap<T>() -> NodeMap<T> { FxHashMap() }
-pub fn DefIdMap<T>() -> DefIdMap<T> { FxHashMap() }
-pub fn ItemLocalMap<T>() -> ItemLocalMap<T> { FxHashMap() }
-pub fn NodeSet() -> NodeSet { FxHashSet() }
-pub fn DefIdSet() -> DefIdSet { FxHashSet() }
-pub fn ItemLocalSet() -> ItemLocalSet { FxHashSet() }
-
+pub fn NodeMap<T>() -> NodeMap<T> {
+    FxHashMap()
+}
+pub fn DefIdMap<T>() -> DefIdMap<T> {
+    FxHashMap()
+}
+pub fn ItemLocalMap<T>() -> ItemLocalMap<T> {
+    FxHashMap()
+}
+pub fn NodeSet() -> NodeSet {
+    FxHashSet()
+}
+pub fn DefIdSet() -> DefIdSet {
+    FxHashSet()
+}
+pub fn ItemLocalSet() -> ItemLocalSet {
+    FxHashSet()
+}

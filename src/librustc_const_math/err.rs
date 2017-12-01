@@ -52,7 +52,7 @@ impl ConstMathErr {
             UnequalTypes(Div) => "tried to divide two values of different types",
             UnequalTypes(Rem) => {
                 "tried to calculate the remainder of two values of different types"
-            },
+            }
             UnequalTypes(BitAnd) => "tried to bitand two values of different types",
             UnequalTypes(BitOr) => "tried to bitor two values of different types",
             UnequalTypes(BitXor) => "tried to xor two values of different types",

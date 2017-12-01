@@ -259,7 +259,7 @@ use core::ops::CoerceUnsized;
 use core::ptr::{self, Shared};
 use core::convert::From;
 
-use heap::{Heap, Alloc, Layout, box_free};
+use heap::{box_free, Alloc, Heap, Layout};
 use string::String;
 use vec::Vec;
 
@@ -526,9 +526,7 @@ impl<T: ?Sized> Rc<T> {
     #[stable(feature = "rc_unique", since = "1.4.0")]
     pub fn get_mut(this: &mut Self) -> Option<&mut T> {
         if Rc::is_unique(this) {
-            unsafe {
-                Some(&mut this.ptr.as_mut().value)
-            }
+            unsafe { Some(&mut this.ptr.as_mut().value) }
         } else {
             None
         }
@@ -609,9 +607,7 @@ impl<T: Clone> Rc<T> {
         // reference count is guaranteed to be 1 at this point, and we required
         // the `Rc<T>` itself to be `mut`, so we're returning the only possible
         // reference to the inner value.
-        unsafe {
-            &mut this.ptr.as_mut().value
-        }
+        unsafe { &mut this.ptr.as_mut().value }
     }
 }
 
@@ -663,8 +659,7 @@ impl<T: ?Sized> Rc<T> {
 
         let layout = Layout::for_value(&*fake_ptr);
 
-        let mem = Heap.alloc(layout)
-            .unwrap_or_else(|e| Heap.oom(e));
+        let mem = Heap.alloc(layout).unwrap_or_else(|e| Heap.oom(e));
 
         // Initialize the real RcBox
         let inner = set_data_ptr(ptr as *mut T, mem) as *mut RcBox<T>;
@@ -686,12 +681,15 @@ impl<T: ?Sized> Rc<T> {
             ptr::copy_nonoverlapping(
                 bptr as *const T as *const u8,
                 &mut (*ptr).value as *mut _ as *mut u8,
-                value_size);
+                value_size,
+            );
 
             // Free the allocation without dropping its contents
             box_free(bptr);
 
-            Rc { ptr: Shared::new_unchecked(ptr) }
+            Rc {
+                ptr: Shared::new_unchecked(ptr),
+            }
         }
     }
 }
@@ -713,12 +711,11 @@ impl<T> Rc<[T]> {
         let v_ptr = v as *const [T];
         let ptr = Self::allocate_for_ptr(v_ptr);
 
-        ptr::copy_nonoverlapping(
-            v.as_ptr(),
-            &mut (*ptr).value as *mut [T] as *mut T,
-            v.len());
+        ptr::copy_nonoverlapping(v.as_ptr(), &mut (*ptr).value as *mut [T] as *mut T, v.len());
 
-        Rc { ptr: Shared::new_unchecked(ptr) }
+        Rc {
+            ptr: Shared::new_unchecked(ptr),
+        }
     }
 }
 
@@ -762,7 +759,7 @@ impl<T: Clone> RcFromSlice<T> for Rc<[T]> {
             // Pointer to first element
             let elems = &mut (*ptr).value as *mut [T] as *mut T;
 
-            let mut guard = Guard{
+            let mut guard = Guard {
                 mem: mem,
                 elems: elems,
                 layout: layout,
@@ -777,7 +774,9 @@ impl<T: Clone> RcFromSlice<T> for Rc<[T]> {
             // All clear. Forget the guard so it doesn't free the new RcBox.
             forget(guard);
 
-            Rc { ptr: Shared::new_unchecked(ptr) }
+            Rc {
+                ptr: Shared::new_unchecked(ptr),
+            }
         }
     }
 }
@@ -1341,7 +1340,11 @@ trait RcBoxPtr<T: ?Sized> {
 
     #[inline]
     fn inc_strong(&self) {
-        self.inner().strong.set(self.strong().checked_add(1).unwrap_or_else(|| unsafe { abort() }));
+        self.inner().strong.set(
+            self.strong()
+                .checked_add(1)
+                .unwrap_or_else(|| unsafe { abort() }),
+        );
     }
 
     #[inline]
@@ -1356,7 +1359,11 @@ trait RcBoxPtr<T: ?Sized> {
 
     #[inline]
     fn inc_weak(&self) {
-        self.inner().weak.set(self.weak().checked_add(1).unwrap_or_else(|| unsafe { abort() }));
+        self.inner().weak.set(
+            self.weak()
+                .checked_add(1)
+                .unwrap_or_else(|| unsafe { abort() }),
+        );
     }
 
     #[inline]
@@ -1368,18 +1375,14 @@ trait RcBoxPtr<T: ?Sized> {
 impl<T: ?Sized> RcBoxPtr<T> for Rc<T> {
     #[inline(always)]
     fn inner(&self) -> &RcBox<T> {
-        unsafe {
-            self.ptr.as_ref()
-        }
+        unsafe { self.ptr.as_ref() }
     }
 }
 
 impl<T: ?Sized> RcBoxPtr<T> for Weak<T> {
     #[inline(always)]
     fn inner(&self) -> &RcBox<T> {
-        unsafe {
-            self.ptr.as_ref()
-        }
+        unsafe { self.ptr.as_ref() }
     }
 }
 
@@ -1444,7 +1447,9 @@ mod tests {
             x: RefCell<Option<Weak<Cycle>>>,
         }
 
-        let a = Rc::new(Cycle { x: RefCell::new(None) });
+        let a = Rc::new(Cycle {
+            x: RefCell::new(None),
+        });
         let b = Rc::downgrade(&a.clone());
         *a.x.borrow_mut() = Some(b);
 

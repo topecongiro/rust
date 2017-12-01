@@ -36,33 +36,40 @@ impl<'cx, 'tcx, 'v> ItemLikeVisitor<'v> for OrphanChecker<'cx, 'tcx> {
         match item.node {
             hir::ItemImpl(.., Some(_), _, _) => {
                 // "Trait" impl
-                debug!("coherence2::orphan check: trait impl {}",
-                       self.tcx.hir.node_to_string(item.id));
+                debug!(
+                    "coherence2::orphan check: trait impl {}",
+                    self.tcx.hir.node_to_string(item.id)
+                );
                 let trait_ref = self.tcx.impl_trait_ref(def_id).unwrap();
                 let trait_def_id = trait_ref.def_id;
                 match traits::orphan_check(self.tcx, def_id) {
                     Ok(()) => {}
                     Err(traits::OrphanCheckErr::NoLocalInputType) => {
-                        struct_span_err!(self.tcx.sess,
-                                         item.span,
-                                         E0117,
-                                         "only traits defined in the current crate can be \
-                                          implemented for arbitrary types")
-                            .span_label(item.span, "impl doesn't use types inside crate")
-                            .note(&format!("the impl does not reference any types defined in \
-                                            this crate"))
+                        struct_span_err!(
+                            self.tcx.sess,
+                            item.span,
+                            E0117,
+                            "only traits defined in the current crate can be \
+                             implemented for arbitrary types"
+                        ).span_label(item.span, "impl doesn't use types inside crate")
+                            .note(&format!(
+                                "the impl does not reference any types defined in \
+                                 this crate"
+                            ))
                             .note("define and implement a trait or new type instead")
                             .emit();
                         return;
                     }
                     Err(traits::OrphanCheckErr::UncoveredTy(param_ty)) => {
-                        span_err!(self.tcx.sess,
-                                  item.span,
-                                  E0210,
-                                  "type parameter `{}` must be used as the type parameter for \
-                                   some local type (e.g. `MyStruct<T>`); only traits defined in \
-                                   the current crate can be implemented for a type parameter",
-                                  param_ty);
+                        span_err!(
+                            self.tcx.sess,
+                            item.span,
+                            E0210,
+                            "type parameter `{}` must be used as the type parameter for \
+                             some local type (e.g. `MyStruct<T>`); only traits defined in \
+                             the current crate can be implemented for a type parameter",
+                            param_ty
+                        );
                         return;
                     }
                 }
@@ -100,12 +107,13 @@ impl<'cx, 'tcx, 'v> ItemLikeVisitor<'v> for OrphanChecker<'cx, 'tcx> {
                 // This final impl is legal according to the orpan
                 // rules, but it invalidates the reasoning from
                 // `two_foos` above.
-                debug!("trait_ref={:?} trait_def_id={:?} trait_is_auto={}",
-                       trait_ref,
-                       trait_def_id,
-                       self.tcx.trait_is_auto(trait_def_id));
-                if self.tcx.trait_is_auto(trait_def_id) &&
-                   !trait_def_id.is_local() {
+                debug!(
+                    "trait_ref={:?} trait_def_id={:?} trait_is_auto={}",
+                    trait_ref,
+                    trait_def_id,
+                    self.tcx.trait_is_auto(trait_def_id)
+                );
+                if self.tcx.trait_is_auto(trait_def_id) && !trait_def_id.is_local() {
                     let self_ty = trait_ref.self_ty();
                     let opt_self_def_id = match self_ty.sty {
                         ty::TyAdt(self_def, _) => Some(self_def.did),
@@ -122,18 +130,20 @@ impl<'cx, 'tcx, 'v> ItemLikeVisitor<'v> for OrphanChecker<'cx, 'tcx> {
                             if self_def_id.is_local() {
                                 None
                             } else {
-                                Some(format!("cross-crate traits with a default impl, like `{}`, \
-                                              can only be implemented for a struct/enum type \
-                                              defined in the current crate",
-                                             self.tcx.item_path_str(trait_def_id)))
+                                Some(format!(
+                                    "cross-crate traits with a default impl, like `{}`, \
+                                     can only be implemented for a struct/enum type \
+                                     defined in the current crate",
+                                    self.tcx.item_path_str(trait_def_id)
+                                ))
                             }
                         }
-                        _ => {
-                            Some(format!("cross-crate traits with a default impl, like `{}`, can \
-                                          only be implemented for a struct/enum type, not `{}`",
-                                         self.tcx.item_path_str(trait_def_id),
-                                         self_ty))
-                        }
+                        _ => Some(format!(
+                            "cross-crate traits with a default impl, like `{}`, can \
+                             only be implemented for a struct/enum type, not `{}`",
+                            self.tcx.item_path_str(trait_def_id),
+                            self_ty
+                        )),
                     };
 
                     if let Some(msg) = msg {
@@ -144,18 +154,25 @@ impl<'cx, 'tcx, 'v> ItemLikeVisitor<'v> for OrphanChecker<'cx, 'tcx> {
             }
             hir::ItemAutoImpl(_, ref item_trait_ref) => {
                 // "Trait" impl
-                debug!("coherence2::orphan check: default trait impl {}",
-                       self.tcx.hir.node_to_string(item.id));
+                debug!(
+                    "coherence2::orphan check: default trait impl {}",
+                    self.tcx.hir.node_to_string(item.id)
+                );
                 let trait_ref = self.tcx.impl_trait_ref(def_id).unwrap();
                 if !trait_ref.def_id.is_local() {
-                    struct_span_err!(self.tcx.sess,
-                                     item_trait_ref.path.span,
-                                     E0318,
-                                     "cannot create default implementations for traits outside \
-                                      the crate they're defined in; define a new trait instead")
-                        .span_label(item_trait_ref.path.span,
-                                    format!("`{}` trait not defined in this crate",
-                            self.tcx.hir.node_to_pretty_string(item_trait_ref.ref_id)))
+                    struct_span_err!(
+                        self.tcx.sess,
+                        item_trait_ref.path.span,
+                        E0318,
+                        "cannot create default implementations for traits outside \
+                         the crate they're defined in; define a new trait instead"
+                    ).span_label(
+                        item_trait_ref.path.span,
+                        format!(
+                            "`{}` trait not defined in this crate",
+                            self.tcx.hir.node_to_pretty_string(item_trait_ref.ref_id)
+                        ),
+                    )
                         .emit();
                     return;
                 }
@@ -166,9 +183,7 @@ impl<'cx, 'tcx, 'v> ItemLikeVisitor<'v> for OrphanChecker<'cx, 'tcx> {
         }
     }
 
-    fn visit_trait_item(&mut self, _trait_item: &hir::TraitItem) {
-    }
+    fn visit_trait_item(&mut self, _trait_item: &hir::TraitItem) {}
 
-    fn visit_impl_item(&mut self, _impl_item: &hir::ImplItem) {
-    }
+    fn visit_impl_item(&mut self, _impl_item: &hir::ImplItem) {}
 }

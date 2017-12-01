@@ -50,11 +50,7 @@ use util;
 pub struct AddMovesForPackedDrops;
 
 impl MirPass for AddMovesForPackedDrops {
-    fn run_pass<'a, 'tcx>(&self,
-                          tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                          src: MirSource,
-                          mir: &mut Mir<'tcx>)
-    {
+    fn run_pass<'a, 'tcx>(&self, tcx: TyCtxt<'a, 'tcx, 'tcx>, src: MirSource, mir: &mut Mir<'tcx>) {
         debug!("add_moves_for_packed_drops({:?} @ {:?})", src, mir.span);
         add_moves_for_packed_drops(tcx, mir, src.def_id);
     }
@@ -63,8 +59,8 @@ impl MirPass for AddMovesForPackedDrops {
 pub fn add_moves_for_packed_drops<'a, 'tcx>(
     tcx: TyCtxt<'a, 'tcx, 'tcx>,
     mir: &mut Mir<'tcx>,
-    def_id: DefId)
-{
+    def_id: DefId,
+) {
     let patch = add_moves_for_packed_drops_patch(tcx, mir, def_id);
     patch.apply(mir);
 }
@@ -72,26 +68,29 @@ pub fn add_moves_for_packed_drops<'a, 'tcx>(
 fn add_moves_for_packed_drops_patch<'a, 'tcx>(
     tcx: TyCtxt<'a, 'tcx, 'tcx>,
     mir: &Mir<'tcx>,
-    def_id: DefId)
-    -> MirPatch<'tcx>
-{
+    def_id: DefId,
+) -> MirPatch<'tcx> {
     let mut patch = MirPatch::new(mir);
     let param_env = tcx.param_env(def_id);
 
     for (bb, data) in mir.basic_blocks().iter_enumerated() {
-        let loc = Location { block: bb, statement_index: data.statements.len() };
+        let loc = Location {
+            block: bb,
+            statement_index: data.statements.len(),
+        };
         let terminator = data.terminator();
 
         match terminator.kind {
             TerminatorKind::Drop { ref location, .. }
                 if util::is_disaligned(tcx, mir, param_env, location) =>
             {
-                add_move_for_packed_drop(tcx, mir, &mut patch, terminator,
-                                         loc, data.is_cleanup);
+                add_move_for_packed_drop(tcx, mir, &mut patch, terminator, loc, data.is_cleanup);
             }
             TerminatorKind::DropAndReplace { .. } => {
-                span_bug!(terminator.source_info.span,
-                          "replace in AddMovesForPackedDrops");
+                span_bug!(
+                    terminator.source_info.span,
+                    "replace in AddMovesForPackedDrops"
+                );
             }
             _ => {}
         }
@@ -106,13 +105,16 @@ fn add_move_for_packed_drop<'a, 'tcx>(
     patch: &mut MirPatch<'tcx>,
     terminator: &Terminator<'tcx>,
     loc: Location,
-    is_cleanup: bool)
-{
+    is_cleanup: bool,
+) {
     debug!("add_move_for_packed_drop({:?} @ {:?})", terminator, loc);
     let (location, target, unwind) = match terminator.kind {
-        TerminatorKind::Drop { ref location, target, unwind } =>
-            (location, target, unwind),
-        _ => unreachable!()
+        TerminatorKind::Drop {
+            ref location,
+            target,
+            unwind,
+        } => (location, target, unwind),
+        _ => unreachable!(),
     };
 
     let source_info = terminator.source_info;
@@ -120,22 +122,31 @@ fn add_move_for_packed_drop<'a, 'tcx>(
     let temp = patch.new_temp(ty, terminator.source_info.span);
 
     let storage_dead_block = patch.new_block(BasicBlockData {
-        statements: vec![Statement {
-            source_info, kind: StatementKind::StorageDead(temp)
-        }],
+        statements: vec![
+            Statement {
+                source_info,
+                kind: StatementKind::StorageDead(temp),
+            },
+        ],
         terminator: Some(Terminator {
-            source_info, kind: TerminatorKind::Goto { target }
+            source_info,
+            kind: TerminatorKind::Goto { target },
         }),
-        is_cleanup
+        is_cleanup,
     });
 
-    patch.add_statement(
-        loc, StatementKind::StorageLive(temp));
-    patch.add_assign(loc, Lvalue::Local(temp),
-                     Rvalue::Use(Operand::Move(location.clone())));
-    patch.patch_terminator(loc.block, TerminatorKind::Drop {
-        location: Lvalue::Local(temp),
-        target: storage_dead_block,
-        unwind
-    });
+    patch.add_statement(loc, StatementKind::StorageLive(temp));
+    patch.add_assign(
+        loc,
+        Lvalue::Local(temp),
+        Rvalue::Use(Operand::Move(location.clone())),
+    );
+    patch.patch_terminator(
+        loc.block,
+        TerminatorKind::Drop {
+            location: Lvalue::Local(temp),
+            target: storage_dead_block,
+            unwind,
+        },
+    );
 }

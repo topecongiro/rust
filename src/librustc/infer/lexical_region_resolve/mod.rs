@@ -280,10 +280,10 @@ impl<'cx, 'gcx, 'tcx> LexicalResolver<'cx, 'gcx, 'tcx> {
                 );
             }
 
-            (&ReEarlyBound(_), &ReScope(s_id)) |
-            (&ReScope(s_id), &ReEarlyBound(_)) |
-            (&ReFree(_), &ReScope(s_id)) |
-            (&ReScope(s_id), &ReFree(_)) => {
+            (&ReEarlyBound(_), &ReScope(s_id))
+            | (&ReScope(s_id), &ReEarlyBound(_))
+            | (&ReFree(_), &ReScope(s_id))
+            | (&ReScope(s_id), &ReFree(_)) => {
                 // A "free" region can be interpreted as "some region
                 // at least as big as fr.scope".  So, we can
                 // reasonably compare free regions and scopes:
@@ -325,10 +325,10 @@ impl<'cx, 'gcx, 'tcx> LexicalResolver<'cx, 'gcx, 'tcx> {
                 tcx.mk_region(ReScope(lub))
             }
 
-            (&ReEarlyBound(_), &ReEarlyBound(_)) |
-            (&ReFree(_), &ReEarlyBound(_)) |
-            (&ReEarlyBound(_), &ReFree(_)) |
-            (&ReFree(_), &ReFree(_)) => self.region_rels.lub_free_regions(a, b),
+            (&ReEarlyBound(_), &ReEarlyBound(_))
+            | (&ReFree(_), &ReEarlyBound(_))
+            | (&ReEarlyBound(_), &ReFree(_))
+            | (&ReFree(_), &ReFree(_)) => self.region_rels.lub_free_regions(a, b),
 
             // For these types, we cannot define any additional
             // relationship:

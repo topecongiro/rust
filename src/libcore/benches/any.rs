@@ -9,7 +9,7 @@
 // except according to those terms.
 
 use core::any::*;
-use test::{Bencher, black_box};
+use test::{black_box, Bencher};
 
 #[bench]
 fn bench_downcast_ref(b: &mut Bencher) {

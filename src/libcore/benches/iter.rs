@@ -9,7 +9,7 @@
 // except according to those terms.
 
 use core::iter::*;
-use test::{Bencher, black_box};
+use test::{black_box, Bencher};
 
 #[bench]
 fn bench_rposition(b: &mut Bencher) {
@@ -24,7 +24,10 @@ fn bench_skip_while(b: &mut Bencher) {
     b.iter(|| {
         let it = 0..100;
         let mut sum = 0;
-        it.skip_while(|&x| { sum += x; sum < 4000 }).all(|_| true);
+        it.skip_while(|&x| {
+            sum += x;
+            sum < 4000
+        }).all(|_| true);
     });
 }
 
@@ -39,7 +42,9 @@ fn bench_multiple_take(b: &mut Bencher) {
     });
 }
 
-fn scatter(x: i32) -> i32 { (x * 31) % 127 }
+fn scatter(x: i32) -> i32 {
+    (x * 31) % 127
+}
 
 #[bench]
 fn bench_max_by_key(b: &mut Bencher) {
@@ -53,7 +58,12 @@ fn bench_max_by_key(b: &mut Bencher) {
 #[bench]
 fn bench_max_by_key2(b: &mut Bencher) {
     fn max_index_iter(array: &[i32]) -> usize {
-        array.iter().enumerate().max_by_key(|&(_, item)| item).unwrap().0
+        array
+            .iter()
+            .enumerate()
+            .max_by_key(|&(_, item)| item)
+            .unwrap()
+            .0
     }
 
     let mut data = vec![0; 1638];
@@ -86,23 +96,21 @@ pub fn add_zip(xs: &[f32], ys: &mut [f32]) {
 fn bench_zip_copy(b: &mut Bencher) {
     let source = vec![0u8; 16 * 1024];
     let mut dst = black_box(vec![0u8; 16 * 1024]);
-    b.iter(|| {
-        copy_zip(&source, &mut dst)
-    })
+    b.iter(|| copy_zip(&source, &mut dst))
 }
 
 #[bench]
 fn bench_zip_add(b: &mut Bencher) {
     let source = vec![1.; 16 * 1024];
     let mut dst = vec![0.; 16 * 1024];
-    b.iter(|| {
-        add_zip(&source, &mut dst)
-    });
+    b.iter(|| add_zip(&source, &mut dst));
 }
 
 /// `Iterator::for_each` implemented as a plain loop.
-fn for_each_loop<I, F>(iter: I, mut f: F) where
-    I: Iterator, F: FnMut(I::Item)
+fn for_each_loop<I, F>(iter: I, mut f: F)
+where
+    I: Iterator,
+    F: FnMut(I::Item),
 {
     for item in iter {
         f(item);
@@ -111,8 +119,10 @@ fn for_each_loop<I, F>(iter: I, mut f: F) where
 
 /// `Iterator::for_each` implemented with `fold` for internal iteration.
 /// (except when `by_ref()` effectively disables that optimization.)
-fn for_each_fold<I, F>(iter: I, mut f: F) where
-    I: Iterator, F: FnMut(I::Item)
+fn for_each_fold<I, F>(iter: I, mut f: F)
+where
+    I: Iterator,
+    F: FnMut(I::Item),
 {
     iter.fold((), move |(), item| f(item));
 }

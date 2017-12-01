@@ -40,14 +40,13 @@ impl Fingerprint {
         // implemented this way.
         Fingerprint(
             self.0.wrapping_mul(3).wrapping_add(other.0),
-            self.1.wrapping_mul(3).wrapping_add(other.1)
+            self.1.wrapping_mul(3).wrapping_add(other.1),
         )
     }
 
     pub fn to_hex(&self) -> String {
         format!("{:x}{:x}", self.0, self.1)
     }
-
 }
 
 impl ::std::fmt::Display for Fingerprint {
@@ -65,9 +64,11 @@ impl stable_hasher::StableHasherResult for Fingerprint {
 
 impl<CTX> stable_hasher::HashStable<CTX> for Fingerprint {
     #[inline]
-    fn hash_stable<W: stable_hasher::StableHasherResult>(&self,
-                                          _: &mut CTX,
-                                          hasher: &mut stable_hasher::StableHasher<W>) {
+    fn hash_stable<W: stable_hasher::StableHasherResult>(
+        &self,
+        _: &mut CTX,
+        hasher: &mut stable_hasher::StableHasher<W>,
+    ) {
         ::std::hash::Hash::hash(self, hasher);
     }
 }

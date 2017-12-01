@@ -11,13 +11,13 @@
 pub use rustc_const_math::ConstInt;
 
 use hir::def_id::DefId;
-use ty::{self, TyCtxt, layout};
+use ty::{self, layout, TyCtxt};
 use ty::subst::Substs;
 use rustc_const_math::*;
 
 use graphviz::IntoCow;
 use errors::DiagnosticBuilder;
-use serialize::{self, Encodable, Encoder, Decodable, Decoder};
+use serialize::{self, Decodable, Decoder, Encodable, Encoder};
 use syntax::symbol::InternedString;
 use syntax::ast;
 use syntax_pos::Span;
@@ -73,7 +73,7 @@ impl<'tcx> ConstVal<'tcx> {
             ConstVal::Integral(i) => Some(i),
             ConstVal::Bool(b) => Some(ConstInt::U8(b as u8)),
             ConstVal::Char(ch) => Some(ConstInt::U32(ch as u32)),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -114,7 +114,7 @@ impl<'tcx> From<ConstMathErr> for ErrKind<'tcx> {
     fn from(err: ConstMathErr) -> ErrKind<'tcx> {
         match err {
             ConstMathErr::UnsignedNegation => ErrKind::TypeckError,
-            _ => ErrKind::Math(err)
+            _ => ErrKind::Math(err),
         }
     }
 }
@@ -147,18 +147,18 @@ impl<'a, 'gcx, 'tcx> ConstEvalErr<'tcx> {
 
         match self.kind {
             CannotCast => simple!("can't cast this type"),
-            MissingStructField  => simple!("nonexistent struct field"),
-            NonConstPath        => simple!("non-constant path in constant expression"),
-            UnimplementedConstVal(what) =>
-                simple!("unimplemented constant expression: {}", what),
+            MissingStructField => simple!("nonexistent struct field"),
+            NonConstPath => simple!("non-constant path in constant expression"),
+            UnimplementedConstVal(what) => simple!("unimplemented constant expression: {}", what),
             ExpectedConstTuple => simple!("expected constant tuple"),
             ExpectedConstStruct => simple!("expected constant struct"),
             IndexedNonVec => simple!("indexing is only supported for arrays"),
             IndexNotUsize => simple!("indices must be of type `usize`"),
-            IndexOutOfBounds { len, index } => {
-                simple!("index out of bounds: the len is {} but the index is {}",
-                        len, index)
-            }
+            IndexOutOfBounds { len, index } => simple!(
+                "index out of bounds: the len is {} but the index is {}",
+                len,
+                index
+            ),
 
             MiscBinaryOp => simple!("bad operands for binary"),
             MiscCatchAll => simple!("unsupported constant expr"),
@@ -173,16 +173,18 @@ impl<'a, 'gcx, 'tcx> ConstEvalErr<'tcx> {
         }
     }
 
-    pub fn struct_error(&self,
+    pub fn struct_error(
+        &self,
         tcx: TyCtxt<'a, 'gcx, 'tcx>,
         primary_span: Span,
-        primary_kind: &str)
-        -> DiagnosticBuilder<'gcx>
-    {
+        primary_kind: &str,
+    ) -> DiagnosticBuilder<'gcx> {
         let mut err = self;
         while let &ConstEvalErr {
-            kind: ErrKind::ErroneousReferencedConstant(box ref i_err), ..
-        } = err {
+            kind: ErrKind::ErroneousReferencedConstant(box ref i_err),
+            ..
+        } = err
+        {
             err = i_err;
         }
 
@@ -191,12 +193,13 @@ impl<'a, 'gcx, 'tcx> ConstEvalErr<'tcx> {
         diag
     }
 
-    pub fn note(&self,
+    pub fn note(
+        &self,
         _tcx: TyCtxt<'a, 'gcx, 'tcx>,
         primary_span: Span,
         primary_kind: &str,
-        diag: &mut DiagnosticBuilder)
-    {
+        diag: &mut DiagnosticBuilder,
+    ) {
         match self.description() {
             ConstEvalErrDescription::Simple(message) => {
                 diag.span_label(self.span, message);
@@ -204,16 +207,11 @@ impl<'a, 'gcx, 'tcx> ConstEvalErr<'tcx> {
         }
 
         if !primary_span.contains(self.span) {
-            diag.span_note(primary_span,
-                        &format!("for {} here", primary_kind));
+            diag.span_note(primary_span, &format!("for {} here", primary_kind));
         }
     }
 
-    pub fn report(&self,
-        tcx: TyCtxt<'a, 'gcx, 'tcx>,
-        primary_span: Span,
-        primary_kind: &str)
-    {
+    pub fn report(&self, tcx: TyCtxt<'a, 'gcx, 'tcx>, primary_span: Span, primary_kind: &str) {
         match self.kind {
             ErrKind::TypeckError | ErrKind::CheckMatchError => return,
             _ => {}

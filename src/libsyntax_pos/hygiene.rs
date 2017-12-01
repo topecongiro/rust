@@ -18,7 +18,7 @@
 use Span;
 use symbol::{Ident, Symbol};
 
-use serialize::{Encodable, Decodable, Encoder, Decoder};
+use serialize::{Decodable, Decoder, Encodable, Encoder};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
@@ -48,7 +48,11 @@ struct MarkData {
 impl Mark {
     pub fn fresh(parent: Mark) -> Self {
         HygieneData::with(|data| {
-            data.marks.push(MarkData { parent: parent, modern: false, expn_info: None });
+            data.marks.push(MarkData {
+                parent: parent,
+                modern: false,
+                expn_info: None,
+            });
             Mark(data.marks.len() as u32 - 1)
         })
     }
@@ -231,8 +235,11 @@ impl SyntaxContext {
     /// ```
     /// This returns `None` if the context cannot be glob-adjusted.
     /// Otherwise, it returns the scope to use when privacy checking (see `adjust` for details).
-    pub fn glob_adjust(&mut self, expansion: Mark, mut glob_ctxt: SyntaxContext)
-                       -> Option<Option<Mark>> {
+    pub fn glob_adjust(
+        &mut self,
+        expansion: Mark,
+        mut glob_ctxt: SyntaxContext,
+    ) -> Option<Option<Mark>> {
         let mut scope = None;
         while !expansion.is_descendant_of(glob_ctxt.outer()) {
             scope = Some(glob_ctxt.remove_mark());
@@ -252,8 +259,11 @@ impl SyntaxContext {
     ///     assert!(self.glob_adjust(expansion, glob_ctxt) == Some(privacy_checking_scope));
     /// }
     /// ```
-    pub fn reverse_glob_adjust(&mut self, expansion: Mark, mut glob_ctxt: SyntaxContext)
-                               -> Option<Option<Mark>> {
+    pub fn reverse_glob_adjust(
+        &mut self,
+        expansion: Mark,
+        mut glob_ctxt: SyntaxContext,
+    ) -> Option<Option<Mark>> {
         if self.adjust(expansion).is_some() {
             return None;
         }
@@ -299,7 +309,7 @@ pub struct ExpnInfo {
     /// pointing to the `foo!` invocation.
     pub call_site: Span,
     /// Information about the expansion.
-    pub callee: NameAndSpan
+    pub callee: NameAndSpan,
 }
 
 #[derive(Clone, Hash, Debug)]
@@ -316,14 +326,13 @@ pub struct NameAndSpan {
     /// The span of the macro definition itself. The macro may not
     /// have a sensible definition span (e.g. something defined
     /// completely inside libsyntax) in which case this is None.
-    pub span: Option<Span>
+    pub span: Option<Span>,
 }
 
 impl NameAndSpan {
     pub fn name(&self) -> Symbol {
         match self.format {
-            ExpnFormat::MacroAttribute(s) |
-            ExpnFormat::MacroBang(s) => s,
+            ExpnFormat::MacroAttribute(s) | ExpnFormat::MacroBang(s) => s,
             ExpnFormat::CompilerDesugaring(ref kind) => kind.as_symbol(),
         }
     }
@@ -337,7 +346,7 @@ pub enum ExpnFormat {
     /// e.g. `format!()`
     MacroBang(Symbol),
     /// Desugaring done by the compiler during HIR lowering.
-    CompilerDesugaring(CompilerDesugaringKind)
+    CompilerDesugaring(CompilerDesugaringKind),
 }
 
 /// The kind of compiler desugaring.
@@ -382,11 +391,12 @@ impl Symbol {
     }
 
     pub fn to_ident(self) -> Ident {
-        HygieneData::with(|data| {
-            match data.gensym_to_ctxt.get(&self) {
-                Some(&ctxt) => Ident { name: self.interned(), ctxt: ctxt },
-                None => Ident::with_empty_ctxt(self),
-            }
+        HygieneData::with(|data| match data.gensym_to_ctxt.get(&self) {
+            Some(&ctxt) => Ident {
+                name: self.interned(),
+                ctxt: ctxt,
+            },
+            None => Ident::with_empty_ctxt(self),
         })
     }
 }

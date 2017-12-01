@@ -15,19 +15,23 @@ use syntax::ast::MetaItem;
 use syntax::ext::base::{Annotatable, ExtCtxt};
 use syntax_pos::Span;
 
-pub fn expand_deriving_unsafe_bound(cx: &mut ExtCtxt,
-                                    span: Span,
-                                    _: &MetaItem,
-                                    _: &Annotatable,
-                                    _: &mut FnMut(Annotatable)) {
+pub fn expand_deriving_unsafe_bound(
+    cx: &mut ExtCtxt,
+    span: Span,
+    _: &MetaItem,
+    _: &Annotatable,
+    _: &mut FnMut(Annotatable),
+) {
     cx.span_err(span, "this unsafe trait should be implemented explicitly");
 }
 
-pub fn expand_deriving_copy(cx: &mut ExtCtxt,
-                            span: Span,
-                            mitem: &MetaItem,
-                            item: &Annotatable,
-                            push: &mut FnMut(Annotatable)) {
+pub fn expand_deriving_copy(
+    cx: &mut ExtCtxt,
+    span: Span,
+    mitem: &MetaItem,
+    item: &Annotatable,
+    push: &mut FnMut(Annotatable),
+) {
     let mut v = cx.crate_root.map(|s| vec![s]).unwrap_or(Vec::new());
     v.push("marker");
     v.push("Copy");

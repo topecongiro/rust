@@ -32,9 +32,12 @@ pub fn check_impl<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, node_id: ast::NodeId) {
     let trait_def_id = trait_ref.def_id;
 
     if trait_ref.references_error() {
-        debug!("coherence: skipping impl {:?} with error {:?}",
-               impl_def_id, trait_ref);
-        return
+        debug!(
+            "coherence: skipping impl {:?} with error {:?}",
+            impl_def_id,
+            trait_ref
+        );
+        return;
     }
 
     // Trigger building the specialization graph for the trait of this impl.
@@ -47,21 +50,24 @@ pub fn check_impl<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, node_id: ast::NodeId) {
         // This is something like impl Trait1 for Trait2. Illegal
         // if Trait1 is a supertrait of Trait2 or Trait2 is not object safe.
 
-        if data.principal().map_or(true, |p| !tcx.is_object_safe(p.def_id())) {
+        if data.principal()
+            .map_or(true, |p| !tcx.is_object_safe(p.def_id()))
+        {
             // This is an error, but it will be reported by wfcheck.  Ignore it here.
             // This is tested by `coherence-impl-trait-for-trait-object-safe.rs`.
         } else {
             let mut supertrait_def_ids =
-                traits::supertrait_def_ids(tcx,
-                                           data.principal().unwrap().def_id());
+                traits::supertrait_def_ids(tcx, data.principal().unwrap().def_id());
             if supertrait_def_ids.any(|d| d == trait_def_id) {
-                span_err!(tcx.sess,
-                          tcx.span_of_impl(impl_def_id).unwrap(),
-                          E0371,
-                          "the object type `{}` automatically \
-                           implements the trait `{}`",
-                          trait_ref.self_ty(),
-                          tcx.item_path_str(trait_def_id));
+                span_err!(
+                    tcx.sess,
+                    tcx.span_of_impl(impl_def_id).unwrap(),
+                    E0371,
+                    "the object type `{}` automatically \
+                     implements the trait `{}`",
+                    trait_ref.self_ty(),
+                    tcx.item_path_str(trait_def_id)
+                );
             }
         }
     }
@@ -83,28 +89,29 @@ impl<'cx, 'tcx, 'v> ItemLikeVisitor<'v> for OverlapChecker<'cx, 'tcx> {
 
                 let prev_id = self.tcx.hir.trait_auto_impl(trait_ref.def_id).unwrap();
                 if prev_id != item.id {
-                    let mut err = struct_span_err!(self.tcx.sess,
-                                                   self.tcx.span_of_impl(impl_def_id).unwrap(),
-                                                   E0521,
-                                                   "redundant auto implementations of trait \
-                                                    `{}`:",
-                                                   trait_ref);
-                    err.span_note(self.tcx
-                                      .span_of_impl(self.tcx.hir.local_def_id(prev_id))
-                                      .unwrap(),
-                                  "redundant implementation is here:");
+                    let mut err = struct_span_err!(
+                        self.tcx.sess,
+                        self.tcx.span_of_impl(impl_def_id).unwrap(),
+                        E0521,
+                        "redundant auto implementations of trait \
+                         `{}`:",
+                        trait_ref
+                    );
+                    err.span_note(
+                        self.tcx
+                            .span_of_impl(self.tcx.hir.local_def_id(prev_id))
+                            .unwrap(),
+                        "redundant implementation is here:",
+                    );
                     err.emit();
                 }
             }
-            hir::ItemImpl(.., Some(_), _, _) => {
-            }
+            hir::ItemImpl(.., Some(_), _, _) => {}
             _ => {}
         }
     }
 
-    fn visit_trait_item(&mut self, _trait_item: &hir::TraitItem) {
-    }
+    fn visit_trait_item(&mut self, _trait_item: &hir::TraitItem) {}
 
-    fn visit_impl_item(&mut self, _impl_item: &hir::ImplItem) {
-    }
+    fn visit_impl_item(&mut self, _impl_item: &hir::ImplItem) {}
 }

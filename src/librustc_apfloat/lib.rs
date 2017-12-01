@@ -40,11 +40,10 @@
 //! This API is completely unstable and subject to change.
 
 #![doc(html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
-      html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
-      html_root_url = "https://doc.rust-lang.org/nightly/")]
+       html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
+       html_root_url = "https://doc.rust-lang.org/nightly/")]
 #![deny(warnings)]
 #![forbid(unsafe_code)]
-
 #![feature(i128_type)]
 #![feature(slice_patterns)]
 #![feature(try_from)]
@@ -58,8 +57,8 @@ extern crate bitflags;
 
 use std::cmp::Ordering;
 use std::fmt;
-use std::ops::{Neg, Add, Sub, Mul, Div, Rem};
-use std::ops::{AddAssign, SubAssign, MulAssign, DivAssign, RemAssign};
+use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
+use std::ops::{AddAssign, DivAssign, MulAssign, RemAssign, SubAssign};
 use std::str::FromStr;
 
 bitflags! {
@@ -362,7 +361,11 @@ pub trait Float
     }
 
     fn abs(self) -> Self {
-        if self.is_negative() { -self } else { self }
+        if self.is_negative() {
+            -self
+        } else {
+            self
+        }
     }
     fn copy_sign(self, rhs: Self) -> Self {
         if self.is_negative() != rhs.is_negative() {
@@ -426,9 +429,8 @@ pub trait Float
         } else {
             // Positive case is simpler, can pretend it's a smaller unsigned
             // integer, and `to_u128` will take care of all the edge cases.
-            self.to_u128_r(width - 1, round, is_exact).map(
-                |r| r as i128,
-            )
+            self.to_u128_r(width - 1, round, is_exact)
+                .map(|r| r as i128)
         }
     }
     fn to_i128(self, width: usize) -> StatusAnd<i128> {
@@ -552,9 +554,9 @@ pub trait Float
         if !self.is_finite() {
             return false;
         }
-        self.round_to_integral(Round::TowardZero).value.bitwise_eq(
-            self,
-        )
+        self.round_to_integral(Round::TowardZero)
+            .value
+            .bitwise_eq(self)
     }
 
     /// If this value has an exact multiplicative inverse, return it.

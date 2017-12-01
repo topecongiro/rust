@@ -32,7 +32,7 @@ use syntax::parse;
 use syntax::parse::ParseSess;
 use syntax::{ast, codemap};
 use syntax::feature_gate::AttributeType;
-use syntax_pos::{Span, MultiSpan};
+use syntax_pos::{MultiSpan, Span};
 
 use rustc_back::{LinkerFlavor, PanicStrategy};
 use rustc_back::target::Target;
@@ -83,7 +83,7 @@ pub struct Session {
     pub plugin_attributes: RefCell<Vec<(String, AttributeType)>>,
     pub crate_types: RefCell<Vec<config::CrateType>>,
     pub dependency_formats: RefCell<dependency_format::Dependencies>,
-        /// The crate_disambiguator is constructed out of all the `-C metadata`
+    /// The crate_disambiguator is constructed out of all the `-C metadata`
     /// arguments passed to the compiler. Its value together with the crate-name
     /// forms a unique global identifier for the crate. It is used to allow
     /// multiple crates with the same name to coexist. See the
@@ -128,7 +128,6 @@ pub struct Session {
     out_of_fuel: Cell<bool>,
 
     // The next two are public because the driver needs to read them.
-
     /// If -zprint-fuel=crate, Some(crate).
     pub print_fuel_crate: Option<String>,
     /// Always set to zero and incremented so that we can print fuel expended by a crate.
@@ -170,7 +169,7 @@ enum DiagnosticBuilderMethod {
 pub enum DiagnosticMessageId {
     ErrorId(u16), // EXXXX error code as integer
     LintId(lint::LintId),
-    StabilityId(u32) // issue number
+    StabilityId(u32), // issue number
 }
 
 impl Session {
@@ -180,33 +179,37 @@ impl Session {
             None => bug!("accessing disambiguator before initialization"),
         }
     }
-    pub fn struct_span_warn<'a, S: Into<MultiSpan>>(&'a self,
-                                                    sp: S,
-                                                    msg: &str)
-                                                    -> DiagnosticBuilder<'a> {
+    pub fn struct_span_warn<'a, S: Into<MultiSpan>>(
+        &'a self,
+        sp: S,
+        msg: &str,
+    ) -> DiagnosticBuilder<'a> {
         self.diagnostic().struct_span_warn(sp, msg)
     }
-    pub fn struct_span_warn_with_code<'a, S: Into<MultiSpan>>(&'a self,
-                                                              sp: S,
-                                                              msg: &str,
-                                                              code: DiagnosticId)
-                                                              -> DiagnosticBuilder<'a> {
+    pub fn struct_span_warn_with_code<'a, S: Into<MultiSpan>>(
+        &'a self,
+        sp: S,
+        msg: &str,
+        code: DiagnosticId,
+    ) -> DiagnosticBuilder<'a> {
         self.diagnostic().struct_span_warn_with_code(sp, msg, code)
     }
-    pub fn struct_warn<'a>(&'a self, msg: &str) -> DiagnosticBuilder<'a>  {
+    pub fn struct_warn<'a>(&'a self, msg: &str) -> DiagnosticBuilder<'a> {
         self.diagnostic().struct_warn(msg)
     }
-    pub fn struct_span_err<'a, S: Into<MultiSpan>>(&'a self,
-                                                   sp: S,
-                                                   msg: &str)
-                                                   -> DiagnosticBuilder<'a> {
+    pub fn struct_span_err<'a, S: Into<MultiSpan>>(
+        &'a self,
+        sp: S,
+        msg: &str,
+    ) -> DiagnosticBuilder<'a> {
         self.diagnostic().struct_span_err(sp, msg)
     }
-    pub fn struct_span_err_with_code<'a, S: Into<MultiSpan>>(&'a self,
-                                                             sp: S,
-                                                             msg: &str,
-                                                             code: DiagnosticId)
-                                                             -> DiagnosticBuilder<'a> {
+    pub fn struct_span_err_with_code<'a, S: Into<MultiSpan>>(
+        &'a self,
+        sp: S,
+        msg: &str,
+        code: DiagnosticId,
+    ) -> DiagnosticBuilder<'a> {
         self.diagnostic().struct_span_err_with_code(sp, msg, code)
     }
     // FIXME: This method should be removed (every error should have an associated error code).
@@ -220,20 +223,22 @@ impl Session {
     ) -> DiagnosticBuilder<'a> {
         self.diagnostic().struct_err_with_code(msg, code)
     }
-    pub fn struct_span_fatal<'a, S: Into<MultiSpan>>(&'a self,
-                                                     sp: S,
-                                                     msg: &str)
-                                                     -> DiagnosticBuilder<'a> {
+    pub fn struct_span_fatal<'a, S: Into<MultiSpan>>(
+        &'a self,
+        sp: S,
+        msg: &str,
+    ) -> DiagnosticBuilder<'a> {
         self.diagnostic().struct_span_fatal(sp, msg)
     }
-    pub fn struct_span_fatal_with_code<'a, S: Into<MultiSpan>>(&'a self,
-                                                               sp: S,
-                                                               msg: &str,
-                                                               code: DiagnosticId)
-                                                               -> DiagnosticBuilder<'a> {
+    pub fn struct_span_fatal_with_code<'a, S: Into<MultiSpan>>(
+        &'a self,
+        sp: S,
+        msg: &str,
+        code: DiagnosticId,
+    ) -> DiagnosticBuilder<'a> {
         self.diagnostic().struct_span_fatal_with_code(sp, msg, code)
     }
-    pub fn struct_fatal<'a>(&'a self, msg: &str) -> DiagnosticBuilder<'a>  {
+    pub fn struct_fatal<'a>(&'a self, msg: &str) -> DiagnosticBuilder<'a> {
         self.diagnostic().struct_fatal(msg)
     }
 
@@ -280,7 +285,8 @@ impl Session {
         compile_result_from_err_count(self.err_count())
     }
     pub fn track_errors<F, T>(&self, f: F) -> Result<T, ErrorReported>
-        where F: FnOnce() -> T
+    where
+        F: FnOnce() -> T,
     {
         let old_count = self.err_count();
         let result = f();
@@ -323,11 +329,13 @@ impl Session {
         self.diagnostic().unimpl(msg)
     }
 
-    pub fn buffer_lint<S: Into<MultiSpan>>(&self,
-                                           lint: &'static lint::Lint,
-                                           id: ast::NodeId,
-                                           sp: S,
-                                           msg: &str) {
+    pub fn buffer_lint<S: Into<MultiSpan>>(
+        &self,
+        lint: &'static lint::Lint,
+        id: ast::NodeId,
+        sp: S,
+        msg: &str,
+    ) {
         match *self.buffered_lints.borrow_mut() {
             Some(ref mut buffer) => buffer.add_lint(lint, id, sp.into(), msg),
             None => bug!("can't buffer lints after HIR lowering"),
@@ -341,7 +349,7 @@ impl Session {
             Some(next) => {
                 self.next_node_id.set(ast::NodeId::new(next));
             }
-            None => bug!("Input too large, ran out of node ids!")
+            None => bug!("Input too large, ran out of node ids!"),
         }
 
         id
@@ -355,19 +363,24 @@ impl Session {
 
     /// Analogous to calling methods on the given `DiagnosticBuilder`, but
     /// deduplicates on lint ID, span (if any), and message for this `Session`
-    fn diag_once<'a, 'b>(&'a self,
-                         diag_builder: &'b mut DiagnosticBuilder<'a>,
-                         method: DiagnosticBuilderMethod,
-                         lint: &'static lint::Lint, message: &str, span: Option<Span>) {
-
+    fn diag_once<'a, 'b>(
+        &'a self,
+        diag_builder: &'b mut DiagnosticBuilder<'a>,
+        method: DiagnosticBuilderMethod,
+        lint: &'static lint::Lint,
+        message: &str,
+        span: Option<Span>,
+    ) {
         let lint_id = DiagnosticMessageId::LintId(lint::LintId::of(lint));
         let id_span_message = (lint_id, span, message.to_owned());
-        let fresh = self.one_time_diagnostics.borrow_mut().insert(id_span_message);
+        let fresh = self.one_time_diagnostics
+            .borrow_mut()
+            .insert(id_span_message);
         if fresh {
             match method {
                 DiagnosticBuilderMethod::Note => {
                     diag_builder.note(message);
-                },
+                }
                 DiagnosticBuilderMethod::SpanNote => {
                     diag_builder.span_note(span.expect("span_note expects a span"), message);
                 }
@@ -375,26 +388,49 @@ impl Session {
         }
     }
 
-    pub fn diag_span_note_once<'a, 'b>(&'a self,
-                                       diag_builder: &'b mut DiagnosticBuilder<'a>,
-                                       lint: &'static lint::Lint, span: Span, message: &str) {
-        self.diag_once(diag_builder, DiagnosticBuilderMethod::SpanNote, lint, message, Some(span));
+    pub fn diag_span_note_once<'a, 'b>(
+        &'a self,
+        diag_builder: &'b mut DiagnosticBuilder<'a>,
+        lint: &'static lint::Lint,
+        span: Span,
+        message: &str,
+    ) {
+        self.diag_once(
+            diag_builder,
+            DiagnosticBuilderMethod::SpanNote,
+            lint,
+            message,
+            Some(span),
+        );
     }
 
-    pub fn diag_note_once<'a, 'b>(&'a self,
-                                  diag_builder: &'b mut DiagnosticBuilder<'a>,
-                                  lint: &'static lint::Lint, message: &str) {
-        self.diag_once(diag_builder, DiagnosticBuilderMethod::Note, lint, message, None);
+    pub fn diag_note_once<'a, 'b>(
+        &'a self,
+        diag_builder: &'b mut DiagnosticBuilder<'a>,
+        lint: &'static lint::Lint,
+        message: &str,
+    ) {
+        self.diag_once(
+            diag_builder,
+            DiagnosticBuilderMethod::Note,
+            lint,
+            message,
+            None,
+        );
     }
 
     pub fn codemap<'a>(&'a self) -> &'a codemap::CodeMap {
         self.parse_sess.codemap()
     }
-    pub fn verbose(&self) -> bool { self.opts.debugging_opts.verbose }
-    pub fn time_passes(&self) -> bool { self.opts.debugging_opts.time_passes }
+    pub fn verbose(&self) -> bool {
+        self.opts.debugging_opts.verbose
+    }
+    pub fn time_passes(&self) -> bool {
+        self.opts.debugging_opts.time_passes
+    }
     pub fn profile_queries(&self) -> bool {
-        self.opts.debugging_opts.profile_queries ||
-            self.opts.debugging_opts.profile_queries_and_keys
+        self.opts.debugging_opts.profile_queries
+            || self.opts.debugging_opts.profile_queries_and_keys
     }
     pub fn profile_queries_and_keys(&self) -> bool {
         self.opts.debugging_opts.profile_queries_and_keys
@@ -405,18 +441,28 @@ impl Session {
     pub fn time_llvm_passes(&self) -> bool {
         self.opts.debugging_opts.time_llvm_passes
     }
-    pub fn trans_stats(&self) -> bool { self.opts.debugging_opts.trans_stats }
-    pub fn meta_stats(&self) -> bool { self.opts.debugging_opts.meta_stats }
-    pub fn asm_comments(&self) -> bool { self.opts.debugging_opts.asm_comments }
-    pub fn no_verify(&self) -> bool { self.opts.debugging_opts.no_verify }
-    pub fn borrowck_stats(&self) -> bool { self.opts.debugging_opts.borrowck_stats }
+    pub fn trans_stats(&self) -> bool {
+        self.opts.debugging_opts.trans_stats
+    }
+    pub fn meta_stats(&self) -> bool {
+        self.opts.debugging_opts.meta_stats
+    }
+    pub fn asm_comments(&self) -> bool {
+        self.opts.debugging_opts.asm_comments
+    }
+    pub fn no_verify(&self) -> bool {
+        self.opts.debugging_opts.no_verify
+    }
+    pub fn borrowck_stats(&self) -> bool {
+        self.opts.debugging_opts.borrowck_stats
+    }
     pub fn print_llvm_passes(&self) -> bool {
         self.opts.debugging_opts.print_llvm_passes
     }
     pub fn emit_end_regions(&self) -> bool {
-        self.opts.debugging_opts.emit_end_regions ||
-            (self.opts.debugging_opts.mir_emit_validate > 0) ||
-            self.opts.borrowck_mode.use_mir()
+        self.opts.debugging_opts.emit_end_regions
+            || (self.opts.debugging_opts.mir_emit_validate > 0)
+            || self.opts.borrowck_mode.use_mir()
     }
     pub fn lto(&self) -> bool {
         self.opts.cg.lto || self.target.target.options.requires_lto
@@ -424,10 +470,16 @@ impl Session {
     /// Returns the panic strategy for this compile session. If the user explicitly selected one
     /// using '-C panic', use that, otherwise use the panic strategy defined by the target.
     pub fn panic_strategy(&self) -> PanicStrategy {
-        self.opts.cg.panic.unwrap_or(self.target.target.options.panic_strategy)
+        self.opts
+            .cg
+            .panic
+            .unwrap_or(self.target.target.options.panic_strategy)
     }
     pub fn linker_flavor(&self) -> LinkerFlavor {
-        self.opts.debugging_opts.linker_flavor.unwrap_or(self.target.target.linker_flavor)
+        self.opts
+            .debugging_opts
+            .linker_flavor
+            .unwrap_or(self.target.target.linker_flavor)
     }
     pub fn no_landing_pads(&self) -> bool {
         self.opts.debugging_opts.no_landing_pads || self.panic_strategy() == PanicStrategy::Abort
@@ -439,7 +491,9 @@ impl Session {
         self.opts.debugging_opts.enable_nonzeroing_move_hints
     }
     pub fn overflow_checks(&self) -> bool {
-        self.opts.cg.overflow_checks
+        self.opts
+            .cg
+            .overflow_checks
             .or(self.opts.debugging_opts.force_overflow_checks)
             .unwrap_or(self.opts.debug_assertions)
     }
@@ -470,52 +524,69 @@ impl Session {
     }
 
     pub fn must_not_eliminate_frame_pointers(&self) -> bool {
-        self.opts.debuginfo != DebugInfoLevel::NoDebugInfo ||
-        !self.target.target.options.eliminate_frame_pointer
+        self.opts.debuginfo != DebugInfoLevel::NoDebugInfo
+            || !self.target.target.options.eliminate_frame_pointer
     }
 
     /// Returns the symbol name for the registrar function,
     /// given the crate Svh and the function DefIndex.
-    pub fn generate_plugin_registrar_symbol(&self, disambiguator: CrateDisambiguator,
-                                            index: DefIndex)
-                                            -> String {
-        format!("__rustc_plugin_registrar__{}_{}", disambiguator.to_fingerprint().to_hex(),
-                                                   index.as_usize())
+    pub fn generate_plugin_registrar_symbol(
+        &self,
+        disambiguator: CrateDisambiguator,
+        index: DefIndex,
+    ) -> String {
+        format!(
+            "__rustc_plugin_registrar__{}_{}",
+            disambiguator.to_fingerprint().to_hex(),
+            index.as_usize()
+        )
     }
 
-    pub fn generate_derive_registrar_symbol(&self, disambiguator: CrateDisambiguator,
-                                            index: DefIndex)
-                                            -> String {
-        format!("__rustc_derive_registrar__{}_{}", disambiguator.to_fingerprint().to_hex(),
-                                                   index.as_usize())
+    pub fn generate_derive_registrar_symbol(
+        &self,
+        disambiguator: CrateDisambiguator,
+        index: DefIndex,
+    ) -> String {
+        format!(
+            "__rustc_derive_registrar__{}_{}",
+            disambiguator.to_fingerprint().to_hex(),
+            index.as_usize()
+        )
     }
 
     pub fn sysroot<'a>(&'a self) -> &'a Path {
         match self.opts.maybe_sysroot {
-            Some (ref sysroot) => sysroot,
-            None => self.default_sysroot.as_ref()
-                        .expect("missing sysroot and default_sysroot in Session")
+            Some(ref sysroot) => sysroot,
+            None => self.default_sysroot
+                .as_ref()
+                .expect("missing sysroot and default_sysroot in Session"),
         }
     }
     pub fn target_filesearch(&self, kind: PathKind) -> filesearch::FileSearch {
-        filesearch::FileSearch::new(self.sysroot(),
-                                    &self.opts.target_triple,
-                                    &self.opts.search_paths,
-                                    kind)
+        filesearch::FileSearch::new(
+            self.sysroot(),
+            &self.opts.target_triple,
+            &self.opts.search_paths,
+            kind,
+        )
     }
     pub fn host_filesearch(&self, kind: PathKind) -> filesearch::FileSearch {
         filesearch::FileSearch::new(
             self.sysroot(),
             config::host_triple(),
             &self.opts.search_paths,
-            kind)
+            kind,
+        )
     }
 
     pub fn set_incr_session_load_dep_graph(&self, load: bool) {
         let mut incr_comp_session = self.incr_comp_session.borrow_mut();
 
         match *incr_comp_session {
-            IncrCompSession::Active { ref mut load_dep_graph, .. } => {
+            IncrCompSession::Active {
+                ref mut load_dep_graph,
+                ..
+            } => {
                 *load_dep_graph = load;
             }
             _ => {}
@@ -530,14 +601,20 @@ impl Session {
         }
     }
 
-    pub fn init_incr_comp_session(&self,
-                                  session_dir: PathBuf,
-                                  lock_file: flock::Lock,
-                                  load_dep_graph: bool) {
+    pub fn init_incr_comp_session(
+        &self,
+        session_dir: PathBuf,
+        lock_file: flock::Lock,
+        load_dep_graph: bool,
+    ) {
         let mut incr_comp_session = self.incr_comp_session.borrow_mut();
 
-        if let IncrCompSession::NotInitialized = *incr_comp_session { } else {
-            bug!("Trying to initialize IncrCompSession `{:?}`", *incr_comp_session)
+        if let IncrCompSession::NotInitialized = *incr_comp_session {
+        } else {
+            bug!(
+                "Trying to initialize IncrCompSession `{:?}`",
+                *incr_comp_session
+            )
         }
 
         *incr_comp_session = IncrCompSession::Active {
@@ -550,8 +627,12 @@ impl Session {
     pub fn finalize_incr_comp_session(&self, new_directory_path: PathBuf) {
         let mut incr_comp_session = self.incr_comp_session.borrow_mut();
 
-        if let IncrCompSession::Active { .. } = *incr_comp_session { } else {
-            bug!("Trying to finalize IncrCompSession `{:?}`", *incr_comp_session)
+        if let IncrCompSession::Active { .. } = *incr_comp_session {
+        } else {
+            bug!(
+                "Trying to finalize IncrCompSession `{:?}`",
+                *incr_comp_session
+            )
         }
 
         // Note: This will also drop the lock file, thus unlocking the directory
@@ -564,34 +645,41 @@ impl Session {
         let mut incr_comp_session = self.incr_comp_session.borrow_mut();
 
         let session_directory = match *incr_comp_session {
-            IncrCompSession::Active { ref session_directory, .. } => {
-                session_directory.clone()
-            }
-            _ => bug!("Trying to invalidate IncrCompSession `{:?}`",
-                      *incr_comp_session),
+            IncrCompSession::Active {
+                ref session_directory,
+                ..
+            } => session_directory.clone(),
+            _ => bug!(
+                "Trying to invalidate IncrCompSession `{:?}`",
+                *incr_comp_session
+            ),
         };
 
         // Note: This will also drop the lock file, thus unlocking the directory
-        *incr_comp_session = IncrCompSession::InvalidBecauseOfErrors {
-            session_directory,
-        };
+        *incr_comp_session = IncrCompSession::InvalidBecauseOfErrors { session_directory };
     }
 
     pub fn incr_comp_session_dir(&self) -> cell::Ref<PathBuf> {
         let incr_comp_session = self.incr_comp_session.borrow();
-        cell::Ref::map(incr_comp_session, |incr_comp_session| {
-            match *incr_comp_session {
-                IncrCompSession::NotInitialized => {
-                    bug!("Trying to get session directory from IncrCompSession `{:?}`",
-                        *incr_comp_session)
+        cell::Ref::map(
+            incr_comp_session,
+            |incr_comp_session| match *incr_comp_session {
+                IncrCompSession::NotInitialized => bug!(
+                    "Trying to get session directory from IncrCompSession `{:?}`",
+                    *incr_comp_session
+                ),
+                IncrCompSession::Active {
+                    ref session_directory,
+                    ..
                 }
-                IncrCompSession::Active { ref session_directory, .. } |
-                IncrCompSession::Finalized { ref session_directory } |
-                IncrCompSession::InvalidBecauseOfErrors { ref session_directory } => {
-                    session_directory
+                | IncrCompSession::Finalized {
+                    ref session_directory,
                 }
-            }
-        })
+                | IncrCompSession::InvalidBecauseOfErrors {
+                    ref session_directory,
+                } => session_directory,
+            },
+        )
     }
 
     pub fn incr_comp_session_dir_opt(&self) -> Option<cell::Ref<PathBuf>> {
@@ -603,21 +691,35 @@ impl Session {
     }
 
     pub fn print_perf_stats(&self) {
-        println!("Total time spent computing SVHs:               {}",
-                 duration_to_secs_str(self.perf_stats.svh_time.get()));
-        println!("Total time spent computing incr. comp. hashes: {}",
-                 duration_to_secs_str(self.perf_stats.incr_comp_hashes_time.get()));
-        println!("Total number of incr. comp. hashes computed:   {}",
-                 self.perf_stats.incr_comp_hashes_count.get());
-        println!("Total number of bytes hashed for incr. comp.:  {}",
-                 self.perf_stats.incr_comp_bytes_hashed.get());
-        println!("Average bytes hashed per incr. comp. HIR node: {}",
-                 self.perf_stats.incr_comp_bytes_hashed.get() /
-                 self.perf_stats.incr_comp_hashes_count.get());
-        println!("Total time spent computing symbol hashes:      {}",
-                 duration_to_secs_str(self.perf_stats.symbol_hash_time.get()));
-        println!("Total time spent decoding DefPath tables:      {}",
-                 duration_to_secs_str(self.perf_stats.decode_def_path_tables_time.get()));
+        println!(
+            "Total time spent computing SVHs:               {}",
+            duration_to_secs_str(self.perf_stats.svh_time.get())
+        );
+        println!(
+            "Total time spent computing incr. comp. hashes: {}",
+            duration_to_secs_str(self.perf_stats.incr_comp_hashes_time.get())
+        );
+        println!(
+            "Total number of incr. comp. hashes computed:   {}",
+            self.perf_stats.incr_comp_hashes_count.get()
+        );
+        println!(
+            "Total number of bytes hashed for incr. comp.:  {}",
+            self.perf_stats.incr_comp_bytes_hashed.get()
+        );
+        println!(
+            "Average bytes hashed per incr. comp. HIR node: {}",
+            self.perf_stats.incr_comp_bytes_hashed.get()
+                / self.perf_stats.incr_comp_hashes_count.get()
+        );
+        println!(
+            "Total time spent computing symbol hashes:      {}",
+            duration_to_secs_str(self.perf_stats.symbol_hash_time.get())
+        );
+        println!(
+            "Total time spent decoding DefPath tables:      {}",
+            duration_to_secs_str(self.perf_stats.decode_def_path_tables_time.get())
+        );
     }
 
     /// We want to know if we're allowed to do an optimization for crate foo from -z fuel=foo=n.
@@ -632,15 +734,15 @@ impl Session {
                     println!("optimization-fuel-exhausted: {}", msg());
                     self.out_of_fuel.set(true);
                 } else if fuel > 0 {
-                    self.optimization_fuel_limit.set(fuel-1);
+                    self.optimization_fuel_limit.set(fuel - 1);
                 }
             }
             _ => {}
         }
         match self.print_fuel_crate {
-            Some(ref c) if c == crate_name=> {
-                self.print_fuel.set(self.print_fuel.get()+1);
-            },
+            Some(ref c) if c == crate_name => {
+                self.print_fuel.set(self.print_fuel.get() + 1);
+            }
             _ => {}
         }
         ret
@@ -650,10 +752,10 @@ impl Session {
     /// compilation
     pub fn codegen_units(&self) -> usize {
         if let Some(n) = self.opts.cli_forced_codegen_units {
-            return n
+            return n;
         }
         if let Some(n) = self.target.target.options.default_codegen_units {
-            return n as usize
+            return n as usize;
         }
 
         match self.opts.optimize {
@@ -684,29 +786,34 @@ impl Session {
     }
 }
 
-pub fn build_session(sopts: config::Options,
-                     local_crate_source_file: Option<PathBuf>,
-                     registry: errors::registry::Registry)
-                     -> Session {
+pub fn build_session(
+    sopts: config::Options,
+    local_crate_source_file: Option<PathBuf>,
+    registry: errors::registry::Registry,
+) -> Session {
     let file_path_mapping = sopts.file_path_mapping();
 
-    build_session_with_codemap(sopts,
-                               local_crate_source_file,
-                               registry,
-                               Rc::new(codemap::CodeMap::new(file_path_mapping)),
-                               None)
+    build_session_with_codemap(
+        sopts,
+        local_crate_source_file,
+        registry,
+        Rc::new(codemap::CodeMap::new(file_path_mapping)),
+        None,
+    )
 }
 
-pub fn build_session_with_codemap(sopts: config::Options,
-                                  local_crate_source_file: Option<PathBuf>,
-                                  registry: errors::registry::Registry,
-                                  codemap: Rc<codemap::CodeMap>,
-                                  emitter_dest: Option<Box<Write + Send>>)
-                                  -> Session {
+pub fn build_session_with_codemap(
+    sopts: config::Options,
+    local_crate_source_file: Option<PathBuf>,
+    registry: errors::registry::Registry,
+    codemap: Rc<codemap::CodeMap>,
+    emitter_dest: Option<Box<Write + Send>>,
+) -> Session {
     // FIXME: This is not general enough to make the warning lint completely override
     // normal diagnostic warnings, since the warning lint can also be denied and changed
     // later via the source code.
-    let warnings_allow = sopts.lint_opts
+    let warnings_allow = sopts
+        .lint_opts
         .iter()
         .filter(|&&(ref key, _)| *key == "warnings")
         .map(|&(_, ref level)| *level == lint::Allow)
@@ -720,48 +827,50 @@ pub fn build_session_with_codemap(sopts: config::Options,
 
     let external_macro_backtrace = sopts.debugging_opts.external_macro_backtrace;
 
-    let emitter: Box<Emitter> = match (sopts.error_format, emitter_dest) {
-        (config::ErrorOutputType::HumanReadable(color_config), None) => {
-            Box::new(EmitterWriter::stderr(color_config, Some(codemap.clone()), false))
-        }
-        (config::ErrorOutputType::HumanReadable(_), Some(dst)) => {
-            Box::new(EmitterWriter::new(dst, Some(codemap.clone()), false))
-        }
-        (config::ErrorOutputType::Json(pretty), None) => {
-            Box::new(JsonEmitter::stderr(Some(registry), codemap.clone(), pretty))
-        }
-        (config::ErrorOutputType::Json(pretty), Some(dst)) => {
-            Box::new(JsonEmitter::new(dst, Some(registry), codemap.clone(), pretty))
-        }
-        (config::ErrorOutputType::Short(color_config), None) => {
-            Box::new(EmitterWriter::stderr(color_config, Some(codemap.clone()), true))
-        }
-        (config::ErrorOutputType::Short(_), Some(dst)) => {
-            Box::new(EmitterWriter::new(dst, Some(codemap.clone()), true))
-        }
-    };
+    let emitter: Box<Emitter> =
+        match (sopts.error_format, emitter_dest) {
+            (config::ErrorOutputType::HumanReadable(color_config), None) => Box::new(
+                EmitterWriter::stderr(color_config, Some(codemap.clone()), false),
+            ),
+            (config::ErrorOutputType::HumanReadable(_), Some(dst)) => {
+                Box::new(EmitterWriter::new(dst, Some(codemap.clone()), false))
+            }
+            (config::ErrorOutputType::Json(pretty), None) => {
+                Box::new(JsonEmitter::stderr(Some(registry), codemap.clone(), pretty))
+            }
+            (config::ErrorOutputType::Json(pretty), Some(dst)) => Box::new(JsonEmitter::new(
+                dst,
+                Some(registry),
+                codemap.clone(),
+                pretty,
+            )),
+            (config::ErrorOutputType::Short(color_config), None) => Box::new(
+                EmitterWriter::stderr(color_config, Some(codemap.clone()), true),
+            ),
+            (config::ErrorOutputType::Short(_), Some(dst)) => {
+                Box::new(EmitterWriter::new(dst, Some(codemap.clone()), true))
+            }
+        };
 
-    let diagnostic_handler =
-        errors::Handler::with_emitter_and_flags(
-            emitter,
-            errors::HandlerFlags {
-                can_emit_warnings,
-                treat_err_as_bug,
-                external_macro_backtrace,
-                .. Default::default()
-            });
+    let diagnostic_handler = errors::Handler::with_emitter_and_flags(
+        emitter,
+        errors::HandlerFlags {
+            can_emit_warnings,
+            treat_err_as_bug,
+            external_macro_backtrace,
+            ..Default::default()
+        },
+    );
 
-    build_session_(sopts,
-                   local_crate_source_file,
-                   diagnostic_handler,
-                   codemap)
+    build_session_(sopts, local_crate_source_file, diagnostic_handler, codemap)
 }
 
-pub fn build_session_(sopts: config::Options,
-                      local_crate_source_file: Option<PathBuf>,
-                      span_diagnostic: errors::Handler,
-                      codemap: Rc<codemap::CodeMap>)
-                      -> Session {
+pub fn build_session_(
+    sopts: config::Options,
+    local_crate_source_file: Option<PathBuf>,
+    span_diagnostic: errors::Handler,
+    codemap: Rc<codemap::CodeMap>,
+) -> Session {
     let host = match Target::search(config::host_triple()) {
         Ok(t) => t,
         Err(e) => {
@@ -773,26 +882,29 @@ pub fn build_session_(sopts: config::Options,
     let p_s = parse::ParseSess::with_span_handler(span_diagnostic, codemap);
     let default_sysroot = match sopts.maybe_sysroot {
         Some(_) => None,
-        None => Some(filesearch::get_or_default_sysroot())
+        None => Some(filesearch::get_or_default_sysroot()),
     };
 
     let file_path_mapping = sopts.file_path_mapping();
 
     let local_crate_source_file = local_crate_source_file.map(|path| {
-        file_path_mapping.map_prefix(path.to_string_lossy().into_owned()).0
+        file_path_mapping
+            .map_prefix(path.to_string_lossy().into_owned())
+            .0
     });
 
     let optimization_fuel_crate = sopts.debugging_opts.fuel.as_ref().map(|i| i.0.clone());
-    let optimization_fuel_limit = Cell::new(sopts.debugging_opts.fuel.as_ref()
-        .map(|i| i.1).unwrap_or(0));
+    let optimization_fuel_limit =
+        Cell::new(sopts.debugging_opts.fuel.as_ref().map(|i| i.1).unwrap_or(0));
     let print_fuel_crate = sopts.debugging_opts.print_fuel.clone();
     let print_fuel = Cell::new(0);
 
     let working_dir = match env::current_dir() {
         Ok(dir) => dir.to_string_lossy().into_owned(),
-        Err(e) => {
-            panic!(p_s.span_diagnostic.fatal(&format!("Current directory is invalid: {}", e)))
-        }
+        Err(e) => panic!(
+            p_s.span_diagnostic
+                .fatal(&format!("Current directory is invalid: {}", e))
+        ),
     };
     let working_dir = file_path_mapping.map_prefix(working_dir);
 
@@ -898,15 +1010,11 @@ pub enum IncrCompSession {
     },
     /// This is the state after the session directory has been finalized. In this
     /// state, the contents of the directory must not be modified any more.
-    Finalized {
-        session_directory: PathBuf,
-    },
+    Finalized { session_directory: PathBuf },
     /// This is an error state that is reached when some compilation error has
     /// occurred. It indicates that the contents of the session directory must
     /// not be used, since they might be invalid.
-    InvalidBecauseOfErrors {
-        session_directory: PathBuf,
-    }
+    InvalidBecauseOfErrors { session_directory: PathBuf },
 }
 
 pub fn early_error(output: config::ErrorOutputType, msg: &str) -> ! {
@@ -941,7 +1049,7 @@ pub fn early_warn(output: config::ErrorOutputType, msg: &str) {
 #[derive(Copy, Clone, Debug)]
 pub enum CompileIncomplete {
     Stopped,
-    Errored(ErrorReported)
+    Errored(ErrorReported),
 }
 impl From<ErrorReported> for CompileIncomplete {
     fn from(err: ErrorReported) -> CompileIncomplete {
@@ -968,23 +1076,27 @@ pub fn bug_fmt(file: &'static str, line: u32, args: fmt::Arguments) -> ! {
 
 #[cold]
 #[inline(never)]
-pub fn span_bug_fmt<S: Into<MultiSpan>>(file: &'static str,
-                                        line: u32,
-                                        span: S,
-                                        args: fmt::Arguments) -> ! {
+pub fn span_bug_fmt<S: Into<MultiSpan>>(
+    file: &'static str,
+    line: u32,
+    span: S,
+    args: fmt::Arguments,
+) -> ! {
     opt_span_bug_fmt(file, line, Some(span), args);
 }
 
-fn opt_span_bug_fmt<S: Into<MultiSpan>>(file: &'static str,
-                                        line: u32,
-                                        span: Option<S>,
-                                        args: fmt::Arguments) -> ! {
+fn opt_span_bug_fmt<S: Into<MultiSpan>>(
+    file: &'static str,
+    line: u32,
+    span: Option<S>,
+    args: fmt::Arguments,
+) -> ! {
     tls::with_opt(move |tcx| {
         let msg = format!("{}:{}: {}", file, line, args);
         match (tcx, span) {
             (Some(tcx), Some(span)) => tcx.sess.diagnostic().span_bug(span, &msg),
             (Some(tcx), None) => tcx.sess.diagnostic().bug(&msg),
-            (None, _) => panic!(msg)
+            (None, _) => panic!(msg),
         }
     });
     unreachable!();

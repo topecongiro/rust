@@ -33,14 +33,20 @@ impl<'a, 'tcx> VirtualIndex {
         VirtualIndex(index as u64 + 3)
     }
 
-    pub fn get_fn(self, bcx: &Builder<'a, 'tcx>,
-                  llvtable: ValueRef,
-                  fn_ty: &FnType<'tcx>) -> ValueRef {
+    pub fn get_fn(
+        self,
+        bcx: &Builder<'a, 'tcx>,
+        llvtable: ValueRef,
+        fn_ty: &FnType<'tcx>,
+    ) -> ValueRef {
         // Load the data pointer from the object.
         debug!("get_fn({:?}, {:?})", Value(llvtable), self);
 
         let llvtable = bcx.pointercast(llvtable, fn_ty.llvm_type(bcx.ccx).ptr_to().ptr_to());
-        let ptr = bcx.load(bcx.inbounds_gep(llvtable, &[C_usize(bcx.ccx, self.0)]), None);
+        let ptr = bcx.load(
+            bcx.inbounds_gep(llvtable, &[C_usize(bcx.ccx, self.0)]),
+            None,
+        );
         bcx.nonnull_metadata(ptr);
         // Vtable loads are invariant
         bcx.set_invariant_load(ptr);
@@ -52,7 +58,10 @@ impl<'a, 'tcx> VirtualIndex {
         debug!("get_int({:?}, {:?})", Value(llvtable), self);
 
         let llvtable = bcx.pointercast(llvtable, Type::isize(bcx.ccx).ptr_to());
-        let ptr = bcx.load(bcx.inbounds_gep(llvtable, &[C_usize(bcx.ccx, self.0)]), None);
+        let ptr = bcx.load(
+            bcx.inbounds_gep(llvtable, &[C_usize(bcx.ccx, self.0)]),
+            None,
+        );
         // Vtable loads are invariant
         bcx.set_invariant_load(ptr);
         ptr
@@ -67,11 +76,11 @@ impl<'a, 'tcx> VirtualIndex {
 /// The `trait_ref` encodes the erased self type. Hence if we are
 /// making an object `Foo<Trait>` from a value of type `Foo<T>`, then
 /// `trait_ref` would map `T:Trait`.
-pub fn get_vtable<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
-                            ty: Ty<'tcx>,
-                            trait_ref: Option<ty::PolyExistentialTraitRef<'tcx>>)
-                            -> ValueRef
-{
+pub fn get_vtable<'a, 'tcx>(
+    ccx: &CrateContext<'a, 'tcx>,
+    ty: Ty<'tcx>,
+    trait_ref: Option<ty::PolyExistentialTraitRef<'tcx>>,
+) -> ValueRef {
     let tcx = ccx.tcx();
 
     debug!("get_vtable(ty={:?}, trait_ref={:?})", ty, trait_ref);
@@ -88,8 +97,10 @@ pub fn get_vtable<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
     let mut components: Vec<_> = [
         callee::get_fn(ccx, monomorphize::resolve_drop_in_place(ccx.tcx(), ty)),
         C_usize(ccx, size.bytes()),
-        C_usize(ccx, align.abi())
-    ].iter().cloned().collect();
+        C_usize(ccx, align.abi()),
+    ].iter()
+        .cloned()
+        .collect();
 
     if let Some(trait_ref) = trait_ref {
         let trait_ref = trait_ref.with_self_ty(tcx, ty);

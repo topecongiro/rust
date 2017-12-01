@@ -24,8 +24,7 @@ pub enum Level {
     Note,
     /// A help message.
     Help,
-    #[doc(hidden)]
-    __Nonexhaustive,
+    #[doc(hidden)] __Nonexhaustive,
 }
 
 /// A structure representing a diagnostic message and associated children
@@ -36,7 +35,7 @@ pub struct Diagnostic {
     level: Level,
     message: String,
     span: Option<Span>,
-    children: Vec<Diagnostic>
+    children: Vec<Diagnostic>,
 }
 
 macro_rules! diagnostic_child_methods {
@@ -67,7 +66,7 @@ impl Diagnostic {
             level: level,
             message: message.into(),
             span: None,
-            children: vec![]
+            children: vec![],
         }
     }
 
@@ -79,7 +78,7 @@ impl Diagnostic {
             level: level,
             message: message.into(),
             span: Some(span),
-            children: vec![]
+            children: vec![],
         }
     }
 
@@ -120,7 +119,7 @@ impl Diagnostic {
 #[unstable(feature = "proc_macro_internals", issue = "27812")]
 #[doc(hidden)]
 pub mod __internal {
-    use super::{Level, rustc};
+    use super::{rustc, Level};
 
     pub fn level_to_internal_level(level: Level) -> rustc::Level {
         match level {
@@ -128,7 +127,7 @@ pub mod __internal {
             Level::Warning => rustc::Level::Warning,
             Level::Note => rustc::Level::Note,
             Level::Help => rustc::Level::Help,
-            Level::__Nonexhaustive => unreachable!("Level::__Nonexhaustive")
+            Level::__Nonexhaustive => unreachable!("Level::__Nonexhaustive"),
         }
     }
 }

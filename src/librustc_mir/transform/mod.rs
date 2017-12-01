@@ -15,7 +15,7 @@ use rustc::ty::TyCtxt;
 use rustc::ty::maps::Providers;
 use rustc::ty::steal::Steal;
 use rustc::hir;
-use rustc::hir::intravisit::{self, Visitor, NestedVisitorMap};
+use rustc::hir::intravisit::{self, NestedVisitorMap, Visitor};
 use rustc::util::nodemap::DefIdSet;
 use std::borrow::Cow;
 use std::rc::Rc;
@@ -65,8 +65,7 @@ fn is_mir_available<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, def_id: DefId) -> boo
 
 /// Finds the full set of def-ids within the current crate that have
 /// MIR associated with them.
-fn mir_keys<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, krate: CrateNum)
-                      -> Rc<DefIdSet> {
+fn mir_keys<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, krate: CrateNum) -> Rc<DefIdSet> {
     assert_eq!(krate, LOCAL_CRATE);
 
     let mut set = DefIdSet();
@@ -81,12 +80,14 @@ fn mir_keys<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, krate: CrateNum)
         set: &'a mut DefIdSet,
     }
     impl<'a, 'tcx> Visitor<'tcx> for GatherCtors<'a, 'tcx> {
-        fn visit_variant_data(&mut self,
-                              v: &'tcx hir::VariantData,
-                              _: ast::Name,
-                              _: &'tcx hir::Generics,
-                              _: ast::NodeId,
-                              _: Span) {
+        fn visit_variant_data(
+            &mut self,
+            v: &'tcx hir::VariantData,
+            _: ast::Name,
+            _: &'tcx hir::Generics,
+            _: ast::NodeId,
+            _: Span,
+        ) {
             if let hir::VariantData::Tuple(_, node_id) = *v {
                 self.set.insert(self.tcx.hir.local_def_id(node_id));
             }
@@ -96,10 +97,9 @@ fn mir_keys<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, krate: CrateNum)
             NestedVisitorMap::None
         }
     }
-    tcx.hir.krate().visit_all_item_likes(&mut GatherCtors {
-        tcx,
-        set: &mut set,
-    }.as_deep_visitor());
+    tcx.hir
+        .krate()
+        .visit_all_item_likes(&mut GatherCtors { tcx, set: &mut set }.as_deep_visitor());
 
     Rc::new(set)
 }
@@ -122,7 +122,7 @@ impl MirSource {
     pub fn item(def_id: DefId) -> Self {
         MirSource {
             def_id,
-            promoted: None
+            promoted: None,
         }
     }
 }
@@ -132,7 +132,7 @@ impl MirSource {
 pub fn default_name<T: ?Sized>() -> Cow<'static, str> {
     let name = unsafe { ::std::intrinsics::type_name::<T>() };
     if let Some(tail) = name.rfind(":") {
-        Cow::from(&name[tail+1..])
+        Cow::from(&name[tail + 1..])
     } else {
         Cow::from(name)
     }
@@ -146,10 +146,12 @@ pub trait MirPass {
         default_name::<Self>()
     }
 
-    fn run_pass<'a, 'tcx>(&self,
-                          tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                          source: MirSource,
-                          mir: &mut Mir<'tcx>);
+    fn run_pass<'a, 'tcx>(
+        &self,
+        tcx: TyCtxt<'a, 'tcx, 'tcx>,
+        source: MirSource,
+        mir: &mut Mir<'tcx>,
+    );
 }
 
 pub macro run_passes($tcx:ident, $mir:ident, $def_id:ident, $suite_index:expr; $($pass:expr,)*) {{

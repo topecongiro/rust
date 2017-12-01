@@ -783,7 +783,7 @@ pub fn replace<T>(dest: &mut T, mut src: T) -> T {
 /// [`Copy`]: ../../std/marker/trait.Copy.html
 #[inline]
 #[stable(feature = "rust1", since = "1.0.0")]
-pub fn drop<T>(_x: T) { }
+pub fn drop<T>(_x: T) {}
 
 /// Interprets `src` as having type `&U`, and then reads `src` without moving
 /// the contained value.
@@ -870,9 +870,7 @@ impl<T> hash::Hash for Discriminant<T> {
 #[stable(feature = "discriminant_value", since = "1.21.0")]
 impl<T> fmt::Debug for Discriminant<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt.debug_tuple("Discriminant")
-           .field(&self.0)
-           .finish()
+        fmt.debug_tuple("Discriminant").field(&self.0).finish()
     }
 }
 
@@ -902,9 +900,7 @@ impl<T> fmt::Debug for Discriminant<T> {
 /// ```
 #[stable(feature = "discriminant_value", since = "1.21.0")]
 pub fn discriminant<T>(v: &T) -> Discriminant<T> {
-    unsafe {
-        Discriminant(intrinsics::discriminant_value(v), PhantomData)
-    }
+    unsafe { Discriminant(intrinsics::discriminant_value(v), PhantomData) }
 }
 
 
@@ -946,7 +942,9 @@ pub fn discriminant<T>(v: &T) -> Discriminant<T> {
 #[stable(feature = "manually_drop", since = "1.20.0")]
 #[allow(unions_with_drop_fields)]
 #[derive(Copy)]
-pub union ManuallyDrop<T>{ value: T }
+pub union ManuallyDrop<T> {
+    value: T,
+}
 
 impl<T> ManuallyDrop<T> {
     /// Wrap a value to be manually dropped.
@@ -975,9 +973,7 @@ impl<T> ManuallyDrop<T> {
     #[stable(feature = "manually_drop", since = "1.20.0")]
     #[inline]
     pub fn into_inner(slot: ManuallyDrop<T>) -> T {
-        unsafe {
-            slot.value
-        }
+        unsafe { slot.value }
     }
 
     /// Manually drops the contained value.
@@ -999,9 +995,7 @@ impl<T> Deref for ManuallyDrop<T> {
     type Target = T;
     #[inline]
     fn deref(&self) -> &Self::Target {
-        unsafe {
-            &self.value
-        }
+        unsafe { &self.value }
     }
 }
 
@@ -1009,18 +1003,14 @@ impl<T> Deref for ManuallyDrop<T> {
 impl<T> DerefMut for ManuallyDrop<T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe {
-            &mut self.value
-        }
+        unsafe { &mut self.value }
     }
 }
 
 #[stable(feature = "manually_drop", since = "1.20.0")]
 impl<T: ::fmt::Debug> ::fmt::Debug for ManuallyDrop<T> {
     fn fmt(&self, fmt: &mut ::fmt::Formatter) -> ::fmt::Result {
-        unsafe {
-            fmt.debug_tuple("ManuallyDrop").field(&self.value).finish()
-        }
+        unsafe { fmt.debug_tuple("ManuallyDrop").field(&self.value).finish() }
     }
 }
 

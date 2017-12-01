@@ -55,8 +55,8 @@ pub struct Queue<T> {
     tail: UnsafeCell<*mut Node<T>>,
 }
 
-unsafe impl<T: Send> Send for Queue<T> { }
-unsafe impl<T: Send> Sync for Queue<T> { }
+unsafe impl<T: Send> Send for Queue<T> {}
+unsafe impl<T: Send> Sync for Queue<T> {}
 
 impl<T> Node<T> {
     unsafe fn new(v: Option<T>) -> *mut Node<T> {
@@ -111,7 +111,11 @@ impl<T> Queue<T> {
                 return Data(ret);
             }
 
-            if self.head.load(Ordering::Acquire) == tail {Empty} else {Inconsistent}
+            if self.head.load(Ordering::Acquire) == tail {
+                Empty
+            } else {
+                Inconsistent
+            }
         }
     }
 }
@@ -132,7 +136,7 @@ impl<T> Drop for Queue<T> {
 #[cfg(all(test, not(target_os = "emscripten")))]
 mod tests {
     use sync::mpsc::channel;
-    use super::{Queue, Data, Empty, Inconsistent};
+    use super::{Data, Empty, Inconsistent, Queue};
     use sync::Arc;
     use thread;
 
@@ -150,7 +154,7 @@ mod tests {
         let q = Queue::new();
         match q.pop() {
             Empty => {}
-            Inconsistent | Data(..) => panic!()
+            Inconsistent | Data(..) => panic!(),
         }
         let (tx, rx) = channel();
         let q = Arc::new(q);
@@ -158,7 +162,7 @@ mod tests {
         for _ in 0..nthreads {
             let tx = tx.clone();
             let q = q.clone();
-            thread::spawn(move|| {
+            thread::spawn(move || {
                 for i in 0..nmsgs {
                     q.push(i);
                 }
@@ -169,8 +173,8 @@ mod tests {
         let mut i = 0;
         while i < nthreads * nmsgs {
             match q.pop() {
-                Empty | Inconsistent => {},
-                Data(_) => { i += 1 }
+                Empty | Inconsistent => {}
+                Data(_) => i += 1,
             }
         }
         drop(tx);

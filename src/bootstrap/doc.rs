@@ -20,7 +20,7 @@
 use std::fs::{self, File};
 use std::io::prelude::*;
 use std::io;
-use std::path::{PathBuf, Path};
+use std::path::{Path, PathBuf};
 
 use Mode;
 use build_helper::up_to_date;
@@ -29,7 +29,7 @@ use util::{cp_r, symlink_dir};
 use builder::{Builder, Compiler, RunConfig, ShouldRun, Step};
 use tool::Tool;
 use compile;
-use cache::{INTERNER, Interned};
+use cache::{Interned, INTERNER};
 
 macro_rules! book {
     ($($name:ident, $path:expr, $book_name:expr;)+) => {
@@ -111,13 +111,12 @@ impl Step for UnstableBook {
 
     fn should_run(run: ShouldRun) -> ShouldRun {
         let builder = run.builder;
-        run.path("src/doc/unstable-book").default_condition(builder.build.config.docs)
+        run.path("src/doc/unstable-book")
+            .default_condition(builder.build.config.docs)
     }
 
     fn make_run(run: RunConfig) {
-        run.builder.ensure(UnstableBook {
-            target: run.target,
-        });
+        run.builder.ensure(UnstableBook { target: run.target });
     }
 
     fn run(self, builder: &Builder) {
@@ -144,7 +143,8 @@ impl Step for CargoBook {
 
     fn should_run(run: ShouldRun) -> ShouldRun {
         let builder = run.builder;
-        run.path("src/tools/cargo/src/doc/book").default_condition(builder.build.config.docs)
+        run.path("src/tools/cargo/src/doc/book")
+            .default_condition(builder.build.config.docs)
     }
 
     fn make_run(run: RunConfig) {
@@ -170,11 +170,14 @@ impl Step for CargoBook {
 
         let _ = fs::remove_dir_all(&out);
 
-        build.run(builder.tool_cmd(Tool::Rustbook)
-                       .arg("build")
-                       .arg(&src)
-                       .arg("-d")
-                       .arg(out));
+        build.run(
+            builder
+                .tool_cmd(Tool::Rustbook)
+                .arg("build")
+                .arg(&src)
+                .arg("-d")
+                .arg(out),
+        );
     }
 }
 
@@ -209,15 +212,18 @@ impl Step for RustbookSrc {
         let index = out.join("index.html");
         let rustbook = builder.tool_exe(Tool::Rustbook);
         if up_to_date(&src, &index) && up_to_date(&rustbook, &index) {
-            return
+            return;
         }
         println!("Rustbook ({}) - {}", target, name);
         let _ = fs::remove_dir_all(&out);
-        build.run(builder.tool_cmd(Tool::Rustbook)
-                       .arg("build")
-                       .arg(&src)
-                       .arg("-d")
-                       .arg(out));
+        build.run(
+            builder
+                .tool_cmd(Tool::Rustbook)
+                .arg("build")
+                .arg(&src)
+                .arg("-d")
+                .arg(out),
+        );
     }
 }
 
@@ -234,12 +240,14 @@ impl Step for TheBook {
 
     fn should_run(run: ShouldRun) -> ShouldRun {
         let builder = run.builder;
-        run.path("src/doc/book").default_condition(builder.build.config.docs)
+        run.path("src/doc/book")
+            .default_condition(builder.build.config.docs)
     }
 
     fn make_run(run: RunConfig) {
         run.builder.ensure(TheBook {
-            compiler: run.builder.compiler(run.builder.top_stage, run.builder.build.build),
+            compiler: run.builder
+                .compiler(run.builder.top_stage, run.builder.build.build),
             target: run.target,
             name: "book",
         });
@@ -272,10 +280,7 @@ impl Step for TheBook {
         });
 
         // build the version info page and CSS
-        builder.ensure(Standalone {
-            compiler,
-            target,
-        });
+        builder.ensure(Standalone { compiler, target });
 
         // build the index page
         let index = format!("{}/index.md", name);
@@ -308,12 +313,16 @@ fn invoke_rustdoc(builder: &Builder, compiler: Compiler, target: Interned<String
 
     let out = out.join("book");
 
-    cmd.arg("--html-after-content").arg(&footer)
-        .arg("--html-before-content").arg(&version_info)
-        .arg("--html-in-header").arg(&favicon)
+    cmd.arg("--html-after-content")
+        .arg(&footer)
+        .arg("--html-before-content")
+        .arg(&version_info)
+        .arg("--html-in-header")
+        .arg(&favicon)
         .arg("--markdown-playground-url")
         .arg("https://play.rust-lang.org/")
-        .arg("-o").arg(&out)
+        .arg("-o")
+        .arg(&out)
         .arg(&path)
         .arg("--markdown-css")
         .arg("../rust.css");
@@ -333,12 +342,14 @@ impl Step for Standalone {
 
     fn should_run(run: ShouldRun) -> ShouldRun {
         let builder = run.builder;
-        run.path("src/doc").default_condition(builder.build.config.docs)
+        run.path("src/doc")
+            .default_condition(builder.build.config.docs)
     }
 
     fn make_run(run: RunConfig) {
         run.builder.ensure(Standalone {
-            compiler: run.builder.compiler(run.builder.top_stage, run.builder.build.build),
+            compiler: run.builder
+                .compiler(run.builder.top_stage, run.builder.build.build),
             target: run.target,
         });
     }
@@ -362,7 +373,10 @@ impl Step for Standalone {
         let favicon = build.src.join("src/doc/favicon.inc");
         let footer = build.src.join("src/doc/footer.inc");
         let full_toc = build.src.join("src/doc/full-toc.inc");
-        t!(fs::copy(build.src.join("src/doc/rust.css"), out.join("rust.css")));
+        t!(fs::copy(
+            build.src.join("src/doc/rust.css"),
+            out.join("rust.css")
+        ));
 
         let version_input = build.src.join("src/doc/version_info.html.template");
         let version_info = out.join("version_info.html");
@@ -371,8 +385,8 @@ impl Step for Standalone {
             let mut info = String::new();
             t!(t!(File::open(&version_input)).read_to_string(&mut info));
             let info = info.replace("VERSION", &build.rust_release())
-                           .replace("SHORT_HASH", build.rust_info.sha_short().unwrap_or(""))
-                           .replace("STAMP", build.rust_info.sha().unwrap_or(""));
+                .replace("SHORT_HASH", build.rust_info.sha_short().unwrap_or(""))
+                .replace("STAMP", build.rust_info.sha().unwrap_or(""));
             t!(t!(File::create(&version_info)).write_all(info.as_bytes()));
         }
 
@@ -381,33 +395,35 @@ impl Step for Standalone {
             let path = file.path();
             let filename = path.file_name().unwrap().to_str().unwrap();
             if !filename.ends_with(".md") || filename == "README.md" {
-                continue
+                continue;
             }
 
             let html = out.join(filename).with_extension("html");
             let rustdoc = builder.rustdoc(compiler.host);
-            if up_to_date(&path, &html) &&
-               up_to_date(&footer, &html) &&
-               up_to_date(&favicon, &html) &&
-               up_to_date(&full_toc, &html) &&
-               up_to_date(&version_info, &html) &&
-               up_to_date(&rustdoc, &html) {
-                continue
+            if up_to_date(&path, &html) && up_to_date(&footer, &html) && up_to_date(&favicon, &html)
+                && up_to_date(&full_toc, &html) && up_to_date(&version_info, &html)
+                && up_to_date(&rustdoc, &html)
+            {
+                continue;
             }
 
             let mut cmd = builder.rustdoc_cmd(compiler.host);
-            cmd.arg("--html-after-content").arg(&footer)
-               .arg("--html-before-content").arg(&version_info)
-               .arg("--html-in-header").arg(&favicon)
-               .arg("--markdown-playground-url")
-               .arg("https://play.rust-lang.org/")
-               .arg("-o").arg(&out)
-               .arg(&path);
+            cmd.arg("--html-after-content")
+                .arg(&footer)
+                .arg("--html-before-content")
+                .arg(&version_info)
+                .arg("--html-in-header")
+                .arg(&favicon)
+                .arg("--markdown-playground-url")
+                .arg("https://play.rust-lang.org/")
+                .arg("-o")
+                .arg(&out)
+                .arg(&path);
 
             if filename == "not_found.md" {
                 cmd.arg("--markdown-no-toc")
-                   .arg("--markdown-css")
-                   .arg("https://doc.rust-lang.org/rust.css");
+                    .arg("--markdown-css")
+                    .arg("https://doc.rust-lang.org/rust.css");
             } else {
                 cmd.arg("--markdown-css").arg("rust.css");
             }
@@ -428,13 +444,14 @@ impl Step for Std {
 
     fn should_run(run: ShouldRun) -> ShouldRun {
         let builder = run.builder;
-        run.krate("std").default_condition(builder.build.config.docs)
+        run.krate("std")
+            .default_condition(builder.build.config.docs)
     }
 
     fn make_run(run: RunConfig) {
         run.builder.ensure(Std {
             stage: run.builder.top_stage,
-            target: run.target
+            target: run.target,
         });
     }
 
@@ -458,8 +475,10 @@ impl Step for Std {
         };
 
         builder.ensure(compile::Std { compiler, target });
-        let out_dir = build.stage_out(compiler, Mode::Libstd)
-                           .join(target).join("doc");
+        let out_dir = build
+            .stage_out(compiler, Mode::Libstd)
+            .join(target)
+            .join("doc");
 
         // Here what we're doing is creating a *symlink* (directory junction on
         // Windows) to the final output location. This is not done as an
@@ -513,7 +532,8 @@ impl Step for Test {
 
     fn should_run(run: ShouldRun) -> ShouldRun {
         let builder = run.builder;
-        run.krate("test").default_condition(builder.config.compiler_docs)
+        run.krate("test")
+            .default_condition(builder.config.compiler_docs)
     }
 
     fn make_run(run: RunConfig) {
@@ -546,8 +566,10 @@ impl Step for Test {
         builder.ensure(Std { stage, target });
 
         builder.ensure(compile::Test { compiler, target });
-        let out_dir = build.stage_out(compiler, Mode::Libtest)
-                           .join(target).join("doc");
+        let out_dir = build
+            .stage_out(compiler, Mode::Libtest)
+            .join(target)
+            .join("doc");
 
         // See docs in std above for why we symlink
         let my_out = build.crate_doc_out(target);
@@ -574,7 +596,8 @@ impl Step for Rustc {
 
     fn should_run(run: ShouldRun) -> ShouldRun {
         let builder = run.builder;
-        run.krate("rustc-main").default_condition(builder.build.config.docs)
+        run.krate("rustc-main")
+            .default_condition(builder.build.config.docs)
     }
 
     fn make_run(run: RunConfig) {
@@ -607,8 +630,10 @@ impl Step for Rustc {
         builder.ensure(Std { stage, target });
 
         builder.ensure(compile::Rustc { compiler, target });
-        let out_dir = build.stage_out(compiler, Mode::Librustc)
-                           .join(target).join("doc");
+        let out_dir = build
+            .stage_out(compiler, Mode::Librustc)
+            .join(target)
+            .join("doc");
 
         // See docs in std above for why we symlink
         let my_out = build.crate_doc_out(target);
@@ -648,13 +673,12 @@ impl Step for ErrorIndex {
 
     fn should_run(run: ShouldRun) -> ShouldRun {
         let builder = run.builder;
-        run.path("src/tools/error_index_generator").default_condition(builder.build.config.docs)
+        run.path("src/tools/error_index_generator")
+            .default_condition(builder.build.config.docs)
     }
 
     fn make_run(run: RunConfig) {
-        run.builder.ensure(ErrorIndex {
-            target: run.target,
-        });
+        run.builder.ensure(ErrorIndex { target: run.target });
     }
 
     /// Generates the HTML rendered error-index by running the
@@ -689,13 +713,12 @@ impl Step for UnstableBookGen {
 
     fn should_run(run: ShouldRun) -> ShouldRun {
         let builder = run.builder;
-        run.path("src/tools/unstable-book-gen").default_condition(builder.build.config.docs)
+        run.path("src/tools/unstable-book-gen")
+            .default_condition(builder.build.config.docs)
     }
 
     fn make_run(run: RunConfig) {
-        run.builder.ensure(UnstableBookGen {
-            target: run.target,
-        });
+        run.builder.ensure(UnstableBookGen { target: run.target });
     }
 
     fn run(self, builder: &Builder) {
@@ -726,9 +749,7 @@ fn symlink_dir_force(src: &Path, dst: &Path) -> io::Result<()> {
         } else {
             // handle directory junctions on windows by falling back to
             // `remove_dir`.
-            try!(fs::remove_file(dst).or_else(|_| {
-                fs::remove_dir(dst)
-            }));
+            try!(fs::remove_file(dst).or_else(|_| { fs::remove_dir(dst) }));
         }
     }
 

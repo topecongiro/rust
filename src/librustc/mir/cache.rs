@@ -10,16 +10,15 @@
 
 use std::cell::{Ref, RefCell};
 use rustc_data_structures::indexed_vec::IndexVec;
-use rustc_data_structures::stable_hasher::{HashStable, StableHasher,
-                                           StableHasherResult};
+use rustc_data_structures::stable_hasher::{HashStable, StableHasher, StableHasherResult};
 use ich::StableHashingContext;
-use mir::{Mir, BasicBlock};
+use mir::{BasicBlock, Mir};
 
 use rustc_serialize as serialize;
 
 #[derive(Clone, Debug)]
 pub struct Cache {
-    predecessors: RefCell<Option<IndexVec<BasicBlock, Vec<BasicBlock>>>>
+    predecessors: RefCell<Option<IndexVec<BasicBlock, Vec<BasicBlock>>>>,
 }
 
 
@@ -36,9 +35,11 @@ impl serialize::Decodable for Cache {
 }
 
 impl<'gcx> HashStable<StableHashingContext<'gcx>> for Cache {
-    fn hash_stable<W: StableHasherResult>(&self,
-                                          _: &mut StableHashingContext<'gcx>,
-                                          _: &mut StableHasher<W>) {
+    fn hash_stable<W: StableHasherResult>(
+        &self,
+        _: &mut StableHashingContext<'gcx>,
+        _: &mut StableHasher<W>,
+    ) {
         // do nothing
     }
 }
@@ -46,7 +47,7 @@ impl<'gcx> HashStable<StableHashingContext<'gcx>> for Cache {
 impl Cache {
     pub fn new() -> Self {
         Cache {
-            predecessors: RefCell::new(None)
+            predecessors: RefCell::new(None),
         }
     }
 

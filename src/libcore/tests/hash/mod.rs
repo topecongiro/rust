@@ -30,7 +30,9 @@ impl Hasher for MyHasher {
             self.hash += *byte as u64;
         }
     }
-    fn finish(&self) -> u64 { self.hash }
+    fn finish(&self) -> u64 {
+        self.hash
+    }
 }
 
 
@@ -62,17 +64,17 @@ fn test_writer_hasher() {
     assert_eq!(hash(&'a'), 97);
 
     let s: &str = "a";
-    assert_eq!(hash(& s), 97 + 0xFF);
+    assert_eq!(hash(&s), 97 + 0xFF);
     let s: Box<str> = String::from("a").into_boxed_str();
-    assert_eq!(hash(& s), 97 + 0xFF);
+    assert_eq!(hash(&s), 97 + 0xFF);
     let s: Rc<&str> = Rc::new("a");
     assert_eq!(hash(&s), 97 + 0xFF);
     let cs: &[u8] = &[1, 2, 3];
-    assert_eq!(hash(& cs), 9);
+    assert_eq!(hash(&cs), 9);
     let cs: Box<[u8]> = Box::new([1, 2, 3]);
-    assert_eq!(hash(& cs), 9);
+    assert_eq!(hash(&cs), 9);
     let cs: Rc<[u8]> = Rc::new([1, 2, 3]);
-    assert_eq!(hash(& cs), 9);
+    assert_eq!(hash(&cs), 9);
 
     let ptr = 5_usize as *const i32;
     assert_eq!(hash(&ptr), 5);
@@ -89,13 +91,23 @@ fn test_writer_hasher() {
     assert_eq!(hash(&slice_ptr), hash(&ptr) + cs.len() as u64);
 }
 
-struct Custom { hash: u64 }
-struct CustomHasher { output: u64 }
+struct Custom {
+    hash: u64,
+}
+struct CustomHasher {
+    output: u64,
+}
 
 impl Hasher for CustomHasher {
-    fn finish(&self) -> u64 { self.output }
-    fn write(&mut self, _: &[u8]) { panic!() }
-    fn write_u64(&mut self, data: u64) { self.output = data; }
+    fn finish(&self) -> u64 {
+        self.output
+    }
+    fn write(&mut self, _: &[u8]) {
+        panic!()
+    }
+    fn write_u64(&mut self, data: u64) {
+        self.output = data;
+    }
 }
 
 impl Default for CustomHasher {

@@ -31,22 +31,28 @@ use syntax::util::small_vector::SmallVector;
 
 pub const MACRO: &'static str = "global_asm";
 
-pub fn expand_global_asm<'cx>(cx: &'cx mut ExtCtxt,
-                              sp: Span,
-                              tts: &[tokenstream::TokenTree]) -> Box<base::MacResult + 'cx> {
+pub fn expand_global_asm<'cx>(
+    cx: &'cx mut ExtCtxt,
+    sp: Span,
+    tts: &[tokenstream::TokenTree],
+) -> Box<base::MacResult + 'cx> {
     if !cx.ecfg.enable_global_asm() {
-        feature_gate::emit_feature_err(&cx.parse_sess,
-                                       MACRO,
-                                       sp,
-                                       feature_gate::GateIssue::Language,
-                                       feature_gate::EXPLAIN_GLOBAL_ASM);
+        feature_gate::emit_feature_err(
+            &cx.parse_sess,
+            MACRO,
+            sp,
+            feature_gate::GateIssue::Language,
+            feature_gate::EXPLAIN_GLOBAL_ASM,
+        );
         return DummyResult::any(sp);
     }
 
     let mut p = cx.new_parser_from_tts(tts);
-    let (asm, _) = match expr_to_string(cx,
-                                        panictry!(p.parse_expr()),
-                                        "inline assembly must be a string literal") {
+    let (asm, _) = match expr_to_string(
+        cx,
+        panictry!(p.parse_expr()),
+        "inline assembly must be a string literal",
+    ) {
         Some((s, st)) => (s, st),
         None => return DummyResult::any(sp),
     };

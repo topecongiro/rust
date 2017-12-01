@@ -29,16 +29,16 @@ struct Node<T> {
     // FIXME: this could be an uninitialized T if we're careful enough, and
     //      that would reduce memory usage (and be a bit faster).
     //      is it worth it?
-    value: Option<T>,           // nullable for re-use of nodes
-    cached: bool,               // This node goes into the node cache
-    next: AtomicPtr<Node<T>>,   // next node in the queue
+    value: Option<T>,         // nullable for re-use of nodes
+    cached: bool,             // This node goes into the node cache
+    next: AtomicPtr<Node<T>>, // next node in the queue
 }
 
 /// The single-producer single-consumer queue. This structure is not cloneable,
 /// but it can be safely shared in an Arc if it is guaranteed that there
 /// is only one popper and one pusher touching the queue at any one point in
 /// time.
-pub struct Queue<T, ProducerAddition=(), ConsumerAddition=()> {
+pub struct Queue<T, ProducerAddition = (), ConsumerAddition = ()> {
     // consumer fields
     consumer: CacheAligned<Consumer<T, ConsumerAddition>>,
 
@@ -48,9 +48,9 @@ pub struct Queue<T, ProducerAddition=(), ConsumerAddition=()> {
 
 struct Consumer<T, Addition> {
     tail: UnsafeCell<*mut Node<T>>, // where to pop from
-    tail_prev: AtomicPtr<Node<T>>, // where to pop from
-    cache_bound: usize, // maximum cache size
-    cached_nodes: AtomicUsize, // number of nodes marked as cachable
+    tail_prev: AtomicPtr<Node<T>>,  // where to pop from
+    cache_bound: usize,             // maximum cache size
+    cached_nodes: AtomicUsize,      // number of nodes marked as cachable
     addition: Addition,
 }
 
@@ -61,9 +61,9 @@ struct Producer<T, Addition> {
     addition: Addition,
 }
 
-unsafe impl<T: Send, P: Send + Sync, C: Send + Sync> Send for Queue<T, P, C> { }
+unsafe impl<T: Send, P: Send + Sync, C: Send + Sync> Send for Queue<T, P, C> {}
 
-unsafe impl<T: Send, P: Send + Sync, C: Send + Sync> Sync for Queue<T, P, C> { }
+unsafe impl<T: Send, P: Send + Sync, C: Send + Sync> Sync for Queue<T, P, C> {}
 
 impl<T> Node<T> {
     fn new() -> *mut Node<T> {
@@ -76,7 +76,6 @@ impl<T> Node<T> {
 }
 
 impl<T, ProducerAddition, ConsumerAddition> Queue<T, ProducerAddition, ConsumerAddition> {
-
     /// Creates a new queue. With given additional elements in the producer and
     /// consumer portions of the queue.
     ///
@@ -117,13 +116,13 @@ impl<T, ProducerAddition, ConsumerAddition> Queue<T, ProducerAddition, ConsumerA
                 tail_prev: AtomicPtr::new(n1),
                 cache_bound: bound,
                 cached_nodes: AtomicUsize::new(0),
-                addition: consumer_addition
+                addition: consumer_addition,
             }),
             producer: CacheAligned::new(Producer {
                 head: UnsafeCell::new(n2),
                 first: UnsafeCell::new(n1),
                 tail_copy: UnsafeCell::new(n1),
-                addition: producer_addition
+                addition: producer_addition,
             }),
         }
     }
@@ -138,7 +137,9 @@ impl<T, ProducerAddition, ConsumerAddition> Queue<T, ProducerAddition, ConsumerA
             assert!((*n).value.is_none());
             (*n).value = Some(t);
             (*n).next.store(ptr::null_mut(), Ordering::Relaxed);
-            (**self.producer.head.get()).next.store(n, Ordering::Release);
+            (**self.producer.head.get())
+                .next
+                .store(n, Ordering::Release);
             *(&self.producer.head).get() = n;
         }
     }
@@ -152,8 +153,7 @@ impl<T, ProducerAddition, ConsumerAddition> Queue<T, ProducerAddition, ConsumerA
         }
         // If the above fails, then update our copy of the tail and try
         // again.
-        *self.producer.0.tail_copy.get() =
-            self.consumer.tail_prev.load(Ordering::Acquire);
+        *self.producer.0.tail_copy.get() = self.consumer.tail_prev.load(Ordering::Acquire);
         if *self.producer.first.get() != *self.producer.tail_copy.get() {
             let ret = *self.producer.first.get();
             *self.producer.0.first.get() = (*ret).next.load(Ordering::Relaxed);
@@ -174,7 +174,9 @@ impl<T, ProducerAddition, ConsumerAddition> Queue<T, ProducerAddition, ConsumerA
             // the current tail node is a candidate for going into the cache.
             let tail = *self.consumer.tail.get();
             let next = (*tail).next.load(Ordering::Acquire);
-            if next.is_null() { return None }
+            if next.is_null() {
+                return None;
+            }
             assert!((*next).value.is_some());
             let ret = (*next).value.take();
 
@@ -184,7 +186,9 @@ impl<T, ProducerAddition, ConsumerAddition> Queue<T, ProducerAddition, ConsumerA
             } else {
                 let cached_nodes = self.consumer.cached_nodes.load(Ordering::Relaxed);
                 if cached_nodes < self.consumer.cache_bound && !(*tail).cached {
-                    self.consumer.cached_nodes.store(cached_nodes, Ordering::Relaxed);
+                    self.consumer
+                        .cached_nodes
+                        .store(cached_nodes, Ordering::Relaxed);
                     (*tail).cached = true;
                 }
 
@@ -192,7 +196,8 @@ impl<T, ProducerAddition, ConsumerAddition> Queue<T, ProducerAddition, ConsumerA
                     self.consumer.tail_prev.store(tail, Ordering::Release);
                 } else {
                     (*self.consumer.tail_prev.load(Ordering::Relaxed))
-                        .next.store(next, Ordering::Relaxed);
+                        .next
+                        .store(next, Ordering::Relaxed);
                     // We have successfully erased all references to 'tail', so
                     // now we can safely drop it.
                     let _: Box<Node<T>> = Box::from_raw(tail);
@@ -215,7 +220,11 @@ impl<T, ProducerAddition, ConsumerAddition> Queue<T, ProducerAddition, ConsumerA
         unsafe {
             let tail = *self.consumer.tail.get();
             let next = (*tail).next.load(Ordering::Acquire);
-            if next.is_null() { None } else { (*next).value.as_mut() }
+            if next.is_null() {
+                None
+            } else {
+                (*next).value.as_mut()
+            }
         }
     }
 
@@ -275,15 +284,15 @@ mod tests {
             match queue.peek() {
                 Some(vec) => {
                     assert_eq!(&*vec, &[1]);
-                },
-                None => unreachable!()
+                }
+                None => unreachable!(),
             }
 
             match queue.pop() {
                 Some(vec) => {
                     assert_eq!(&*vec, &[1]);
-                },
-                None => unreachable!()
+                }
+                None => unreachable!(),
             }
         }
     }
@@ -326,7 +335,7 @@ mod tests {
 
             let (tx, rx) = channel();
             let q2 = q.clone();
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 for _ in 0..100000 {
                     loop {
                         match q2.pop() {

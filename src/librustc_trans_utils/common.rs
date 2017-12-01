@@ -40,53 +40,50 @@ pub fn type_has_metadata<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, ty: Ty<'tcx>) ->
 
 pub fn requests_inline<'a, 'tcx>(
     tcx: TyCtxt<'a, 'tcx, 'tcx>,
-    instance: &ty::Instance<'tcx>
+    instance: &ty::Instance<'tcx>,
 ) -> bool {
     if is_inline_instance(tcx, instance) {
-        return true
+        return true;
     }
     if let ty::InstanceDef::DropGlue(..) = instance.def {
         // Drop glue wants to be instantiated at every translation
         // unit, but without an #[inline] hint. We should make this
         // available to normal end-users.
-        return true
+        return true;
     }
-    attr::requests_inline(&instance.def.attrs(tcx)[..]) ||
-        tcx.is_const_fn(instance.def.def_id())
+    attr::requests_inline(&instance.def.attrs(tcx)[..]) || tcx.is_const_fn(instance.def.def_id())
 }
 
 pub fn is_inline_instance<'a, 'tcx>(
     tcx: TyCtxt<'a, 'tcx, 'tcx>,
-    instance: &ty::Instance<'tcx>
+    instance: &ty::Instance<'tcx>,
 ) -> bool {
     let def_id = match instance.def {
         ty::InstanceDef::Item(def_id) => def_id,
         ty::InstanceDef::DropGlue(_, Some(_)) => return false,
-        _ => return true
+        _ => return true,
     };
     match tcx.def_key(def_id).disambiguated_data.data {
-        DefPathData::StructCtor |
-        DefPathData::EnumVariant(..) |
-        DefPathData::ClosureExpr => true,
-        _ => false
+        DefPathData::StructCtor | DefPathData::EnumVariant(..) | DefPathData::ClosureExpr => true,
+        _ => false,
     }
 }
 
 /// Given a DefId and some Substs, produces the monomorphic item type.
-pub fn def_ty<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                        def_id: DefId,
-                        substs: &'tcx Substs<'tcx>)
-                        -> Ty<'tcx>
-{
+pub fn def_ty<'a, 'tcx>(
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    def_id: DefId,
+    substs: &'tcx Substs<'tcx>,
+) -> Ty<'tcx> {
     let ty = tcx.type_of(def_id);
     tcx.trans_apply_param_substs(substs, &ty)
 }
 
 /// Return the substituted type of an instance.
-pub fn instance_ty<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                             instance: &ty::Instance<'tcx>)
-                             -> Ty<'tcx>
-{
+pub fn instance_ty<'a, 'tcx>(
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    instance: &ty::Instance<'tcx>,
+) -> Ty<'tcx> {
     let ty = instance.def.def_ty(tcx);
     tcx.trans_apply_param_substs(instance.substs, &ty)
 }

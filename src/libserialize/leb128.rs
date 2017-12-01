@@ -25,7 +25,8 @@ fn write_to_vec(vec: &mut Vec<u8>, position: usize, byte: u8) {
 /// that is to be written to with the byte to be encoded
 /// at that position.
 pub fn write_unsigned_leb128_to<W>(mut value: u128, mut write: W) -> usize
-    where W: FnMut(usize, u8)
+where
+    W: FnMut(usize, u8),
 {
     let mut position = 0;
     loop {
@@ -47,7 +48,7 @@ pub fn write_unsigned_leb128_to<W>(mut value: u128, mut write: W) -> usize
 }
 
 pub fn write_unsigned_leb128(out: &mut Vec<u8>, start_position: usize, value: u128) -> usize {
-    write_unsigned_leb128_to(value, |i, v| write_to_vec(out, start_position+i, v))
+    write_unsigned_leb128_to(value, |i, v| write_to_vec(out, start_position + i, v))
 }
 
 #[inline]
@@ -76,15 +77,16 @@ pub fn read_unsigned_leb128(data: &[u8], start_position: usize) -> (u128, usize)
 /// that is to be written to with the byte to be encoded
 /// at that position.
 pub fn write_signed_leb128_to<W>(mut value: i128, mut write: W) -> usize
-    where W: FnMut(usize, u8)
+where
+    W: FnMut(usize, u8),
 {
     let mut position = 0;
 
     loop {
         let mut byte = (value as u8) & 0x7f;
         value >>= 7;
-        let more = !((((value == 0) && ((byte & 0x40) == 0)) ||
-                      ((value == -1) && ((byte & 0x40) != 0))));
+        let more =
+            !((((value == 0) && ((byte & 0x40) == 0)) || ((value == -1) && ((byte & 0x40) != 0))));
 
         if more {
             byte |= 0x80; // Mark this byte to show that more bytes will follow.
@@ -101,7 +103,7 @@ pub fn write_signed_leb128_to<W>(mut value: i128, mut write: W) -> usize
 }
 
 pub fn write_signed_leb128(out: &mut Vec<u8>, start_position: usize, value: i128) -> usize {
-    write_signed_leb128_to(value, |i, v| write_to_vec(out, start_position+i, v))
+    write_signed_leb128_to(value, |i, v| write_to_vec(out, start_position + i, v))
 }
 
 #[inline]

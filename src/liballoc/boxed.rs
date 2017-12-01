@@ -55,7 +55,7 @@
 
 #![stable(feature = "rust1", since = "1.0.0")]
 
-use heap::{Heap, Layout, Alloc};
+use heap::{Alloc, Heap, Layout};
 use raw_vec::RawVec;
 
 use core::any::Any;
@@ -89,14 +89,14 @@ use str::from_boxed_utf8_unchecked;
 /// }
 /// ```
 #[unstable(feature = "box_heap",
-           reason = "may be renamed; uncertain about custom allocator design",
-           issue = "27779")]
-pub const HEAP: ExchangeHeapSingleton = ExchangeHeapSingleton { _force_singleton: () };
+           reason = "may be renamed; uncertain about custom allocator design", issue = "27779")]
+pub const HEAP: ExchangeHeapSingleton = ExchangeHeapSingleton {
+    _force_singleton: (),
+};
 
 /// This the singleton type used solely for `boxed::HEAP`.
 #[unstable(feature = "box_heap",
-           reason = "may be renamed; uncertain about custom allocator design",
-           issue = "27779")]
+           reason = "may be renamed; uncertain about custom allocator design", issue = "27779")]
 #[allow(missing_debug_implementations)]
 #[derive(Copy, Clone)]
 pub struct ExchangeHeapSingleton {
@@ -129,8 +129,7 @@ pub struct Box<T: ?Sized>(Unique<T>);
 /// the fact that the `align_of` intrinsic currently requires the
 /// input type to be Sized (which I do not think is strictly
 /// necessary).
-#[unstable(feature = "placement_in",
-           reason = "placement box design is still being worked out.",
+#[unstable(feature = "placement_in", reason = "placement box design is still being worked out.",
            issue = "27779")]
 #[allow(missing_debug_implementations)]
 pub struct IntermediateBox<T: ?Sized> {
@@ -139,8 +138,7 @@ pub struct IntermediateBox<T: ?Sized> {
     marker: marker::PhantomData<*mut T>,
 }
 
-#[unstable(feature = "placement_in",
-           reason = "placement box design is still being worked out.",
+#[unstable(feature = "placement_in", reason = "placement box design is still being worked out.",
            issue = "27779")]
 impl<T> Place<T> for IntermediateBox<T> {
     fn pointer(&mut self) -> *mut T {
@@ -161,9 +159,8 @@ fn make_place<T>() -> IntermediateBox<T> {
         mem::align_of::<T>() as *mut u8
     } else {
         unsafe {
-            Heap.alloc(layout.clone()).unwrap_or_else(|err| {
-                Heap.oom(err)
-            })
+            Heap.alloc(layout.clone())
+                .unwrap_or_else(|err| Heap.oom(err))
         }
     };
 
@@ -174,8 +171,7 @@ fn make_place<T>() -> IntermediateBox<T> {
     }
 }
 
-#[unstable(feature = "placement_in",
-           reason = "placement box design is still being worked out.",
+#[unstable(feature = "placement_in", reason = "placement box design is still being worked out.",
            issue = "27779")]
 impl<T> BoxPlace<T> for IntermediateBox<T> {
     fn make_place() -> IntermediateBox<T> {
@@ -183,8 +179,7 @@ impl<T> BoxPlace<T> for IntermediateBox<T> {
     }
 }
 
-#[unstable(feature = "placement_in",
-           reason = "placement box design is still being worked out.",
+#[unstable(feature = "placement_in", reason = "placement box design is still being worked out.",
            issue = "27779")]
 impl<T> InPlace<T> for IntermediateBox<T> {
     type Owner = Box<T>;
@@ -202,8 +197,7 @@ impl<T> Boxed for Box<T> {
     }
 }
 
-#[unstable(feature = "placement_in",
-           reason = "placement box design is still being worked out.",
+#[unstable(feature = "placement_in", reason = "placement box design is still being worked out.",
            issue = "27779")]
 impl<T> Placer<T> for ExchangeHeapSingleton {
     type Place = IntermediateBox<T>;
@@ -213,15 +207,12 @@ impl<T> Placer<T> for ExchangeHeapSingleton {
     }
 }
 
-#[unstable(feature = "placement_in",
-           reason = "placement box design is still being worked out.",
+#[unstable(feature = "placement_in", reason = "placement box design is still being worked out.",
            issue = "27779")]
 impl<T: ?Sized> Drop for IntermediateBox<T> {
     fn drop(&mut self) {
         if self.layout.size() > 0 {
-            unsafe {
-                Heap.dealloc(self.ptr, self.layout.clone())
-            }
+            unsafe { Heap.dealloc(self.ptr, self.layout.clone()) }
         }
     }
 }
@@ -296,8 +287,7 @@ impl<T: ?Sized> Box<T> {
     ///     let x = unsafe { Box::from_unique(ptr) };
     /// }
     /// ```
-    #[unstable(feature = "unique", reason = "needs an RFC to flesh out design",
-               issue = "27730")]
+    #[unstable(feature = "unique", reason = "needs an RFC to flesh out design", issue = "27730")]
     #[inline]
     pub unsafe fn from_unique(u: Unique<T>) -> Self {
         #[cfg(stage0)]
@@ -361,8 +351,7 @@ impl<T: ?Sized> Box<T> {
     ///     let ptr = Box::into_unique(x);
     /// }
     /// ```
-    #[unstable(feature = "unique", reason = "needs an RFC to flesh out design",
-               issue = "27730")]
+    #[unstable(feature = "unique", reason = "needs an RFC to flesh out design", issue = "27730")]
     #[inline]
     pub fn into_unique(b: Box<T>) -> Unique<T> {
         #[cfg(stage0)]
@@ -418,12 +407,11 @@ impl<T: ?Sized> Box<T> {
     ///     assert_eq!(*static_ref, [4, 2, 3]);
     /// }
     /// ```
-    #[unstable(feature = "box_leak", reason = "needs an FCP to stabilize",
-               issue = "46179")]
+    #[unstable(feature = "box_leak", reason = "needs an FCP to stabilize", issue = "46179")]
     #[inline]
     pub fn leak<'a>(b: Box<T>) -> &'a mut T
     where
-        T: 'a // Technically not needed, but kept to be explicit.
+        T: 'a, // Technically not needed, but kept to be explicit.
     {
         unsafe { &mut *Box::into_raw(b) }
     }
@@ -817,7 +805,8 @@ pub trait FnBox<A> {
 #[unstable(feature = "fnbox",
            reason = "will be deprecated if and when `Box<FnOnce>` becomes usable", issue = "28796")]
 impl<A, F> FnBox<A> for F
-    where F: FnOnce<A>
+where
+    F: FnOnce<A>,
 {
     type Output = F::Output;
 
@@ -930,7 +919,8 @@ impl<T: ?Sized> AsMut<T> for Box<T> {
 
 #[unstable(feature = "generator_trait", issue = "43122")]
 impl<T> Generator for Box<T>
-    where T: Generator + ?Sized
+where
+    T: Generator + ?Sized,
 {
     type Yield = T::Yield;
     type Return = T::Return;

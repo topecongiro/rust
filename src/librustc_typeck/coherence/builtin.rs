@@ -30,18 +30,21 @@ pub fn check_trait<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, trait_def_id: DefId) {
     Checker { tcx, trait_def_id }
         .check(tcx.lang_items().drop_trait(), visit_implementation_of_drop)
         .check(tcx.lang_items().copy_trait(), visit_implementation_of_copy)
-        .check(tcx.lang_items().coerce_unsized_trait(),
-               visit_implementation_of_coerce_unsized);
+        .check(
+            tcx.lang_items().coerce_unsized_trait(),
+            visit_implementation_of_coerce_unsized,
+        );
 }
 
 struct Checker<'a, 'tcx: 'a> {
     tcx: TyCtxt<'a, 'tcx, 'tcx>,
-    trait_def_id: DefId
+    trait_def_id: DefId,
 }
 
 impl<'a, 'tcx> Checker<'a, 'tcx> {
     fn check<F>(&self, trait_def_id: Option<DefId>, mut f: F) -> &Self
-        where F: FnMut(TyCtxt<'a, 'tcx, 'tcx>, DefId, DefId)
+    where
+        F: FnMut(TyCtxt<'a, 'tcx, 'tcx>, DefId, DefId),
     {
         if Some(self.trait_def_id) == trait_def_id {
             for &impl_id in self.tcx.hir.trait_impls(self.trait_def_id) {
@@ -53,9 +56,11 @@ impl<'a, 'tcx> Checker<'a, 'tcx> {
     }
 }
 
-fn visit_implementation_of_drop<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                                          _drop_did: DefId,
-                                          impl_did: DefId) {
+fn visit_implementation_of_drop<'a, 'tcx>(
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    _drop_did: DefId,
+    impl_did: DefId,
+) {
     match tcx.type_of(impl_did).sty {
         ty::TyAdt(..) => {}
         _ => {
@@ -67,12 +72,13 @@ fn visit_implementation_of_drop<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
                             ItemImpl(.., ref ty, _) => ty.span,
                             _ => item.span,
                         };
-                        struct_span_err!(tcx.sess,
-                                         span,
-                                         E0120,
-                                         "the Drop trait may only be implemented on \
-                                         structures")
-                            .span_label(span, "implementing Drop requires a struct")
+                        struct_span_err!(
+                            tcx.sess,
+                            span,
+                            E0120,
+                            "the Drop trait may only be implemented on \
+                             structures"
+                        ).span_label(span, "implementing Drop requires a struct")
                             .emit();
                     }
                     _ => {
@@ -80,36 +86,46 @@ fn visit_implementation_of_drop<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
                     }
                 }
             } else {
-                bug!("found external impl of Drop trait on \
-                      something other than a struct");
+                bug!(
+                    "found external impl of Drop trait on \
+                     something other than a struct"
+                );
             }
         }
     }
 }
 
-fn visit_implementation_of_copy<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                                          _copy_did: DefId,
-                                          impl_did: DefId) {
+fn visit_implementation_of_copy<'a, 'tcx>(
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    _copy_did: DefId,
+    impl_did: DefId,
+) {
     debug!("visit_implementation_of_copy: impl_did={:?}", impl_did);
 
     let impl_node_id = if let Some(n) = tcx.hir.as_local_node_id(impl_did) {
         n
     } else {
-        debug!("visit_implementation_of_copy(): impl not in this \
-                crate");
+        debug!(
+            "visit_implementation_of_copy(): impl not in this \
+             crate"
+        );
         return;
     };
 
     let self_type = tcx.type_of(impl_did);
-    debug!("visit_implementation_of_copy: self_type={:?} (bound)",
-           self_type);
+    debug!(
+        "visit_implementation_of_copy: self_type={:?} (bound)",
+        self_type
+    );
 
     let span = tcx.hir.span(impl_node_id);
     let param_env = tcx.param_env(impl_did);
     assert!(!self_type.has_escaping_regions());
 
-    debug!("visit_implementation_of_copy: self_type={:?} (free)",
-           self_type);
+    debug!(
+        "visit_implementation_of_copy: self_type={:?} (free)",
+        self_type
+    );
 
     match param_env.can_type_implement_copy(tcx, self_type, span) {
         Ok(()) => {}
@@ -121,13 +137,15 @@ fn visit_implementation_of_copy<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
                 span
             };
 
-            struct_span_err!(tcx.sess,
-                             span,
-                             E0204,
-                             "the trait `Copy` may not be implemented for this type")
-                .span_label(
-                    tcx.def_span(field.did),
-                    "this field does not implement `Copy`")
+            struct_span_err!(
+                tcx.sess,
+                span,
+                E0204,
+                "the trait `Copy` may not be implemented for this type"
+            ).span_label(
+                tcx.def_span(field.did),
+                "this field does not implement `Copy`",
+            )
                 .emit()
         }
         Err(CopyImplementationError::NotAnAdt) => {
@@ -138,30 +156,36 @@ fn visit_implementation_of_copy<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
                 span
             };
 
-            struct_span_err!(tcx.sess,
-                             span,
-                             E0206,
-                             "the trait `Copy` may not be implemented for this type")
-                .span_label(span, "type is not a structure or enumeration")
+            struct_span_err!(
+                tcx.sess,
+                span,
+                E0206,
+                "the trait `Copy` may not be implemented for this type"
+            ).span_label(span, "type is not a structure or enumeration")
                 .emit();
         }
         Err(CopyImplementationError::HasDestructor) => {
-            struct_span_err!(tcx.sess,
-                             span,
-                             E0184,
-                             "the trait `Copy` may not be implemented for this type; the \
-                              type has a destructor")
-                .span_label(span, "Copy not allowed on types with destructors")
+            struct_span_err!(
+                tcx.sess,
+                span,
+                E0184,
+                "the trait `Copy` may not be implemented for this type; the \
+                 type has a destructor"
+            ).span_label(span, "Copy not allowed on types with destructors")
                 .emit();
         }
     }
 }
 
-fn visit_implementation_of_coerce_unsized<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                                                    _: DefId,
-                                                    impl_did: DefId) {
-    debug!("visit_implementation_of_coerce_unsized: impl_did={:?}",
-           impl_did);
+fn visit_implementation_of_coerce_unsized<'a, 'tcx>(
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    _: DefId,
+    impl_did: DefId,
+) {
+    debug!(
+        "visit_implementation_of_coerce_unsized: impl_did={:?}",
+        impl_did
+    );
 
     // Just compute this for the side-effects, in particular reporting
     // errors; other parts of the code may demand it for the info of
@@ -172,31 +196,38 @@ fn visit_implementation_of_coerce_unsized<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
     }
 }
 
-pub fn coerce_unsized_info<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                                     impl_did: DefId)
-                                     -> CoerceUnsizedInfo {
+pub fn coerce_unsized_info<'a, 'tcx>(
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    impl_did: DefId,
+) -> CoerceUnsizedInfo {
     debug!("compute_coerce_unsized_info(impl_did={:?})", impl_did);
     let coerce_unsized_trait = tcx.lang_items().coerce_unsized_trait().unwrap();
 
     let unsize_trait = match tcx.lang_items().require(UnsizeTraitLangItem) {
         Ok(id) => id,
         Err(err) => {
-            tcx.sess.fatal(&format!("`CoerceUnsized` implementation {}", err));
+            tcx.sess
+                .fatal(&format!("`CoerceUnsized` implementation {}", err));
         }
     };
 
     // this provider should only get invoked for local def-ids
     let impl_node_id = tcx.hir.as_local_node_id(impl_did).unwrap_or_else(|| {
-        bug!("coerce_unsized_info: invoked for non-local def-id {:?}", impl_did)
+        bug!(
+            "coerce_unsized_info: invoked for non-local def-id {:?}",
+            impl_did
+        )
     });
 
     let source = tcx.type_of(impl_did);
     let trait_ref = tcx.impl_trait_ref(impl_did).unwrap();
     assert_eq!(trait_ref.def_id, coerce_unsized_trait);
     let target = trait_ref.substs.type_at(1);
-    debug!("visit_implementation_of_coerce_unsized: {:?} -> {:?} (bound)",
-           source,
-           target);
+    debug!(
+        "visit_implementation_of_coerce_unsized: {:?} -> {:?} (bound)",
+        source,
+        target
+    );
 
     let span = tcx.hir.span(impl_node_id);
     let param_env = tcx.param_env(impl_did);
@@ -204,9 +235,11 @@ pub fn coerce_unsized_info<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
 
     let err_info = CoerceUnsizedInfo { custom_kind: None };
 
-    debug!("visit_implementation_of_coerce_unsized: {:?} -> {:?} (free)",
-           source,
-           target);
+    debug!(
+        "visit_implementation_of_coerce_unsized: {:?} -> {:?} (free)",
+        source,
+        target
+    );
 
     tcx.infer_ctxt().enter(|infcx| {
         let cause = ObligationCause::misc(span, impl_node_id);
@@ -214,10 +247,13 @@ pub fn coerce_unsized_info<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
                            mt_b: ty::TypeAndMut<'tcx>,
                            mk_ptr: &Fn(Ty<'tcx>) -> Ty<'tcx>| {
             if (mt_a.mutbl, mt_b.mutbl) == (hir::MutImmutable, hir::MutMutable) {
-                infcx.report_mismatched_types(&cause,
-                                             mk_ptr(mt_b.ty),
-                                             target,
-                                             ty::error::TypeError::Mutability)
+                infcx
+                    .report_mismatched_types(
+                        &cause,
+                        mk_ptr(mt_b.ty),
+                        target,
+                        ty::error::TypeError::Mutability,
+                    )
                     .emit();
             }
             (mt_a.ty, mt_b.ty, unsize_trait, None)
@@ -228,24 +264,27 @@ pub fn coerce_unsized_info<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
                 check_mutbl(mt_a, mt_b, &|ty| tcx.mk_imm_ref(r_b, ty))
             }
 
-            (&ty::TyRef(_, mt_a), &ty::TyRawPtr(mt_b)) |
-            (&ty::TyRawPtr(mt_a), &ty::TyRawPtr(mt_b)) => {
+            (&ty::TyRef(_, mt_a), &ty::TyRawPtr(mt_b))
+            | (&ty::TyRawPtr(mt_a), &ty::TyRawPtr(mt_b)) => {
                 check_mutbl(mt_a, mt_b, &|ty| tcx.mk_imm_ptr(ty))
             }
 
-            (&ty::TyAdt(def_a, substs_a), &ty::TyAdt(def_b, substs_b)) if def_a.is_struct() &&
-                                                                          def_b.is_struct() => {
+            (&ty::TyAdt(def_a, substs_a), &ty::TyAdt(def_b, substs_b))
+                if def_a.is_struct() && def_b.is_struct() =>
+            {
                 if def_a != def_b {
                     let source_path = tcx.item_path_str(def_a.did);
                     let target_path = tcx.item_path_str(def_b.did);
-                    span_err!(tcx.sess,
-                              span,
-                              E0377,
-                              "the trait `CoerceUnsized` may only be implemented \
-                               for a coercion between structures with the same \
-                               definition; expected {}, found {}",
-                              source_path,
-                              target_path);
+                    span_err!(
+                        tcx.sess,
+                        span,
+                        E0377,
+                        "the trait `CoerceUnsized` may only be implemented \
+                         for a coercion between structures with the same \
+                         definition; expected {}, found {}",
+                        source_path,
+                        target_path
+                    );
                     return err_info;
                 }
 
@@ -289,7 +328,8 @@ pub fn coerce_unsized_info<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
                 // Unsize<V>`, and we have a builtin rule that `*mut
                 // U` can be coerced to `*mut V` if `U: Unsize<V>`.
                 let fields = &def_a.struct_variant().fields;
-                let diff_fields = fields.iter()
+                let diff_fields = fields
+                    .iter()
                     .enumerate()
                     .filter_map(|(i, f)| {
                         let (a, b) = (f.ty(tcx, substs_a), f.ty(tcx, substs_b));
@@ -321,12 +361,14 @@ pub fn coerce_unsized_info<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
                     .collect::<Vec<_>>();
 
                 if diff_fields.is_empty() {
-                    span_err!(tcx.sess,
-                              span,
-                              E0374,
-                              "the trait `CoerceUnsized` may only be implemented \
-                               for a coercion between structures with one field \
-                               being coerced, none found");
+                    span_err!(
+                        tcx.sess,
+                        span,
+                        E0374,
+                        "the trait `CoerceUnsized` may only be implemented \
+                         for a coercion between structures with one field \
+                         being coerced, none found"
+                    );
                     return err_info;
                 } else if diff_fields.len() > 1 {
                     let item = tcx.hir.expect_item(impl_node_id);
@@ -336,22 +378,27 @@ pub fn coerce_unsized_info<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
                         tcx.hir.span(impl_node_id)
                     };
 
-                    let mut err = struct_span_err!(tcx.sess,
-                                                   span,
-                                                   E0375,
-                                                   "implementing the trait \
-                                                    `CoerceUnsized` requires multiple \
-                                                    coercions");
-                    err.note("`CoerceUnsized` may only be implemented for \
-                              a coercion between structures with one field being coerced");
-                    err.note(&format!("currently, {} fields need coercions: {}",
-                                      diff_fields.len(),
-                                      diff_fields.iter()
-                                          .map(|&(i, a, b)| {
-                                              format!("{} ({} to {})", fields[i].name, a, b)
-                                          })
-                                          .collect::<Vec<_>>()
-                                          .join(", ")));
+                    let mut err = struct_span_err!(
+                        tcx.sess,
+                        span,
+                        E0375,
+                        "implementing the trait \
+                         `CoerceUnsized` requires multiple \
+                         coercions"
+                    );
+                    err.note(
+                        "`CoerceUnsized` may only be implemented for \
+                         a coercion between structures with one field being coerced",
+                    );
+                    err.note(&format!(
+                        "currently, {} fields need coercions: {}",
+                        diff_fields.len(),
+                        diff_fields
+                            .iter()
+                            .map(|&(i, a, b)| { format!("{} ({} to {})", fields[i].name, a, b) })
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ));
                     err.span_label(span, "requires multiple coercions");
                     err.emit();
                     return err_info;
@@ -363,11 +410,13 @@ pub fn coerce_unsized_info<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
             }
 
             _ => {
-                span_err!(tcx.sess,
-                          span,
-                          E0376,
-                          "the trait `CoerceUnsized` may only be implemented \
-                           for a coercion between structures");
+                span_err!(
+                    tcx.sess,
+                    span,
+                    E0376,
+                    "the trait `CoerceUnsized` may only be implemented \
+                     for a coercion between structures"
+                );
                 return err_info;
             }
         };
@@ -376,12 +425,8 @@ pub fn coerce_unsized_info<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
 
         // Register an obligation for `A: Trait<B>`.
         let cause = traits::ObligationCause::misc(span, impl_node_id);
-        let predicate = tcx.predicate_for_trait_def(param_env,
-                                                    cause,
-                                                    trait_def_id,
-                                                    0,
-                                                    source,
-                                                    &[target]);
+        let predicate =
+            tcx.predicate_for_trait_def(param_env, cause, trait_def_id, 0, source, &[target]);
         fulfill_cx.register_predicate_obligation(&infcx, predicate);
 
         // Check that all transitive obligations are satisfied.
@@ -395,8 +440,6 @@ pub fn coerce_unsized_info<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
         free_regions.relate_free_regions_from_predicates(&param_env.caller_bounds);
         infcx.resolve_regions_and_report_errors(impl_did, &region_scope_tree, &free_regions);
 
-        CoerceUnsizedInfo {
-            custom_kind: kind
-        }
+        CoerceUnsizedInfo { custom_kind: kind }
     })
 }

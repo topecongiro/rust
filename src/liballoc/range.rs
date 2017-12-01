@@ -14,7 +14,7 @@
 
 //! Range syntax.
 
-use core::ops::{RangeFull, Range, RangeTo, RangeFrom, RangeInclusive, RangeToInclusive};
+use core::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 use Bound::{self, Excluded, Included, Unbounded};
 
 /// `RangeArgument` is implemented by Rust's built-in range types, produced
@@ -128,7 +128,7 @@ impl<T> RangeArgument<T> for (Bound<T>, Bound<T>) {
         match *self {
             (Included(ref start), _) => Included(start),
             (Excluded(ref start), _) => Excluded(start),
-            (Unbounded, _)           => Unbounded,
+            (Unbounded, _) => Unbounded,
         }
     }
 
@@ -136,7 +136,7 @@ impl<T> RangeArgument<T> for (Bound<T>, Bound<T>) {
         match *self {
             (_, Included(ref end)) => Included(end),
             (_, Excluded(ref end)) => Excluded(end),
-            (_, Unbounded)         => Unbounded,
+            (_, Unbounded) => Unbounded,
         }
     }
 }

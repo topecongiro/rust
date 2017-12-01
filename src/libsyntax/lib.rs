@@ -16,10 +16,8 @@
 
 #![doc(html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
        html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
-       html_root_url = "https://doc.rust-lang.org/nightly/",
-       test(attr(deny(warnings))))]
+       html_root_url = "https://doc.rust-lang.org/nightly/", test(attr(deny(warnings))))]
 #![deny(warnings)]
-
 #![feature(unicode)]
 #![feature(rustc_diagnostic_macros)]
 #![feature(i128_type)]
@@ -28,13 +26,15 @@
 #[allow(unused_extern_crates)]
 extern crate rustc_cratesio_shim;
 
-#[macro_use] extern crate bitflags;
-extern crate serialize;
-#[macro_use] extern crate log;
-extern crate std_unicode;
-pub extern crate rustc_errors as errors;
-extern crate syntax_pos;
+#[macro_use]
+extern crate bitflags;
+#[macro_use]
+extern crate log;
 extern crate rustc_data_structures;
+extern crate serialize;
+extern crate std_unicode;
+extern crate syntax_pos;
+pub extern crate rustc_errors as errors;
 
 extern crate serialize as rustc_serialize; // used by deriving
 

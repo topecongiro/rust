@@ -58,9 +58,12 @@ fn build_krate(build: &mut Build, krate: &str) {
     // to know what crates to test. Here we run `cargo metadata` to learn about
     // the dependency graph and what `-p` arguments there are.
     let mut cargo = Command::new(&build.initial_cargo);
-    cargo.arg("metadata")
-         .arg("--format-version").arg("1")
-         .arg("--manifest-path").arg(build.src.join(krate).join("Cargo.toml"));
+    cargo
+        .arg("metadata")
+        .arg("--format-version")
+        .arg("1")
+        .arg("--manifest-path")
+        .arg(build.src.join(krate).join("Cargo.toml"));
     let output = output(&mut cargo);
     let output: Output = serde_json::from_str(&output).unwrap();
     let mut id2name = HashMap::new();
@@ -70,16 +73,19 @@ fn build_krate(build: &mut Build, krate: &str) {
             id2name.insert(package.id, name);
             let mut path = PathBuf::from(package.manifest_path);
             path.pop();
-            build.crates.insert(name, Crate {
-                build_step: format!("build-crate-{}", name),
-                doc_step: format!("doc-crate-{}", name),
-                test_step: format!("test-crate-{}", name),
-                bench_step: format!("bench-crate-{}", name),
+            build.crates.insert(
                 name,
-                version: package.version,
-                deps: Vec::new(),
-                path,
-            });
+                Crate {
+                    build_step: format!("build-crate-{}", name),
+                    doc_step: format!("doc-crate-{}", name),
+                    test_step: format!("test-crate-{}", name),
+                    bench_step: format!("bench-crate-{}", name),
+                    name,
+                    version: package.version,
+                    deps: Vec::new(),
+                    path,
+                },
+            );
         }
     }
 

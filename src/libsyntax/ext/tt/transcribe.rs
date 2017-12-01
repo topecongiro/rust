@@ -11,12 +11,12 @@
 use ast::Ident;
 use ext::base::ExtCtxt;
 use ext::expand::Marker;
-use ext::tt::macro_parser::{NamedMatch, MatchedSeq, MatchedNonterminal};
+use ext::tt::macro_parser::{MatchedNonterminal, MatchedSeq, NamedMatch};
 use ext::tt::quoted;
 use fold::noop_fold_tt;
-use parse::token::{self, Token, NtTT};
+use parse::token::{self, NtTT, Token};
 use syntax_pos::{Span, DUMMY_SP};
-use tokenstream::{TokenStream, TokenTree, Delimited};
+use tokenstream::{Delimited, TokenStream, TokenTree};
 use util::small_vector::SmallVector;
 
 use std::rc::Rc;
@@ -40,8 +40,15 @@ enum Frame {
 
 impl Frame {
     fn new(tts: Vec<quoted::TokenTree>) -> Frame {
-        let forest = Rc::new(quoted::Delimited { delim: token::NoDelim, tts: tts });
-        Frame::Delimited { forest: forest, idx: 0, span: DUMMY_SP }
+        let forest = Rc::new(quoted::Delimited {
+            delim: token::NoDelim,
+            tts: tts,
+        });
+        Frame::Delimited {
+            forest: forest,
+            idx: 0,
+            span: DUMMY_SP,
+        }
     }
 }
 
@@ -50,11 +57,19 @@ impl Iterator for Frame {
 
     fn next(&mut self) -> Option<quoted::TokenTree> {
         match *self {
-            Frame::Delimited { ref forest, ref mut idx, .. } => {
+            Frame::Delimited {
+                ref forest,
+                ref mut idx,
+                ..
+            } => {
                 *idx += 1;
                 forest.tts.get(*idx - 1).cloned()
             }
-            Frame::Sequence { ref forest, ref mut idx, .. } => {
+            Frame::Sequence {
+                ref forest,
+                ref mut idx,
+                ..
+            } => {
                 *idx += 1;
                 forest.tts.get(*idx - 1).cloned()
             }
@@ -65,10 +80,11 @@ impl Iterator for Frame {
 /// This can do Macro-By-Example transcription. On the other hand, if
 /// `src` contains no `TokenTree::{Sequence, MetaVar, MetaVarDecl}`s, `interp` can
 /// (and should) be None.
-pub fn transcribe(cx: &ExtCtxt,
-                  interp: Option<HashMap<Ident, Rc<NamedMatch>>>,
-                  src: Vec<quoted::TokenTree>)
-                  -> TokenStream {
+pub fn transcribe(
+    cx: &ExtCtxt,
+    interp: Option<HashMap<Ident, Rc<NamedMatch>>>,
+    src: Vec<quoted::TokenTree>,
+) -> TokenStream {
     let mut stack = SmallVector::one(Frame::new(src));
     let interpolations = interp.unwrap_or_else(HashMap::new); /* just a convenience */
     let mut repeats = Vec::new();
@@ -79,7 +95,12 @@ pub fn transcribe(cx: &ExtCtxt,
         let tree = if let Some(tree) = stack.last_mut().unwrap().next() {
             tree
         } else {
-            if let Frame::Sequence { ref mut idx, ref sep, .. } = *stack.last_mut().unwrap() {
+            if let Frame::Sequence {
+                ref mut idx,
+                ref sep,
+                ..
+            } = *stack.last_mut().unwrap()
+            {
                 let (ref mut repeat_idx, repeat_len) = *repeats.last_mut().unwrap();
                 *repeat_idx += 1;
                 if *repeat_idx < repeat_len {
@@ -92,7 +113,7 @@ pub fn transcribe(cx: &ExtCtxt,
                         };
                         result.push(TokenTree::Token(prev_span, sep).into());
                     }
-                    continue
+                    continue;
                 }
             }
 
@@ -104,28 +125,35 @@ pub fn transcribe(cx: &ExtCtxt,
                     if result_stack.is_empty() {
                         return TokenStream::concat(result);
                     }
-                    let tree = TokenTree::Delimited(span, Delimited {
-                        delim: forest.delim,
-                        tts: TokenStream::concat(result).into(),
-                    });
+                    let tree = TokenTree::Delimited(
+                        span,
+                        Delimited {
+                            delim: forest.delim,
+                            tts: TokenStream::concat(result).into(),
+                        },
+                    );
                     result = result_stack.pop().unwrap();
                     result.push(tree.into());
                 }
             }
-            continue
+            continue;
         };
 
         match tree {
             quoted::TokenTree::Sequence(sp, seq) => {
                 // FIXME(pcwalton): Bad copy.
-                match lockstep_iter_size(&quoted::TokenTree::Sequence(sp, seq.clone()),
-                                         &interpolations,
-                                         &repeats) {
+                match lockstep_iter_size(
+                    &quoted::TokenTree::Sequence(sp, seq.clone()),
+                    &interpolations,
+                    &repeats,
+                ) {
                     LockstepIterSize::Unconstrained => {
-                        cx.span_fatal(sp, /* blame macro writer */
+                        cx.span_fatal(
+                            sp, /* blame macro writer */
                             "attempted to repeat an expression \
                              containing no syntax \
-                             variables matched as repeating at this depth");
+                             variables matched as repeating at this depth",
+                        );
                     }
                     LockstepIterSize::Contradiction(ref msg) => {
                         // FIXME #2887 blame macro invoker instead
@@ -160,12 +188,16 @@ pub fn transcribe(cx: &ExtCtxt,
                             result.push(token.into());
                         }
                     } else {
-                        cx.span_fatal(sp, /* blame the macro writer */
-                            &format!("variable '{}' is still repeating at this depth", ident));
+                        cx.span_fatal(
+                            sp, /* blame the macro writer */
+                            &format!("variable '{}' is still repeating at this depth", ident),
+                        );
                     }
                 } else {
-                    let ident =
-                        Ident { ctxt: ident.ctxt.apply_mark(cx.current_expansion.mark), ..ident };
+                    let ident = Ident {
+                        ctxt: ident.ctxt.apply_mark(cx.current_expansion.mark),
+                        ..ident
+                    };
                     sp = sp.with_ctxt(sp.ctxt().apply_mark(cx.current_expansion.mark));
                     result.push(TokenTree::Token(sp, token::Dollar).into());
                     result.push(TokenTree::Token(sp, token::Ident(ident)).into());
@@ -173,7 +205,11 @@ pub fn transcribe(cx: &ExtCtxt,
             }
             quoted::TokenTree::Delimited(mut span, delimited) => {
                 span = span.with_ctxt(span.ctxt().apply_mark(cx.current_expansion.mark));
-                stack.push(Frame::Delimited { forest: delimited, idx: 0, span: span });
+                stack.push(Frame::Delimited {
+                    forest: delimited,
+                    idx: 0,
+                    span: span,
+                });
                 result_stack.push(mem::replace(&mut result, Vec::new()));
             }
             quoted::TokenTree::Token(sp, tok) => {
@@ -185,10 +221,11 @@ pub fn transcribe(cx: &ExtCtxt,
     }
 }
 
-fn lookup_cur_matched(ident: Ident,
-                      interpolations: &HashMap<Ident, Rc<NamedMatch>>,
-                      repeats: &[(usize, usize)])
-                      -> Option<Rc<NamedMatch>> {
+fn lookup_cur_matched(
+    ident: Ident,
+    interpolations: &HashMap<Ident, Rc<NamedMatch>>,
+    repeats: &[(usize, usize)],
+) -> Option<Rc<NamedMatch>> {
     interpolations.get(&ident).map(|matched| {
         let mut matched = matched.clone();
         for &(idx, _) in repeats {
@@ -222,9 +259,14 @@ impl Add for LockstepIterSize {
                 LockstepIterSize::Contradiction(_) => other,
                 LockstepIterSize::Constraint(r_len, _) if l_len == r_len => self.clone(),
                 LockstepIterSize::Constraint(r_len, r_id) => {
-                    let msg = format!("inconsistent lockstep iteration: \
-                                       '{}' has {} items, but '{}' has {}",
-                                      l_id, l_len, r_id, r_len);
+                    let msg = format!(
+                        "inconsistent lockstep iteration: \
+                         '{}' has {} items, but '{}' has {}",
+                        l_id,
+                        l_len,
+                        r_id,
+                        r_len
+                    );
                     LockstepIterSize::Contradiction(msg)
                 }
             },
@@ -232,30 +274,33 @@ impl Add for LockstepIterSize {
     }
 }
 
-fn lockstep_iter_size(tree: &quoted::TokenTree,
-                      interpolations: &HashMap<Ident, Rc<NamedMatch>>,
-                      repeats: &[(usize, usize)])
-                      -> LockstepIterSize {
+fn lockstep_iter_size(
+    tree: &quoted::TokenTree,
+    interpolations: &HashMap<Ident, Rc<NamedMatch>>,
+    repeats: &[(usize, usize)],
+) -> LockstepIterSize {
     use self::quoted::TokenTree;
     match *tree {
-        TokenTree::Delimited(_, ref delimed) => {
-            delimed.tts.iter().fold(LockstepIterSize::Unconstrained, |size, tt| {
+        TokenTree::Delimited(_, ref delimed) => delimed
+            .tts
+            .iter()
+            .fold(LockstepIterSize::Unconstrained, |size, tt| {
                 size + lockstep_iter_size(tt, interpolations, repeats)
-            })
-        },
-        TokenTree::Sequence(_, ref seq) => {
-            seq.tts.iter().fold(LockstepIterSize::Unconstrained, |size, tt| {
+            }),
+        TokenTree::Sequence(_, ref seq) => seq.tts
+            .iter()
+            .fold(LockstepIterSize::Unconstrained, |size, tt| {
                 size + lockstep_iter_size(tt, interpolations, repeats)
-            })
-        },
-        TokenTree::MetaVar(_, name) | TokenTree::MetaVarDecl(_, name, _) =>
+            }),
+        TokenTree::MetaVar(_, name) | TokenTree::MetaVarDecl(_, name, _) => {
             match lookup_cur_matched(name, interpolations, repeats) {
                 Some(matched) => match *matched {
                     MatchedNonterminal(_) => LockstepIterSize::Unconstrained,
                     MatchedSeq(ref ads, _) => LockstepIterSize::Constraint(ads.len(), name),
                 },
-                _ => LockstepIterSize::Unconstrained
-            },
+                _ => LockstepIterSize::Unconstrained,
+            }
+        }
         TokenTree::Token(..) => LockstepIterSize::Unconstrained,
     }
 }

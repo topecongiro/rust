@@ -19,8 +19,7 @@ use super::{FusedIterator, TrustedLen};
 ///
 /// The `steps_between` function provides a way to efficiently compare
 /// two `Step` objects.
-#[unstable(feature = "step_trait",
-           reason = "likely to be replaced by finer-grained traits",
+#[unstable(feature = "step_trait", reason = "likely to be replaced by finer-grained traits",
            issue = "42168")]
 pub trait Step: Clone + PartialOrd + Sized {
     /// Returns the number of steps between two step objects. The count is
@@ -166,7 +165,7 @@ macro_rules! step_impl_no_between {
 }
 
 step_impl_unsigned!(usize u8 u16 u32);
-step_impl_signed!([isize: usize] [i8: u8] [i16: u16] [i32: u32]);
+step_impl_signed!([isize: usize][i8: u8][i16: u16][i32: u32]);
 #[cfg(target_pointer_width = "64")]
 step_impl_unsigned!(u64);
 #[cfg(target_pointer_width = "64")]
@@ -235,7 +234,7 @@ impl<A: Step> Iterator for ops::Range<A> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         match Step::steps_between(&self.start, &self.end) {
             Some(hint) => (hint, Some(hint)),
-            None => (0, None)
+            None => (0, None),
         }
     }
 
@@ -244,7 +243,7 @@ impl<A: Step> Iterator for ops::Range<A> {
         if let Some(plus_n) = self.start.add_usize(n) {
             if plus_n < self.end {
                 self.start = plus_n.add_one();
-                return Some(plus_n)
+                return Some(plus_n);
             }
         }
 
@@ -322,12 +321,12 @@ impl<A: Step> Iterator for ops::RangeInclusive<A> {
             Some(Less) => {
                 let n = self.start.add_one();
                 Some(mem::replace(&mut self.start, n))
-            },
+            }
             Some(Equal) => {
                 let last = self.start.replace_one();
                 self.end.replace_zero();
                 Some(last)
-            },
+            }
             _ => None,
         }
     }
@@ -352,12 +351,12 @@ impl<A: Step> Iterator for ops::RangeInclusive<A> {
             match plus_n.partial_cmp(&self.end) {
                 Some(Less) => {
                     self.start = plus_n.add_one();
-                    return Some(plus_n)
+                    return Some(plus_n);
                 }
                 Some(Equal) => {
                     self.start.replace_one();
                     self.end.replace_zero();
-                    return Some(plus_n)
+                    return Some(plus_n);
                 }
                 _ => {}
             }
@@ -379,12 +378,12 @@ impl<A: Step> DoubleEndedIterator for ops::RangeInclusive<A> {
             Some(Less) => {
                 let n = self.end.sub_one();
                 Some(mem::replace(&mut self.end, n))
-            },
+            }
             Some(Equal) => {
                 let last = self.end.replace_zero();
                 self.start.replace_one();
                 Some(last)
-            },
+            }
             _ => None,
         }
     }

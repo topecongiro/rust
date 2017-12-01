@@ -12,15 +12,15 @@ use rustc::ty::{self, TyCtxt};
 use rustc::mir::*;
 use rustc::mir::tcx::RvalueInitializationState;
 use rustc::util::nodemap::FxHashMap;
-use rustc_data_structures::indexed_vec::{IndexVec};
+use rustc_data_structures::indexed_vec::IndexVec;
 
 use std::collections::hash_map::Entry;
 use std::mem;
 
 use super::abs_domain::Lift;
 
-use super::{LocationMap, MoveData, MovePath, MovePathLookup, MovePathIndex, MoveOut, MoveOutIndex};
-use super::{MoveError, InitIndex, Init, LookupResult, InitKind};
+use super::{LocationMap, MoveData, MoveOut, MoveOutIndex, MovePath, MovePathIndex, MovePathLookup};
+use super::{Init, InitIndex, InitKind, LookupResult, MoveError};
 use super::IllegalMoveOriginKind::*;
 
 struct MoveDataBuilder<'a, 'gcx: 'tcx, 'tcx: 'a> {
@@ -44,15 +44,19 @@ impl<'a, 'gcx, 'tcx> MoveDataBuilder<'a, 'gcx, 'tcx> {
                 moves: IndexVec::new(),
                 loc_map: LocationMap::new(mir),
                 rev_lookup: MovePathLookup {
-                    locals: mir.local_decls.indices().map(Lvalue::Local).map(|v| {
-                        Self::new_move_path(
-                            &mut move_paths,
-                            &mut path_map,
-                            &mut init_path_map,
-                            None,
-                            v,
-                        )
-                    }).collect(),
+                    locals: mir.local_decls
+                        .indices()
+                        .map(Lvalue::Local)
+                        .map(|v| {
+                            Self::new_move_path(
+                                &mut move_paths,
+                                &mut path_map,
+                                &mut init_path_map,
+                                None,
+                                v,
+                            )
+                        })
+                        .collect(),
                     projections: FxHashMap(),
                 },
                 move_paths,
@@ -60,17 +64,17 @@ impl<'a, 'gcx, 'tcx> MoveDataBuilder<'a, 'gcx, 'tcx> {
                 inits: IndexVec::new(),
                 init_loc_map: LocationMap::new(mir),
                 init_path_map,
-            }
+            },
         }
     }
 
-    fn new_move_path(move_paths: &mut IndexVec<MovePathIndex, MovePath<'tcx>>,
-                     path_map: &mut IndexVec<MovePathIndex, Vec<MoveOutIndex>>,
-                     init_path_map: &mut IndexVec<MovePathIndex, Vec<InitIndex>>,
-                     parent: Option<MovePathIndex>,
-                     lvalue: Lvalue<'tcx>)
-                     -> MovePathIndex
-    {
+    fn new_move_path(
+        move_paths: &mut IndexVec<MovePathIndex, MovePath<'tcx>>,
+        path_map: &mut IndexVec<MovePathIndex, Vec<MoveOutIndex>>,
+        init_path_map: &mut IndexVec<MovePathIndex, Vec<InitIndex>>,
+        parent: Option<MovePathIndex>,
+        lvalue: Lvalue<'tcx>,
+    ) -> MovePathIndex {
         let move_path = move_paths.push(MovePath {
             next_sibling: None,
             first_child: None,
@@ -79,8 +83,7 @@ impl<'a, 'gcx, 'tcx> MoveDataBuilder<'a, 'gcx, 'tcx> {
         });
 
         if let Some(parent) = parent {
-            let next_sibling =
-                mem::replace(&mut move_paths[parent].first_child, Some(move_path));
+            let next_sibling = mem::replace(&mut move_paths[parent].first_child, Some(move_path));
             move_paths[move_path].next_sibling = next_sibling;
         }
 
@@ -102,9 +105,7 @@ impl<'b, 'a, 'gcx, 'tcx> Gatherer<'b, 'a, 'gcx, 'tcx> {
     /// problematic for borrowck.
     ///
     /// Maybe we should have separate "borrowck" and "moveck" modes.
-    fn move_path_for(&mut self, lval: &Lvalue<'tcx>)
-                     -> Result<MovePathIndex, MoveError<'tcx>>
-    {
+    fn move_path_for(&mut self, lval: &Lvalue<'tcx>) -> Result<MovePathIndex, MoveError<'tcx>> {
         debug!("lookup({:?})", lval);
         match *lval {
             Lvalue::Local(local) => Ok(self.builder.data.rev_lookup.locals[local]),
@@ -112,9 +113,7 @@ impl<'b, 'a, 'gcx, 'tcx> Gatherer<'b, 'a, 'gcx, 'tcx> {
                 let span = self.builder.mir.source_info(self.loc).span;
                 Err(MoveError::cannot_move_out_of(span, Static))
             }
-            Lvalue::Projection(ref proj) => {
-                self.move_path_for_projection(lval, proj)
-            }
+            Lvalue::Projection(ref proj) => self.move_path_for_projection(lval, proj),
         }
     }
 
@@ -124,50 +123,66 @@ impl<'b, 'a, 'gcx, 'tcx> Gatherer<'b, 'a, 'gcx, 'tcx> {
         let _ = self.move_path_for(lval);
     }
 
-    fn move_path_for_projection(&mut self,
-                                lval: &Lvalue<'tcx>,
-                                proj: &LvalueProjection<'tcx>)
-                                -> Result<MovePathIndex, MoveError<'tcx>>
-    {
+    fn move_path_for_projection(
+        &mut self,
+        lval: &Lvalue<'tcx>,
+        proj: &LvalueProjection<'tcx>,
+    ) -> Result<MovePathIndex, MoveError<'tcx>> {
         let base = try!(self.move_path_for(&proj.base));
         let mir = self.builder.mir;
         let tcx = self.builder.tcx;
         let lv_ty = proj.base.ty(mir, tcx).to_ty(tcx);
         match lv_ty.sty {
-            ty::TyRef(..) | ty::TyRawPtr(..) =>
-                return Err(MoveError::cannot_move_out_of(mir.source_info(self.loc).span,
-                                                         BorrowedContent)),
-            ty::TyAdt(adt, _) if adt.has_dtor(tcx) && !adt.is_box() =>
-                return Err(MoveError::cannot_move_out_of(mir.source_info(self.loc).span,
-                                                         InteriorOfTypeWithDestructor {
-                    container_ty: lv_ty
-                })),
+            ty::TyRef(..) | ty::TyRawPtr(..) => {
+                return Err(MoveError::cannot_move_out_of(
+                    mir.source_info(self.loc).span,
+                    BorrowedContent,
+                ))
+            }
+            ty::TyAdt(adt, _) if adt.has_dtor(tcx) && !adt.is_box() => {
+                return Err(MoveError::cannot_move_out_of(
+                    mir.source_info(self.loc).span,
+                    InteriorOfTypeWithDestructor {
+                        container_ty: lv_ty,
+                    },
+                ))
+            }
             // move out of union - always move the entire union
-            ty::TyAdt(adt, _) if adt.is_union() =>
-                return Err(MoveError::UnionMove { path: base }),
-            ty::TySlice(_) =>
+            ty::TyAdt(adt, _) if adt.is_union() => return Err(MoveError::UnionMove { path: base }),
+            ty::TySlice(_) => {
                 return Err(MoveError::cannot_move_out_of(
                     mir.source_info(self.loc).span,
                     InteriorOfSliceOrArray {
-                        ty: lv_ty, is_index: match proj.elem {
+                        ty: lv_ty,
+                        is_index: match proj.elem {
                             ProjectionElem::Index(..) => true,
-                            _ => false
+                            _ => false,
                         },
-                    })),
+                    },
+                ))
+            }
             ty::TyArray(..) => match proj.elem {
-                ProjectionElem::Index(..) =>
+                ProjectionElem::Index(..) => {
                     return Err(MoveError::cannot_move_out_of(
                         mir.source_info(self.loc).span,
                         InteriorOfSliceOrArray {
-                            ty: lv_ty, is_index: true
-                        })),
+                            ty: lv_ty,
+                            is_index: true,
+                        },
+                    ))
+                }
                 _ => {
                     // FIXME: still badly broken
                 }
             },
             _ => {}
         };
-        match self.builder.data.rev_lookup.projections.entry((base, proj.elem.lift())) {
+        match self.builder
+            .data
+            .rev_lookup
+            .projections
+            .entry((base, proj.elem.lift()))
+        {
             Entry::Occupied(ent) => Ok(*ent.get()),
             Entry::Vacant(ent) => {
                 let path = MoveDataBuilder::new_move_path(
@@ -175,7 +190,7 @@ impl<'b, 'a, 'gcx, 'tcx> Gatherer<'b, 'a, 'gcx, 'tcx> {
                     &mut self.builder.data.path_map,
                     &mut self.builder.data.init_path_map,
                     Some(base),
-                    lval.clone()
+                    lval.clone(),
                 );
                 ent.insert(path);
                 Ok(path)
@@ -206,22 +221,26 @@ impl<'a, 'gcx, 'tcx> MoveDataBuilder<'a, 'gcx, 'tcx> {
     }
 }
 
-pub(super) fn gather_moves<'a, 'gcx, 'tcx>(mir: &Mir<'tcx>, tcx: TyCtxt<'a, 'gcx, 'tcx>)
-                                           -> Result<MoveData<'tcx>,
-                                                     (MoveData<'tcx>, Vec<MoveError<'tcx>>)> {
+pub(super) fn gather_moves<'a, 'gcx, 'tcx>(
+    mir: &Mir<'tcx>,
+    tcx: TyCtxt<'a, 'gcx, 'tcx>,
+) -> Result<MoveData<'tcx>, (MoveData<'tcx>, Vec<MoveError<'tcx>>)> {
     let mut builder = MoveDataBuilder::new(mir, tcx);
 
     builder.gather_args();
 
     for (bb, block) in mir.basic_blocks().iter_enumerated() {
         for (i, stmt) in block.statements.iter().enumerate() {
-            let source = Location { block: bb, statement_index: i };
+            let source = Location {
+                block: bb,
+                statement_index: i,
+            };
             builder.gather_statement(source, stmt);
         }
 
         let terminator_loc = Location {
             block: bb,
-            statement_index: block.statements.len()
+            statement_index: block.statements.len(),
         };
         builder.gather_terminator(terminator_loc, block.terminator());
     }
@@ -236,11 +255,17 @@ impl<'a, 'gcx, 'tcx> MoveDataBuilder<'a, 'gcx, 'tcx> {
             let span = self.mir.local_decls[arg].source_info.span;
 
             let init = self.data.inits.push(Init {
-                path, span, kind: InitKind::Deep
+                path,
+                span,
+                kind: InitKind::Deep,
             });
 
-            debug!("gather_args: adding init {:?} of {:?} for argument {:?}",
-                init, path, arg);
+            debug!(
+                "gather_args: adding init {:?} of {:?} for argument {:?}",
+                init,
+                path,
+                arg
+            );
 
             self.data.init_path_map[path].push(init);
         }
@@ -282,40 +307,38 @@ impl<'b, 'a, 'gcx, 'tcx> Gatherer<'b, 'a, 'gcx, 'tcx> {
             StatementKind::StorageDead(local) => {
                 self.gather_move(&Lvalue::Local(local));
             }
-            StatementKind::SetDiscriminant{ .. } => {
-                span_bug!(stmt.source_info.span,
-                          "SetDiscriminant should not exist during borrowck");
+            StatementKind::SetDiscriminant { .. } => {
+                span_bug!(
+                    stmt.source_info.span,
+                    "SetDiscriminant should not exist during borrowck"
+                );
             }
-            StatementKind::InlineAsm { .. } |
-            StatementKind::EndRegion(_) |
-            StatementKind::Validate(..) |
-            StatementKind::Nop => {}
+            StatementKind::InlineAsm { .. }
+            | StatementKind::EndRegion(_)
+            | StatementKind::Validate(..)
+            | StatementKind::Nop => {}
         }
     }
 
     fn gather_rvalue(&mut self, rvalue: &Rvalue<'tcx>) {
         match *rvalue {
-            Rvalue::Use(ref operand) |
-            Rvalue::Repeat(ref operand, _) |
-            Rvalue::Cast(_, ref operand, _) |
-            Rvalue::UnaryOp(_, ref operand) => {
-                self.gather_operand(operand)
-            }
-            Rvalue::BinaryOp(ref _binop, ref lhs, ref rhs) |
-            Rvalue::CheckedBinaryOp(ref _binop, ref lhs, ref rhs) => {
+            Rvalue::Use(ref operand)
+            | Rvalue::Repeat(ref operand, _)
+            | Rvalue::Cast(_, ref operand, _)
+            | Rvalue::UnaryOp(_, ref operand) => self.gather_operand(operand),
+            Rvalue::BinaryOp(ref _binop, ref lhs, ref rhs)
+            | Rvalue::CheckedBinaryOp(ref _binop, ref lhs, ref rhs) => {
                 self.gather_operand(lhs);
                 self.gather_operand(rhs);
             }
-            Rvalue::Aggregate(ref _kind, ref operands) => {
-                for operand in operands {
-                    self.gather_operand(operand);
-                }
-            }
-            Rvalue::Ref(..) |
-            Rvalue::Discriminant(..) |
-            Rvalue::Len(..) |
-            Rvalue::NullaryOp(NullOp::SizeOf, _) |
-            Rvalue::NullaryOp(NullOp::Box, _) => {
+            Rvalue::Aggregate(ref _kind, ref operands) => for operand in operands {
+                self.gather_operand(operand);
+            },
+            Rvalue::Ref(..)
+            | Rvalue::Discriminant(..)
+            | Rvalue::Len(..)
+            | Rvalue::NullaryOp(NullOp::SizeOf, _)
+            | Rvalue::NullaryOp(NullOp::Box, _) => {
                 // This returns an rvalue with uninitialized contents. We can't
                 // move out of it here because it is an rvalue - assignments always
                 // completely initialize their lvalue.
@@ -332,18 +355,17 @@ impl<'b, 'a, 'gcx, 'tcx> Gatherer<'b, 'a, 'gcx, 'tcx> {
 
     fn gather_terminator(&mut self, term: &Terminator<'tcx>) {
         match term.kind {
-            TerminatorKind::Goto { target: _ } |
-            TerminatorKind::Resume |
-            TerminatorKind::GeneratorDrop |
-            TerminatorKind::FalseEdges { .. } |
-            TerminatorKind::Unreachable => { }
+            TerminatorKind::Goto { target: _ }
+            | TerminatorKind::Resume
+            | TerminatorKind::GeneratorDrop
+            | TerminatorKind::FalseEdges { .. }
+            | TerminatorKind::Unreachable => {}
 
             TerminatorKind::Return => {
                 self.gather_move(&Lvalue::Local(RETURN_POINTER));
             }
 
-            TerminatorKind::Assert { .. } |
-            TerminatorKind::SwitchInt { .. } => {
+            TerminatorKind::Assert { .. } | TerminatorKind::SwitchInt { .. } => {
                 // branching terminators - these don't move anything
             }
 
@@ -351,15 +373,28 @@ impl<'b, 'a, 'gcx, 'tcx> Gatherer<'b, 'a, 'gcx, 'tcx> {
                 self.gather_operand(value);
             }
 
-            TerminatorKind::Drop { ref location, target: _, unwind: _ } => {
+            TerminatorKind::Drop {
+                ref location,
+                target: _,
+                unwind: _,
+            } => {
                 self.gather_move(location);
             }
-            TerminatorKind::DropAndReplace { ref location, ref value, .. } => {
+            TerminatorKind::DropAndReplace {
+                ref location,
+                ref value,
+                ..
+            } => {
                 self.create_move_path(location);
                 self.gather_operand(value);
                 self.gather_init(location, InitKind::Deep);
             }
-            TerminatorKind::Call { ref func, ref args, ref destination, cleanup: _ } => {
+            TerminatorKind::Call {
+                ref func,
+                ref args,
+                ref destination,
+                cleanup: _,
+            } => {
                 self.gather_operand(func);
                 for arg in args {
                     self.gather_operand(arg);
@@ -374,9 +409,9 @@ impl<'b, 'a, 'gcx, 'tcx> Gatherer<'b, 'a, 'gcx, 'tcx> {
 
     fn gather_operand(&mut self, operand: &Operand<'tcx>) {
         match *operand {
-            Operand::Constant(..) |
-            Operand::Copy(..) => {} // not-a-move
-            Operand::Move(ref lval) => { // a move
+            Operand::Constant(..) | Operand::Copy(..) => {} // not-a-move
+            Operand::Move(ref lval) => {
+                // a move
                 self.gather_move(lval);
             }
         }
@@ -392,10 +427,18 @@ impl<'b, 'a, 'gcx, 'tcx> Gatherer<'b, 'a, 'gcx, 'tcx> {
                 return;
             }
         };
-        let move_out = self.builder.data.moves.push(MoveOut { path: path, source: self.loc });
+        let move_out = self.builder.data.moves.push(MoveOut {
+            path: path,
+            source: self.loc,
+        });
 
-        debug!("gather_move({:?}, {:?}): adding move {:?} of {:?}",
-               self.loc, lval, move_out, path);
+        debug!(
+            "gather_move({:?}, {:?}): adding move {:?} of {:?}",
+            self.loc,
+            lval,
+            move_out,
+            path
+        );
 
         self.builder.data.path_map[path].push(move_out);
         self.builder.data.loc_map[self.loc].push(move_out);
@@ -411,8 +454,13 @@ impl<'b, 'a, 'gcx, 'tcx> Gatherer<'b, 'a, 'gcx, 'tcx> {
                 kind,
             });
 
-            debug!("gather_init({:?}, {:?}): adding init {:?} of {:?}",
-               self.loc, lval, init, path);
+            debug!(
+                "gather_init({:?}, {:?}): adding init {:?} of {:?}",
+                self.loc,
+                lval,
+                init,
+                path
+            );
 
             self.builder.data.init_path_map[path].push(init);
             self.builder.data.init_loc_map[self.loc].push(init);

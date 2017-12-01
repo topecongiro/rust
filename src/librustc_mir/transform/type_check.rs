@@ -104,12 +104,7 @@ impl<'a, 'b, 'gcx, 'tcx> Visitor<'tcx> for TypeVerifier<'a, 'b, 'gcx, 'tcx> {
         }
     }
 
-    fn visit_lvalue(
-        &mut self,
-        lvalue: &Lvalue<'tcx>,
-        context: LvalueContext,
-        location: Location,
-    ) {
+    fn visit_lvalue(&mut self, lvalue: &Lvalue<'tcx>, context: LvalueContext, location: Location) {
         self.sanitize_lvalue(lvalue, location, context);
     }
 
@@ -164,11 +159,12 @@ impl<'a, 'b, 'gcx, 'tcx> TypeVerifier<'a, 'b, 'gcx, 'tcx> {
         }
     }
 
-    fn sanitize_lvalue(&mut self,
-                       lvalue: &Lvalue<'tcx>,
-                       location: Location,
-                       context: LvalueContext)
-                       -> LvalueTy<'tcx> {
+    fn sanitize_lvalue(
+        &mut self,
+        lvalue: &Lvalue<'tcx>,
+        location: Location,
+        context: LvalueContext,
+    ) -> LvalueTy<'tcx> {
         debug!("sanitize_lvalue: {:?}", lvalue);
         let lvalue_ty = match *lvalue {
             Lvalue::Local(index) => LvalueTy::Ty {
@@ -212,9 +208,11 @@ impl<'a, 'b, 'gcx, 'tcx> TypeVerifier<'a, 'b, 'gcx, 'tcx> {
         };
         if let LvalueContext::Copy = context {
             let ty = lvalue_ty.to_ty(self.tcx());
-            if self.cx.infcx.type_moves_by_default(self.cx.param_env, ty, DUMMY_SP) {
-                span_mirbug!(self, lvalue,
-                             "attempted copy of non-Copy type ({:?})", ty);
+            if self.cx
+                .infcx
+                .type_moves_by_default(self.cx.param_env, ty, DUMMY_SP)
+            {
+                span_mirbug!(self, lvalue, "attempted copy of non-Copy type ({:?})", ty);
             }
         }
         lvalue_ty
@@ -361,9 +359,7 @@ impl<'a, 'b, 'gcx, 'tcx> TypeVerifier<'a, 'b, 'gcx, 'tcx> {
                 variant_index,
             } => (&adt_def.variants[variant_index], substs),
             LvalueTy::Ty { ty } => match ty.sty {
-                ty::TyAdt(adt_def, substs) if !adt_def.is_enum() => {
-                    (&adt_def.variants[0], substs)
-                }
+                ty::TyAdt(adt_def, substs) if !adt_def.is_enum() => (&adt_def.variants[0], substs),
                 ty::TyClosure(def_id, substs) => {
                     return match substs.upvar_tys(def_id, tcx).nth(field.index()) {
                         Some(ty) => Ok(ty),
@@ -593,12 +589,12 @@ impl<'a, 'gcx, 'tcx> TypeChecker<'a, 'gcx, 'tcx> {
                     );
                 };
             }
-            StatementKind::StorageLive(_) |
-            StatementKind::StorageDead(_) |
-            StatementKind::InlineAsm { .. } |
-            StatementKind::EndRegion(_) |
-            StatementKind::Validate(..) |
-            StatementKind::Nop => {}
+            StatementKind::StorageLive(_)
+            | StatementKind::StorageDead(_)
+            | StatementKind::InlineAsm { .. }
+            | StatementKind::EndRegion(_)
+            | StatementKind::Validate(..)
+            | StatementKind::Nop => {}
         }
     }
 
@@ -611,13 +607,13 @@ impl<'a, 'gcx, 'tcx> TypeChecker<'a, 'gcx, 'tcx> {
         debug!("check_terminator: {:?}", term);
         let tcx = self.tcx();
         match term.kind {
-            TerminatorKind::Goto { .. } |
-            TerminatorKind::Resume |
-            TerminatorKind::Return |
-            TerminatorKind::GeneratorDrop |
-            TerminatorKind::Unreachable |
-            TerminatorKind::Drop { .. } |
-            TerminatorKind::FalseEdges { .. } => {
+            TerminatorKind::Goto { .. }
+            | TerminatorKind::Resume
+            | TerminatorKind::Return
+            | TerminatorKind::GeneratorDrop
+            | TerminatorKind::Unreachable
+            | TerminatorKind::Drop { .. }
+            | TerminatorKind::FalseEdges { .. } => {
                 // no checks needed for these
             }
 
@@ -929,9 +925,9 @@ impl<'a, 'gcx, 'tcx> TypeChecker<'a, 'gcx, 'tcx> {
                 }
             }
             TerminatorKind::Unreachable => {}
-            TerminatorKind::Drop { target, unwind, .. } |
-            TerminatorKind::DropAndReplace { target, unwind, .. } |
-            TerminatorKind::Assert {
+            TerminatorKind::Drop { target, unwind, .. }
+            | TerminatorKind::DropAndReplace { target, unwind, .. }
+            | TerminatorKind::Assert {
                 target,
                 cleanup: unwind,
                 ..
@@ -1069,9 +1065,7 @@ impl<'a, 'gcx, 'tcx> TypeChecker<'a, 'gcx, 'tcx> {
                     }
                 }
             }
-            AggregateKind::Array(ty) => {
-                Ok(ty)
-            }
+            AggregateKind::Array(ty) => Ok(ty),
             AggregateKind::Tuple => {
                 unreachable!("This should have been covered in check_rvalues");
             }
@@ -1085,52 +1079,47 @@ impl<'a, 'gcx, 'tcx> TypeChecker<'a, 'gcx, 'tcx> {
                 match **ak {
                     // tuple rvalue field type is always the type of the op. Nothing to check here.
                     AggregateKind::Tuple => {}
-                    _ => {
-                        for (i, op) in ops.iter().enumerate() {
-                            let field_ty = match self.aggregate_field_ty(ak, i, location) {
-                                Ok(field_ty) => field_ty,
-                                Err(FieldAccessError::OutOfRange { field_count }) => {
-                                    span_mirbug!(
-                                        self,
-                                        rv,
-                                        "accessed field #{} but variant only has {}",
-                                        i,
-                                        field_count
-                                    );
-                                    continue;
-                                }
-                            };
-                            let op_ty = op.ty(mir, tcx);
-                            if let Err(terr) = self.sub_types(
-                                op_ty,
-                                field_ty,
-                                location.at_successor_within_block(),
-                            )
-                                {
-                                    span_mirbug!(
+                    _ => for (i, op) in ops.iter().enumerate() {
+                        let field_ty = match self.aggregate_field_ty(ak, i, location) {
+                            Ok(field_ty) => field_ty,
+                            Err(FieldAccessError::OutOfRange { field_count }) => {
+                                span_mirbug!(
                                     self,
                                     rv,
-                                    "{:?} is not a subtype of {:?}: {:?}",
-                                    op_ty,
-                                    field_ty,
-                                    terr
+                                    "accessed field #{} but variant only has {}",
+                                    i,
+                                    field_count
                                 );
-                                }
+                                continue;
+                            }
+                        };
+                        let op_ty = op.ty(mir, tcx);
+                        if let Err(terr) =
+                            self.sub_types(op_ty, field_ty, location.at_successor_within_block())
+                        {
+                            span_mirbug!(
+                                self,
+                                rv,
+                                "{:?} is not a subtype of {:?}: {:?}",
+                                op_ty,
+                                field_ty,
+                                terr
+                            );
                         }
-                    }
+                    },
                 }
             }
             // FIXME: These other cases have to be implemented in future PRs
-            Rvalue::Use(..) |
-            Rvalue::Repeat(..) |
-            Rvalue::Ref(..) |
-            Rvalue::Len(..) |
-            Rvalue::Cast(..) |
-            Rvalue::BinaryOp(..) |
-            Rvalue::CheckedBinaryOp(..) |
-            Rvalue::UnaryOp(..) |
-            Rvalue::Discriminant(..) |
-            Rvalue::NullaryOp(..) => {}
+            Rvalue::Use(..)
+            | Rvalue::Repeat(..)
+            | Rvalue::Ref(..)
+            | Rvalue::Len(..)
+            | Rvalue::Cast(..)
+            | Rvalue::BinaryOp(..)
+            | Rvalue::CheckedBinaryOp(..)
+            | Rvalue::UnaryOp(..)
+            | Rvalue::Discriminant(..)
+            | Rvalue::NullaryOp(..) => {}
         }
     }
 

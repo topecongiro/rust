@@ -20,12 +20,8 @@ use path::{self, Path};
 use sys::mutex::Mutex;
 use ptr;
 
-pub use sys::backtrace::{
-    unwind_backtrace,
-    resolve_symname,
-    foreach_symbol_fileline,
-    BacktraceContext
-};
+pub use sys::backtrace::{foreach_symbol_fileline, resolve_symname, unwind_backtrace,
+                         BacktraceContext};
 
 #[cfg(target_pointer_width = "64")]
 pub const HEX_WIDTH: usize = 18;
@@ -66,22 +62,28 @@ fn _print(w: &mut Write, format: PrintFormat) -> io::Result<()> {
         symbol_addr: ptr::null(),
     }; MAX_NB_FRAMES];
     let (nb_frames, context) = unwind_backtrace(&mut frames)?;
-    let (skipped_before, skipped_after) =
-        filter_frames(&frames[..nb_frames], format, &context);
+    let (skipped_before, skipped_after) = filter_frames(&frames[..nb_frames], format, &context);
     if skipped_before + skipped_after > 0 {
-        writeln!(w, "note: Some details are omitted, \
-                     run with `RUST_BACKTRACE=full` for a verbose backtrace.")?;
+        writeln!(
+            w,
+            "note: Some details are omitted, \
+             run with `RUST_BACKTRACE=full` for a verbose backtrace."
+        )?;
     }
     writeln!(w, "stack backtrace:")?;
 
     let filtered_frames = &frames[..nb_frames - skipped_after];
     for (index, frame) in filtered_frames.iter().skip(skipped_before).enumerate() {
-        resolve_symname(*frame, |symname| {
-            output(w, index, *frame, symname, format)
-        }, &context)?;
-        let has_more_filenames = foreach_symbol_fileline(*frame, |file, line| {
-            output_fileline(w, file, line, format)
-        }, &context)?;
+        resolve_symname(
+            *frame,
+            |symname| output(w, index, *frame, symname, format),
+            &context,
+        )?;
+        let has_more_filenames = foreach_symbol_fileline(
+            *frame,
+            |file, line| output_fileline(w, file, line, format),
+            &context,
+        )?;
         if has_more_filenames {
             w.write_all(b" <... and possibly more>")?;
         }
@@ -92,29 +94,38 @@ fn _print(w: &mut Write, format: PrintFormat) -> io::Result<()> {
 
 /// Returns a number of frames to remove at the beginning and at the end of the
 /// backtrace, according to the backtrace format.
-fn filter_frames(frames: &[Frame],
-                 format: PrintFormat,
-                 context: &BacktraceContext) -> (usize, usize)
-{
+fn filter_frames(
+    frames: &[Frame],
+    format: PrintFormat,
+    context: &BacktraceContext,
+) -> (usize, usize) {
     if format == PrintFormat::Full {
         return (0, 0);
     }
 
     let skipped_before = 0;
 
-    let skipped_after = frames.len() - frames.iter().position(|frame| {
-        let mut is_marker = false;
-        let _ = resolve_symname(*frame, |symname| {
-            if let Some(mangled_symbol_name) = symname {
-                // Use grep to find the concerned functions
-                if mangled_symbol_name.contains("__rust_begin_short_backtrace") {
-                    is_marker = true;
-                }
-            }
-            Ok(())
-        }, context);
-        is_marker
-    }).unwrap_or(frames.len());
+    let skipped_after = frames.len()
+        - frames
+            .iter()
+            .position(|frame| {
+                let mut is_marker = false;
+                let _ = resolve_symname(
+                    *frame,
+                    |symname| {
+                        if let Some(mangled_symbol_name) = symname {
+                            // Use grep to find the concerned functions
+                            if mangled_symbol_name.contains("__rust_begin_short_backtrace") {
+                                is_marker = true;
+                            }
+                        }
+                        Ok(())
+                    },
+                    context,
+                );
+                is_marker
+            })
+            .unwrap_or(frames.len());
 
     if skipped_before + skipped_after >= frames.len() {
         // Avoid showing completely empty backtraces
@@ -128,7 +139,10 @@ fn filter_frames(frames: &[Frame],
 /// Fixed frame used to clean the backtrace with `RUST_BACKTRACE=1`.
 #[inline(never)]
 pub fn __rust_begin_short_backtrace<F, T>(f: F) -> T
-    where F: FnOnce() -> T, F: Send + 'static, T: Send + 'static
+where
+    F: FnOnce() -> T,
+    F: Send + 'static,
+    T: Send + 'static,
 {
     f()
 }
@@ -147,7 +161,7 @@ pub enum PrintFormat {
 pub fn log_enabled() -> Option<PrintFormat> {
     static ENABLED: atomic::AtomicIsize = atomic::AtomicIsize::new(0);
     match ENABLED.load(Ordering::SeqCst) {
-        0 => {},
+        0 => {}
         1 => return None,
         2 => return Some(PrintFormat::Full),
         3 => return Some(PrintFormat::Short),
@@ -164,10 +178,13 @@ pub fn log_enabled() -> Option<PrintFormat> {
         },
         None => None,
     };
-    ENABLED.store(match val {
-        Some(v) => v as isize,
-        None => 1,
-    }, Ordering::SeqCst);
+    ENABLED.store(
+        match val {
+            Some(v) => v as isize,
+            None => 1,
+        },
+        Ordering::SeqCst,
+    );
     val
 }
 
@@ -175,18 +192,19 @@ pub fn log_enabled() -> Option<PrintFormat> {
 ///
 /// These output functions should now be used everywhere to ensure consistency.
 /// You may want to also use `output_fileline`.
-fn output(w: &mut Write, idx: usize, frame: Frame,
-              s: Option<&str>, format: PrintFormat) -> io::Result<()> {
+fn output(
+    w: &mut Write,
+    idx: usize,
+    frame: Frame,
+    s: Option<&str>,
+    format: PrintFormat,
+) -> io::Result<()> {
     // Remove the `17: 0x0 - <unknown>` line.
     if format == PrintFormat::Short && frame.exact_position == ptr::null() {
         return Ok(());
     }
     match format {
-        PrintFormat::Full => write!(w,
-                                    "  {:2}: {:2$?} - ",
-                                    idx,
-                                    frame.exact_position,
-                                    HEX_WIDTH)?,
+        PrintFormat::Full => write!(w, "  {:2}: {:2$?} - ", idx, frame.exact_position, HEX_WIDTH)?,
         PrintFormat::Short => write!(w, "  {:2}: ", idx)?,
     }
     match s {
@@ -200,17 +218,11 @@ fn output(w: &mut Write, idx: usize, frame: Frame,
 ///
 /// See also `output`.
 #[allow(dead_code)]
-fn output_fileline(w: &mut Write,
-                   file: &[u8],
-                   line: u32,
-                   format: PrintFormat) -> io::Result<()> {
+fn output_fileline(w: &mut Write, file: &[u8], line: u32, format: PrintFormat) -> io::Result<()> {
     // prior line: "  ##: {:2$} - func"
     w.write_all(b"")?;
     match format {
-        PrintFormat::Full => write!(w,
-                                    "           {:1$}",
-                                    "",
-                                    HEX_WIDTH)?,
+        PrintFormat::Full => write!(w, "           {:1$}", "", HEX_WIDTH)?,
         PrintFormat::Short => write!(w, "           ")?,
     }
 
@@ -259,10 +271,10 @@ pub fn demangle(writer: &mut Write, s: &str, format: PrintFormat) -> io::Result<
     let mut valid = true;
     let mut inner = s;
     if s.len() > 4 && s.starts_with("_ZN") && s.ends_with("E") {
-        inner = &s[3 .. s.len() - 1];
+        inner = &s[3..s.len() - 1];
     // On Windows, dbghelp strips leading underscores, so we accept "ZN...E" form too.
     } else if s.len() > 3 && s.starts_with("ZN") && s.ends_with("E") {
-        inner = &s[2 .. s.len() - 1];
+        inner = &s[2..s.len() - 1];
     } else {
         valid = false;
     }
@@ -275,12 +287,12 @@ pub fn demangle(writer: &mut Write, s: &str, format: PrintFormat) -> io::Result<
                 if c.is_numeric() {
                     i = i * 10 + c as usize - '0' as usize;
                 } else {
-                    break
+                    break;
                 }
             }
             if i == 0 {
                 valid = chars.next().is_none();
-                break
+                break;
             } else if chars.by_ref().take(i - 1).count() != i - 1 {
                 valid = false;
             }
@@ -297,9 +309,7 @@ pub fn demangle(writer: &mut Write, s: &str, format: PrintFormat) -> io::Result<
             let mut split = inner.rsplitn(2, "17h");
             match (split.next(), split.next()) {
                 (Some(addr), rest) => {
-                    if addr.len() == 16 &&
-                       addr.chars().all(|c| c.is_digit(16))
-                    {
+                    if addr.len() == 16 && addr.chars().all(|c| c.is_digit(16)) {
                         inner = rest.unwrap_or("");
                     }
                 }
@@ -318,7 +328,7 @@ pub fn demangle(writer: &mut Write, s: &str, format: PrintFormat) -> io::Result<
             while rest.chars().next().unwrap().is_numeric() {
                 rest = &rest[1..];
             }
-            let i: usize = inner[.. (inner.len() - rest.len())].parse().unwrap();
+            let i: usize = inner[..(inner.len() - rest.len())].parse().unwrap();
             inner = &rest[i..];
             rest = &rest[..i];
             if rest.starts_with("_$") {
@@ -437,7 +447,9 @@ mod tests {
 
     #[test]
     fn demangle_trait_impls() {
-        t!("_ZN71_$LT$Test$u20$$u2b$$u20$$u27$static$u20$as$u20$foo..Bar$LT$Test$GT$$GT$3barE",
-           "<Test + 'static as foo::Bar<Test>>::bar");
+        t!(
+            "_ZN71_$LT$Test$u20$$u2b$$u20$$u27$static$u20$as$u20$foo..Bar$LT$Test$GT$$GT$3barE",
+            "<Test + 'static as foo::Bar<Test>>::bar"
+        );
     }
 }

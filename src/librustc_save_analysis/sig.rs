@@ -312,11 +312,11 @@ impl Sig for ast::Ty {
                 let text = format!("[{}; {}]", nested_ty.text, expr);
                 Ok(replace_text(nested_ty, text))
             }
-            ast::TyKind::Typeof(_) |
-            ast::TyKind::Infer |
-            ast::TyKind::Err |
-            ast::TyKind::ImplicitSelf |
-            ast::TyKind::Mac(_) => Err("Ty"),
+            ast::TyKind::Typeof(_)
+            | ast::TyKind::Infer
+            | ast::TyKind::Err
+            | ast::TyKind::ImplicitSelf
+            | ast::TyKind::Mac(_) => Err("Ty"),
         }
     }
 }

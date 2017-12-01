@@ -10,7 +10,7 @@
 
 use hir::def_id::DefId;
 use ty::subst::Substs;
-use ty::{ClosureSubsts, Region, Ty, GeneratorInterior};
+use ty::{ClosureSubsts, GeneratorInterior, Region, Ty};
 use mir::*;
 use rustc_const_math::ConstUsize;
 use syntax_pos::Span;
@@ -845,7 +845,10 @@ pub enum LvalueContext<'tcx> {
     Inspect,
 
     // Being borrowed
-    Borrow { region: Region<'tcx>, kind: BorrowKind },
+    Borrow {
+        region: Region<'tcx>,
+        kind: BorrowKind,
+    },
 
     // Used as base for another lvalue, e.g. `x` in `x.y`.
     //
@@ -910,31 +913,58 @@ impl<'tcx> LvalueContext<'tcx> {
     /// Returns true if this lvalue context represents a use that potentially changes the value.
     pub fn is_mutating_use(&self) -> bool {
         match *self {
-            LvalueContext::Store | LvalueContext::Call |
-            LvalueContext::Borrow { kind: BorrowKind::Mut, .. } |
-            LvalueContext::Projection(Mutability::Mut) |
-            LvalueContext::Drop => true,
-            LvalueContext::Inspect |
-            LvalueContext::Borrow { kind: BorrowKind::Shared, .. } |
-            LvalueContext::Borrow { kind: BorrowKind::Unique, .. } |
-            LvalueContext::Projection(Mutability::Not) |
-            LvalueContext::Copy | LvalueContext::Move |
-            LvalueContext::StorageLive | LvalueContext::StorageDead |
-            LvalueContext::Validate => false,
+            LvalueContext::Store
+            | LvalueContext::Call
+            | LvalueContext::Borrow {
+                kind: BorrowKind::Mut,
+                ..
+            }
+            | LvalueContext::Projection(Mutability::Mut)
+            | LvalueContext::Drop => true,
+            LvalueContext::Inspect
+            | LvalueContext::Borrow {
+                kind: BorrowKind::Shared,
+                ..
+            }
+            | LvalueContext::Borrow {
+                kind: BorrowKind::Unique,
+                ..
+            }
+            | LvalueContext::Projection(Mutability::Not)
+            | LvalueContext::Copy
+            | LvalueContext::Move
+            | LvalueContext::StorageLive
+            | LvalueContext::StorageDead
+            | LvalueContext::Validate => false,
         }
     }
 
     /// Returns true if this lvalue context represents a use that does not change the value.
     pub fn is_nonmutating_use(&self) -> bool {
         match *self {
-            LvalueContext::Inspect | LvalueContext::Borrow { kind: BorrowKind::Shared, .. } |
-            LvalueContext::Borrow { kind: BorrowKind::Unique, .. } |
-            LvalueContext::Projection(Mutability::Not) |
-            LvalueContext::Copy | LvalueContext::Move => true,
-            LvalueContext::Borrow { kind: BorrowKind::Mut, .. } | LvalueContext::Store |
-            LvalueContext::Call | LvalueContext::Projection(Mutability::Mut) |
-            LvalueContext::Drop | LvalueContext::StorageLive | LvalueContext::StorageDead |
-            LvalueContext::Validate => false,
+            LvalueContext::Inspect
+            | LvalueContext::Borrow {
+                kind: BorrowKind::Shared,
+                ..
+            }
+            | LvalueContext::Borrow {
+                kind: BorrowKind::Unique,
+                ..
+            }
+            | LvalueContext::Projection(Mutability::Not)
+            | LvalueContext::Copy
+            | LvalueContext::Move => true,
+            LvalueContext::Borrow {
+                kind: BorrowKind::Mut,
+                ..
+            }
+            | LvalueContext::Store
+            | LvalueContext::Call
+            | LvalueContext::Projection(Mutability::Mut)
+            | LvalueContext::Drop
+            | LvalueContext::StorageLive
+            | LvalueContext::StorageDead
+            | LvalueContext::Validate => false,
         }
     }
 

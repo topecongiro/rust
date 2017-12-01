@@ -13,7 +13,7 @@ use back::write::create_target_machine;
 use llvm;
 use rustc::session::Session;
 use rustc::session::config::PrintRequest;
-use libc::{c_int, c_char};
+use libc::{c_char, c_int};
 use std::ffi::CString;
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -51,8 +51,12 @@ unsafe fn configure_llvm(sess: &Session) {
             llvm_c_strs.push(s);
         };
         add("rustc"); // fake program name
-        if sess.time_llvm_passes() { add("-time-passes"); }
-        if sess.print_llvm_passes() { add("-debug-pass=Structure"); }
+        if sess.time_llvm_passes() {
+            add("-time-passes");
+        }
+        if sess.print_llvm_passes() {
+            add("-debug-pass=Structure");
+        }
 
         for arg in &sess.opts.cg.llvm_args {
             add(&(*arg));
@@ -63,8 +67,7 @@ unsafe fn configure_llvm(sess: &Session) {
 
     llvm::initialize_available_targets();
 
-    llvm::LLVMRustSetLLVMOptions(llvm_args.len() as c_int,
-                                 llvm_args.as_ptr());
+    llvm::LLVMRustSetLLVMOptions(llvm_args.len() as c_int, llvm_args.as_ptr());
 }
 
 // WARNING: the features must be known to LLVM or the feature
@@ -75,24 +78,51 @@ const ARM_WHITELIST: &'static [&'static str] = &["neon\0", "vfp2\0", "vfp3\0", "
 
 const AARCH64_WHITELIST: &'static [&'static str] = &["neon\0"];
 
-const X86_WHITELIST: &'static [&'static str] = &["avx\0", "avx2\0", "bmi\0", "bmi2\0", "sse\0",
-                                                 "sse2\0", "sse3\0", "sse4.1\0", "sse4.2\0",
-                                                 "ssse3\0", "tbm\0", "lzcnt\0", "popcnt\0",
-                                                 "sse4a\0", "rdrnd\0", "rdseed\0", "fma\0",
-                                                 "xsave\0", "xsaveopt\0", "xsavec\0",
-                                                 "xsaves\0",
-                                                 "avx512bw\0", "avx512cd\0",
-                                                 "avx512dq\0", "avx512er\0",
-                                                 "avx512f\0", "avx512ifma\0",
-                                                 "avx512pf\0", "avx512vbmi\0",
-                                                 "avx512vl\0", "avx512vpopcntdq\0", "mmx\0"];
+const X86_WHITELIST: &'static [&'static str] = &[
+    "avx\0",
+    "avx2\0",
+    "bmi\0",
+    "bmi2\0",
+    "sse\0",
+    "sse2\0",
+    "sse3\0",
+    "sse4.1\0",
+    "sse4.2\0",
+    "ssse3\0",
+    "tbm\0",
+    "lzcnt\0",
+    "popcnt\0",
+    "sse4a\0",
+    "rdrnd\0",
+    "rdseed\0",
+    "fma\0",
+    "xsave\0",
+    "xsaveopt\0",
+    "xsavec\0",
+    "xsaves\0",
+    "avx512bw\0",
+    "avx512cd\0",
+    "avx512dq\0",
+    "avx512er\0",
+    "avx512f\0",
+    "avx512ifma\0",
+    "avx512pf\0",
+    "avx512vbmi\0",
+    "avx512vl\0",
+    "avx512vpopcntdq\0",
+    "mmx\0",
+];
 
 const HEXAGON_WHITELIST: &'static [&'static str] = &["hvx\0", "hvx-double\0"];
 
-const POWERPC_WHITELIST: &'static [&'static str] = &["altivec\0",
-                                                     "power8-altivec\0", "power9-altivec\0",
-                                                     "power8-vector\0", "power9-vector\0",
-                                                     "vsx\0"];
+const POWERPC_WHITELIST: &'static [&'static str] = &[
+    "altivec\0",
+    "power8-altivec\0",
+    "power9-altivec\0",
+    "power8-vector\0",
+    "power9-vector\0",
+    "vsx\0",
+];
 
 const MIPS_WHITELIST: &'static [&'static str] = &["msa\0"];
 
@@ -112,7 +142,9 @@ pub fn target_features(sess: &Session) -> Vec<Symbol> {
     let mut features = Vec::new();
     for feat in whitelist {
         assert_eq!(feat.chars().last(), Some('\0'));
-        if unsafe { llvm::LLVMRustHasFeature(target_machine, feat.as_ptr() as *const c_char) } {
+        if unsafe {
+            llvm::LLVMRustHasFeature(target_machine, feat.as_ptr() as *const c_char)
+        } {
             features.push(Symbol::intern(&feat[..feat.len() - 1]));
         }
     }
@@ -121,13 +153,18 @@ pub fn target_features(sess: &Session) -> Vec<Symbol> {
 
 pub fn print_version() {
     unsafe {
-        println!("LLVM version: {}.{}",
-                 llvm::LLVMRustVersionMajor(), llvm::LLVMRustVersionMinor());
+        println!(
+            "LLVM version: {}.{}",
+            llvm::LLVMRustVersionMajor(),
+            llvm::LLVMRustVersionMinor()
+        );
     }
 }
 
 pub fn print_passes() {
-    unsafe { llvm::LLVMRustPrintPasses(); }
+    unsafe {
+        llvm::LLVMRustPrintPasses();
+    }
 }
 
 pub fn print(req: PrintRequest, sess: &Session) {
@@ -142,5 +179,7 @@ pub fn print(req: PrintRequest, sess: &Session) {
 }
 
 pub fn enable_llvm_debug() {
-    unsafe { llvm::LLVMRustSetDebug(1); }
+    unsafe {
+        llvm::LLVMRustSetDebug(1);
+    }
 }

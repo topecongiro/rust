@@ -9,7 +9,7 @@
 // except according to those terms.
 
 use alloc_system::System;
-use std::heap::{Heap, Alloc, Layout};
+use std::heap::{Alloc, Heap, Layout};
 
 /// https://github.com/rust-lang/rust/issues/45955
 ///
@@ -30,11 +30,19 @@ fn check_overalign_requests<T: Alloc>(mut allocator: T) {
     let align = 16; // greater than size
     let iterations = 100;
     unsafe {
-        let pointers: Vec<_> = (0..iterations).map(|_| {
-            allocator.alloc(Layout::from_size_align(size, align).unwrap()).unwrap()
-        }).collect();
+        let pointers: Vec<_> = (0..iterations)
+            .map(|_| {
+                allocator
+                    .alloc(Layout::from_size_align(size, align).unwrap())
+                    .unwrap()
+            })
+            .collect();
         for &ptr in &pointers {
-            assert_eq!((ptr as usize) % align, 0, "Got a pointer less aligned than requested")
+            assert_eq!(
+                (ptr as usize) % align,
+                0,
+                "Got a pointer less aligned than requested"
+            )
         }
 
         // Clean up

@@ -60,8 +60,12 @@ impl<'a> CheckAttrVisitor<'a> {
     /// Check if an `#[inline]` is applied to a function.
     fn check_inline(&self, attr: &ast::Attribute, item: &ast::Item, target: Target) {
         if target != Target::Fn {
-            struct_span_err!(self.sess, attr.span, E0518, "attribute should be applied to function")
-                .span_label(item.span, "not a function")
+            struct_span_err!(
+                self.sess,
+                attr.span,
+                E0518,
+                "attribute should be applied to function"
+            ).span_label(item.span, "not a function")
                 .emit();
         }
     }
@@ -80,7 +84,6 @@ impl<'a> CheckAttrVisitor<'a> {
         let mut is_simd = false;
 
         for word in words {
-
             let name = match word.name() {
                 Some(word) => word,
                 None => continue,
@@ -89,53 +92,52 @@ impl<'a> CheckAttrVisitor<'a> {
             let (message, label) = match &*name.as_str() {
                 "C" => {
                     is_c = true;
-                    if target != Target::Struct &&
-                            target != Target::Union &&
-                            target != Target::Enum {
-                                ("attribute should be applied to struct, enum or union",
-                                 "a struct, enum or union")
+                    if target != Target::Struct && target != Target::Union && target != Target::Enum
+                    {
+                        (
+                            "attribute should be applied to struct, enum or union",
+                            "a struct, enum or union",
+                        )
                     } else {
-                        continue
+                        continue;
                     }
                 }
                 "packed" => {
                     // Do not increment conflicting_reprs here, because "packed"
                     // can be used to modify another repr hint
-                    if target != Target::Struct &&
-                            target != Target::Union {
-                                ("attribute should be applied to struct or union",
-                                 "a struct or union")
+                    if target != Target::Struct && target != Target::Union {
+                        (
+                            "attribute should be applied to struct or union",
+                            "a struct or union",
+                        )
                     } else {
-                        continue
+                        continue;
                     }
                 }
                 "simd" => {
                     is_simd = true;
                     if target != Target::Struct {
-                        ("attribute should be applied to struct",
-                         "a struct")
+                        ("attribute should be applied to struct", "a struct")
                     } else {
-                        continue
+                        continue;
                     }
                 }
                 "align" => {
-                    if target != Target::Struct &&
-                            target != Target::Union {
-                        ("attribute should be applied to struct or union",
-                         "a struct or union")
+                    if target != Target::Struct && target != Target::Union {
+                        (
+                            "attribute should be applied to struct or union",
+                            "a struct or union",
+                        )
                     } else {
-                        continue
+                        continue;
                     }
                 }
-                "i8" | "u8" | "i16" | "u16" |
-                "i32" | "u32" | "i64" | "u64" |
-                "isize" | "usize" => {
+                "i8" | "u8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" | "isize" | "usize" => {
                     int_reprs += 1;
                     if target != Target::Enum {
-                        ("attribute should be applied to enum",
-                         "an enum")
+                        ("attribute should be applied to enum", "an enum")
                     } else {
-                        continue
+                        continue;
                     }
                 }
                 _ => continue,
@@ -146,11 +148,14 @@ impl<'a> CheckAttrVisitor<'a> {
         }
 
         // Warn on repr(u8, u16), repr(C, simd), and c-like-enum-repr(C, u8)
-        if (int_reprs > 1)
-           || (is_simd && is_c)
-           || (int_reprs == 1 && is_c && is_c_like_enum(item)) {
-            span_warn!(self.sess, attr.span, E0566,
-                       "conflicting representation hints");
+        if (int_reprs > 1) || (is_simd && is_c) || (int_reprs == 1 && is_c && is_c_like_enum(item))
+        {
+            span_warn!(
+                self.sess,
+                attr.span,
+                E0566,
+                "conflicting representation hints"
+            );
         }
     }
 }
@@ -174,7 +179,9 @@ fn is_c_like_enum(item: &ast::Item) -> bool {
         for variant in &def.variants {
             match variant.node.data {
                 ast::VariantData::Unit(_) => { /* continue */ }
-                _ => { return false; }
+                _ => {
+                    return false;
+                }
             }
         }
         true

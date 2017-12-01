@@ -15,23 +15,23 @@ pub use self::ReprAttr::*;
 pub use self::IntType::*;
 
 use ast;
-use ast::{AttrId, Attribute, Name, Ident};
+use ast::{AttrId, Attribute, Ident, Name};
 use ast::{MetaItem, MetaItemKind, NestedMetaItem, NestedMetaItemKind};
-use ast::{Lit, LitKind, Expr, ExprKind, Item, Local, Stmt, StmtKind};
-use codemap::{Spanned, respan, dummy_spanned};
+use ast::{Expr, ExprKind, Item, Lit, LitKind, Local, Stmt, StmtKind};
+use codemap::{dummy_spanned, respan, Spanned};
 use syntax_pos::{Span, DUMMY_SP};
 use errors::Handler;
 use feature_gate::{Features, GatedCfg};
 use parse::lexer::comments::{doc_comment_style, strip_doc_comment_decoration};
 use parse::parser::Parser;
-use parse::{self, ParseSess, PResult};
+use parse::{self, PResult, ParseSess};
 use parse::token::{self, Token};
 use ptr::P;
 use symbol::Symbol;
-use tokenstream::{TokenStream, TokenTree, Delimited};
+use tokenstream::{Delimited, TokenStream, TokenTree};
 use util::ThinVec;
 
-use std::cell::{RefCell, Cell};
+use std::cell::{Cell, RefCell};
 use std::iter;
 
 thread_local! {
@@ -45,19 +45,20 @@ enum AttrError {
     MissingSince,
     MissingFeature,
     MultipleStabilityLevels,
-    UnsupportedLiteral
+    UnsupportedLiteral,
 }
 
 fn handle_errors(diag: &Handler, span: Span, error: AttrError) {
     match error {
-        AttrError::MultipleItem(item) => span_err!(diag, span, E0538,
-                                                   "multiple '{}' items", item),
-        AttrError::UnknownMetaItem(item) => span_err!(diag, span, E0541,
-                                                      "unknown meta item '{}'", item),
+        AttrError::MultipleItem(item) => span_err!(diag, span, E0538, "multiple '{}' items", item),
+        AttrError::UnknownMetaItem(item) => {
+            span_err!(diag, span, E0541, "unknown meta item '{}'", item)
+        }
         AttrError::MissingSince => span_err!(diag, span, E0542, "missing 'since'"),
         AttrError::MissingFeature => span_err!(diag, span, E0546, "missing 'feature'"),
-        AttrError::MultipleStabilityLevels => span_err!(diag, span, E0544,
-                                                        "multiple stability levels"),
+        AttrError::MultipleStabilityLevels => {
+            span_err!(diag, span, E0544, "multiple stability levels")
+        }
         AttrError::UnsupportedLiteral => span_err!(diag, span, E0565, "unsupported literal"),
     }
 }
@@ -80,7 +81,9 @@ pub fn is_used(attr: &Attribute) -> bool {
     USED_ATTRS.with(|slot| {
         let idx = (id / 64) as usize;
         let shift = id % 64;
-        slot.borrow().get(idx).map(|bits| bits & (1 << shift) != 0)
+        slot.borrow()
+            .get(idx)
+            .map(|bits| bits & (1 << shift) != 0)
             .unwrap_or(false)
     })
 }
@@ -103,7 +106,9 @@ pub fn is_known(attr: &Attribute) -> bool {
     KNOWN_ATTRS.with(|slot| {
         let idx = (id / 64) as usize;
         let shift = id % 64;
-        slot.borrow().get(idx).map(|bits| bits & (1 << shift) != 0)
+        slot.borrow()
+            .get(idx)
+            .map(|bits| bits & (1 << shift) != 0)
             .unwrap_or(false)
     })
 }
@@ -113,7 +118,7 @@ impl NestedMetaItem {
     pub fn meta_item(&self) -> Option<&MetaItem> {
         match self.node {
             NestedMetaItemKind::MetaItem(ref item) => Some(item),
-            _ => None
+            _ => None,
         }
     }
 
@@ -121,7 +126,7 @@ impl NestedMetaItem {
     pub fn literal(&self) -> Option<&Lit> {
         match self.node {
             NestedMetaItemKind::Literal(ref lit) => Some(lit),
-            _ => None
+            _ => None,
         }
     }
 
@@ -132,13 +137,15 @@ impl NestedMetaItem {
 
     /// Returns true if this list item is a MetaItem with a name of `name`.
     pub fn check_name(&self, name: &str) -> bool {
-        self.meta_item().map_or(false, |meta_item| meta_item.check_name(name))
+        self.meta_item()
+            .map_or(false, |meta_item| meta_item.check_name(name))
     }
 
     /// Returns the name of the meta item, e.g. `foo` in `#[foo]`,
     /// `#[foo="bar"]` and `#[foo(bar)]`, if self is a MetaItem
     pub fn name(&self) -> Option<Name> {
-        self.meta_item().and_then(|meta_item| Some(meta_item.name()))
+        self.meta_item()
+            .and_then(|meta_item| Some(meta_item.name()))
     }
 
     /// Gets the string value if self is a MetaItem and the MetaItem is a
@@ -149,34 +156,37 @@ impl NestedMetaItem {
 
     /// Returns a name and single literal value tuple of the MetaItem.
     pub fn name_value_literal(&self) -> Option<(Name, &Lit)> {
-        self.meta_item().and_then(
-            |meta_item| meta_item.meta_item_list().and_then(
-                |meta_item_list| {
-                    if meta_item_list.len() == 1 {
-                        let nested_item = &meta_item_list[0];
-                        if nested_item.is_literal() {
-                            Some((meta_item.name(), nested_item.literal().unwrap()))
-                        } else {
-                            None
-                        }
-                    }
-                    else {
+        self.meta_item().and_then(|meta_item| {
+            meta_item.meta_item_list().and_then(|meta_item_list| {
+                if meta_item_list.len() == 1 {
+                    let nested_item = &meta_item_list[0];
+                    if nested_item.is_literal() {
+                        Some((meta_item.name(), nested_item.literal().unwrap()))
+                    } else {
                         None
-                    }}))
+                    }
+                } else {
+                    None
+                }
+            })
+        })
     }
 
     /// Returns a MetaItem if self is a MetaItem with Kind Word.
     pub fn word(&self) -> Option<&MetaItem> {
-        self.meta_item().and_then(|meta_item| if meta_item.is_word() {
-            Some(meta_item)
-        } else {
-            None
+        self.meta_item().and_then(|meta_item| {
+            if meta_item.is_word() {
+                Some(meta_item)
+            } else {
+                None
+            }
         })
     }
 
     /// Gets a list of inner meta items from a list MetaItem type.
     pub fn meta_item_list(&self) -> Option<&[NestedMetaItem]> {
-        self.meta_item().and_then(|meta_item| meta_item.meta_item_list())
+        self.meta_item()
+            .and_then(|meta_item| meta_item.meta_item_list())
     }
 
     /// Returns `true` if the variant is MetaItem.
@@ -227,8 +237,11 @@ impl Attribute {
 
     pub fn meta_item_list(&self) -> Option<Vec<NestedMetaItem>> {
         match self.meta() {
-            Some(MetaItem { node: MetaItemKind::List(list), .. }) => Some(list),
-            _ => None
+            Some(MetaItem {
+                node: MetaItemKind::List(list),
+                ..
+            }) => Some(list),
+            _ => None,
         }
     }
 
@@ -257,20 +270,18 @@ impl MetaItem {
 
     pub fn value_str(&self) -> Option<Symbol> {
         match self.node {
-            MetaItemKind::NameValue(ref v) => {
-                match v.node {
-                    LitKind::Str(ref s, _) => Some(*s),
-                    _ => None,
-                }
+            MetaItemKind::NameValue(ref v) => match v.node {
+                LitKind::Str(ref s, _) => Some(*s),
+                _ => None,
             },
-            _ => None
+            _ => None,
         }
     }
 
     pub fn meta_item_list(&self) -> Option<&[NestedMetaItem]> {
         match self.node {
             MetaItemKind::List(ref l) => Some(&l[..]),
-            _ => None
+            _ => None,
         }
     }
 
@@ -281,7 +292,9 @@ impl MetaItem {
         }
     }
 
-    pub fn span(&self) -> Span { self.span }
+    pub fn span(&self) -> Span {
+        self.span
+    }
 
     pub fn check_name(&self, name: &str) -> bool {
         self.name() == name
@@ -318,7 +331,8 @@ impl Attribute {
     }
 
     pub fn parse<'a, T, F>(&self, sess: &'a ParseSess, mut f: F) -> PResult<'a, T>
-        where F: FnMut(&mut Parser<'a>) -> PResult<'a, T>,
+    where
+        F: FnMut(&mut Parser<'a>) -> PResult<'a, T>,
     {
         let mut parser = Parser::new(sess, self.tokens.clone(), None, false, false);
         let result = f(&mut parser)?;
@@ -329,7 +343,8 @@ impl Attribute {
     }
 
     pub fn parse_list<'a, T, F>(&self, sess: &'a ParseSess, mut f: F) -> PResult<'a, Vec<T>>
-        where F: FnMut(&mut Parser<'a>) -> PResult<'a, T>,
+    where
+        F: FnMut(&mut Parser<'a>) -> PResult<'a, T>,
     {
         if self.tokens.is_empty() {
             return Ok(Vec::new());
@@ -340,8 +355,8 @@ impl Attribute {
             while !parser.eat(&token::CloseDelim(token::Paren)) {
                 list.push(f(parser)?);
                 if !parser.eat(&token::Comma) {
-                   parser.expect(&token::CloseDelim(token::Paren))?;
-                    break
+                    parser.expect(&token::CloseDelim(token::Paren))?;
+                    break;
                 }
             }
             Ok(list)
@@ -350,7 +365,8 @@ impl Attribute {
 
     pub fn parse_meta<'a>(&self, sess: &'a ParseSess) -> PResult<'a, MetaItem> {
         if self.path.segments.len() > 1 {
-            sess.span_diagnostic.span_err(self.path.span, "expected ident, found path");
+            sess.span_diagnostic
+                .span_err(self.path.span, "expected ident, found path");
         }
 
         Ok(MetaItem {
@@ -363,14 +379,16 @@ impl Attribute {
     /// Convert self to a normal #[doc="foo"] comment, if it is a
     /// comment like `///` or `/** */`. (Returns self unchanged for
     /// non-sugared doc attributes.)
-    pub fn with_desugared_doc<T, F>(&self, f: F) -> T where
+    pub fn with_desugared_doc<T, F>(&self, f: F) -> T
+    where
         F: FnOnce(&Attribute) -> T,
     {
         if self.is_sugared_doc {
             let comment = self.value_str().unwrap();
             let meta = mk_name_value_item_str(
                 Symbol::intern("doc"),
-                Symbol::intern(&strip_doc_comment_decoration(&comment.as_str())));
+                Symbol::intern(&strip_doc_comment_decoration(&comment.as_str())),
+            );
             let mut attr = if self.style == ast::AttrStyle::Outer {
                 mk_attr_outer(self.span, self.id, meta)
             } else {
@@ -400,7 +418,10 @@ pub fn mk_list_item(name: Name, items: Vec<NestedMetaItem>) -> MetaItem {
 }
 
 pub fn mk_list_word_item(name: Name) -> ast::NestedMetaItem {
-    dummy_spanned(NestedMetaItemKind::MetaItem(mk_spanned_word_item(DUMMY_SP, name)))
+    dummy_spanned(NestedMetaItemKind::MetaItem(mk_spanned_word_item(
+        DUMMY_SP,
+        name,
+    )))
 }
 
 pub fn mk_word_item(name: Name) -> MetaItem {
@@ -408,15 +429,27 @@ pub fn mk_word_item(name: Name) -> MetaItem {
 }
 
 pub fn mk_spanned_name_value_item(sp: Span, name: Name, value: ast::Lit) -> MetaItem {
-    MetaItem { span: sp, name: name, node: MetaItemKind::NameValue(value) }
+    MetaItem {
+        span: sp,
+        name: name,
+        node: MetaItemKind::NameValue(value),
+    }
 }
 
 pub fn mk_spanned_list_item(sp: Span, name: Name, items: Vec<NestedMetaItem>) -> MetaItem {
-    MetaItem { span: sp, name: name, node: MetaItemKind::List(items) }
+    MetaItem {
+        span: sp,
+        name: name,
+        node: MetaItemKind::List(items),
+    }
 }
 
 pub fn mk_spanned_word_item(sp: Span, name: Name) -> MetaItem {
-    MetaItem { span: sp, name: name, node: MetaItemKind::Word }
+    MetaItem {
+        span: sp,
+        name: name,
+        node: MetaItemKind::Word,
+    }
 }
 
 
@@ -481,15 +514,11 @@ pub fn mk_sugared_doc_attr(id: AttrId, text: Symbol, span: Span) -> Attribute {
 }
 
 pub fn list_contains_name(items: &[NestedMetaItem], name: &str) -> bool {
-    items.iter().any(|item| {
-        item.check_name(name)
-    })
+    items.iter().any(|item| item.check_name(name))
 }
 
 pub fn contains_name(attrs: &[Attribute], name: &str) -> bool {
-    attrs.iter().any(|item| {
-        item.check_name(name)
-    })
+    attrs.iter().any(|item| item.check_name(name))
 }
 
 pub fn find_by_name<'a>(attrs: &'a [Attribute], name: &str) -> Option<&'a Attribute> {
@@ -497,7 +526,8 @@ pub fn find_by_name<'a>(attrs: &'a [Attribute], name: &str) -> Option<&'a Attrib
 }
 
 pub fn first_attr_value_str_by_name(attrs: &[Attribute], name: &str) -> Option<Symbol> {
-    attrs.iter()
+    attrs
+        .iter()
         .find(|at| at.check_name(name))
         .and_then(|at| at.value_str())
 }
@@ -506,13 +536,13 @@ pub fn first_attr_value_str_by_name(attrs: &[Attribute], name: &str) -> Option<S
 /// This will not perform any "sanity checks" on the form of the attributes.
 pub fn contains_feature_attr(attrs: &[Attribute], feature_name: &str) -> bool {
     attrs.iter().any(|item| {
-        item.check_name("feature") &&
-        item.meta_item_list().map(|list| {
-            list.iter().any(|mi| {
-                mi.word().map(|w| w.name() == feature_name)
-                         .unwrap_or(false)
-            })
-        }).unwrap_or(false)
+        item.check_name("feature")
+            && item.meta_item_list()
+                .map(|list| {
+                    list.iter()
+                        .any(|mi| mi.word().map(|w| w.name() == feature_name).unwrap_or(false))
+                })
+                .unwrap_or(false)
     })
 }
 
@@ -548,7 +578,9 @@ pub fn find_inline_attr(diagnostic: Option<&Handler>, attrs: &[Attribute]) -> In
             MetaItemKind::List(ref items) => {
                 mark_used(attr);
                 if items.len() != 1 {
-                    diagnostic.map(|d|{ span_err!(d, attr.span, E0534, "expected one argument"); });
+                    diagnostic.map(|d| {
+                        span_err!(d, attr.span, E0534, "expected one argument");
+                    });
                     InlineAttr::None
                 } else if list_contains_name(&items[..], "always") {
                     InlineAttr::Always
@@ -587,15 +619,19 @@ pub fn cfg_matches(cfg: &ast::MetaItem, sess: &ParseSess, features: Option<&Feat
 
 /// Evaluate a cfg-like condition (with `any` and `all`), using `eval` to
 /// evaluate individual items.
-pub fn eval_condition<F>(cfg: &ast::MetaItem, sess: &ParseSess, eval: &mut F)
-                         -> bool
-    where F: FnMut(&ast::MetaItem) -> bool
+pub fn eval_condition<F>(cfg: &ast::MetaItem, sess: &ParseSess, eval: &mut F) -> bool
+where
+    F: FnMut(&ast::MetaItem) -> bool,
 {
     match cfg.node {
         ast::MetaItemKind::List(ref mis) => {
             for mi in mis.iter() {
                 if !mi.is_meta_item() {
-                    handle_errors(&sess.span_diagnostic, mi.span, AttrError::UnsupportedLiteral);
+                    handle_errors(
+                        &sess.span_diagnostic,
+                        mi.span,
+                        AttrError::UnsupportedLiteral,
+                    );
                     return false;
                 }
             }
@@ -603,29 +639,36 @@ pub fn eval_condition<F>(cfg: &ast::MetaItem, sess: &ParseSess, eval: &mut F)
             // The unwraps below may look dangerous, but we've already asserted
             // that they won't fail with the loop above.
             match &*cfg.name.as_str() {
-                "any" => mis.iter().any(|mi| {
-                    eval_condition(mi.meta_item().unwrap(), sess, eval)
-                }),
-                "all" => mis.iter().all(|mi| {
-                    eval_condition(mi.meta_item().unwrap(), sess, eval)
-                }),
+                "any" => mis.iter()
+                    .any(|mi| eval_condition(mi.meta_item().unwrap(), sess, eval)),
+                "all" => mis.iter()
+                    .all(|mi| eval_condition(mi.meta_item().unwrap(), sess, eval)),
                 "not" => {
                     if mis.len() != 1 {
-                        span_err!(sess.span_diagnostic, cfg.span, E0536, "expected 1 cfg-pattern");
+                        span_err!(
+                            sess.span_diagnostic,
+                            cfg.span,
+                            E0536,
+                            "expected 1 cfg-pattern"
+                        );
                         return false;
                     }
 
                     !eval_condition(mis[0].meta_item().unwrap(), sess, eval)
-                },
+                }
                 p => {
-                    span_err!(sess.span_diagnostic, cfg.span, E0537, "invalid predicate `{}`", p);
+                    span_err!(
+                        sess.span_diagnostic,
+                        cfg.span,
+                        E0537,
+                        "invalid predicate `{}`",
+                        p
+                    );
                     false
                 }
             }
-        },
-        ast::MetaItemKind::Word | ast::MetaItemKind::NameValue(..) => {
-            eval(cfg)
         }
+        ast::MetaItemKind::Word | ast::MetaItemKind::NameValue(..) => eval(cfg),
     }
 }
 
@@ -664,15 +707,29 @@ pub struct Deprecation {
 }
 
 impl StabilityLevel {
-    pub fn is_unstable(&self) -> bool { if let Unstable {..} = *self { true } else { false }}
-    pub fn is_stable(&self) -> bool { if let Stable {..} = *self { true } else { false }}
+    pub fn is_unstable(&self) -> bool {
+        if let Unstable { .. } = *self {
+            true
+        } else {
+            false
+        }
+    }
+    pub fn is_stable(&self) -> bool {
+        if let Stable { .. } = *self {
+            true
+        } else {
+            false
+        }
+    }
 }
 
-fn find_stability_generic<'a, I>(diagnostic: &Handler,
-                                 attrs_iter: I,
-                                 item_sp: Span)
-                                 -> Option<Stability>
-    where I: Iterator<Item = &'a Attribute>
+fn find_stability_generic<'a, I>(
+    diagnostic: &Handler,
+    attrs_iter: I,
+    item_sp: Span,
+) -> Option<Stability>
+where
+    I: Iterator<Item = &'a Attribute>,
 {
     let mut stab: Option<Stability> = None;
     let mut rustc_depr: Option<RustcDeprecation> = None;
@@ -684,19 +741,25 @@ fn find_stability_generic<'a, I>(diagnostic: &Handler,
             "rustc_const_unstable",
             "unstable",
             "stable",
-        ].iter().any(|&s| attr.path == s) {
-            continue // not a stability level
+        ].iter()
+            .any(|&s| attr.path == s)
+        {
+            continue; // not a stability level
         }
 
         mark_used(attr);
 
         let meta = attr.meta();
-        if let Some(MetaItem { node: MetaItemKind::List(ref metas), .. }) = meta {
+        if let Some(MetaItem {
+            node: MetaItemKind::List(ref metas),
+            ..
+        }) = meta
+        {
             let meta = meta.as_ref().unwrap();
             let get = |meta: &MetaItem, item: &mut Option<Symbol>| {
                 if item.is_some() {
                     handle_errors(diagnostic, meta.span, AttrError::MultipleItem(meta.name()));
-                    return false
+                    return false;
                 }
                 if let Some(v) = meta.value_str() {
                     *item = Some(v);
@@ -736,51 +799,54 @@ fn find_stability_generic<'a, I>(diagnostic: &Handler,
             match &*meta.name.as_str() {
                 "rustc_deprecated" => {
                     if rustc_depr.is_some() {
-                        span_err!(diagnostic, item_sp, E0540,
-                                  "multiple rustc_deprecated attributes");
-                        continue 'outer
+                        span_err!(
+                            diagnostic,
+                            item_sp,
+                            E0540,
+                            "multiple rustc_deprecated attributes"
+                        );
+                        continue 'outer;
                     }
 
                     get_meta!(since, reason);
 
                     match (since, reason) {
                         (Some(since), Some(reason)) => {
-                            rustc_depr = Some(RustcDeprecation {
-                                since,
-                                reason,
-                            })
+                            rustc_depr = Some(RustcDeprecation { since, reason })
                         }
                         (None, _) => {
                             handle_errors(diagnostic, attr.span(), AttrError::MissingSince);
-                            continue
+                            continue;
                         }
                         _ => {
                             span_err!(diagnostic, attr.span(), E0543, "missing 'reason'");
-                            continue
+                            continue;
                         }
                     }
                 }
                 "rustc_const_unstable" => {
                     if rustc_const_unstable.is_some() {
-                        span_err!(diagnostic, item_sp, E0553,
-                                  "multiple rustc_const_unstable attributes");
-                        continue 'outer
+                        span_err!(
+                            diagnostic,
+                            item_sp,
+                            E0553,
+                            "multiple rustc_const_unstable attributes"
+                        );
+                        continue 'outer;
                     }
 
                     get_meta!(feature);
                     if let Some(feature) = feature {
-                        rustc_const_unstable = Some(RustcConstUnstable {
-                            feature
-                        });
+                        rustc_const_unstable = Some(RustcConstUnstable { feature });
                     } else {
                         span_err!(diagnostic, attr.span(), E0629, "missing 'feature'");
-                        continue
+                        continue;
                     }
                 }
                 "unstable" => {
                     if stab.is_some() {
                         handle_errors(diagnostic, attr.span(), AttrError::MultipleStabilityLevels);
-                        break
+                        break;
                     }
 
                     let mut feature = None;
@@ -789,18 +855,27 @@ fn find_stability_generic<'a, I>(diagnostic: &Handler,
                     for meta in metas {
                         if let Some(mi) = meta.meta_item() {
                             match &*mi.name().as_str() {
-                                "feature" => if !get(mi, &mut feature) { continue 'outer },
-                                "reason" => if !get(mi, &mut reason) { continue 'outer },
-                                "issue" => if !get(mi, &mut issue) { continue 'outer },
+                                "feature" => if !get(mi, &mut feature) {
+                                    continue 'outer;
+                                },
+                                "reason" => if !get(mi, &mut reason) {
+                                    continue 'outer;
+                                },
+                                "issue" => if !get(mi, &mut issue) {
+                                    continue 'outer;
+                                },
                                 _ => {
-                                    handle_errors(diagnostic, meta.span,
-                                                  AttrError::UnknownMetaItem(mi.name()));
-                                    continue 'outer
+                                    handle_errors(
+                                        diagnostic,
+                                        meta.span,
+                                        AttrError::UnknownMetaItem(mi.name()),
+                                    );
+                                    continue 'outer;
                                 }
                             }
                         } else {
                             handle_errors(diagnostic, meta.span, AttrError::UnsupportedLiteral);
-                            continue 'outer
+                            continue 'outer;
                         }
                     }
 
@@ -813,11 +888,15 @@ fn find_stability_generic<'a, I>(diagnostic: &Handler,
                                         if let Ok(issue) = issue.as_str().parse() {
                                             issue
                                         } else {
-                                            span_err!(diagnostic, attr.span(), E0545,
-                                                      "incorrect 'issue'");
-                                            continue
+                                            span_err!(
+                                                diagnostic,
+                                                attr.span(),
+                                                E0545,
+                                                "incorrect 'issue'"
+                                            );
+                                            continue;
                                         }
-                                    }
+                                    },
                                 },
                                 feature,
                                 rustc_depr: None,
@@ -826,18 +905,18 @@ fn find_stability_generic<'a, I>(diagnostic: &Handler,
                         }
                         (None, _, _) => {
                             handle_errors(diagnostic, attr.span(), AttrError::MissingFeature);
-                            continue
+                            continue;
                         }
                         _ => {
                             span_err!(diagnostic, attr.span(), E0547, "missing 'issue'");
-                            continue
+                            continue;
                         }
                     }
                 }
                 "stable" => {
                     if stab.is_some() {
                         handle_errors(diagnostic, attr.span(), AttrError::MultipleStabilityLevels);
-                        break
+                        break;
                     }
 
                     let mut feature = None;
@@ -845,26 +924,31 @@ fn find_stability_generic<'a, I>(diagnostic: &Handler,
                     for meta in metas {
                         if let NestedMetaItemKind::MetaItem(ref mi) = meta.node {
                             match &*mi.name().as_str() {
-                                "feature" => if !get(mi, &mut feature) { continue 'outer },
-                                "since" => if !get(mi, &mut since) { continue 'outer },
+                                "feature" => if !get(mi, &mut feature) {
+                                    continue 'outer;
+                                },
+                                "since" => if !get(mi, &mut since) {
+                                    continue 'outer;
+                                },
                                 _ => {
-                                    handle_errors(diagnostic, meta.span,
-                                                  AttrError::UnknownMetaItem(mi.name()));
-                                    continue 'outer
+                                    handle_errors(
+                                        diagnostic,
+                                        meta.span,
+                                        AttrError::UnknownMetaItem(mi.name()),
+                                    );
+                                    continue 'outer;
                                 }
                             }
                         } else {
                             handle_errors(diagnostic, meta.span, AttrError::UnsupportedLiteral);
-                            continue 'outer
+                            continue 'outer;
                         }
                     }
 
                     match (feature, since) {
                         (Some(feature), Some(since)) => {
                             stab = Some(Stability {
-                                level: Stable {
-                                    since,
-                                },
+                                level: Stable { since },
                                 feature,
                                 rustc_depr: None,
                                 rustc_const_unstable: None,
@@ -872,19 +956,24 @@ fn find_stability_generic<'a, I>(diagnostic: &Handler,
                         }
                         (None, _) => {
                             handle_errors(diagnostic, attr.span(), AttrError::MissingFeature);
-                            continue
+                            continue;
                         }
                         _ => {
                             handle_errors(diagnostic, attr.span(), AttrError::MissingSince);
-                            continue
+                            continue;
                         }
                     }
                 }
-                _ => unreachable!()
+                _ => unreachable!(),
             }
         } else {
-            span_err!(diagnostic, attr.span(), E0548, "incorrect stability attribute type");
-            continue
+            span_err!(
+                diagnostic,
+                attr.span(),
+                E0548,
+                "incorrect stability attribute type"
+            );
+            continue;
         }
     }
 
@@ -893,9 +982,13 @@ fn find_stability_generic<'a, I>(diagnostic: &Handler,
         if let Some(ref mut stab) = stab {
             stab.rustc_depr = Some(rustc_depr);
         } else {
-            span_err!(diagnostic, item_sp, E0549,
-                      "rustc_deprecated attribute must be paired with \
-                       either stable or unstable attribute");
+            span_err!(
+                diagnostic,
+                item_sp,
+                E0549,
+                "rustc_deprecated attribute must be paired with \
+                 either stable or unstable attribute"
+            );
         }
     }
 
@@ -904,40 +997,46 @@ fn find_stability_generic<'a, I>(diagnostic: &Handler,
         if let Some(ref mut stab) = stab {
             stab.rustc_const_unstable = Some(rustc_const_unstable);
         } else {
-            span_err!(diagnostic, item_sp, E0630,
-                      "rustc_const_unstable attribute must be paired with \
-                       either stable or unstable attribute");
+            span_err!(
+                diagnostic,
+                item_sp,
+                E0630,
+                "rustc_const_unstable attribute must be paired with \
+                 either stable or unstable attribute"
+            );
         }
     }
 
     stab
 }
 
-fn find_deprecation_generic<'a, I>(diagnostic: &Handler,
-                                   attrs_iter: I,
-                                   item_sp: Span)
-                                   -> Option<Deprecation>
-    where I: Iterator<Item = &'a Attribute>
+fn find_deprecation_generic<'a, I>(
+    diagnostic: &Handler,
+    attrs_iter: I,
+    item_sp: Span,
+) -> Option<Deprecation>
+where
+    I: Iterator<Item = &'a Attribute>,
 {
     let mut depr: Option<Deprecation> = None;
 
     'outer: for attr in attrs_iter {
         if attr.path != "deprecated" {
-            continue
+            continue;
         }
 
         mark_used(attr);
 
         if depr.is_some() {
             span_err!(diagnostic, item_sp, E0550, "multiple deprecated attributes");
-            break
+            break;
         }
 
         depr = if let Some(metas) = attr.meta_item_list() {
             let get = |meta: &MetaItem, item: &mut Option<Symbol>| {
                 if item.is_some() {
                     handle_errors(diagnostic, meta.span, AttrError::MultipleItem(meta.name()));
-                    return false
+                    return false;
                 }
                 if let Some(v) = meta.value_str() {
                     *item = Some(v);
@@ -953,23 +1052,36 @@ fn find_deprecation_generic<'a, I>(diagnostic: &Handler,
             for meta in metas {
                 if let NestedMetaItemKind::MetaItem(ref mi) = meta.node {
                     match &*mi.name().as_str() {
-                        "since" => if !get(mi, &mut since) { continue 'outer },
-                        "note" => if !get(mi, &mut note) { continue 'outer },
+                        "since" => if !get(mi, &mut since) {
+                            continue 'outer;
+                        },
+                        "note" => if !get(mi, &mut note) {
+                            continue 'outer;
+                        },
                         _ => {
-                            handle_errors(diagnostic, meta.span,
-                                          AttrError::UnknownMetaItem(mi.name()));
-                            continue 'outer
+                            handle_errors(
+                                diagnostic,
+                                meta.span,
+                                AttrError::UnknownMetaItem(mi.name()),
+                            );
+                            continue 'outer;
                         }
                     }
                 } else {
                     handle_errors(diagnostic, meta.span, AttrError::UnsupportedLiteral);
-                    continue 'outer
+                    continue 'outer;
                 }
             }
 
-            Some(Deprecation {since: since, note: note})
+            Some(Deprecation {
+                since: since,
+                note: note,
+            })
         } else {
-            Some(Deprecation{since: None, note: None})
+            Some(Deprecation {
+                since: None,
+                note: None,
+            })
         }
     }
 
@@ -977,14 +1089,20 @@ fn find_deprecation_generic<'a, I>(diagnostic: &Handler,
 }
 
 /// Find the first stability attribute. `None` if none exists.
-pub fn find_stability(diagnostic: &Handler, attrs: &[Attribute],
-                      item_sp: Span) -> Option<Stability> {
+pub fn find_stability(
+    diagnostic: &Handler,
+    attrs: &[Attribute],
+    item_sp: Span,
+) -> Option<Stability> {
     find_stability_generic(diagnostic, attrs.iter(), item_sp)
 }
 
 /// Find the deprecation attribute. `None` if none exists.
-pub fn find_deprecation(diagnostic: &Handler, attrs: &[Attribute],
-                        item_sp: Span) -> Option<Deprecation> {
+pub fn find_deprecation(
+    diagnostic: &Handler,
+    attrs: &[Attribute],
+    item_sp: Span,
+) -> Option<Deprecation> {
     find_deprecation_generic(diagnostic, attrs.iter(), item_sp)
 }
 
@@ -1003,7 +1121,7 @@ pub fn find_repr_attrs(diagnostic: &Handler, attr: &Attribute) -> Vec<ReprAttr> 
             for item in items {
                 if !item.is_meta_item() {
                     handle_errors(diagnostic, item.span, AttrError::UnsupportedLiteral);
-                    continue
+                    continue;
                 }
 
                 let mut recognised = false;
@@ -1016,10 +1134,8 @@ pub fn find_repr_attrs(diagnostic: &Handler, attr: &Attribute) -> Vec<ReprAttr> 
                         "simd" => Some(ReprSimd),
                         _ => match int_type_of_word(word) {
                             Some(ity) => Some(ReprInt(ity)),
-                            None => {
-                                None
-                            }
-                        }
+                            None => None,
+                        },
                     };
 
                     if let Some(h) = hint {
@@ -1045,15 +1161,24 @@ pub fn find_repr_attrs(diagnostic: &Handler, attr: &Attribute) -> Vec<ReprAttr> 
                             align_error = Some("not an unsuffixed integer");
                         }
                         if let Some(align_error) = align_error {
-                            span_err!(diagnostic, item.span, E0589,
-                                      "invalid `repr(align)` attribute: {}", align_error);
+                            span_err!(
+                                diagnostic,
+                                item.span,
+                                E0589,
+                                "invalid `repr(align)` attribute: {}",
+                                align_error
+                            );
                         }
                     }
                 }
                 if !recognised {
                     // Not a word we recognize
-                    span_err!(diagnostic, item.span, E0552,
-                              "unrecognized representation hint");
+                    span_err!(
+                        diagnostic,
+                        item.span,
+                        E0552,
+                        "unrecognized representation hint"
+                    );
                 }
             }
         }
@@ -1075,7 +1200,7 @@ fn int_type_of_word(s: &str) -> Option<IntType> {
         "u128" => Some(UnsignedInt(ast::UintTy::U128)),
         "isize" => Some(SignedInt(ast::IntTy::Is)),
         "usize" => Some(UnsignedInt(ast::UintTy::Us)),
-        _ => None
+        _ => None,
     }
 }
 
@@ -1091,7 +1216,7 @@ pub enum ReprAttr {
 #[derive(Eq, Hash, PartialEq, Debug, RustcEncodable, RustcDecodable, Copy, Clone)]
 pub enum IntType {
     SignedInt(ast::IntTy),
-    UnsignedInt(ast::UintTy)
+    UnsignedInt(ast::UintTy),
 }
 
 impl IntType {
@@ -1099,7 +1224,7 @@ impl IntType {
     pub fn is_signed(self) -> bool {
         match self {
             SignedInt(..) => true,
-            UnsignedInt(..) => false
+            UnsignedInt(..) => false,
         }
     }
 }
@@ -1111,7 +1236,8 @@ impl MetaItem {
     }
 
     fn from_tokens<I>(tokens: &mut iter::Peekable<I>) -> Option<MetaItem>
-        where I: Iterator<Item = TokenTree>,
+    where
+        I: Iterator<Item = TokenTree>,
     {
         let (span, name) = match tokens.next() {
             Some(TokenTree::Token(span, Token::Ident(ident))) => (span, ident.name),
@@ -1132,7 +1258,11 @@ impl MetaItem {
             MetaItemKind::List(..) => list_closing_paren_pos.unwrap_or(span.hi()),
             _ => span.hi(),
         };
-        Some(MetaItem { name, node, span: span.with_hi(hi) })
+        Some(MetaItem {
+            name,
+            node,
+            span: span.with_hi(hi),
+        })
     }
 }
 
@@ -1151,23 +1281,31 @@ impl MetaItemKind {
                     }
                     tokens.push(item.node.tokens());
                 }
-                TokenTree::Delimited(span, Delimited {
-                    delim: token::Paren,
-                    tts: TokenStream::concat(tokens).into(),
-                }).into()
+                TokenTree::Delimited(
+                    span,
+                    Delimited {
+                        delim: token::Paren,
+                        tts: TokenStream::concat(tokens).into(),
+                    },
+                ).into()
             }
         }
     }
 
     fn from_tokens<I>(tokens: &mut iter::Peekable<I>) -> Option<MetaItemKind>
-        where I: Iterator<Item = TokenTree>,
+    where
+        I: Iterator<Item = TokenTree>,
     {
         let delimited = match tokens.peek().cloned() {
             Some(TokenTree::Token(_, token::Eq)) => {
                 tokens.next();
                 return if let Some(TokenTree::Token(span, token)) = tokens.next() {
-                    LitKind::from_token(token)
-                        .map(|lit| MetaItemKind::NameValue(Spanned { node: lit, span: span }))
+                    LitKind::from_token(token).map(|lit| {
+                        MetaItemKind::NameValue(Spanned {
+                            node: lit,
+                            span: span,
+                        })
+                    })
                 } else {
                     None
                 };
@@ -1211,7 +1349,8 @@ impl NestedMetaItemKind {
     }
 
     fn from_tokens<I>(tokens: &mut iter::Peekable<I>) -> Option<NestedMetaItemKind>
-        where I: Iterator<Item = TokenTree>,
+    where
+        I: Iterator<Item = TokenTree>,
     {
         if let Some(TokenTree::Token(span, token)) = tokens.peek().cloned() {
             if let Some(node) = LitKind::from_token(token) {
@@ -1246,12 +1385,18 @@ impl LitKind {
                 Token::Literal(token::Lit::StrRaw(string, n), None)
             }
             LitKind::ByteStr(ref bytes) => {
-                let string = bytes.iter().cloned().flat_map(ascii::escape_default)
-                    .map(Into::<char>::into).collect::<String>();
+                let string = bytes
+                    .iter()
+                    .cloned()
+                    .flat_map(ascii::escape_default)
+                    .map(Into::<char>::into)
+                    .collect::<String>();
                 Token::Literal(token::Lit::ByteStr(Symbol::intern(&string)), None)
             }
             LitKind::Byte(byte) => {
-                let string: String = ascii::escape_default(byte).map(Into::<char>::into).collect();
+                let string: String = ascii::escape_default(byte)
+                    .map(Into::<char>::into)
+                    .collect();
                 Token::Literal(token::Lit::Byte(Symbol::intern(&string)), None)
             }
             LitKind::Char(ch) => {
@@ -1266,15 +1411,14 @@ impl LitKind {
                 };
                 Token::Literal(token::Lit::Integer(Symbol::intern(&n.to_string())), suffix)
             }
-            LitKind::Float(symbol, ty) => {
-                Token::Literal(token::Lit::Float(symbol), Some(Symbol::intern(ty.ty_to_string())))
-            }
+            LitKind::Float(symbol, ty) => Token::Literal(
+                token::Lit::Float(symbol),
+                Some(Symbol::intern(ty.ty_to_string())),
+            ),
             LitKind::FloatUnsuffixed(symbol) => Token::Literal(token::Lit::Float(symbol), None),
-            LitKind::Bool(value) => Token::Ident(Ident::with_empty_ctxt(Symbol::intern(if value {
-                "true"
-            } else {
-                "false"
-            }))),
+            LitKind::Bool(value) => Token::Ident(Ident::with_empty_ctxt(Symbol::intern(
+                if value { "true" } else { "false" },
+            ))),
         }
     }
 
@@ -1307,7 +1451,9 @@ pub trait HasAttrs: Sized {
 }
 
 impl<T: HasAttrs> HasAttrs for Spanned<T> {
-    fn attrs(&self) -> &[ast::Attribute] { self.node.attrs() }
+    fn attrs(&self) -> &[ast::Attribute] {
+        self.node.attrs()
+    }
     fn map_attrs<F: FnOnce(Vec<ast::Attribute>) -> Vec<ast::Attribute>>(self, f: F) -> Self {
         respan(self.span, self.node.map_attrs(f))
     }
@@ -1359,17 +1505,23 @@ impl HasAttrs for StmtKind {
             StmtKind::Item(..) => self,
             StmtKind::Expr(expr) => StmtKind::Expr(expr.map_attrs(f)),
             StmtKind::Semi(expr) => StmtKind::Semi(expr.map_attrs(f)),
-            StmtKind::Mac(mac) => StmtKind::Mac(mac.map(|(mac, style, attrs)| {
-                (mac, style, attrs.map_attrs(f))
-            })),
+            StmtKind::Mac(mac) => {
+                StmtKind::Mac(mac.map(|(mac, style, attrs)| (mac, style, attrs.map_attrs(f))))
+            }
         }
     }
 }
 
 impl HasAttrs for Stmt {
-    fn attrs(&self) -> &[ast::Attribute] { self.node.attrs() }
+    fn attrs(&self) -> &[ast::Attribute] {
+        self.node.attrs()
+    }
     fn map_attrs<F: FnOnce(Vec<ast::Attribute>) -> Vec<ast::Attribute>>(self, f: F) -> Self {
-        Stmt { id: self.id, node: self.node.map_attrs(f), span: self.span }
+        Stmt {
+            id: self.id,
+            node: self.node.map_attrs(f),
+            span: self.span,
+        }
     }
 }
 

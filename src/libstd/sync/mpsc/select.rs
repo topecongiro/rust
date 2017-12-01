@@ -85,7 +85,7 @@ impl !marker::Send for Select {}
 /// A handle to a receiver which is currently a member of a `Select` set of
 /// receivers.  This handle is used to keep the receiver in the set as well as
 /// interact with the underlying receiver.
-pub struct Handle<'rx, T:Send+'rx> {
+pub struct Handle<'rx, T: Send + 'rx> {
     /// The ID of this handle, used to compare against the return value of
     /// `Select::wait()`
     id: usize,
@@ -93,14 +93,16 @@ pub struct Handle<'rx, T:Send+'rx> {
     next: *mut Handle<'static, ()>,
     prev: *mut Handle<'static, ()>,
     added: bool,
-    packet: &'rx (Packet+'rx),
+    packet: &'rx (Packet + 'rx),
 
     // due to our fun transmutes, we be sure to place this at the end. (nothing
     // previous relies on T)
     rx: &'rx Receiver<T>,
 }
 
-struct Packets { cur: *mut Handle<'static, ()> }
+struct Packets {
+    cur: *mut Handle<'static, ()>,
+}
 
 #[doc(hidden)]
 #[derive(PartialEq, Eq)]
@@ -258,18 +260,26 @@ impl Select {
         }
     }
 
-    fn iter(&self) -> Packets { Packets { cur: unsafe { &*self.inner.get() }.head } }
+    fn iter(&self) -> Packets {
+        Packets {
+            cur: unsafe { &*self.inner.get() }.head,
+        }
+    }
 }
 
 impl<'rx, T: Send> Handle<'rx, T> {
     /// Retrieves the id of this handle.
     #[inline]
-    pub fn id(&self) -> usize { self.id }
+    pub fn id(&self) -> usize {
+        self.id
+    }
 
     /// Blocks to receive a value on the underlying receiver, returning `Some` on
     /// success or `None` if the channel disconnects. This function has the same
     /// semantics as `Receiver.recv`
-    pub fn recv(&mut self) -> Result<T, RecvError> { self.rx.recv() }
+    pub fn recv(&mut self) -> Result<T, RecvError> {
+        self.rx.recv()
+    }
 
     /// Adds this handle to the receiver set that the handle was created from. This
     /// method can be called multiple times, but it has no effect if `add` was
@@ -278,7 +288,9 @@ impl<'rx, T: Send> Handle<'rx, T> {
     /// This method is unsafe because it requires that the `Handle` is not moved
     /// while it is added to the `Select` set.
     pub unsafe fn add(&mut self) {
-        if self.added { return }
+        if self.added {
+            return;
+        }
         let selector = &mut *self.selector;
         let me = self as *mut Handle<'rx, T> as *mut Handle<'static, ()>;
 
@@ -298,7 +310,9 @@ impl<'rx, T: Send> Handle<'rx, T> {
     /// it has no guarantee that the `Handle` was not moved since `add` was
     /// called.
     pub unsafe fn remove(&mut self) {
-        if !self.added { return }
+        if !self.added {
+            return;
+        }
 
         let selector = &mut *self.selector;
         let me = self as *mut Handle<'rx, T> as *mut Handle<'static, ()>;
@@ -346,7 +360,9 @@ impl Iterator for Packets {
             None
         } else {
             let ret = Some(self.cur);
-            unsafe { self.cur = (*self.cur).next; }
+            unsafe {
+                self.cur = (*self.cur).next;
+            }
             ret
         }
     }
@@ -358,7 +374,7 @@ impl fmt::Debug for Select {
     }
 }
 
-impl<'rx, T:Send+'rx> fmt::Debug for Handle<'rx, T> {
+impl<'rx, T: Send + 'rx> fmt::Debug for Handle<'rx, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Handle").finish()
     }
@@ -447,11 +463,15 @@ mod tests {
         let (_tx2, rx2) = channel::<i32>();
         let (tx3, rx3) = channel::<i32>();
 
-        let _t = thread::spawn(move|| {
-            for _ in 0..20 { thread::yield_now(); }
+        let _t = thread::spawn(move || {
+            for _ in 0..20 {
+                thread::yield_now();
+            }
             tx1.send(1).unwrap();
             rx3.recv().unwrap();
-            for _ in 0..20 { thread::yield_now(); }
+            for _ in 0..20 {
+                thread::yield_now();
+            }
         });
 
         select! {
@@ -471,8 +491,10 @@ mod tests {
         let (tx2, rx2) = channel::<i32>();
         let (tx3, rx3) = channel::<()>();
 
-        let _t = thread::spawn(move|| {
-            for _ in 0..20 { thread::yield_now(); }
+        let _t = thread::spawn(move || {
+            for _ in 0..20 {
+                thread::yield_now();
+            }
             tx1.send(1).unwrap();
             tx2.send(2).unwrap();
             rx3.recv().unwrap();
@@ -498,7 +520,7 @@ mod tests {
         let (tx2, rx2) = channel::<i32>();
         let (tx3, rx3) = channel::<()>();
 
-        let _t = thread::spawn(move|| {
+        let _t = thread::spawn(move || {
             for i in 0..AMT {
                 if i % 2 == 0 {
                     tx1.send(i).unwrap();
@@ -524,7 +546,7 @@ mod tests {
         let (_tx2, rx2) = channel::<i32>();
         let (tx3, rx3) = channel::<()>();
 
-        let _t = thread::spawn(move|| {
+        let _t = thread::spawn(move || {
             rx3.recv().unwrap();
             tx1.clone();
             assert_eq!(rx3.try_recv(), Err(TryRecvError::Empty));
@@ -546,7 +568,7 @@ mod tests {
         let (_tx2, rx2) = channel::<i32>();
         let (tx3, rx3) = channel::<()>();
 
-        let _t = thread::spawn(move|| {
+        let _t = thread::spawn(move || {
             rx3.recv().unwrap();
             tx1.clone();
             assert_eq!(rx3.try_recv(), Err(TryRecvError::Empty));
@@ -567,17 +589,23 @@ mod tests {
         let (tx1, rx1) = channel::<()>();
         let (tx2, rx2) = channel::<()>();
         let (tx3, rx3) = channel::<()>();
-        let _t = thread::spawn(move|| {
+        let _t = thread::spawn(move || {
             let s = Select::new();
             let mut h1 = s.handle(&rx1);
             let mut h2 = s.handle(&rx2);
-            unsafe { h2.add(); }
-            unsafe { h1.add(); }
+            unsafe {
+                h2.add();
+            }
+            unsafe {
+                h1.add();
+            }
             assert_eq!(s.wait(), h2.id);
             tx3.send(()).unwrap();
         });
 
-        for _ in 0..1000 { thread::yield_now(); }
+        for _ in 0..1000 {
+            thread::yield_now();
+        }
         drop(tx1.clone());
         tx2.send(()).unwrap();
         rx3.recv().unwrap();
@@ -618,7 +646,9 @@ mod tests {
         tx.send(()).unwrap();
         let s = Select::new();
         let mut h = s.handle(&rx);
-        unsafe { h.add(); }
+        unsafe {
+            h.add();
+        }
         assert_eq!(s.wait2(false), h.id);
     }
 
@@ -629,7 +659,9 @@ mod tests {
         tx.send(()).unwrap();
         let s = Select::new();
         let mut h = s.handle(&rx);
-        unsafe { h.add(); }
+        unsafe {
+            h.add();
+        }
         assert_eq!(s.wait2(false), h.id);
     }
 
@@ -640,7 +672,9 @@ mod tests {
         tx.send(()).unwrap();
         let s = Select::new();
         let mut h = s.handle(&rx);
-        unsafe { h.add(); }
+        unsafe {
+            h.add();
+        }
         assert_eq!(s.wait2(false), h.id);
     }
 
@@ -650,7 +684,9 @@ mod tests {
         drop(tx);
         let s = Select::new();
         let mut h = s.handle(&rx);
-        unsafe { h.add(); }
+        unsafe {
+            h.add();
+        }
         assert_eq!(s.wait2(false), h.id);
     }
 
@@ -662,7 +698,9 @@ mod tests {
         rx.recv().unwrap();
         let s = Select::new();
         let mut h = s.handle(&rx);
-        unsafe { h.add(); }
+        unsafe {
+            h.add();
+        }
         assert_eq!(s.wait2(false), h.id);
     }
 
@@ -675,7 +713,9 @@ mod tests {
         rx.recv().unwrap();
         let s = Select::new();
         let mut h = s.handle(&rx);
-        unsafe { h.add(); }
+        unsafe {
+            h.add();
+        }
         assert_eq!(s.wait2(false), h.id);
     }
 
@@ -683,14 +723,16 @@ mod tests {
     fn oneshot_data_waiting() {
         let (tx1, rx1) = channel();
         let (tx2, rx2) = channel();
-        let _t = thread::spawn(move|| {
+        let _t = thread::spawn(move || {
             select! {
                 _n = rx1.recv() => {}
             }
             tx2.send(()).unwrap();
         });
 
-        for _ in 0..100 { thread::yield_now() }
+        for _ in 0..100 {
+            thread::yield_now()
+        }
         tx1.send(()).unwrap();
         rx2.recv().unwrap();
     }
@@ -703,14 +745,16 @@ mod tests {
         tx1.send(()).unwrap();
         rx1.recv().unwrap();
         rx1.recv().unwrap();
-        let _t = thread::spawn(move|| {
+        let _t = thread::spawn(move || {
             select! {
                 _n = rx1.recv() => {}
             }
             tx2.send(()).unwrap();
         });
 
-        for _ in 0..100 { thread::yield_now() }
+        for _ in 0..100 {
+            thread::yield_now()
+        }
         tx1.send(()).unwrap();
         rx2.recv().unwrap();
     }
@@ -722,14 +766,16 @@ mod tests {
         drop(tx1.clone());
         tx1.send(()).unwrap();
         rx1.recv().unwrap();
-        let _t = thread::spawn(move|| {
+        let _t = thread::spawn(move || {
             select! {
                 _n = rx1.recv() => {}
             }
             tx2.send(()).unwrap();
         });
 
-        for _ in 0..100 { thread::yield_now() }
+        for _ in 0..100 {
+            thread::yield_now()
+        }
         tx1.send(()).unwrap();
         rx2.recv().unwrap();
     }
@@ -746,8 +792,10 @@ mod tests {
     #[test]
     fn sync2() {
         let (tx, rx) = sync_channel::<i32>(0);
-        let _t = thread::spawn(move|| {
-            for _ in 0..100 { thread::yield_now() }
+        let _t = thread::spawn(move || {
+            for _ in 0..100 {
+                thread::yield_now()
+            }
             tx.send(1).unwrap();
         });
         select! {
@@ -759,8 +807,12 @@ mod tests {
     fn sync3() {
         let (tx1, rx1) = sync_channel::<i32>(0);
         let (tx2, rx2): (Sender<i32>, Receiver<i32>) = channel();
-        let _t = thread::spawn(move|| { tx1.send(1).unwrap(); });
-        let _t = thread::spawn(move|| { tx2.send(2).unwrap(); });
+        let _t = thread::spawn(move || {
+            tx1.send(1).unwrap();
+        });
+        let _t = thread::spawn(move || {
+            tx2.send(2).unwrap();
+        });
         select! {
             n = rx1.recv() => {
                 let n = n.unwrap();

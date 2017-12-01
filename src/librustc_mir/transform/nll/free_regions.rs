@@ -78,7 +78,10 @@ pub fn free_regions<'a, 'gcx, 'tcx>(
 
     debug!("free_regions: indices={:#?}", indices);
 
-    FreeRegions { indices, free_region_map: &tables.free_region_map }
+    FreeRegions {
+        indices,
+        free_region_map: &tables.free_region_map,
+    }
 }
 
 fn insert_free_region<'tcx>(

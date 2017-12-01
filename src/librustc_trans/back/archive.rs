@@ -10,7 +10,7 @@
 
 //! A helper class for dealing with static archives
 
-use std::ffi::{CString, CStr};
+use std::ffi::{CStr, CString};
 use std::io;
 use std::mem;
 use std::path::{Path, PathBuf};
@@ -52,27 +52,35 @@ enum Addition {
     },
 }
 
-pub fn find_library(name: &str, search_paths: &[PathBuf], sess: &Session)
-                    -> PathBuf {
+pub fn find_library(name: &str, search_paths: &[PathBuf], sess: &Session) -> PathBuf {
     // On Windows, static libraries sometimes show up as libfoo.a and other
     // times show up as foo.lib
-    let oslibname = format!("{}{}{}",
-                            sess.target.target.options.staticlib_prefix,
-                            name,
-                            sess.target.target.options.staticlib_suffix);
+    let oslibname = format!(
+        "{}{}{}",
+        sess.target.target.options.staticlib_prefix,
+        name,
+        sess.target.target.options.staticlib_suffix
+    );
     let unixlibname = format!("lib{}.a", name);
 
     for path in search_paths {
         debug!("looking for {} inside {:?}", name, path);
         let test = path.join(&oslibname);
-        if test.exists() { return test }
+        if test.exists() {
+            return test;
+        }
         if oslibname != unixlibname {
             let test = path.join(&unixlibname);
-            if test.exists() { return test }
+            if test.exists() {
+                return test;
+            }
         }
     }
-    sess.fatal(&format!("could not find native static library `{}`, \
-                         perhaps an -L flag is missing?", name));
+    sess.fatal(&format!(
+        "could not find native static library `{}`, \
+         perhaps an -L flag is missing?",
+        name
+    ));
 }
 
 fn is_relevant_child(c: &Child) -> bool {
@@ -103,22 +111,23 @@ impl<'a> ArchiveBuilder<'a> {
     /// Lists all files in an archive
     pub fn src_files(&mut self) -> Vec<String> {
         if self.src_archive().is_none() {
-            return Vec::new()
+            return Vec::new();
         }
         let archive = self.src_archive.as_ref().unwrap().as_ref().unwrap();
-        let ret = archive.iter()
-                         .filter_map(|child| child.ok())
-                         .filter(is_relevant_child)
-                         .filter_map(|child| child.name())
-                         .filter(|name| !self.removals.iter().any(|x| x == name))
-                         .map(|name| name.to_string())
-                         .collect();
+        let ret = archive
+            .iter()
+            .filter_map(|child| child.ok())
+            .filter(is_relevant_child)
+            .filter_map(|child| child.name())
+            .filter(|name| !self.removals.iter().any(|x| x == name))
+            .map(|name| name.to_string())
+            .collect();
         return ret;
     }
 
     fn src_archive(&mut self) -> Option<&ArchiveRO> {
         if let Some(ref a) = self.src_archive {
-            return a.as_ref()
+            return a.as_ref();
         }
         let src = match self.config.src {
             Some(ref src) => src,
@@ -131,11 +140,13 @@ impl<'a> ArchiveBuilder<'a> {
     /// Adds all of the contents of a native library to this archive. This will
     /// search in the relevant locations for a library named `name`.
     pub fn add_native_library(&mut self, name: &str) {
-        let location = find_library(name, &self.config.lib_search_paths,
-                                    self.config.sess);
+        let location = find_library(name, &self.config.lib_search_paths, self.config.sess);
         self.add_archive(&location, |_| false).unwrap_or_else(|e| {
-            self.config.sess.fatal(&format!("failed to add native library {}: {}",
-                                            location.to_string_lossy(), e));
+            self.config.sess.fatal(&format!(
+                "failed to add native library {}: {}",
+                location.to_string_lossy(),
+                e
+            ));
         });
     }
 
@@ -144,11 +155,13 @@ impl<'a> ArchiveBuilder<'a> {
     ///
     /// This ignores adding the bytecode from the rlib, and if LTO is enabled
     /// then the object file also isn't added.
-    pub fn add_rlib(&mut self,
-                    rlib: &Path,
-                    name: &str,
-                    lto: bool,
-                    skip_objects: bool) -> io::Result<()> {
+    pub fn add_rlib(
+        &mut self,
+        rlib: &Path,
+        name: &str,
+        lto: bool,
+        skip_objects: bool,
+    ) -> io::Result<()> {
         // Ignoring obj file starting with the crate name
         // as simple comparison is not enough - there
         // might be also an extra name suffix
@@ -157,28 +170,28 @@ impl<'a> ArchiveBuilder<'a> {
         self.add_archive(rlib, move |fname: &str| {
             // Ignore bytecode/metadata files, no matter the name.
             if fname.ends_with(RLIB_BYTECODE_EXTENSION) || fname == METADATA_FILENAME {
-                return true
+                return true;
             }
 
             // Don't include Rust objects if LTO is enabled
             if lto && fname.starts_with(&obj_start) && fname.ends_with(".o") {
-                return true
+                return true;
             }
 
             // Otherwise if this is *not* a rust object and we're skipping
             // objects then skip this file
             if skip_objects && (!fname.starts_with(&obj_start) || !fname.ends_with(".o")) {
-                return true
+                return true;
             }
 
             // ok, don't skip this
-            return false
+            return false;
         })
     }
 
-    fn add_archive<F>(&mut self, archive: &Path, skip: F)
-                      -> io::Result<()>
-        where F: FnMut(&str) -> bool + 'static
+    fn add_archive<F>(&mut self, archive: &Path, skip: F) -> io::Result<()>
+    where
+        F: FnMut(&str) -> bool + 'static,
     {
         let archive = match ArchiveRO::open(archive) {
             Ok(ar) => ar,
@@ -212,15 +225,18 @@ impl<'a> ArchiveBuilder<'a> {
         let kind = match self.llvm_archive_kind() {
             Ok(kind) => kind,
             Err(kind) => {
-                self.config.sess.fatal(&format!("Don't know how to build archive of type: {}",
-                                                kind));
+                self.config.sess.fatal(&format!(
+                    "Don't know how to build archive of type: {}",
+                    kind
+                ));
             }
         };
 
         if let Err(e) = self.build_with_llvm(kind) {
-            self.config.sess.fatal(&format!("failed to build archive: {}", e));
+            self.config
+                .sess
+                .fatal(&format!("failed to build archive: {}", e));
         }
-
     }
 
     fn llvm_archive_kind(&self) -> Result<ArchiveKind, &str> {
@@ -243,24 +259,31 @@ impl<'a> ArchiveBuilder<'a> {
                         None => continue,
                     };
                     if removals.iter().any(|r| r == child_name) {
-                        continue
+                        continue;
                     }
 
                     let name = CString::new(child_name)?;
-                    members.push(llvm::LLVMRustArchiveMemberNew(ptr::null(),
-                                                                name.as_ptr(),
-                                                                child.raw()));
+                    members.push(llvm::LLVMRustArchiveMemberNew(
+                        ptr::null(),
+                        name.as_ptr(),
+                        child.raw(),
+                    ));
                     strings.push(name);
                 }
             }
             for addition in mem::replace(&mut self.additions, Vec::new()) {
                 match addition {
-                    Addition::File { path, name_in_archive } => {
+                    Addition::File {
+                        path,
+                        name_in_archive,
+                    } => {
                         let path = CString::new(path.to_str().unwrap())?;
                         let name = CString::new(name_in_archive)?;
-                        members.push(llvm::LLVMRustArchiveMemberNew(path.as_ptr(),
-                                                                    name.as_ptr(),
-                                                                    ptr::null_mut()));
+                        members.push(llvm::LLVMRustArchiveMemberNew(
+                            path.as_ptr(),
+                            name.as_ptr(),
+                            ptr::null_mut(),
+                        ));
                         strings.push(path);
                         strings.push(name);
                     }
@@ -268,11 +291,11 @@ impl<'a> ArchiveBuilder<'a> {
                         for child in archive.iter() {
                             let child = child.map_err(string_to_io_error)?;
                             if !is_relevant_child(&child) {
-                                continue
+                                continue;
                             }
                             let child_name = child.name().unwrap();
                             if skip(child_name) {
-                                continue
+                                continue;
                             }
 
                             // It appears that LLVM's archive writer is a little
@@ -281,13 +304,14 @@ impl<'a> ArchiveBuilder<'a> {
                             // pass it in.
                             //
                             // See LLVM bug 25877 for more info.
-                            let child_name = Path::new(child_name)
-                                                  .file_name().unwrap()
-                                                  .to_str().unwrap();
+                            let child_name =
+                                Path::new(child_name).file_name().unwrap().to_str().unwrap();
                             let name = CString::new(child_name)?;
-                            let m = llvm::LLVMRustArchiveMemberNew(ptr::null(),
-                                                                   name.as_ptr(),
-                                                                   child.raw());
+                            let m = llvm::LLVMRustArchiveMemberNew(
+                                ptr::null(),
+                                name.as_ptr(),
+                                child.raw(),
+                            );
                             members.push(m);
                             strings.push(name);
                         }
@@ -298,18 +322,19 @@ impl<'a> ArchiveBuilder<'a> {
 
             let dst = self.config.dst.to_str().unwrap().as_bytes();
             let dst = CString::new(dst)?;
-            let r = llvm::LLVMRustWriteArchive(dst.as_ptr(),
-                                               members.len() as libc::size_t,
-                                               members.as_ptr(),
-                                               self.should_update_symbols,
-                                               kind);
+            let r = llvm::LLVMRustWriteArchive(
+                dst.as_ptr(),
+                members.len() as libc::size_t,
+                members.as_ptr(),
+                self.should_update_symbols,
+                kind,
+            );
             let ret = if r.into_result().is_err() {
                 let err = llvm::LLVMRustGetLastError();
                 let msg = if err.is_null() {
                     "failed to write archive".to_string()
                 } else {
-                    String::from_utf8_lossy(CStr::from_ptr(err).to_bytes())
-                            .into_owned()
+                    String::from_utf8_lossy(CStr::from_ptr(err).to_bytes()).into_owned()
                 };
                 Err(io::Error::new(io::ErrorKind::Other, msg))
             } else {
@@ -318,7 +343,7 @@ impl<'a> ArchiveBuilder<'a> {
             for member in members {
                 llvm::LLVMRustArchiveMemberFree(member);
             }
-            return ret
+            return ret;
         }
     }
 }

@@ -41,7 +41,8 @@ impl<'a, 'tcx> CheckVisitor<'a, 'tcx> {
         } else {
             "unused import".to_string()
         };
-        self.tcx.lint_node(lint::builtin::UNUSED_IMPORTS, id, span, &msg);
+        self.tcx
+            .lint_node(lint::builtin::UNUSED_IMPORTS, id, span, &msg);
     }
 }
 
@@ -55,11 +56,9 @@ impl<'a, 'tcx, 'v> ItemLikeVisitor<'v> for CheckVisitor<'a, 'tcx> {
         }
     }
 
-    fn visit_trait_item(&mut self, _trait_item: &hir::TraitItem) {
-    }
+    fn visit_trait_item(&mut self, _trait_item: &hir::TraitItem) {}
 
-    fn visit_impl_item(&mut self, _impl_item: &hir::ImplItem) {
-    }
+    fn visit_impl_item(&mut self, _impl_item: &hir::ImplItem) {}
 }
 
 pub fn check_crate<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>) {
@@ -67,23 +66,30 @@ pub fn check_crate<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>) {
     for &body_id in tcx.hir.krate().bodies.keys() {
         let item_def_id = tcx.hir.body_owner_def_id(body_id);
         let imports = tcx.used_trait_imports(item_def_id);
-        debug!("GatherVisitor: item_def_id={:?} with imports {:#?}", item_def_id, imports);
+        debug!(
+            "GatherVisitor: item_def_id={:?} with imports {:#?}",
+            item_def_id,
+            imports
+        );
         used_trait_imports.extend(imports.iter());
     }
 
-    let mut visitor = CheckVisitor { tcx, used_trait_imports };
+    let mut visitor = CheckVisitor {
+        tcx,
+        used_trait_imports,
+    };
     tcx.hir.krate().visit_all_item_likes(&mut visitor);
 
     for &(def_id, span) in tcx.maybe_unused_extern_crates(LOCAL_CRATE).iter() {
         let cnum = tcx.extern_mod_stmt_cnum(def_id).unwrap();
         if tcx.is_compiler_builtins(cnum) {
-            continue
+            continue;
         }
         if tcx.is_panic_runtime(cnum) {
-            continue
+            continue;
         }
         if tcx.has_global_allocator(cnum) {
-            continue
+            continue;
         }
         assert_eq!(def_id.krate, LOCAL_CRATE);
         let hir_id = tcx.hir.definitions().def_index_to_hir_id(def_id.index);

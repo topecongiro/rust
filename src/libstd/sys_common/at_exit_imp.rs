@@ -37,7 +37,7 @@ unsafe fn init() -> bool {
         QUEUE = Box::into_raw(state);
     } else if QUEUE as usize == 1 {
         // can't re-init after a cleanup
-        return false
+        return false;
     }
 
     true
@@ -48,7 +48,7 @@ pub fn cleanup() {
         unsafe {
             LOCK.lock();
             let queue = QUEUE;
-            QUEUE = if i == ITERS - 1 {1} else {0} as *mut _;
+            QUEUE = if i == ITERS - 1 { 1 } else { 0 } as *mut _;
             LOCK.unlock();
 
             // make sure we're not recursively cleaning up

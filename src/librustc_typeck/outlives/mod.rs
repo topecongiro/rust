@@ -23,7 +23,9 @@ pub fn provide(providers: &mut Providers) {
 }
 
 //todo
-fn inferred_outlives_of<'a, 'tcx>(_tcx: TyCtxt<'a, 'tcx, 'tcx>, _def_id: DefId)
-                                  -> Vec<ty::Predicate<'tcx>> {
+fn inferred_outlives_of<'a, 'tcx>(
+    _tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    _def_id: DefId,
+) -> Vec<ty::Predicate<'tcx>> {
     Vec::new()
 }

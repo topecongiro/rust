@@ -33,8 +33,16 @@ impl TestGraph {
         for &(source, target) in edges {
             graph.num_nodes = max(graph.num_nodes, source + 1);
             graph.num_nodes = max(graph.num_nodes, target + 1);
-            graph.successors.entry(source).or_insert(vec![]).push(target);
-            graph.predecessors.entry(target).or_insert(vec![]).push(source);
+            graph
+                .successors
+                .entry(source)
+                .or_insert(vec![])
+                .push(target);
+            graph
+                .predecessors
+                .entry(target)
+                .or_insert(vec![])
+                .push(source);
         }
         for node in 0..graph.num_nodes {
             graph.successors.entry(node).or_insert(vec![]);
@@ -55,9 +63,10 @@ impl ControlFlowGraph for TestGraph {
         self.num_nodes
     }
 
-    fn predecessors<'graph>(&'graph self,
-                            node: usize)
-                            -> <Self as GraphPredecessors<'graph>>::Iter {
+    fn predecessors<'graph>(
+        &'graph self,
+        node: usize,
+    ) -> <Self as GraphPredecessors<'graph>>::Iter {
         self.predecessors[&node].iter().cloned()
     }
 

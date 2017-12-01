@@ -64,17 +64,17 @@
        html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
        html_root_url = "https://doc.rust-lang.org/nightly/")]
 #![deny(warnings)]
-
 #![feature(rustc_diagnostic_macros)]
 #![feature(staged_api)]
 
-#[macro_use] extern crate syntax;
+#[macro_use]
+extern crate syntax;
 
 extern crate rustc;
 extern crate rustc_back;
+extern crate rustc_errors as errors;
 extern crate rustc_metadata;
 extern crate syntax_pos;
-extern crate rustc_errors as errors;
 
 pub use self::registry::Registry;
 

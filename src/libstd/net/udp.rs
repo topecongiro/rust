@@ -10,7 +10,7 @@
 
 use fmt;
 use io::{self, Error, ErrorKind};
-use net::{ToSocketAddrs, SocketAddr, Ipv4Addr, Ipv6Addr};
+use net::{Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs};
 use sys_common::net as net_imp;
 use sys_common::{AsInner, FromInner, IntoInner};
 use time::Duration;
@@ -181,12 +181,13 @@ impl UdpSocket {
     /// socket.send_to(&[0; 10], "127.0.0.1:4242").expect("couldn't send data");
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    pub fn send_to<A: ToSocketAddrs>(&self, buf: &[u8], addr: A)
-                                     -> io::Result<usize> {
+    pub fn send_to<A: ToSocketAddrs>(&self, buf: &[u8], addr: A) -> io::Result<usize> {
         match addr.to_socket_addrs()?.next() {
             Some(addr) => self.0.send_to(buf, &addr),
-            None => Err(Error::new(ErrorKind::InvalidInput,
-                                   "no addresses to send data to")),
+            None => Err(Error::new(
+                ErrorKind::InvalidInput,
+                "no addresses to send data to",
+            )),
         }
     }
 
@@ -768,15 +769,21 @@ impl UdpSocket {
 }
 
 impl AsInner<net_imp::UdpSocket> for UdpSocket {
-    fn as_inner(&self) -> &net_imp::UdpSocket { &self.0 }
+    fn as_inner(&self) -> &net_imp::UdpSocket {
+        &self.0
+    }
 }
 
 impl FromInner<net_imp::UdpSocket> for UdpSocket {
-    fn from_inner(inner: net_imp::UdpSocket) -> UdpSocket { UdpSocket(inner) }
+    fn from_inner(inner: net_imp::UdpSocket) -> UdpSocket {
+        UdpSocket(inner)
+    }
 }
 
 impl IntoInner<net_imp::UdpSocket> for UdpSocket {
-    fn into_inner(self) -> net_imp::UdpSocket { self.0 }
+    fn into_inner(self) -> net_imp::UdpSocket {
+        self.0
+    }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
@@ -793,7 +800,7 @@ mod tests {
     use net::test::{next_test_ip4, next_test_ip6};
     use sync::mpsc::channel;
     use sys_common::AsInner;
-    use time::{Instant, Duration};
+    use time::{Duration, Instant};
     use thread;
 
     fn each_ip(f: &mut FnMut(SocketAddr, SocketAddr)) {
@@ -814,9 +821,7 @@ mod tests {
     fn bind_error() {
         match UdpSocket::bind("1.1.1.1:9999") {
             Ok(..) => panic!(),
-            Err(e) => {
-                assert_eq!(e.kind(), ErrorKind::AddrNotAvailable)
-            }
+            Err(e) => assert_eq!(e.kind(), ErrorKind::AddrNotAvailable),
         }
     }
 
@@ -826,7 +831,7 @@ mod tests {
             let (tx1, rx1) = channel();
             let (tx2, rx2) = channel();
 
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 let client = t!(UdpSocket::bind(&client_ip));
                 rx1.recv().unwrap();
                 t!(client.send_to(&[99], &server_ip));
@@ -858,7 +863,7 @@ mod tests {
             let sock1 = t!(UdpSocket::bind(&addr1));
             let sock2 = t!(UdpSocket::bind(&addr2));
 
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 let mut buf = [0, 0];
                 assert_eq!(sock2.recv_from(&mut buf).unwrap(), (1, addr1));
                 assert_eq!(buf[0], 1);
@@ -869,7 +874,7 @@ mod tests {
 
             let (tx1, rx1) = channel();
             let (tx2, rx2) = channel();
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 rx1.recv().unwrap();
                 t!(sock3.send_to(&[1], &addr2));
                 tx2.send(()).unwrap();
@@ -889,7 +894,7 @@ mod tests {
             let (tx1, rx) = channel();
             let tx2 = tx1.clone();
 
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 t!(sock2.send_to(&[1], &addr1));
                 rx.recv().unwrap();
                 t!(sock2.send_to(&[2], &addr1));
@@ -899,7 +904,7 @@ mod tests {
             let sock3 = t!(sock1.try_clone());
 
             let (done, rx) = channel();
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 let mut buf = [0, 0];
                 t!(sock3.recv_from(&mut buf));
                 tx2.send(()).unwrap();
@@ -922,7 +927,7 @@ mod tests {
             let (tx, rx) = channel();
             let (serv_tx, serv_rx) = channel();
 
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 let mut buf = [0, 1];
                 rx.recv().unwrap();
                 t!(sock2.recv_from(&mut buf));
@@ -933,15 +938,19 @@ mod tests {
 
             let (done, rx) = channel();
             let tx2 = tx.clone();
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 match sock3.send_to(&[1], &addr2) {
-                    Ok(..) => { let _ = tx2.send(()); }
+                    Ok(..) => {
+                        let _ = tx2.send(());
+                    }
                     Err(..) => {}
                 }
                 done.send(()).unwrap();
             });
             match sock1.send_to(&[2], &addr2) {
-                Ok(..) => { let _ = tx.send(()); }
+                Ok(..) => {
+                    let _ = tx.send(());
+                }
                 Err(..) => {}
             }
             drop(tx);
@@ -953,13 +962,17 @@ mod tests {
 
     #[test]
     fn debug() {
-        let name = if cfg!(windows) {"socket"} else {"fd"};
+        let name = if cfg!(windows) { "socket" } else { "fd" };
         let socket_addr = next_test_ip4();
 
         let udpsock = t!(UdpSocket::bind(&socket_addr));
         let udpsock_inner = udpsock.0.socket().as_inner();
-        let compare = format!("UdpSocket {{ addr: {:?}, {}: {:?} }}",
-                              socket_addr, name, udpsock_inner);
+        let compare = format!(
+            "UdpSocket {{ addr: {:?}, {}: {:?} }}",
+            socket_addr,
+            name,
+            udpsock_inner
+        );
         assert_eq!(format!("{:?}", udpsock), compare);
     }
 
@@ -1000,7 +1013,11 @@ mod tests {
         let mut buf = [0; 10];
 
         let start = Instant::now();
-        let kind = stream.recv_from(&mut buf).err().expect("expected error").kind();
+        let kind = stream
+            .recv_from(&mut buf)
+            .err()
+            .expect("expected error")
+            .kind();
         assert!(kind == ErrorKind::WouldBlock || kind == ErrorKind::TimedOut);
         assert!(start.elapsed() > Duration::from_millis(400));
     }
@@ -1019,7 +1036,11 @@ mod tests {
         assert_eq!(b"hello world", &buf[..]);
 
         let start = Instant::now();
-        let kind = stream.recv_from(&mut buf).err().expect("expected error").kind();
+        let kind = stream
+            .recv_from(&mut buf)
+            .err()
+            .expect("expected error")
+            .kind();
         assert!(kind == ErrorKind::WouldBlock || kind == ErrorKind::TimedOut);
         assert!(start.elapsed() > Duration::from_millis(400));
     }

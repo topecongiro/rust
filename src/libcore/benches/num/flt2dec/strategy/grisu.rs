@@ -8,7 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::{i16, f64};
+use std::{f64, i16};
 use super::super::*;
 use core::num::flt2dec::strategy::grisu::*;
 use test::Bencher;
@@ -16,7 +16,7 @@ use test::Bencher;
 pub fn decode_finite<T: DecodableFloat>(v: T) -> Decoded {
     match decode(v).1 {
         FullDecoded::Finite(decoded) => decoded,
-        full_decoded => panic!("expected finite, got {:?} instead", full_decoded)
+        full_decoded => panic!("expected finite, got {:?} instead", full_decoded),
     }
 }
 

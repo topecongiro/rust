@@ -137,8 +137,7 @@ pub mod consts {
 }
 
 #[unstable(feature = "core_float",
-           reason = "stable interface is via `impl f{32,64}` in later crates",
-           issue = "32110")]
+           reason = "stable interface is via `impl f{32,64}` in later crates", issue = "32110")]
 impl Float for f64 {
     /// Returns `true` if the number is NaN.
     #[inline]
@@ -216,7 +215,7 @@ impl Float for f64 {
         #[repr(C)]
         union F64Bytes {
             f: f64,
-            b: u64
+            b: u64,
         }
         unsafe { F64Bytes { f: self }.b & 0x8000_0000_0000_0000 != 0 }
     }
@@ -256,7 +255,11 @@ impl Float for f64 {
         // Since we do not support sNaN in Rust yet, we do not need to handle them.
         // FIXME(nagisa): due to https://bugs.llvm.org/show_bug.cgi?id=33303 we canonicalize by
         // multiplying by 1.0. Should switch to the `canonicalize` when it works.
-        (if self < other || self.is_nan() { other } else { self }) * 1.0
+        (if self < other || self.is_nan() {
+            other
+        } else {
+            self
+        }) * 1.0
     }
 
     /// Returns the minimum of the two numbers.
@@ -270,6 +273,10 @@ impl Float for f64 {
         // Since we do not support sNaN in Rust yet, we do not need to handle them.
         // FIXME(nagisa): due to https://bugs.llvm.org/show_bug.cgi?id=33303 we canonicalize by
         // multiplying by 1.0. Should switch to the `canonicalize` when it works.
-        (if self < other || other.is_nan() { self } else { other }) * 1.0
+        (if self < other || other.is_nan() {
+            self
+        } else {
+            other
+        }) * 1.0
     }
 }

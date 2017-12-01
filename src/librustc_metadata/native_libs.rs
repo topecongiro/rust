@@ -27,7 +27,7 @@ pub fn collect<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>) -> Vec<NativeLibrary> {
     };
     tcx.hir.krate().visit_all_item_likes(&mut collector);
     collector.process_command_line();
-    return collector.libs
+    return collector.libs;
 }
 
 pub fn relevant_lib(sess: &Session, lib: &NativeLibrary) -> bool {
@@ -49,10 +49,8 @@ impl<'a, 'tcx> ItemLikeVisitor<'tcx> for Collector<'a, 'tcx> {
             _ => return,
         };
 
-        if fm.abi == Abi::Rust ||
-            fm.abi == Abi::RustIntrinsic ||
-            fm.abi == Abi::PlatformIntrinsic {
-            return
+        if fm.abi == Abi::Rust || fm.abi == Abi::RustIntrinsic || fm.abi == Abi::PlatformIntrinsic {
+            return;
         }
 
         // Process all of the #[link(..)]-style arguments
@@ -61,41 +59,48 @@ impl<'a, 'tcx> ItemLikeVisitor<'tcx> for Collector<'a, 'tcx> {
                 Some(item) => item,
                 None => continue,
             };
-            let kind = items.iter().find(|k| {
-                k.check_name("kind")
-            }).and_then(|a| a.value_str()).map(Symbol::as_str);
+            let kind = items
+                .iter()
+                .find(|k| k.check_name("kind"))
+                .and_then(|a| a.value_str())
+                .map(Symbol::as_str);
             let kind = match kind.as_ref().map(|s| &s[..]) {
                 Some("static") => cstore::NativeStatic,
                 Some("static-nobundle") => cstore::NativeStaticNobundle,
                 Some("dylib") => cstore::NativeUnknown,
                 Some("framework") => cstore::NativeFramework,
                 Some(k) => {
-                    struct_span_err!(self.tcx.sess, m.span, E0458,
-                              "unknown kind: `{}`", k)
-                        .span_label(m.span, "unknown kind").emit();
+                    struct_span_err!(self.tcx.sess, m.span, E0458, "unknown kind: `{}`", k)
+                        .span_label(m.span, "unknown kind")
+                        .emit();
                     cstore::NativeUnknown
                 }
-                None => cstore::NativeUnknown
+                None => cstore::NativeUnknown,
             };
-            let n = items.iter().find(|n| {
-                n.check_name("name")
-            }).and_then(|a| a.value_str());
+            let n = items
+                .iter()
+                .find(|n| n.check_name("name"))
+                .and_then(|a| a.value_str());
             let n = match n {
                 Some(n) => n,
                 None => {
-                    struct_span_err!(self.tcx.sess, m.span, E0459,
-                                     "#[link(...)] specified without `name = \"foo\"`")
-                        .span_label(m.span, "missing `name` argument").emit();
+                    struct_span_err!(
+                        self.tcx.sess,
+                        m.span,
+                        E0459,
+                        "#[link(...)] specified without `name = \"foo\"`"
+                    ).span_label(m.span, "missing `name` argument")
+                        .emit();
                     Symbol::intern("foo")
                 }
             };
-            let cfg = items.iter().find(|k| {
-                k.check_name("cfg")
-            }).and_then(|a| a.meta_item_list());
-            let cfg = cfg.map(|list| {
-                list[0].meta_item().unwrap().clone()
-            });
-            let foreign_items = fm.items.iter()
+            let cfg = items
+                .iter()
+                .find(|k| k.check_name("cfg"))
+                .and_then(|a| a.meta_item_list());
+            let cfg = cfg.map(|list| list[0].meta_item().unwrap().clone());
+            let foreign_items = fm.items
+                .iter()
                 .map(|it| self.tcx.hir.local_def_id(it.id))
                 .collect();
             let lib = NativeLibrary {
@@ -117,16 +122,19 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
         if lib.name.as_str().is_empty() {
             match span {
                 Some(span) => {
-                    struct_span_err!(self.tcx.sess, span, E0454,
-                                     "#[link(name = \"\")] given with empty name")
-                        .span_label(span, "empty name given")
+                    struct_span_err!(
+                        self.tcx.sess,
+                        span,
+                        E0454,
+                        "#[link(name = \"\")] given with empty name"
+                    ).span_label(span, "empty name given")
                         .emit();
                 }
                 None => {
                     self.tcx.sess.err("empty library name given via `-l`");
                 }
             }
-            return
+            return;
         }
         let is_osx = self.tcx.sess.target.target.options.is_like_osx;
         if lib.kind == cstore::NativeFramework && !is_osx {
@@ -137,19 +145,24 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
             }
         }
         if lib.cfg.is_some() && !self.tcx.sess.features.borrow().link_cfg {
-            feature_gate::emit_feature_err(&self.tcx.sess.parse_sess,
-                                           "link_cfg",
-                                           span.unwrap(),
-                                           GateIssue::Language,
-                                           "is feature gated");
+            feature_gate::emit_feature_err(
+                &self.tcx.sess.parse_sess,
+                "link_cfg",
+                span.unwrap(),
+                GateIssue::Language,
+                "is feature gated",
+            );
         }
-        if lib.kind == cstore::NativeStaticNobundle &&
-           !self.tcx.sess.features.borrow().static_nobundle {
-            feature_gate::emit_feature_err(&self.tcx.sess.parse_sess,
-                                           "static_nobundle",
-                                           span.unwrap(),
-                                           GateIssue::Language,
-                                           "kind=\"static-nobundle\" is feature gated");
+        if lib.kind == cstore::NativeStaticNobundle
+            && !self.tcx.sess.features.borrow().static_nobundle
+        {
+            feature_gate::emit_feature_err(
+                &self.tcx.sess.parse_sess,
+                "static_nobundle",
+                span.unwrap(),
+                GateIssue::Language,
+                "kind=\"static-nobundle\" is feature gated",
+            );
         }
         self.libs.push(lib);
     }
@@ -161,16 +174,23 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
         for &(ref name, ref new_name, _) in &self.tcx.sess.opts.libs {
             if let &Some(ref new_name) = new_name {
                 if new_name.is_empty() {
-                    self.tcx.sess.err(
-                        &format!("an empty renaming target was specified for library `{}`",name));
+                    self.tcx.sess.err(&format!(
+                        "an empty renaming target was specified for library `{}`",
+                        name
+                    ));
                 } else if !self.libs.iter().any(|lib| lib.name == name as &str) {
-                    self.tcx.sess.err(&format!("renaming of the library `{}` was specified, \
-                                                however this crate contains no #[link(...)] \
-                                                attributes referencing this library.", name));
+                    self.tcx.sess.err(&format!(
+                        "renaming of the library `{}` was specified, \
+                         however this crate contains no #[link(...)] \
+                         attributes referencing this library.",
+                        name
+                    ));
                 } else if renames.contains(name) {
-                    self.tcx.sess.err(&format!("multiple renamings were \
-                                                specified for library `{}` .",
-                                               name));
+                    self.tcx.sess.err(&format!(
+                        "multiple renamings were \
+                         specified for library `{}` .",
+                        name
+                    ));
                 } else {
                     renames.insert(name);
                 }
@@ -193,8 +213,11 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
                         changed = true;
                     }
                     if !changed {
-                        let msg = format!("redundant linker flag specified for \
-                                           library `{}`", name);
+                        let msg = format!(
+                            "redundant linker flag specified for \
+                             library `{}`",
+                            name
+                        );
                         self.tcx.sess.warn(&msg);
                     }
 
@@ -206,7 +229,11 @@ impl<'a, 'tcx> Collector<'a, 'tcx> {
                 let new_name = new_name.as_ref().map(|s| &**s); // &Option<String> -> Option<&str>
                 let lib = NativeLibrary {
                     name: Symbol::intern(new_name.unwrap_or(name)),
-                    kind: if let Some(k) = kind { k } else { cstore::NativeUnknown },
+                    kind: if let Some(k) = kind {
+                        k
+                    } else {
+                        cstore::NativeUnknown
+                    },
                     cfg: None,
                     foreign_items: Vec::new(),
                 };

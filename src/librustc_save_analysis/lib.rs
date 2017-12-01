@@ -604,26 +604,26 @@ impl<'l, 'tcx: 'l> SaveContext<'l, 'tcx> {
             Node::NodeItem(&hir::Item {
                 node: hir::ItemUse(ref path, _),
                 ..
-            }) |
-            Node::NodeVisibility(&hir::Visibility::Restricted { ref path, .. }) => path.def,
+            })
+            | Node::NodeVisibility(&hir::Visibility::Restricted { ref path, .. }) => path.def,
 
             Node::NodeExpr(&hir::Expr {
                 node: hir::ExprStruct(ref qpath, ..),
                 ..
-            }) |
-            Node::NodeExpr(&hir::Expr {
+            })
+            | Node::NodeExpr(&hir::Expr {
                 node: hir::ExprPath(ref qpath),
                 ..
-            }) |
-            Node::NodePat(&hir::Pat {
+            })
+            | Node::NodePat(&hir::Pat {
                 node: hir::PatKind::Path(ref qpath),
                 ..
-            }) |
-            Node::NodePat(&hir::Pat {
+            })
+            | Node::NodePat(&hir::Pat {
                 node: hir::PatKind::Struct(ref qpath, ..),
                 ..
-            }) |
-            Node::NodePat(&hir::Pat {
+            })
+            | Node::NodePat(&hir::Pat {
                 node: hir::PatKind::TupleStruct(ref qpath, ..),
                 ..
             }) => {
@@ -690,10 +690,10 @@ impl<'l, 'tcx: 'l> SaveContext<'l, 'tcx> {
                     ref_id: id_from_node_id(id, self),
                 })
             }
-            HirDef::Static(..) |
-            HirDef::Const(..) |
-            HirDef::AssociatedConst(..) |
-            HirDef::VariantCtor(..) => {
+            HirDef::Static(..)
+            | HirDef::Const(..)
+            | HirDef::AssociatedConst(..)
+            | HirDef::VariantCtor(..) => {
                 let span = self.span_from_span(sub_span);
                 Some(Ref {
                     kind: RefKind::Variable,
@@ -713,15 +713,15 @@ impl<'l, 'tcx: 'l> SaveContext<'l, 'tcx> {
                     }
                 })
             }
-            HirDef::Struct(def_id) |
-            HirDef::Variant(def_id, ..) |
-            HirDef::Union(def_id) |
-            HirDef::Enum(def_id) |
-            HirDef::TyAlias(def_id) |
-            HirDef::TyForeign(def_id) |
-            HirDef::AssociatedTy(def_id) |
-            HirDef::Trait(def_id) |
-            HirDef::TyParam(def_id) => {
+            HirDef::Struct(def_id)
+            | HirDef::Variant(def_id, ..)
+            | HirDef::Union(def_id)
+            | HirDef::Enum(def_id)
+            | HirDef::TyAlias(def_id)
+            | HirDef::TyForeign(def_id)
+            | HirDef::AssociatedTy(def_id)
+            | HirDef::Trait(def_id)
+            | HirDef::TyParam(def_id) => {
                 let span = self.span_from_span(sub_span);
                 Some(Ref {
                     kind: RefKind::Type,
@@ -774,12 +774,12 @@ impl<'l, 'tcx: 'l> SaveContext<'l, 'tcx> {
                     ref_id: id_from_def_id(def_id),
                 })
             }
-            HirDef::PrimTy(..) |
-            HirDef::SelfTy(..) |
-            HirDef::Label(..) |
-            HirDef::Macro(..) |
-            HirDef::GlobalAsm(..) |
-            HirDef::Err => None,
+            HirDef::PrimTy(..)
+            | HirDef::SelfTy(..)
+            | HirDef::Label(..)
+            | HirDef::Macro(..)
+            | HirDef::GlobalAsm(..)
+            | HirDef::Err => None,
         }
     }
 
@@ -1023,9 +1023,9 @@ impl<'a> DumpHandler<'a> {
 
         info!("Writing output to {}", file_name.display());
 
-        let output_file = File::create(&file_name).unwrap_or_else(
-            |e| sess.fatal(&format!("Could not open {}: {}", file_name.display(), e)),
-        );
+        let output_file = File::create(&file_name).unwrap_or_else(|e| {
+            sess.fatal(&format!("Could not open {}: {}", file_name.display(), e))
+        });
 
         output_file
     }

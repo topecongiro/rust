@@ -15,14 +15,14 @@
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
-use std::fs::{remove_file, create_dir_all, File};
+use std::fs::{create_dir_all, remove_file, File};
 use std::io::Write;
 use std::error::Error;
 use rustc_serialize::json::as_json;
 
 use syntax_pos::Span;
 use ext::base::ExtCtxt;
-use diagnostics::plugin::{ErrorMap, ErrorInfo};
+use diagnostics::plugin::{ErrorInfo, ErrorMap};
 
 // Default metadata directory to use for extended error JSON.
 const ERROR_METADATA_PREFIX: &'static str = "tmp/extended-errors";
@@ -31,7 +31,7 @@ const ERROR_METADATA_PREFIX: &'static str = "tmp/extended-errors";
 #[derive(PartialEq, RustcDecodable, RustcEncodable)]
 pub struct ErrorMetadata {
     pub description: Option<String>,
-    pub use_site: Option<ErrorLocation>
+    pub use_site: Option<ErrorLocation>,
 }
 
 /// Mapping from error codes to metadata that can be (de)serialized.
@@ -41,7 +41,7 @@ pub type ErrorMetadataMap = BTreeMap<String, ErrorMetadata>;
 #[derive(PartialEq, RustcDecodable, RustcEncodable)]
 pub struct ErrorLocation {
     pub filename: String,
-    pub line: usize
+    pub line: usize,
 }
 
 impl ErrorLocation {
@@ -50,7 +50,7 @@ impl ErrorLocation {
         let loc = ecx.codemap().lookup_char_pos_adj(sp.lo());
         ErrorLocation {
             filename: loc.filename,
-            line: loc.line
+            line: loc.line,
         }
     }
 }
@@ -71,9 +71,12 @@ fn get_metadata_path(directory: PathBuf, name: &str) -> PathBuf {
 ///
 /// For our current purposes the prefix is the target architecture and the name is a crate name.
 /// If an error occurs steps will be taken to ensure that no file is created.
-pub fn output_metadata(ecx: &ExtCtxt, prefix: &str, name: &str, err_map: &ErrorMap)
-    -> Result<(), Box<Error>>
-{
+pub fn output_metadata(
+    ecx: &ExtCtxt,
+    prefix: &str,
+    name: &str,
+    err_map: &ErrorMap,
+) -> Result<(), Box<Error>> {
     // Create the directory to place the file in.
     let metadata_dir = get_metadata_dir(prefix);
     create_dir_all(&metadata_dir)?;
@@ -83,14 +86,25 @@ pub fn output_metadata(ecx: &ExtCtxt, prefix: &str, name: &str, err_map: &ErrorM
     let mut metadata_file = File::create(&metadata_path)?;
 
     // Construct a serializable map.
-    let json_map = err_map.iter().map(|(k, &ErrorInfo { description, use_site })| {
-        let key = k.as_str().to_string();
-        let value = ErrorMetadata {
-            description: description.map(|n| n.as_str().to_string()),
-            use_site: use_site.map(|sp| ErrorLocation::from_span(ecx, sp))
-        };
-        (key, value)
-    }).collect::<ErrorMetadataMap>();
+    let json_map = err_map
+        .iter()
+        .map(
+            |(
+                k,
+                &ErrorInfo {
+                    description,
+                    use_site,
+                },
+            )| {
+                let key = k.as_str().to_string();
+                let value = ErrorMetadata {
+                    description: description.map(|n| n.as_str().to_string()),
+                    use_site: use_site.map(|sp| ErrorLocation::from_span(ecx, sp)),
+                };
+                (key, value)
+            },
+        )
+        .collect::<ErrorMetadataMap>();
 
     // Write the data to the file, deleting it if the write fails.
     let result = write!(&mut metadata_file, "{}", as_json(&json_map));

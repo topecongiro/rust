@@ -19,7 +19,7 @@ use std::ops;
 use std::ascii::AsciiExt;
 
 use syntax::symbol::Symbol;
-use syntax::ast::{MetaItem, MetaItemKind, NestedMetaItem, NestedMetaItemKind, LitKind};
+use syntax::ast::{LitKind, MetaItem, MetaItemKind, NestedMetaItem, NestedMetaItemKind};
 use syntax::parse::ParseSess;
 use syntax::feature_gate::Features;
 
@@ -112,12 +112,12 @@ impl Cfg {
             Cfg::False => false,
             Cfg::True => true,
             Cfg::Not(ref child) => !child.matches(parse_sess, features),
-            Cfg::All(ref sub_cfgs) => {
-                sub_cfgs.iter().all(|sub_cfg| sub_cfg.matches(parse_sess, features))
-            },
-            Cfg::Any(ref sub_cfgs) => {
-                sub_cfgs.iter().any(|sub_cfg| sub_cfg.matches(parse_sess, features))
-            },
+            Cfg::All(ref sub_cfgs) => sub_cfgs
+                .iter()
+                .all(|sub_cfg| sub_cfg.matches(parse_sess, features)),
+            Cfg::Any(ref sub_cfgs) => sub_cfgs
+                .iter()
+                .any(|sub_cfg| sub_cfg.matches(parse_sess, features)),
             Cfg::Cfg(name, value) => parse_sess.config.contains(&(name, value)),
         }
     }
@@ -143,7 +143,7 @@ impl Cfg {
         let mut msg = Html(self).to_string();
         if self.should_capitalize_first_letter() {
             if let Some(i) = msg.find(|c: char| c.is_ascii_alphanumeric()) {
-                msg[i .. i+1].make_ascii_uppercase();
+                msg[i..i + 1].make_ascii_uppercase();
             }
         }
         msg
@@ -162,9 +162,10 @@ impl Cfg {
     fn should_capitalize_first_letter(&self) -> bool {
         match *self {
             Cfg::False | Cfg::True | Cfg::Not(..) => true,
-            Cfg::Any(ref sub_cfgs) | Cfg::All(ref sub_cfgs) => {
-                sub_cfgs.first().map(Cfg::should_capitalize_first_letter).unwrap_or(false)
-            },
+            Cfg::Any(ref sub_cfgs) | Cfg::All(ref sub_cfgs) => sub_cfgs
+                .first()
+                .map(Cfg::should_capitalize_first_letter)
+                .unwrap_or(false),
             Cfg::Cfg(name, _) => match &*name.as_str() {
                 "debug_assertions" | "target_endian" => true,
                 _ => false,
@@ -179,7 +180,7 @@ impl Cfg {
             Cfg::Not(ref child) => match **child {
                 Cfg::Cfg(..) => true,
                 _ => false,
-            }
+            },
         }
     }
 }
@@ -199,7 +200,7 @@ impl ops::Not for Cfg {
 impl ops::BitAndAssign for Cfg {
     fn bitand_assign(&mut self, other: Cfg) {
         match (self, other) {
-            (&mut Cfg::False, _) | (_, Cfg::True) => {},
+            (&mut Cfg::False, _) | (_, Cfg::True) => {}
             (s, Cfg::False) => *s = Cfg::False,
             (s @ &mut Cfg::True, b) => *s = b,
             (&mut Cfg::All(ref mut a), Cfg::All(ref mut b)) => a.append(b),
@@ -208,11 +209,11 @@ impl ops::BitAndAssign for Cfg {
                 let b = mem::replace(s, Cfg::True);
                 a.push(b);
                 *s = Cfg::All(a);
-            },
+            }
             (s, b) => {
                 let a = mem::replace(s, Cfg::True);
                 *s = Cfg::All(vec![a, b]);
-            },
+            }
         }
     }
 }
@@ -228,7 +229,7 @@ impl ops::BitAnd for Cfg {
 impl ops::BitOrAssign for Cfg {
     fn bitor_assign(&mut self, other: Cfg) {
         match (self, other) {
-            (&mut Cfg::True, _) | (_, Cfg::False) => {},
+            (&mut Cfg::True, _) | (_, Cfg::False) => {}
             (s, Cfg::True) => *s = Cfg::True,
             (s @ &mut Cfg::False, b) => *s = b,
             (&mut Cfg::Any(ref mut a), Cfg::Any(ref mut b)) => a.append(b),
@@ -237,11 +238,11 @@ impl ops::BitOrAssign for Cfg {
                 let b = mem::replace(s, Cfg::True);
                 a.push(b);
                 *s = Cfg::Any(a);
-            },
+            }
             (s, b) => {
                 let a = mem::replace(s, Cfg::True);
                 *s = Cfg::Any(vec![a, b]);
-            },
+            }
         }
     }
 }
@@ -305,7 +306,7 @@ impl<'a> fmt::Display for Html<'a> {
                     write_with_opt_paren(fmt, !sub_cfg.is_all(), Html(sub_cfg))?;
                 }
                 Ok(())
-            },
+            }
 
             Cfg::All(ref sub_cfgs) => {
                 for (i, sub_cfg) in sub_cfgs.iter().enumerate() {
@@ -315,7 +316,7 @@ impl<'a> fmt::Display for Html<'a> {
                     write_with_opt_paren(fmt, !sub_cfg.is_simple(), Html(sub_cfg))?;
                 }
                 Ok(())
-            },
+            }
 
             Cfg::True => fmt.write_str("everywhere"),
             Cfg::False => fmt.write_str("nowhere"),
@@ -366,7 +367,7 @@ impl<'a> fmt::Display for Html<'a> {
                         "pc" => "PC",
                         "rumprun" => "Rumprun",
                         "sun" => "Sun",
-                        _ => ""
+                        _ => "",
                     },
                     ("target_env", Some(env)) => match &*env.as_str() {
                         "gnu" => "GNU",
@@ -383,7 +384,12 @@ impl<'a> fmt::Display for Html<'a> {
                 if !human_readable.is_empty() {
                     fmt.write_str(human_readable)
                 } else if let Some(v) = value {
-                    write!(fmt, "<code>{}=\"{}\"</code>", Escape(n), Escape(&*v.as_str()))
+                    write!(
+                        fmt,
+                        "<code>{}=\"{}\"</code>",
+                        Escape(n),
+                        Escape(&*v.as_str())
+                    )
                 } else {
                     write!(fmt, "<code>{}</code>", Escape(n))
                 }
@@ -447,27 +453,40 @@ mod test {
         assert_eq!(x, Cfg::All(vec![word_cfg("test3"), word_cfg("test4")]));
 
         x &= word_cfg("test5");
-        assert_eq!(x, Cfg::All(vec![word_cfg("test3"), word_cfg("test4"), word_cfg("test5")]));
+        assert_eq!(
+            x,
+            Cfg::All(vec![
+                word_cfg("test3"),
+                word_cfg("test4"),
+                word_cfg("test5"),
+            ])
+        );
 
         x &= Cfg::All(vec![word_cfg("test6"), word_cfg("test7")]);
-        assert_eq!(x, Cfg::All(vec![
-            word_cfg("test3"),
-            word_cfg("test4"),
-            word_cfg("test5"),
-            word_cfg("test6"),
-            word_cfg("test7"),
-        ]));
+        assert_eq!(
+            x,
+            Cfg::All(vec![
+                word_cfg("test3"),
+                word_cfg("test4"),
+                word_cfg("test5"),
+                word_cfg("test6"),
+                word_cfg("test7"),
+            ])
+        );
 
         let mut y = Cfg::Any(vec![word_cfg("a"), word_cfg("b")]);
         y &= x;
-        assert_eq!(y, Cfg::All(vec![
-            word_cfg("test3"),
-            word_cfg("test4"),
-            word_cfg("test5"),
-            word_cfg("test6"),
-            word_cfg("test7"),
-            Cfg::Any(vec![word_cfg("a"), word_cfg("b")]),
-        ]));
+        assert_eq!(
+            y,
+            Cfg::All(vec![
+                word_cfg("test3"),
+                word_cfg("test4"),
+                word_cfg("test5"),
+                word_cfg("test6"),
+                word_cfg("test7"),
+                Cfg::Any(vec![word_cfg("a"), word_cfg("b")]),
+            ])
+        );
 
         assert_eq!(
             word_cfg("a") & word_cfg("b") & word_cfg("c"),
@@ -497,27 +516,40 @@ mod test {
         assert_eq!(x, Cfg::Any(vec![word_cfg("test3"), word_cfg("test4")]));
 
         x |= word_cfg("test5");
-        assert_eq!(x, Cfg::Any(vec![word_cfg("test3"), word_cfg("test4"), word_cfg("test5")]));
+        assert_eq!(
+            x,
+            Cfg::Any(vec![
+                word_cfg("test3"),
+                word_cfg("test4"),
+                word_cfg("test5"),
+            ])
+        );
 
         x |= Cfg::Any(vec![word_cfg("test6"), word_cfg("test7")]);
-        assert_eq!(x, Cfg::Any(vec![
-            word_cfg("test3"),
-            word_cfg("test4"),
-            word_cfg("test5"),
-            word_cfg("test6"),
-            word_cfg("test7"),
-        ]));
+        assert_eq!(
+            x,
+            Cfg::Any(vec![
+                word_cfg("test3"),
+                word_cfg("test4"),
+                word_cfg("test5"),
+                word_cfg("test6"),
+                word_cfg("test7"),
+            ])
+        );
 
         let mut y = Cfg::All(vec![word_cfg("a"), word_cfg("b")]);
         y |= x;
-        assert_eq!(y, Cfg::Any(vec![
-            word_cfg("test3"),
-            word_cfg("test4"),
-            word_cfg("test5"),
-            word_cfg("test6"),
-            word_cfg("test7"),
-            Cfg::All(vec![word_cfg("a"), word_cfg("b")]),
-        ]));
+        assert_eq!(
+            y,
+            Cfg::Any(vec![
+                word_cfg("test3"),
+                word_cfg("test4"),
+                word_cfg("test5"),
+                word_cfg("test6"),
+                word_cfg("test7"),
+                Cfg::All(vec![word_cfg("a"), word_cfg("b")]),
+            ])
+        );
 
         assert_eq!(
             word_cfg("a") | word_cfg("b") | word_cfg("c"),
@@ -626,7 +658,10 @@ mod test {
             ]),
             span: DUMMY_SP,
         };
-        assert_eq!(Cfg::parse(&mi), Ok(!(word_cfg("a") | (word_cfg("b") & word_cfg("c")))));
+        assert_eq!(
+            Cfg::parse(&mi),
+            Ok(!(word_cfg("a") | (word_cfg("b") & word_cfg("c"))))
+        );
 
         let mi = MetaItem {
             name: Symbol::intern("all"),
@@ -649,7 +684,10 @@ mod test {
             ]),
             span: DUMMY_SP,
         };
-        assert_eq!(Cfg::parse(&mi), Ok(word_cfg("a") & word_cfg("b") & word_cfg("c")));
+        assert_eq!(
+            Cfg::parse(&mi),
+            Ok(word_cfg("a") & word_cfg("b") & word_cfg("c"))
+        );
     }
 
     #[test]
@@ -751,10 +789,7 @@ mod test {
 
     #[test]
     fn test_render_short_html() {
-        assert_eq!(
-            word_cfg("unix").render_short_html(),
-            "Unix"
-        );
+        assert_eq!(word_cfg("unix").render_short_html(), "Unix");
         assert_eq!(
             name_value_cfg("target_os", "macos").render_short_html(),
             "macOS"
@@ -767,10 +802,7 @@ mod test {
             name_value_cfg("target_endian", "little").render_short_html(),
             "Little-endian"
         );
-        assert_eq!(
-            (!word_cfg("windows")).render_short_html(),
-            "Non-Windows"
-        );
+        assert_eq!((!word_cfg("windows")).render_short_html(), "Non-Windows");
         assert_eq!(
             (word_cfg("unix") & word_cfg("windows")).render_short_html(),
             "Unix and Windows"
@@ -780,21 +812,18 @@ mod test {
             "Unix or Windows"
         );
         assert_eq!(
-            (
-                word_cfg("unix") & word_cfg("windows") & word_cfg("debug_assertions")
-            ).render_short_html(),
+            (word_cfg("unix") & word_cfg("windows") & word_cfg("debug_assertions"))
+                .render_short_html(),
             "Unix and Windows and debug-assertions enabled"
         );
         assert_eq!(
-            (
-                word_cfg("unix") | word_cfg("windows") | word_cfg("debug_assertions")
-            ).render_short_html(),
+            (word_cfg("unix") | word_cfg("windows") | word_cfg("debug_assertions"))
+                .render_short_html(),
             "Unix or Windows or debug-assertions enabled"
         );
         assert_eq!(
-            (
-                !(word_cfg("unix") | word_cfg("windows") | word_cfg("debug_assertions"))
-            ).render_short_html(),
+            (!(word_cfg("unix") | word_cfg("windows") | word_cfg("debug_assertions")))
+                .render_short_html(),
             "Neither Unix nor Windows nor debug-assertions enabled"
         );
         assert_eq!(
@@ -809,9 +838,8 @@ mod test {
             "Not (Unix and Windows)"
         );
         assert_eq!(
-            (
-                (word_cfg("debug_assertions") | word_cfg("windows")) & word_cfg("unix")
-            ).render_short_html(),
+            ((word_cfg("debug_assertions") | word_cfg("windows")) & word_cfg("unix"))
+                .render_short_html(),
             "(Debug-assertions enabled or Windows) and Unix"
         );
     }
@@ -847,25 +875,22 @@ mod test {
             "This is supported on <strong>Unix or Windows</strong> only."
         );
         assert_eq!(
-            (
-                word_cfg("unix") & word_cfg("windows") & word_cfg("debug_assertions")
-            ).render_long_html(),
+            (word_cfg("unix") & word_cfg("windows") & word_cfg("debug_assertions"))
+                .render_long_html(),
             "This is supported on <strong>Unix and Windows and debug-assertions enabled</strong> \
-                only."
+             only."
         );
         assert_eq!(
-            (
-                word_cfg("unix") | word_cfg("windows") | word_cfg("debug_assertions")
-            ).render_long_html(),
+            (word_cfg("unix") | word_cfg("windows") | word_cfg("debug_assertions"))
+                .render_long_html(),
             "This is supported on <strong>Unix or Windows or debug-assertions enabled</strong> \
-                only."
+             only."
         );
         assert_eq!(
-            (
-                !(word_cfg("unix") | word_cfg("windows") | word_cfg("debug_assertions"))
-            ).render_long_html(),
+            (!(word_cfg("unix") | word_cfg("windows") | word_cfg("debug_assertions")))
+                .render_long_html(),
             "This is supported on <strong>neither Unix nor Windows nor debug-assertions \
-                enabled</strong>."
+             enabled</strong>."
         );
         assert_eq!(
             (
@@ -879,11 +904,10 @@ mod test {
             "This is supported on <strong>not (Unix and Windows)</strong>."
         );
         assert_eq!(
-            (
-                (word_cfg("debug_assertions") | word_cfg("windows")) & word_cfg("unix")
-            ).render_long_html(),
+            ((word_cfg("debug_assertions") | word_cfg("windows")) & word_cfg("unix"))
+                .render_long_html(),
             "This is supported on <strong>(debug-assertions enabled or Windows) and Unix</strong> \
-                only."
+             only."
         );
     }
 }

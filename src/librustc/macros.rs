@@ -137,4 +137,3 @@ macro_rules! impl_stable_hash_for_spanned {
         }
     );
 }
-

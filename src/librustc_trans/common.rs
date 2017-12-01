@@ -13,8 +13,8 @@
 //! Code that is useful in various trans modules.
 
 use llvm;
-use llvm::{ValueRef, ContextRef, TypeKind};
-use llvm::{True, False, Bool, OperandBundleDef};
+use llvm::{ContextRef, TypeKind, ValueRef};
+use llvm::{Bool, False, OperandBundleDef, True};
 use rustc::hir::def_id::DefId;
 use rustc::hir::map::DefPathData;
 use rustc::middle::lang_items::LangItem;
@@ -32,7 +32,7 @@ use rustc::ty::layout::{HasDataLayout, LayoutOf};
 use rustc::ty::subst::{Kind, Subst, Substs};
 use rustc::hir;
 
-use libc::{c_uint, c_char};
+use libc::{c_char, c_uint};
 use std::iter;
 
 use syntax::abi::Abi;
@@ -116,34 +116,24 @@ impl Funclet {
 }
 
 pub fn val_ty(v: ValueRef) -> Type {
-    unsafe {
-        Type::from_ref(llvm::LLVMTypeOf(v))
-    }
+    unsafe { Type::from_ref(llvm::LLVMTypeOf(v)) }
 }
 
 // LLVM constant constructors.
 pub fn C_null(t: Type) -> ValueRef {
-    unsafe {
-        llvm::LLVMConstNull(t.to_ref())
-    }
+    unsafe { llvm::LLVMConstNull(t.to_ref()) }
 }
 
 pub fn C_undef(t: Type) -> ValueRef {
-    unsafe {
-        llvm::LLVMGetUndef(t.to_ref())
-    }
+    unsafe { llvm::LLVMGetUndef(t.to_ref()) }
 }
 
 pub fn C_int(t: Type, i: i64) -> ValueRef {
-    unsafe {
-        llvm::LLVMConstInt(t.to_ref(), i as u64, True)
-    }
+    unsafe { llvm::LLVMConstInt(t.to_ref(), i as u64, True) }
 }
 
 pub fn C_uint(t: Type, i: u64) -> ValueRef {
-    unsafe {
-        llvm::LLVMConstInt(t.to_ref(), i, False)
-    }
+    unsafe { llvm::LLVMConstInt(t.to_ref(), i, False) }
 }
 
 pub fn C_uint_big(t: Type, u: u128) -> ValueRef {
@@ -173,7 +163,7 @@ pub fn C_usize(ccx: &CrateContext, i: u64) -> ValueRef {
     let bit_size = ccx.data_layout().pointer_size.bits();
     if bit_size < 64 {
         // make sure it doesn't overflow
-        assert!(i < (1<<bit_size));
+        assert!(i < (1 << bit_size));
     }
 
     C_uint(ccx.isize_ty(), i)
@@ -192,12 +182,14 @@ pub fn C_cstr(cx: &CrateContext, s: InternedString, null_terminated: bool) -> Va
             return llval;
         }
 
-        let sc = llvm::LLVMConstStringInContext(cx.llcx(),
-                                                s.as_ptr() as *const c_char,
-                                                s.len() as c_uint,
-                                                !null_terminated as Bool);
+        let sc = llvm::LLVMConstStringInContext(
+            cx.llcx(),
+            s.as_ptr() as *const c_char,
+            s.len() as c_uint,
+            !null_terminated as Bool,
+        );
         let sym = cx.generate_local_symbol_name("str");
-        let g = declare::define_global(cx, &sym[..], val_ty(sc)).unwrap_or_else(||{
+        let g = declare::define_global(cx, &sym[..], val_ty(sc)).unwrap_or_else(|| {
             bug!("symbol `{}` is already defined", sym);
         });
         llvm::LLVMSetInitializer(g, sc);
@@ -213,8 +205,10 @@ pub fn C_cstr(cx: &CrateContext, s: InternedString, null_terminated: bool) -> Va
 // you will be kicked off fast isel. See issue #4352 for an example of this.
 pub fn C_str_slice(cx: &CrateContext, s: InternedString) -> ValueRef {
     let len = s.len();
-    let cs = consts::ptrcast(C_cstr(cx, s, false),
-        cx.layout_of(cx.tcx().mk_str()).llvm_type(cx).ptr_to());
+    let cs = consts::ptrcast(
+        C_cstr(cx, s, false),
+        cx.layout_of(cx.tcx().mk_str()).llvm_type(cx).ptr_to(),
+    );
     C_fat_ptr(cx, cs, C_usize(cx, len as u64))
 }
 
@@ -230,9 +224,7 @@ pub fn C_struct(cx: &CrateContext, elts: &[ValueRef], packed: bool) -> ValueRef 
 
 pub fn C_struct_in_context(llcx: ContextRef, elts: &[ValueRef], packed: bool) -> ValueRef {
     unsafe {
-        llvm::LLVMConstStructInContext(llcx,
-                                       elts.as_ptr(), elts.len() as c_uint,
-                                       packed as Bool)
+        llvm::LLVMConstStructInContext(llcx, elts.as_ptr(), elts.len() as c_uint, packed as Bool)
     }
 }
 
@@ -265,23 +257,23 @@ pub fn const_get_elt(v: ValueRef, idx: u64) -> ValueRef {
         let us = &[idx as c_uint];
         let r = llvm::LLVMConstExtractValue(v, us.as_ptr(), us.len() as c_uint);
 
-        debug!("const_get_elt(v={:?}, idx={}, r={:?})",
-               Value(v), idx, Value(r));
+        debug!(
+            "const_get_elt(v={:?}, idx={}, r={:?})",
+            Value(v),
+            idx,
+            Value(r)
+        );
 
         r
     }
 }
 
 pub fn const_to_uint(v: ValueRef) -> u64 {
-    unsafe {
-        llvm::LLVMConstIntGetZExtValue(v)
-    }
+    unsafe { llvm::LLVMConstIntGetZExtValue(v) }
 }
 
 pub fn is_const_integral(v: ValueRef) -> bool {
-    unsafe {
-        !llvm::LLVMIsAConstantInt(v).is_null()
-    }
+    unsafe { !llvm::LLVMIsAConstantInt(v).is_null() }
 }
 
 #[inline]
@@ -293,8 +285,8 @@ pub fn const_to_opt_u128(v: ValueRef, sign_ext: bool) -> Option<u128> {
     unsafe {
         if is_const_integral(v) {
             let (mut lo, mut hi) = (0u64, 0u64);
-            let success = llvm::LLVMRustConstInt128Get(v, sign_ext,
-                                                       &mut hi as *mut u64, &mut lo as *mut u64);
+            let success =
+                llvm::LLVMRustConstInt128Get(v, sign_ext, &mut hi as *mut u64, &mut lo as *mut u64);
             if success {
                 Some(hi_lo_to_u128(lo, hi))
             } else {
@@ -306,11 +298,7 @@ pub fn const_to_opt_u128(v: ValueRef, sign_ext: bool) -> Option<u128> {
     }
 }
 
-pub fn langcall(tcx: TyCtxt,
-                span: Option<Span>,
-                msg: &str,
-                li: LangItem)
-                -> DefId {
+pub fn langcall(tcx: TyCtxt, span: Option<Span>, msg: &str, li: LangItem) -> DefId {
     match tcx.lang_items().require(li) {
         Ok(id) => id,
         Err(s) => {
@@ -331,7 +319,7 @@ pub fn langcall(tcx: TyCtxt,
 pub fn build_unchecked_lshift<'a, 'tcx>(
     bcx: &Builder<'a, 'tcx>,
     lhs: ValueRef,
-    rhs: ValueRef
+    rhs: ValueRef,
 ) -> ValueRef {
     let rhs = base::cast_shift_expr_rhs(bcx, hir::BinOp_::BiShl, lhs, rhs);
     // #1877, #10183: Ensure that input is always valid
@@ -340,7 +328,10 @@ pub fn build_unchecked_lshift<'a, 'tcx>(
 }
 
 pub fn build_unchecked_rshift<'a, 'tcx>(
-    bcx: &Builder<'a, 'tcx>, lhs_t: Ty<'tcx>, lhs: ValueRef, rhs: ValueRef
+    bcx: &Builder<'a, 'tcx>,
+    lhs_t: Ty<'tcx>,
+    lhs: ValueRef,
+    rhs: ValueRef,
 ) -> ValueRef {
     let rhs = base::cast_shift_expr_rhs(bcx, hir::BinOp_::BiShr, lhs, rhs);
     // #1877, #10183: Ensure that input is always valid
@@ -362,7 +353,7 @@ pub fn shift_mask_val<'a, 'tcx>(
     bcx: &Builder<'a, 'tcx>,
     llty: Type,
     mask_llty: Type,
-    invert: bool
+    invert: bool,
 ) -> ValueRef {
     let kind = llty.kind();
     match kind {
@@ -374,19 +365,19 @@ pub fn shift_mask_val<'a, 'tcx>(
             } else {
                 C_uint(mask_llty, val)
             }
-        },
+        }
         TypeKind::Vector => {
             let mask = shift_mask_val(bcx, llty.element_type(), mask_llty.element_type(), invert);
             bcx.vector_splat(mask_llty.vector_length(), mask)
-        },
-        _ => bug!("shift_mask_val: expected Integer or Vector, found {:?}", kind),
+        }
+        _ => bug!(
+            "shift_mask_val: expected Integer or Vector, found {:?}",
+            kind
+        ),
     }
 }
 
-pub fn ty_fn_sig<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
-                           ty: Ty<'tcx>)
-                           -> ty::PolyFnSig<'tcx>
-{
+pub fn ty_fn_sig<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>, ty: Ty<'tcx>) -> ty::PolyFnSig<'tcx> {
     match ty.sty {
         ty::TyFnDef(..) |
         // Shims currently have type TyFnPtr. Not sure this should remain.
@@ -438,36 +429,34 @@ pub fn ty_fn_sig<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
 
 pub fn is_inline_instance<'a, 'tcx>(
     tcx: TyCtxt<'a, 'tcx, 'tcx>,
-    instance: &ty::Instance<'tcx>
+    instance: &ty::Instance<'tcx>,
 ) -> bool {
     let def_id = match instance.def {
         ty::InstanceDef::Item(def_id) => def_id,
         ty::InstanceDef::DropGlue(_, Some(_)) => return false,
-        _ => return true
+        _ => return true,
     };
     match tcx.def_key(def_id).disambiguated_data.data {
-        DefPathData::StructCtor |
-        DefPathData::EnumVariant(..) |
-        DefPathData::ClosureExpr => true,
-        _ => false
+        DefPathData::StructCtor | DefPathData::EnumVariant(..) | DefPathData::ClosureExpr => true,
+        _ => false,
     }
 }
 
 /// Given a DefId and some Substs, produces the monomorphic item type.
-pub fn def_ty<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                        def_id: DefId,
-                        substs: &'tcx Substs<'tcx>)
-                        -> Ty<'tcx>
-{
+pub fn def_ty<'a, 'tcx>(
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    def_id: DefId,
+    substs: &'tcx Substs<'tcx>,
+) -> Ty<'tcx> {
     let ty = tcx.type_of(def_id);
     tcx.trans_apply_param_substs(substs, &ty)
 }
 
 /// Return the substituted type of an instance.
-pub fn instance_ty<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                             instance: &ty::Instance<'tcx>)
-                             -> Ty<'tcx>
-{
+pub fn instance_ty<'a, 'tcx>(
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    instance: &ty::Instance<'tcx>,
+) -> Ty<'tcx> {
     let ty = instance.def.def_ty(tcx);
     tcx.trans_apply_param_substs(instance.substs, &ty)
 }

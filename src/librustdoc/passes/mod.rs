@@ -36,24 +36,44 @@ pub use self::unindent_comments::unindent_comments;
 mod propagate_doc_cfg;
 pub use self::propagate_doc_cfg::propagate_doc_cfg;
 
-type Pass = (&'static str,                                      // name
-             fn(clean::Crate) -> plugins::PluginResult,         // fn
-             &'static str);                                     // description
+type Pass = (
+    &'static str,                              // name
+    fn(clean::Crate) -> plugins::PluginResult, // fn
+    &'static str,
+); // description
 
 pub const PASSES: &'static [Pass] = &[
-    ("strip-hidden", strip_hidden,
-     "strips all doc(hidden) items from the output"),
-    ("unindent-comments", unindent_comments,
-     "removes excess indentation on comments in order for markdown to like it"),
-    ("collapse-docs", collapse_docs,
-     "concatenates all document attributes into one document attribute"),
-    ("strip-private", strip_private,
-     "strips all private items from a crate which cannot be seen externally, \
-      implies strip-priv-imports"),
-    ("strip-priv-imports", strip_priv_imports,
-     "strips all private import statements (`use`, `extern crate`) from a crate"),
-    ("propagate-doc-cfg", propagate_doc_cfg,
-     "propagates `#[doc(cfg(...))]` to child items"),
+    (
+        "strip-hidden",
+        strip_hidden,
+        "strips all doc(hidden) items from the output",
+    ),
+    (
+        "unindent-comments",
+        unindent_comments,
+        "removes excess indentation on comments in order for markdown to like it",
+    ),
+    (
+        "collapse-docs",
+        collapse_docs,
+        "concatenates all document attributes into one document attribute",
+    ),
+    (
+        "strip-private",
+        strip_private,
+        "strips all private items from a crate which cannot be seen externally, \
+         implies strip-priv-imports",
+    ),
+    (
+        "strip-priv-imports",
+        strip_priv_imports,
+        "strips all private import statements (`use`, `extern crate`) from a crate",
+    ),
+    (
+        "propagate-doc-cfg",
+        propagate_doc_cfg,
+        "propagates `#[doc(cfg(...))]` to child items",
+    ),
 ];
 
 pub const DEFAULT_PASSES: &'static [&'static str] = &[
@@ -84,13 +104,20 @@ impl<'a> fold::DocFolder for Stripper<'a> {
                 return ret;
             }
             // These items can all get re-exported
-            clean::TypedefItem(..) | clean::StaticItem(..) |
-            clean::StructItem(..) | clean::EnumItem(..) |
-            clean::TraitItem(..) | clean::FunctionItem(..) |
-            clean::VariantItem(..) | clean::MethodItem(..) |
-            clean::ForeignFunctionItem(..) | clean::ForeignStaticItem(..) |
-            clean::ConstantItem(..) | clean::UnionItem(..) |
-            clean::AssociatedConstItem(..) | clean::ForeignTypeItem => {
+            clean::TypedefItem(..)
+            | clean::StaticItem(..)
+            | clean::StructItem(..)
+            | clean::EnumItem(..)
+            | clean::TraitItem(..)
+            | clean::FunctionItem(..)
+            | clean::VariantItem(..)
+            | clean::MethodItem(..)
+            | clean::ForeignFunctionItem(..)
+            | clean::ForeignStaticItem(..)
+            | clean::ConstantItem(..)
+            | clean::UnionItem(..)
+            | clean::AssociatedConstItem(..)
+            | clean::ForeignTypeItem => {
                 if i.def_id.is_local() {
                     if !self.access_levels.is_exported(i.def_id) {
                         return None;
@@ -137,7 +164,7 @@ impl<'a> fold::DocFolder for Stripper<'a> {
             clean::ImplItem(ref imp) if imp.trait_.is_some() => true,
             // Struct variant fields have inherited visibility
             clean::VariantItem(clean::Variant {
-                kind: clean::VariantKind::Struct(..)
+                kind: clean::VariantKind::Struct(..),
             }) => true,
             _ => false,
         };
@@ -162,7 +189,7 @@ impl<'a> fold::DocFolder for Stripper<'a> {
 
 // This stripper discards all impls which reference stripped items
 struct ImplStripper<'a> {
-    retained: &'a DefIdSet
+    retained: &'a DefIdSet,
 }
 
 impl<'a> fold::DocFolder for ImplStripper<'a> {
@@ -173,9 +200,7 @@ impl<'a> fold::DocFolder for ImplStripper<'a> {
                 return None;
             }
             if let Some(did) = imp.for_.def_id() {
-                if did.is_local() && !imp.for_.is_generic() &&
-                    !self.retained.contains(&did)
-                {
+                if did.is_local() && !imp.for_.is_generic() && !self.retained.contains(&did) {
                     return None;
                 }
             }
@@ -194,9 +219,12 @@ struct ImportStripper;
 impl fold::DocFolder for ImportStripper {
     fn fold_item(&mut self, i: Item) -> Option<Item> {
         match i.inner {
-            clean::ExternCrateItem(..) |
-            clean::ImportItem(..) if i.visibility != Some(clean::Public) => None,
-            _ => self.fold_item_recur(i)
+            clean::ExternCrateItem(..) | clean::ImportItem(..)
+                if i.visibility != Some(clean::Public) =>
+            {
+                None
+            }
+            _ => self.fold_item_recur(i),
         }
     }
 }

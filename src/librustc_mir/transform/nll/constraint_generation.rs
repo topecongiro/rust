@@ -161,7 +161,11 @@ impl<'cx, 'gcx, 'tcx> ConstraintGeneration<'cx, 'gcx, 'tcx> {
                 // them up with a location.
                 let fulfillcx = traits::FulfillmentContext::new_ignoring_regions();
                 match traits::fully_normalize_with_fulfillcx(
-                    self.infcx, fulfillcx, cause, self.param_env, &ty
+                    self.infcx,
+                    fulfillcx,
+                    cause,
+                    self.param_env,
+                    &ty,
                 ) {
                     Ok(ty) => match ty.sty {
                         ty::TyParam(..) | ty::TyProjection(..) | ty::TyAnon(..) => {
@@ -199,20 +203,22 @@ impl<'cx, 'gcx, 'tcx> ConstraintGeneration<'cx, 'gcx, 'tcx> {
                 let base_ty = base.ty(self.mir, tcx).to_ty(tcx);
                 let base_sty = &base_ty.sty;
 
-                if let ty::TyRef(base_region, ty::TypeAndMut{ ty: _, mutbl }) = *base_sty {
+                if let ty::TyRef(base_region, ty::TypeAndMut { ty: _, mutbl }) = *base_sty {
                     match mutbl {
-                        hir::Mutability::MutImmutable => { },
+                        hir::Mutability::MutImmutable => {}
 
                         hir::Mutability::MutMutable => {
                             self.add_reborrow_constraint(location, borrow_region, base);
-                        },
+                        }
                     }
 
                     let span = self.mir.source_info(location).span;
-                    self.regioncx.add_outlives(span,
-                                               base_region.to_region_vid(),
-                                               borrow_region.to_region_vid(),
-                                               location.successor_within_block());
+                    self.regioncx.add_outlives(
+                        span,
+                        base_region.to_region_vid(),
+                        borrow_region.to_region_vid(),
+                        location.successor_within_block(),
+                    );
                 }
             }
         }
@@ -220,9 +226,7 @@ impl<'cx, 'gcx, 'tcx> ConstraintGeneration<'cx, 'gcx, 'tcx> {
 }
 
 impl<'cx, 'gcx, 'tcx> Visitor<'tcx> for ConstraintGeneration<'cx, 'gcx, 'tcx> {
-    fn visit_rvalue(&mut self,
-                    rvalue: &Rvalue<'tcx>,
-                    location: Location) {
+    fn visit_rvalue(&mut self, rvalue: &Rvalue<'tcx>, location: Location) {
         debug!("visit_rvalue(rvalue={:?}, location={:?})", rvalue, location);
 
         // Look for an rvalue like:

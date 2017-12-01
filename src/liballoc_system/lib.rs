@@ -26,26 +26,19 @@
 
 // The minimum alignment guaranteed by the architecture. This value is used to
 // add fast paths for low alignment values.
-#[cfg(all(any(target_arch = "x86",
-              target_arch = "arm",
-              target_arch = "mips",
-              target_arch = "powerpc",
-              target_arch = "powerpc64",
-              target_arch = "asmjs",
+#[cfg(all(any(target_arch = "x86", target_arch = "arm", target_arch = "mips",
+              target_arch = "powerpc", target_arch = "powerpc64", target_arch = "asmjs",
               target_arch = "wasm32")))]
 #[allow(dead_code)]
 const MIN_ALIGN: usize = 8;
-#[cfg(all(any(target_arch = "x86_64",
-              target_arch = "aarch64",
-              target_arch = "mips64",
-              target_arch = "s390x",
-              target_arch = "sparc64")))]
+#[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "mips64",
+              target_arch = "s390x", target_arch = "sparc64")))]
 #[allow(dead_code)]
 const MIN_ALIGN: usize = 16;
 
 extern crate alloc;
 
-use self::alloc::heap::{Alloc, AllocErr, Layout, Excess, CannotReallocInPlace};
+use self::alloc::heap::{Alloc, AllocErr, CannotReallocInPlace, Excess, Layout};
 
 #[unstable(feature = "allocator_api", issue = "32838")]
 pub struct System;
@@ -58,9 +51,7 @@ unsafe impl Alloc for System {
     }
 
     #[inline]
-    unsafe fn alloc_zeroed(&mut self, layout: Layout)
-        -> Result<*mut u8, AllocErr>
-    {
+    unsafe fn alloc_zeroed(&mut self, layout: Layout) -> Result<*mut u8, AllocErr> {
         (&*self).alloc_zeroed(layout)
     }
 
@@ -70,10 +61,12 @@ unsafe impl Alloc for System {
     }
 
     #[inline]
-    unsafe fn realloc(&mut self,
-                      ptr: *mut u8,
-                      old_layout: Layout,
-                      new_layout: Layout) -> Result<*mut u8, AllocErr> {
+    unsafe fn realloc(
+        &mut self,
+        ptr: *mut u8,
+        old_layout: Layout,
+        new_layout: Layout,
+    ) -> Result<*mut u8, AllocErr> {
         (&*self).realloc(ptr, old_layout, new_layout)
     }
 
@@ -92,26 +85,32 @@ unsafe impl Alloc for System {
     }
 
     #[inline]
-    unsafe fn realloc_excess(&mut self,
-                             ptr: *mut u8,
-                             layout: Layout,
-                             new_layout: Layout) -> Result<Excess, AllocErr> {
+    unsafe fn realloc_excess(
+        &mut self,
+        ptr: *mut u8,
+        layout: Layout,
+        new_layout: Layout,
+    ) -> Result<Excess, AllocErr> {
         (&*self).realloc_excess(ptr, layout, new_layout)
     }
 
     #[inline]
-    unsafe fn grow_in_place(&mut self,
-                            ptr: *mut u8,
-                            layout: Layout,
-                            new_layout: Layout) -> Result<(), CannotReallocInPlace> {
+    unsafe fn grow_in_place(
+        &mut self,
+        ptr: *mut u8,
+        layout: Layout,
+        new_layout: Layout,
+    ) -> Result<(), CannotReallocInPlace> {
         (&*self).grow_in_place(ptr, layout, new_layout)
     }
 
     #[inline]
-    unsafe fn shrink_in_place(&mut self,
-                              ptr: *mut u8,
-                              layout: Layout,
-                              new_layout: Layout) -> Result<(), CannotReallocInPlace> {
+    unsafe fn shrink_in_place(
+        &mut self,
+        ptr: *mut u8,
+        layout: Layout,
+        new_layout: Layout,
+    ) -> Result<(), CannotReallocInPlace> {
         (&*self).shrink_in_place(ptr, layout, new_layout)
     }
 }
@@ -144,9 +143,7 @@ mod platform {
         }
 
         #[inline]
-        unsafe fn alloc_zeroed(&mut self, layout: Layout)
-            -> Result<*mut u8, AllocErr>
-        {
+        unsafe fn alloc_zeroed(&mut self, layout: Layout) -> Result<*mut u8, AllocErr> {
             if layout.align() <= MIN_ALIGN && layout.align() <= layout.size() {
                 let ptr = libc::calloc(layout.size(), 1) as *mut u8;
                 if !ptr.is_null() {
@@ -169,22 +166,26 @@ mod platform {
         }
 
         #[inline]
-        unsafe fn realloc(&mut self,
-                          ptr: *mut u8,
-                          old_layout: Layout,
-                          new_layout: Layout) -> Result<*mut u8, AllocErr> {
+        unsafe fn realloc(
+            &mut self,
+            ptr: *mut u8,
+            old_layout: Layout,
+            new_layout: Layout,
+        ) -> Result<*mut u8, AllocErr> {
             if old_layout.align() != new_layout.align() {
                 return Err(AllocErr::Unsupported {
                     details: "cannot change alignment on `realloc`",
-                })
+                });
             }
 
-            if new_layout.align() <= MIN_ALIGN  && new_layout.align() <= new_layout.size(){
+            if new_layout.align() <= MIN_ALIGN && new_layout.align() <= new_layout.size() {
                 let ptr = libc::realloc(ptr as *mut libc::c_void, new_layout.size());
                 if !ptr.is_null() {
                     Ok(ptr as *mut u8)
                 } else {
-                    Err(AllocErr::Exhausted { request: new_layout })
+                    Err(AllocErr::Exhausted {
+                        request: new_layout,
+                    })
                 }
             } else {
                 let res = self.alloc(new_layout.clone());
@@ -215,9 +216,11 @@ mod platform {
             impl Write for Stderr {
                 fn write_str(&mut self, s: &str) -> fmt::Result {
                     unsafe {
-                        libc::write(libc::STDERR_FILENO,
-                                    s.as_ptr() as *const libc::c_void,
-                                    s.len());
+                        libc::write(
+                            libc::STDERR_FILENO,
+                            s.as_ptr() as *const libc::c_void,
+                            s.len(),
+                        );
                     }
                     Ok(())
                 }
@@ -269,7 +272,7 @@ mod platform {
 
     use MIN_ALIGN;
     use System;
-    use alloc::heap::{Alloc, AllocErr, Layout, CannotReallocInPlace};
+    use alloc::heap::{Alloc, AllocErr, CannotReallocInPlace, Layout};
 
     type LPVOID = *mut u8;
     type HANDLE = LPVOID;
@@ -287,12 +290,13 @@ mod platform {
         fn HeapReAlloc(hHeap: HANDLE, dwFlags: DWORD, lpMem: LPVOID, dwBytes: SIZE_T) -> LPVOID;
         fn HeapFree(hHeap: HANDLE, dwFlags: DWORD, lpMem: LPVOID) -> BOOL;
         fn GetLastError() -> DWORD;
-        fn WriteFile(hFile: HANDLE,
-                     lpBuffer: LPVOID,
-                     nNumberOfBytesToWrite: DWORD,
-                     lpNumberOfBytesWritten: LPDWORD,
-                     lpOverlapped: LPOVERLAPPED)
-                     -> BOOL;
+        fn WriteFile(
+            hFile: HANDLE,
+            lpBuffer: LPVOID,
+            nNumberOfBytesToWrite: DWORD,
+            lpNumberOfBytesWritten: LPDWORD,
+            lpOverlapped: LPOVERLAPPED,
+        ) -> BOOL;
         fn GetStdHandle(which: DWORD) -> HANDLE;
     }
 
@@ -313,9 +317,7 @@ mod platform {
     }
 
     #[inline]
-    unsafe fn allocate_with_flags(layout: Layout, flags: DWORD)
-        -> Result<*mut u8, AllocErr>
-    {
+    unsafe fn allocate_with_flags(layout: Layout, flags: DWORD) -> Result<*mut u8, AllocErr> {
         let ptr = if layout.align() <= MIN_ALIGN {
             HeapAlloc(GetProcessHeap(), flags, layout.size())
         } else {
@@ -342,9 +344,7 @@ mod platform {
         }
 
         #[inline]
-        unsafe fn alloc_zeroed(&mut self, layout: Layout)
-            -> Result<*mut u8, AllocErr>
-        {
+        unsafe fn alloc_zeroed(&mut self, layout: Layout) -> Result<*mut u8, AllocErr> {
             allocate_with_flags(layout, HEAP_ZERO_MEMORY)
         }
 
@@ -352,36 +352,35 @@ mod platform {
         unsafe fn dealloc(&mut self, ptr: *mut u8, layout: Layout) {
             if layout.align() <= MIN_ALIGN {
                 let err = HeapFree(GetProcessHeap(), 0, ptr as LPVOID);
-                debug_assert!(err != 0, "Failed to free heap memory: {}",
-                              GetLastError());
+                debug_assert!(err != 0, "Failed to free heap memory: {}", GetLastError());
             } else {
                 let header = get_header(ptr);
                 let err = HeapFree(GetProcessHeap(), 0, header.0 as LPVOID);
-                debug_assert!(err != 0, "Failed to free heap memory: {}",
-                              GetLastError());
+                debug_assert!(err != 0, "Failed to free heap memory: {}", GetLastError());
             }
         }
 
         #[inline]
-        unsafe fn realloc(&mut self,
-                          ptr: *mut u8,
-                          old_layout: Layout,
-                          new_layout: Layout) -> Result<*mut u8, AllocErr> {
+        unsafe fn realloc(
+            &mut self,
+            ptr: *mut u8,
+            old_layout: Layout,
+            new_layout: Layout,
+        ) -> Result<*mut u8, AllocErr> {
             if old_layout.align() != new_layout.align() {
                 return Err(AllocErr::Unsupported {
                     details: "cannot change alignment on `realloc`",
-                })
+                });
             }
 
             if new_layout.align() <= MIN_ALIGN {
-                let ptr = HeapReAlloc(GetProcessHeap(),
-                                      0,
-                                      ptr as LPVOID,
-                                      new_layout.size());
+                let ptr = HeapReAlloc(GetProcessHeap(), 0, ptr as LPVOID, new_layout.size());
                 if !ptr.is_null() {
                     Ok(ptr as *mut u8)
                 } else {
-                    Err(AllocErr::Exhausted { request: new_layout })
+                    Err(AllocErr::Exhausted {
+                        request: new_layout,
+                    })
                 }
             } else {
                 let res = self.alloc(new_layout.clone());
@@ -395,33 +394,41 @@ mod platform {
         }
 
         #[inline]
-        unsafe fn grow_in_place(&mut self,
-                                ptr: *mut u8,
-                                layout: Layout,
-                                new_layout: Layout) -> Result<(), CannotReallocInPlace> {
+        unsafe fn grow_in_place(
+            &mut self,
+            ptr: *mut u8,
+            layout: Layout,
+            new_layout: Layout,
+        ) -> Result<(), CannotReallocInPlace> {
             self.shrink_in_place(ptr, layout, new_layout)
         }
 
         #[inline]
-        unsafe fn shrink_in_place(&mut self,
-                                  ptr: *mut u8,
-                                  old_layout: Layout,
-                                  new_layout: Layout) -> Result<(), CannotReallocInPlace> {
+        unsafe fn shrink_in_place(
+            &mut self,
+            ptr: *mut u8,
+            old_layout: Layout,
+            new_layout: Layout,
+        ) -> Result<(), CannotReallocInPlace> {
             if old_layout.align() != new_layout.align() {
-                return Err(CannotReallocInPlace)
+                return Err(CannotReallocInPlace);
             }
 
             let new = if new_layout.align() <= MIN_ALIGN {
-                HeapReAlloc(GetProcessHeap(),
-                            HEAP_REALLOC_IN_PLACE_ONLY,
-                            ptr as LPVOID,
-                            new_layout.size())
+                HeapReAlloc(
+                    GetProcessHeap(),
+                    HEAP_REALLOC_IN_PLACE_ONLY,
+                    ptr as LPVOID,
+                    new_layout.size(),
+                )
             } else {
                 let header = get_header(ptr);
-                HeapReAlloc(GetProcessHeap(),
-                            HEAP_REALLOC_IN_PLACE_ONLY,
-                            header.0 as LPVOID,
-                            new_layout.size() + new_layout.align())
+                HeapReAlloc(
+                    GetProcessHeap(),
+                    HEAP_REALLOC_IN_PLACE_ONLY,
+                    header.0 as LPVOID,
+                    new_layout.size() + new_layout.align(),
+                )
             };
             if new.is_null() {
                 Err(CannotReallocInPlace)
@@ -447,11 +454,13 @@ mod platform {
                         // WriteFile silently fails if it is passed an invalid
                         // handle, so there is no need to check the result of
                         // GetStdHandle.
-                        WriteFile(GetStdHandle(STD_ERROR_HANDLE),
-                                  s.as_ptr() as LPVOID,
-                                  s.len() as DWORD,
-                                  ptr::null_mut(),
-                                  ptr::null_mut());
+                        WriteFile(
+                            GetStdHandle(STD_ERROR_HANDLE),
+                            s.as_ptr() as LPVOID,
+                            s.len() as DWORD,
+                            ptr::null_mut(),
+                            ptr::null_mut(),
+                        );
                     }
                     Ok(())
                 }
@@ -481,7 +490,7 @@ mod platform {
 mod platform {
     extern crate dlmalloc;
 
-    use alloc::heap::{Alloc, AllocErr, Layout, Excess, CannotReallocInPlace};
+    use alloc::heap::{Alloc, AllocErr, CannotReallocInPlace, Excess, Layout};
     use System;
     use self::dlmalloc::GlobalDlmalloc;
 
@@ -493,9 +502,7 @@ mod platform {
         }
 
         #[inline]
-        unsafe fn alloc_zeroed(&mut self, layout: Layout)
-            -> Result<*mut u8, AllocErr>
-        {
+        unsafe fn alloc_zeroed(&mut self, layout: Layout) -> Result<*mut u8, AllocErr> {
             GlobalDlmalloc.alloc_zeroed(layout)
         }
 
@@ -505,10 +512,12 @@ mod platform {
         }
 
         #[inline]
-        unsafe fn realloc(&mut self,
-                          ptr: *mut u8,
-                          old_layout: Layout,
-                          new_layout: Layout) -> Result<*mut u8, AllocErr> {
+        unsafe fn realloc(
+            &mut self,
+            ptr: *mut u8,
+            old_layout: Layout,
+            new_layout: Layout,
+        ) -> Result<*mut u8, AllocErr> {
             GlobalDlmalloc.realloc(ptr, old_layout, new_layout)
         }
 
@@ -523,26 +532,32 @@ mod platform {
         }
 
         #[inline]
-        unsafe fn realloc_excess(&mut self,
-                                 ptr: *mut u8,
-                                 layout: Layout,
-                                 new_layout: Layout) -> Result<Excess, AllocErr> {
+        unsafe fn realloc_excess(
+            &mut self,
+            ptr: *mut u8,
+            layout: Layout,
+            new_layout: Layout,
+        ) -> Result<Excess, AllocErr> {
             GlobalDlmalloc.realloc_excess(ptr, layout, new_layout)
         }
 
         #[inline]
-        unsafe fn grow_in_place(&mut self,
-                                ptr: *mut u8,
-                                layout: Layout,
-                                new_layout: Layout) -> Result<(), CannotReallocInPlace> {
+        unsafe fn grow_in_place(
+            &mut self,
+            ptr: *mut u8,
+            layout: Layout,
+            new_layout: Layout,
+        ) -> Result<(), CannotReallocInPlace> {
             GlobalDlmalloc.grow_in_place(ptr, layout, new_layout)
         }
 
         #[inline]
-        unsafe fn shrink_in_place(&mut self,
-                                  ptr: *mut u8,
-                                  layout: Layout,
-                                  new_layout: Layout) -> Result<(), CannotReallocInPlace> {
+        unsafe fn shrink_in_place(
+            &mut self,
+            ptr: *mut u8,
+            layout: Layout,
+            new_layout: Layout,
+        ) -> Result<(), CannotReallocInPlace> {
             GlobalDlmalloc.shrink_in_place(ptr, layout, new_layout)
         }
     }

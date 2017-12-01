@@ -14,9 +14,7 @@ use rustc::ty::TyCtxt;
 use syntax::abi::Abi;
 
 pub fn collect<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>) -> Vec<String> {
-    let mut collector = Collector {
-        args: Vec::new(),
-    };
+    let mut collector = Collector { args: Vec::new() };
     tcx.hir.krate().visit_all_item_likes(&mut collector);
 
     for attr in tcx.hir.krate().attrs.iter() {
@@ -27,7 +25,7 @@ pub fn collect<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>) -> Vec<String> {
         }
     }
 
-    return collector.args
+    return collector.args;
 }
 
 struct Collector {
@@ -40,10 +38,8 @@ impl<'tcx> ItemLikeVisitor<'tcx> for Collector {
             hir::ItemForeignMod(ref fm) => fm,
             _ => return,
         };
-        if fm.abi == Abi::Rust ||
-            fm.abi == Abi::RustIntrinsic ||
-            fm.abi == Abi::PlatformIntrinsic {
-            return
+        if fm.abi == Abi::Rust || fm.abi == Abi::RustIntrinsic || fm.abi == Abi::PlatformIntrinsic {
+            return;
         }
 
         // First, add all of the custom #[link_args] attributes
@@ -60,6 +56,10 @@ impl<'tcx> ItemLikeVisitor<'tcx> for Collector {
 
 impl Collector {
     fn add_link_args(&mut self, args: &str) {
-        self.args.extend(args.split(' ').filter(|s| !s.is_empty()).map(|s| s.to_string()))
+        self.args.extend(
+            args.split(' ')
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string()),
+        )
     }
 }

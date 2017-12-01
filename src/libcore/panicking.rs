@@ -38,7 +38,8 @@
 
 use fmt;
 
-#[cold] #[inline(never)] // this is the slow path, always
+#[cold]
+#[inline(never)] // this is the slow path, always
 #[lang = "panic"]
 pub fn panic(expr_file_line_col: &(&'static str, &'static str, u32, u32)) -> ! {
     // Use Arguments::new_v1 instead of format_args!("{}", expr) to potentially
@@ -51,18 +52,25 @@ pub fn panic(expr_file_line_col: &(&'static str, &'static str, u32, u32)) -> ! {
     panic_fmt(fmt::Arguments::new_v1(&[expr], &[]), &(file, line, col))
 }
 
-#[cold] #[inline(never)]
+#[cold]
+#[inline(never)]
 #[lang = "panic_bounds_check"]
-fn panic_bounds_check(file_line_col: &(&'static str, u32, u32),
-                     index: usize, len: usize) -> ! {
-    panic_fmt(format_args!("index out of bounds: the len is {} but the index is {}",
-                           len, index), file_line_col)
+fn panic_bounds_check(file_line_col: &(&'static str, u32, u32), index: usize, len: usize) -> ! {
+    panic_fmt(
+        format_args!(
+            "index out of bounds: the len is {} but the index is {}",
+            len,
+            index
+        ),
+        file_line_col,
+    )
 }
 
-#[cold] #[inline(never)]
+#[cold]
+#[inline(never)]
 pub fn panic_fmt(fmt: fmt::Arguments, file_line_col: &(&'static str, u32, u32)) -> ! {
     #[allow(improper_ctypes)]
-    extern {
+    extern "C" {
         #[lang = "panic_fmt"]
         #[unwind]
         fn panic_impl(fmt: fmt::Arguments, file: &'static str, line: u32, col: u32) -> !;

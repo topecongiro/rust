@@ -31,7 +31,7 @@ use core::hash::{Hash, Hasher};
 use core::{isize, usize};
 use core::convert::From;
 
-use heap::{Heap, Alloc, Layout, box_free};
+use heap::{box_free, Alloc, Heap, Layout};
 use boxed::Box;
 use string::String;
 use vec::Vec;
@@ -285,7 +285,9 @@ impl<T> Arc<T> {
             weak: atomic::AtomicUsize::new(1),
             data,
         };
-        Arc { ptr: Shared::from(Box::into_unique(x)) }
+        Arc {
+            ptr: Shared::from(Box::into_unique(x)),
+        }
     }
 
     /// Returns the contained value, if the `Arc` has exactly one strong reference.
@@ -313,7 +315,11 @@ impl<T> Arc<T> {
     #[stable(feature = "arc_unique", since = "1.4.0")]
     pub fn try_unwrap(this: Self) -> Result<T, Self> {
         // See `drop` for why all these atomics are like this
-        if this.inner().strong.compare_exchange(1, 0, Release, Relaxed).is_err() {
+        if this.inner()
+            .strong
+            .compare_exchange(1, 0, Release, Relaxed)
+            .is_err()
+        {
             return Err(this);
         }
 
@@ -433,7 +439,10 @@ impl<T: ?Sized> Arc<T> {
             // Unlike with Clone(), we need this to be an Acquire read to
             // synchronize with the write coming from `is_unique`, so that the
             // events prior to that write happen before this read.
-            match this.inner().weak.compare_exchange_weak(cur, cur + 1, Acquire, Relaxed) {
+            match this.inner()
+                .weak
+                .compare_exchange_weak(cur, cur + 1, Acquire, Relaxed)
+            {
                 Ok(_) => return Weak { ptr: this.ptr },
                 Err(old) => cur = old,
             }
@@ -468,7 +477,11 @@ impl<T: ?Sized> Arc<T> {
         let cnt = this.inner().weak.load(SeqCst);
         // If the weak count is currently locked, the value of the
         // count was 0 just before taking the lock.
-        if cnt == usize::MAX { 0 } else { cnt - 1 }
+        if cnt == usize::MAX {
+            0
+        } else {
+            cnt - 1
+        }
     }
 
     /// Gets the number of strong (`Arc`) pointers to this value.
@@ -552,8 +565,7 @@ impl<T: ?Sized> Arc<T> {
 
         let layout = Layout::for_value(&*fake_ptr);
 
-        let mem = Heap.alloc(layout)
-            .unwrap_or_else(|e| Heap.oom(e));
+        let mem = Heap.alloc(layout).unwrap_or_else(|e| Heap.oom(e));
 
         // Initialize the real ArcInner
         let inner = set_data_ptr(ptr as *mut T, mem) as *mut ArcInner<T>;
@@ -575,12 +587,15 @@ impl<T: ?Sized> Arc<T> {
             ptr::copy_nonoverlapping(
                 bptr as *const T as *const u8,
                 &mut (*ptr).data as *mut _ as *mut u8,
-                value_size);
+                value_size,
+            );
 
             // Free the allocation without dropping its contents
             box_free(bptr);
 
-            Arc { ptr: Shared::new_unchecked(ptr) }
+            Arc {
+                ptr: Shared::new_unchecked(ptr),
+            }
         }
     }
 }
@@ -602,12 +617,11 @@ impl<T> Arc<[T]> {
         let v_ptr = v as *const [T];
         let ptr = Self::allocate_for_ptr(v_ptr);
 
-        ptr::copy_nonoverlapping(
-            v.as_ptr(),
-            &mut (*ptr).data as *mut [T] as *mut T,
-            v.len());
+        ptr::copy_nonoverlapping(v.as_ptr(), &mut (*ptr).data as *mut [T] as *mut T, v.len());
 
-        Arc { ptr: Shared::new_unchecked(ptr) }
+        Arc {
+            ptr: Shared::new_unchecked(ptr),
+        }
     }
 }
 
@@ -652,7 +666,7 @@ impl<T: Clone> ArcFromSlice<T> for Arc<[T]> {
             // Pointer to first element
             let elems = &mut (*ptr).data as *mut [T] as *mut T;
 
-            let mut guard = Guard{
+            let mut guard = Guard {
                 mem: mem,
                 elems: elems,
                 layout: layout,
@@ -667,7 +681,9 @@ impl<T: Clone> ArcFromSlice<T> for Arc<[T]> {
             // All clear. Forget the guard so it doesn't free the new ArcInner.
             mem::forget(guard);
 
-            Arc { ptr: Shared::new_unchecked(ptr) }
+            Arc {
+                ptr: Shared::new_unchecked(ptr),
+            }
         }
     }
 }
@@ -780,7 +796,11 @@ impl<T: Clone> Arc<T> {
         // before release writes (i.e., decrements) to `strong`. Since we hold a
         // weak count, there's no chance the ArcInner itself could be
         // deallocated.
-        if this.inner().strong.compare_exchange(1, 0, Acquire, Relaxed).is_err() {
+        if this.inner()
+            .strong
+            .compare_exchange(1, 0, Acquire, Relaxed)
+            .is_err()
+        {
             // Another strong pointer exists; clone
             *this = Arc::new((**this).clone());
         } else if this.inner().weak.load(Relaxed) != 1 {
@@ -818,9 +838,7 @@ impl<T: Clone> Arc<T> {
 
         // As with `get_mut()`, the unsafety is ok because our reference was
         // either unique to begin with, or became one upon cloning the contents.
-        unsafe {
-            &mut this.ptr.as_mut().data
-        }
+        unsafe { &mut this.ptr.as_mut().data }
     }
 }
 
@@ -860,9 +878,7 @@ impl<T: ?Sized> Arc<T> {
             // reference count is guaranteed to be 1 at this point, and we required
             // the Arc itself to be `mut`, so we're returning the only possible
             // reference to the inner data.
-            unsafe {
-                Some(&mut this.ptr.as_mut().data)
-            }
+            unsafe { Some(&mut this.ptr.as_mut().data) }
         } else {
             None
         }
@@ -879,7 +895,11 @@ impl<T: ?Sized> Arc<T> {
         // The acquire label here ensures a happens-before relationship with any
         // writes to `strong` prior to decrements of the `weak` count (via drop,
         // which uses Release).
-        if self.inner().weak.compare_exchange(1, usize::MAX, Acquire, Relaxed).is_ok() {
+        if self.inner()
+            .weak
+            .compare_exchange(1, usize::MAX, Acquire, Relaxed)
+            .is_ok()
+        {
             // Due to the previous acquire read, this will observe any writes to
             // `strong` that were due to upgrading weak pointers; only strong
             // clones remain, which require that the strong count is > 1 anyway.
@@ -1051,7 +1071,10 @@ impl<T: ?Sized> Weak<T> {
             }
 
             // Relaxed is valid for the same reason it is on Arc's Clone impl
-            match inner.strong.compare_exchange_weak(n, n + 1, Relaxed, Relaxed) {
+            match inner
+                .strong
+                .compare_exchange_weak(n, n + 1, Relaxed, Relaxed)
+            {
                 Ok(_) => return Some(Arc { ptr: self.ptr }),
                 Err(old) => n = old,
             }
@@ -1157,9 +1180,7 @@ impl<T: ?Sized> Drop for Weak<T> {
         // ref, which can only happen after the lock is released.
         if self.inner().weak.fetch_sub(1, Release) == 1 {
             atomic::fence(Acquire);
-            unsafe {
-                Heap.dealloc(ptr as *mut u8, Layout::for_value(&*ptr))
-            }
+            unsafe { Heap.dealloc(ptr as *mut u8, Layout::for_value(&*ptr)) }
         }
     }
 }
@@ -1606,7 +1627,9 @@ mod tests {
             x: Mutex<Option<Weak<Cycle>>>,
         }
 
-        let a = Arc::new(Cycle { x: Mutex::new(None) });
+        let a = Arc::new(Cycle {
+            x: Mutex::new(None),
+        });
         let b = Arc::downgrade(&a.clone());
         *a.x.lock().unwrap() = Some(b);
 

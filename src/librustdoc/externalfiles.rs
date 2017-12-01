@@ -15,7 +15,7 @@ use std::str;
 use html::markdown::{Markdown, RenderType};
 
 #[derive(Clone)]
-pub struct ExternalHtml{
+pub struct ExternalHtml {
     /// Content that will be included inline in the <head> section of a
     /// rendered Markdown file or generated documentation
     pub in_header: String,
@@ -24,37 +24,36 @@ pub struct ExternalHtml{
     pub before_content: String,
     /// Content that will be included inline between the content and </body> of
     /// a rendered Markdown file or generated documentation
-    pub after_content: String
+    pub after_content: String,
 }
 
 impl ExternalHtml {
-    pub fn load(in_header: &[String], before_content: &[String], after_content: &[String],
-                md_before_content: &[String], md_after_content: &[String], render: RenderType)
-            -> Option<ExternalHtml> {
+    pub fn load(
+        in_header: &[String],
+        before_content: &[String],
+        after_content: &[String],
+        md_before_content: &[String],
+        md_after_content: &[String],
+        render: RenderType,
+    ) -> Option<ExternalHtml> {
         load_external_files(in_header)
-            .and_then(|ih|
-                load_external_files(before_content)
-                    .map(|bc| (ih, bc))
-            )
-            .and_then(|(ih, bc)|
+            .and_then(|ih| load_external_files(before_content).map(|bc| (ih, bc)))
+            .and_then(|(ih, bc)| {
                 load_external_files(md_before_content)
                     .map(|m_bc| (ih, format!("{}{}", bc, Markdown(&m_bc, render))))
-            )
-            .and_then(|(ih, bc)|
-                load_external_files(after_content)
-                    .map(|ac| (ih, bc, ac))
-            )
-            .and_then(|(ih, bc, ac)|
+            })
+            .and_then(|(ih, bc)| load_external_files(after_content).map(|ac| (ih, bc, ac)))
+            .and_then(|(ih, bc, ac)| {
                 load_external_files(md_after_content)
                     .map(|m_ac| (ih, bc, format!("{}{}", ac, Markdown(&m_ac, render))))
-            )
-            .map(|(ih, bc, ac)|
+            })
+            .map(|(ih, bc, ac)| {
                 ExternalHtml {
                     in_header: ih,
                     before_content: bc,
                     after_content: ac,
                 }
-            )
+            })
     }
 }
 
@@ -66,8 +65,7 @@ pub enum LoadStringError {
 pub fn load_string<P: AsRef<Path>>(file_path: P) -> Result<String, LoadStringError> {
     let file_path = file_path.as_ref();
     let mut contents = vec![];
-    let result = File::open(file_path)
-                      .and_then(|mut f| f.read_to_end(&mut contents));
+    let result = File::open(file_path).and_then(|mut f| f.read_to_end(&mut contents));
     if let Err(e) = result {
         eprintln!("error reading `{}`: {}", file_path.display(), e);
         return Err(LoadStringError::ReadFail);

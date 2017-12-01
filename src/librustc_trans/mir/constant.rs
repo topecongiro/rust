@@ -20,16 +20,16 @@ use rustc::mir::tcx::LvalueTy;
 use rustc::ty::{self, Ty, TyCtxt, TypeFoldable};
 use rustc::ty::layout::{self, LayoutOf, Size};
 use rustc::ty::cast::{CastTy, IntTy};
-use rustc::ty::subst::{Kind, Substs, Subst};
+use rustc::ty::subst::{Kind, Subst, Substs};
 use rustc_apfloat::{ieee, Float, Status};
 use rustc_data_structures::indexed_vec::{Idx, IndexVec};
 use base;
 use abi::{self, Abi};
 use callee;
 use builder::Builder;
-use common::{self, CrateContext, const_get_elt, val_ty};
-use common::{C_array, C_bool, C_bytes, C_int, C_uint, C_uint_big, C_u32, C_u64};
-use common::{C_null, C_struct, C_str_slice, C_undef, C_usize, C_vector, C_fat_ptr};
+use common::{self, const_get_elt, val_ty, CrateContext};
+use common::{C_array, C_bool, C_bytes, C_int, C_u32, C_u64, C_uint, C_uint_big};
+use common::{C_fat_ptr, C_null, C_str_slice, C_struct, C_undef, C_usize, C_vector};
 use common::const_to_opt_u128;
 use consts;
 use type_of::LayoutLlvmExt;
@@ -52,15 +52,12 @@ use super::MirContext;
 #[derive(Copy, Clone)]
 pub struct Const<'tcx> {
     pub llval: ValueRef,
-    pub ty: Ty<'tcx>
+    pub ty: Ty<'tcx>,
 }
 
 impl<'a, 'tcx> Const<'tcx> {
     pub fn new(llval: ValueRef, ty: Ty<'tcx>) -> Const<'tcx> {
-        Const {
-            llval,
-            ty,
-        }
+        Const { llval, ty }
     }
 
     pub fn from_constint(ccx: &CrateContext<'a, 'tcx>, ci: &ConstInt) -> Const<'tcx> {
@@ -79,20 +76,20 @@ impl<'a, 'tcx> Const<'tcx> {
             U128(v) => (C_uint_big(Type::i128(ccx), v), tcx.types.u128),
             Usize(v) => (C_uint(Type::isize(ccx), v.as_u64()), tcx.types.usize),
         };
-        Const { llval: llval, ty: ty }
+        Const {
+            llval: llval,
+            ty: ty,
+        }
     }
 
     /// Translate ConstVal into a LLVM constant value.
-    pub fn from_constval(ccx: &CrateContext<'a, 'tcx>,
-                         cv: &ConstVal,
-                         ty: Ty<'tcx>)
-                         -> Const<'tcx> {
+    pub fn from_constval(ccx: &CrateContext<'a, 'tcx>, cv: &ConstVal, ty: Ty<'tcx>) -> Const<'tcx> {
         let llty = ccx.layout_of(ty).llvm_type(ccx);
         let val = match *cv {
             ConstVal::Float(v) => {
                 let bits = match v.ty {
                     ast::FloatTy::F32 => C_u32(ccx, v.bits as u32),
-                    ast::FloatTy::F64 => C_u64(ccx, v.bits as u64)
+                    ast::FloatTy::F64 => C_u64(ccx, v.bits as u64),
                 };
                 consts::bitcast(bits, llty)
             }
@@ -104,11 +101,10 @@ impl<'a, 'tcx> Const<'tcx> {
             }
             ConstVal::Char(c) => C_uint(Type::char(ccx), c as u64),
             ConstVal::Function(..) => C_undef(llty),
-            ConstVal::Variant(_) |
-            ConstVal::Aggregate(..) |
-            ConstVal::Unevaluated(..) => {
-                bug!("MIR must not use `{:?}` (aggregates are expanded to MIR rvalues)", cv)
-            }
+            ConstVal::Variant(_) | ConstVal::Aggregate(..) | ConstVal::Unevaluated(..) => bug!(
+                "MIR must not use `{:?}` (aggregates are expanded to MIR rvalues)",
+                cv
+            ),
         };
 
         assert!(!ty.has_erasable_regions());
@@ -134,15 +130,12 @@ impl<'a, 'tcx> Const<'tcx> {
                         const_get_elt(self.llval, 0)
                     }
                 } else {
-                    assert_eq!(offset, a.value.size(ccx)
-                        .abi_align(b.value.align(ccx)));
+                    assert_eq!(offset, a.value.size(ccx).abi_align(b.value.align(ccx)));
                     assert_eq!(field.size, b.value.size(ccx));
                     const_get_elt(self.llval, 1)
                 }
             }
-            _ => {
-                const_get_elt(self.llval, layout.llvm_field_index(i))
-            }
+            _ => const_get_elt(self.llval, layout.llvm_field_index(i)),
         }
     }
 
@@ -160,7 +153,7 @@ impl<'a, 'tcx> Const<'tcx> {
         ConstLvalue {
             base: Base::Value(self.llval),
             llextra: ptr::null_mut(),
-            ty: self.ty
+            ty: self.ty,
         }
     }
 
@@ -170,9 +163,7 @@ impl<'a, 'tcx> Const<'tcx> {
         let llvalty = val_ty(self.llval);
 
         let val = if llty == llvalty && layout.is_llvm_scalar_pair() {
-            OperandValue::Pair(
-                const_get_elt(self.llval, 0),
-                const_get_elt(self.llval, 1))
+            OperandValue::Pair(const_get_elt(self.llval, 0), const_get_elt(self.llval, 1))
         } else if llty == llvalty && layout.is_llvm_immediate() {
             // If the types match, we can use the value directly.
             OperandValue::Immediate(self.llval)
@@ -181,13 +172,15 @@ impl<'a, 'tcx> Const<'tcx> {
             // a constant LLVM global and cast its address if necessary.
             let align = ccx.align_of(self.ty);
             let ptr = consts::addr_of(ccx, self.llval, align, "const");
-            OperandValue::Ref(consts::ptrcast(ptr, layout.llvm_type(ccx).ptr_to()),
-                              Alignment::AbiAligned)
+            OperandValue::Ref(
+                consts::ptrcast(ptr, layout.llvm_type(ccx).ptr_to()),
+                Alignment::AbiAligned,
+            )
         };
 
         OperandRef {
             val,
-            layout: ccx.layout_of(self.ty)
+            layout: ccx.layout_of(self.ty),
         }
     }
 }
@@ -207,7 +200,7 @@ enum Base {
     Str(ValueRef),
 
     /// The address of a static.
-    Static(ValueRef)
+    Static(ValueRef),
 }
 
 /// An lvalue as seen from a constant.
@@ -215,34 +208,28 @@ enum Base {
 struct ConstLvalue<'tcx> {
     base: Base,
     llextra: ValueRef,
-    ty: Ty<'tcx>
+    ty: Ty<'tcx>,
 }
 
 impl<'tcx> ConstLvalue<'tcx> {
     fn to_const(&self, span: Span) -> Const<'tcx> {
         match self.base {
             Base::Value(val) => Const::new(val, self.ty),
-            Base::Str(ptr) => {
-                span_bug!(span, "loading from `str` ({:?}) in constant",
-                          Value(ptr))
-            }
+            Base::Str(ptr) => span_bug!(span, "loading from `str` ({:?}) in constant", Value(ptr)),
             Base::Static(val) => {
-                span_bug!(span, "loading from `static` ({:?}) in constant",
-                          Value(val))
+                span_bug!(span, "loading from `static` ({:?}) in constant", Value(val))
             }
         }
     }
 
     pub fn len<'a>(&self, ccx: &CrateContext<'a, 'tcx>) -> ValueRef {
         match self.ty.sty {
-            ty::TyArray(_, n) => {
-                C_usize(ccx, n.val.to_const_int().unwrap().to_u64().unwrap())
-            }
+            ty::TyArray(_, n) => C_usize(ccx, n.val.to_const_int().unwrap().to_u64().unwrap()),
             ty::TySlice(_) | ty::TyStr => {
                 assert!(self.llextra != ptr::null_mut());
                 self.llextra
             }
-            _ => bug!("unexpected type `{}` in ConstLvalue::len", self.ty)
+            _ => bug!("unexpected type `{}` in ConstLvalue::len", self.ty),
         }
     }
 }
@@ -257,12 +244,13 @@ struct MirConstContext<'a, 'tcx: 'a> {
     substs: &'tcx Substs<'tcx>,
 
     /// Values of locals in a constant or const fn.
-    locals: IndexVec<mir::Local, Option<Result<Const<'tcx>, ConstEvalErr<'tcx>>>>
+    locals: IndexVec<mir::Local, Option<Result<Const<'tcx>, ConstEvalErr<'tcx>>>>,
 }
 
-fn add_err<'tcx, U, V>(failure: &mut Result<U, ConstEvalErr<'tcx>>,
-                       value: &Result<V, ConstEvalErr<'tcx>>)
-{
+fn add_err<'tcx, U, V>(
+    failure: &mut Result<U, ConstEvalErr<'tcx>>,
+    value: &Result<V, ConstEvalErr<'tcx>>,
+) {
     if let &Err(ref err) = value {
         if failure.is_ok() {
             *failure = Err(err.clone());
@@ -271,11 +259,12 @@ fn add_err<'tcx, U, V>(failure: &mut Result<U, ConstEvalErr<'tcx>>,
 }
 
 impl<'a, 'tcx> MirConstContext<'a, 'tcx> {
-    fn new(ccx: &'a CrateContext<'a, 'tcx>,
-           mir: &'a mir::Mir<'tcx>,
-           substs: &'tcx Substs<'tcx>,
-           args: IndexVec<mir::Local, Result<Const<'tcx>, ConstEvalErr<'tcx>>>)
-           -> MirConstContext<'a, 'tcx> {
+    fn new(
+        ccx: &'a CrateContext<'a, 'tcx>,
+        mir: &'a mir::Mir<'tcx>,
+        substs: &'tcx Substs<'tcx>,
+        args: IndexVec<mir::Local, Result<Const<'tcx>, ConstEvalErr<'tcx>>>,
+    ) -> MirConstContext<'a, 'tcx> {
         let mut context = MirConstContext {
             ccx,
             mir,
@@ -290,21 +279,25 @@ impl<'a, 'tcx> MirConstContext<'a, 'tcx> {
         context
     }
 
-    fn trans_def(ccx: &'a CrateContext<'a, 'tcx>,
-                 def_id: DefId,
-                 substs: &'tcx Substs<'tcx>,
-                 args: IndexVec<mir::Local, Result<Const<'tcx>, ConstEvalErr<'tcx>>>)
-                 -> Result<Const<'tcx>, ConstEvalErr<'tcx>> {
-        let instance = ty::Instance::resolve(ccx.tcx(),
-                                             ty::ParamEnv::empty(traits::Reveal::All),
-                                             def_id,
-                                             substs).unwrap();
+    fn trans_def(
+        ccx: &'a CrateContext<'a, 'tcx>,
+        def_id: DefId,
+        substs: &'tcx Substs<'tcx>,
+        args: IndexVec<mir::Local, Result<Const<'tcx>, ConstEvalErr<'tcx>>>,
+    ) -> Result<Const<'tcx>, ConstEvalErr<'tcx>> {
+        let instance = ty::Instance::resolve(
+            ccx.tcx(),
+            ty::ParamEnv::empty(traits::Reveal::All),
+            def_id,
+            substs,
+        ).unwrap();
         let mir = ccx.tcx().instance_mir(instance.def);
         MirConstContext::new(ccx, &mir, instance.substs, args).trans()
     }
 
     fn monomorphize<T>(&self, value: &T) -> T
-        where T: TransNormalize<'tcx>
+    where
+        T: TransNormalize<'tcx>,
     {
         self.ccx.tcx().trans_apply_param_substs(self.substs, value)
     }
@@ -329,13 +322,13 @@ impl<'a, 'tcx> MirConstContext<'a, 'tcx> {
                         add_err(&mut failure, &value);
                         self.store(dest, value, span);
                     }
-                    mir::StatementKind::StorageLive(_) |
-                    mir::StatementKind::StorageDead(_) |
-                    mir::StatementKind::Validate(..) |
-                    mir::StatementKind::EndRegion(_) |
-                    mir::StatementKind::Nop => {}
-                    mir::StatementKind::InlineAsm { .. } |
-                    mir::StatementKind::SetDiscriminant{ .. } => {
+                    mir::StatementKind::StorageLive(_)
+                    | mir::StatementKind::StorageDead(_)
+                    | mir::StatementKind::Validate(..)
+                    | mir::StatementKind::EndRegion(_)
+                    | mir::StatementKind::Nop => {}
+                    mir::StatementKind::InlineAsm { .. }
+                    | mir::StatementKind::SetDiscriminant { .. } => {
                         span_bug!(span, "{:?} should not appear in constants?", statement.kind);
                     }
                 }
@@ -426,10 +419,12 @@ impl<'a, 'tcx> MirConstContext<'a, 'tcx> {
         }
     }
 
-    fn store(&mut self,
-             dest: &mir::Lvalue<'tcx>,
-             value: Result<Const<'tcx>, ConstEvalErr<'tcx>>,
-             span: Span) {
+    fn store(
+        &mut self,
+        dest: &mir::Lvalue<'tcx>,
+        value: Result<Const<'tcx>, ConstEvalErr<'tcx>>,
+        span: Span,
+    ) {
         if let mir::Lvalue::Local(index) = *dest {
             self.locals[index] = Some(value);
         } else {
@@ -437,29 +432,31 @@ impl<'a, 'tcx> MirConstContext<'a, 'tcx> {
         }
     }
 
-    fn const_lvalue(&self, lvalue: &mir::Lvalue<'tcx>, span: Span)
-                    -> Result<ConstLvalue<'tcx>, ConstEvalErr<'tcx>> {
+    fn const_lvalue(
+        &self,
+        lvalue: &mir::Lvalue<'tcx>,
+        span: Span,
+    ) -> Result<ConstLvalue<'tcx>, ConstEvalErr<'tcx>> {
         let tcx = self.ccx.tcx();
 
         if let mir::Lvalue::Local(index) = *lvalue {
-            return self.locals[index].clone().unwrap_or_else(|| {
-                span_bug!(span, "{:?} not initialized", lvalue)
-            }).map(|v| v.as_lvalue());
+            return self.locals[index]
+                .clone()
+                .unwrap_or_else(|| span_bug!(span, "{:?} not initialized", lvalue))
+                .map(|v| v.as_lvalue());
         }
 
         let lvalue = match *lvalue {
-            mir::Lvalue::Local(_)  => bug!(), // handled above
-            mir::Lvalue::Static(box mir::Static { def_id, ty }) => {
-                ConstLvalue {
-                    base: Base::Static(consts::get_static(self.ccx, def_id)),
-                    llextra: ptr::null_mut(),
-                    ty: self.monomorphize(&ty),
-                }
-            }
+            mir::Lvalue::Local(_) => bug!(), // handled above
+            mir::Lvalue::Static(box mir::Static { def_id, ty }) => ConstLvalue {
+                base: Base::Static(consts::get_static(self.ccx, def_id)),
+                llextra: ptr::null_mut(),
+                ty: self.monomorphize(&ty),
+            },
             mir::Lvalue::Projection(ref projection) => {
                 let tr_base = self.const_lvalue(&projection.base, span)?;
-                let projected_ty = LvalueTy::Ty { ty: tr_base.ty }
-                    .projection_ty(tcx, &projection.elem);
+                let projected_ty =
+                    LvalueTy::Ty { ty: tr_base.ty }.projection_ty(tcx, &projection.elem);
                 let base = tr_base.to_const(span);
                 let projected_ty = self.monomorphize(&projected_ty).to_ty(tcx);
                 let has_metadata = self.ccx.shared().type_has_metadata(projected_ty);
@@ -480,8 +477,11 @@ impl<'a, 'tcx> MirConstContext<'a, 'tcx> {
                             let v = self.ccx.const_unsized().borrow().get(&v).map_or(v, |&v| v);
                             let mut val = unsafe { llvm::LLVMGetInitializer(v) };
                             if val.is_null() {
-                                span_bug!(span, "dereference of non-constant pointer `{:?}`",
-                                          Value(base));
+                                span_bug!(
+                                    span,
+                                    "dereference of non-constant pointer `{:?}`",
+                                    Value(base)
+                                );
                             }
                             let layout = self.ccx.layout_of(projected_ty);
                             if let layout::Abi::Scalar(ref scalar) = layout.abi {
@@ -524,24 +524,26 @@ impl<'a, 'tcx> MirConstContext<'a, 'tcx> {
 
                         (Base::Value(llelem), ptr::null_mut())
                     }
-                    _ => span_bug!(span, "{:?} in constant", projection.elem)
+                    _ => span_bug!(span, "{:?} in constant", projection.elem),
                 };
                 ConstLvalue {
                     base: projected,
                     llextra,
-                    ty: projected_ty
+                    ty: projected_ty,
                 }
             }
         };
         Ok(lvalue)
     }
 
-    fn const_operand(&self, operand: &mir::Operand<'tcx>, span: Span)
-                     -> Result<Const<'tcx>, ConstEvalErr<'tcx>> {
+    fn const_operand(
+        &self,
+        operand: &mir::Operand<'tcx>,
+        span: Span,
+    ) -> Result<Const<'tcx>, ConstEvalErr<'tcx>> {
         debug!("const_operand({:?} @ {:?})", operand, span);
         let result = match *operand {
-            mir::Operand::Copy(ref lvalue) |
-            mir::Operand::Move(ref lvalue) => {
+            mir::Operand::Copy(ref lvalue) | mir::Operand::Move(ref lvalue) => {
                 Ok(self.const_lvalue(lvalue, span)?.to_const(span))
             }
 
@@ -563,17 +565,19 @@ impl<'a, 'tcx> MirConstContext<'a, 'tcx> {
                 }
             }
         };
-        debug!("const_operand({:?} @ {:?}) = {:?}", operand, span,
-               result.as_ref().ok());
+        debug!(
+            "const_operand({:?} @ {:?}) = {:?}",
+            operand,
+            span,
+            result.as_ref().ok()
+        );
         result
     }
 
-    fn const_array(&self, array_ty: Ty<'tcx>, fields: &[ValueRef])
-                   -> Const<'tcx>
-    {
-        let elem_ty = array_ty.builtin_index().unwrap_or_else(|| {
-            bug!("bad array type {:?}", array_ty)
-        });
+    fn const_array(&self, array_ty: Ty<'tcx>, fields: &[ValueRef]) -> Const<'tcx> {
+        let elem_ty = array_ty
+            .builtin_index()
+            .unwrap_or_else(|| bug!("bad array type {:?}", array_ty));
         let llunitty = self.ccx.layout_of(elem_ty).llvm_type(self.ccx);
         // If the array contains enums, an LLVM array won't work.
         let val = if fields.iter().all(|&f| val_ty(f) == llunitty) {
@@ -584,9 +588,12 @@ impl<'a, 'tcx> MirConstContext<'a, 'tcx> {
         Const::new(val, array_ty)
     }
 
-    fn const_rvalue(&self, rvalue: &mir::Rvalue<'tcx>,
-                    dest_ty: Ty<'tcx>, span: Span)
-                    -> Result<Const<'tcx>, ConstEvalErr<'tcx>> {
+    fn const_rvalue(
+        &self,
+        rvalue: &mir::Rvalue<'tcx>,
+        dest_ty: Ty<'tcx>,
+        span: Span,
+    ) -> Result<Const<'tcx>, ConstEvalErr<'tcx>> {
         let tcx = self.ccx.tcx();
         debug!("const_rvalue({:?}: {:?} @ {:?})", rvalue, dest_ty, span);
         let val = match *rvalue {
@@ -608,7 +615,9 @@ impl<'a, 'tcx> MirConstContext<'a, 'tcx> {
                 for operand in operands {
                     match self.const_operand(operand, span) {
                         Ok(val) => fields.push(val.llval),
-                        Err(err) => if failure.is_ok() { failure = Err(err); }
+                        Err(err) => if failure.is_ok() {
+                            failure = Err(err);
+                        },
                     }
                 }
                 failure?;
@@ -624,7 +633,9 @@ impl<'a, 'tcx> MirConstContext<'a, 'tcx> {
                 for operand in operands {
                     match self.const_operand(operand, span) {
                         Ok(val) => fields.push(val),
-                        Err(err) => if failure.is_ok() { failure = Err(err); }
+                        Err(err) => if failure.is_ok() {
+                            failure = Err(err);
+                        },
                     }
                 }
                 failure?;
@@ -637,37 +648,31 @@ impl<'a, 'tcx> MirConstContext<'a, 'tcx> {
                 let cast_ty = self.monomorphize(&cast_ty);
 
                 let val = match *kind {
-                    mir::CastKind::ReifyFnPointer => {
-                        match operand.ty.sty {
-                            ty::TyFnDef(def_id, substs) => {
-                                callee::resolve_and_get_fn(self.ccx, def_id, substs)
-                            }
-                            _ => {
-                                span_bug!(span, "{} cannot be reified to a fn ptr",
-                                          operand.ty)
-                            }
+                    mir::CastKind::ReifyFnPointer => match operand.ty.sty {
+                        ty::TyFnDef(def_id, substs) => {
+                            callee::resolve_and_get_fn(self.ccx, def_id, substs)
                         }
-                    }
+                        _ => span_bug!(span, "{} cannot be reified to a fn ptr", operand.ty),
+                    },
                     mir::CastKind::ClosureFnPointer => {
                         match operand.ty.sty {
                             ty::TyClosure(def_id, substs) => {
                                 // Get the def_id for FnOnce::call_once
                                 let fn_once = tcx.lang_items().fn_once_trait().unwrap();
-                                let call_once = tcx
-                                    .global_tcx().associated_items(fn_once)
+                                let call_once = tcx.global_tcx()
+                                    .associated_items(fn_once)
                                     .find(|it| it.kind == ty::AssociatedKind::Method)
-                                    .unwrap().def_id;
+                                    .unwrap()
+                                    .def_id;
                                 // Now create its substs [Closure, Tuple]
-                                let input = tcx.fn_sig(def_id)
-                                    .subst(tcx, substs.substs).input(0);
+                                let input = tcx.fn_sig(def_id).subst(tcx, substs.substs).input(0);
                                 let input = tcx.erase_late_bound_regions_and_normalize(&input);
-                                let substs = tcx.mk_substs([operand.ty, input]
-                                    .iter().cloned().map(Kind::from));
+                                let substs = tcx.mk_substs(
+                                    [operand.ty, input].iter().cloned().map(Kind::from),
+                                );
                                 callee::resolve_and_get_fn(self.ccx, call_once, substs)
                             }
-                            _ => {
-                                bug!("{} cannot be cast to a fn ptr", operand.ty)
-                            }
+                            _ => bug!("{} cannot be cast to a fn ptr", operand.ty),
                         }
                     }
                     mir::CastKind::UnsafeFnPointer => {
@@ -675,8 +680,11 @@ impl<'a, 'tcx> MirConstContext<'a, 'tcx> {
                         operand.llval
                     }
                     mir::CastKind::Unsize => {
-                        let pointee_ty = operand.ty.builtin_deref(true, ty::NoPreference)
-                            .expect("consts: unsizing got non-pointer type").ty;
+                        let pointee_ty = operand
+                            .ty
+                            .builtin_deref(true, ty::NoPreference)
+                            .expect("consts: unsizing got non-pointer type")
+                            .ty;
                         let (base, old_info) = if !self.ccx.shared().type_is_sized(pointee_ty) {
                             // Normally, the source is a thin pointer and we are
                             // adding extra info to make a fat pointer. The exception
@@ -690,16 +698,19 @@ impl<'a, 'tcx> MirConstContext<'a, 'tcx> {
                             (operand.llval, None)
                         };
 
-                        let unsized_ty = cast_ty.builtin_deref(true, ty::NoPreference)
-                            .expect("consts: unsizing got non-pointer target type").ty;
+                        let unsized_ty = cast_ty
+                            .builtin_deref(true, ty::NoPreference)
+                            .expect("consts: unsizing got non-pointer target type")
+                            .ty;
                         let ptr_ty = self.ccx.layout_of(unsized_ty).llvm_type(self.ccx).ptr_to();
                         let base = consts::ptrcast(base, ptr_ty);
-                        let info = base::unsized_info(self.ccx, pointee_ty,
-                                                      unsized_ty, old_info);
+                        let info = base::unsized_info(self.ccx, pointee_ty, unsized_ty, old_info);
 
                         if old_info.is_none() {
-                            let prev_const = self.ccx.const_unsized().borrow_mut()
-                                                     .insert(base, operand.llval);
+                            let prev_const = self.ccx
+                                .const_unsized()
+                                .borrow_mut()
+                                .insert(base, operand.llval);
                             assert!(prev_const.is_none() || prev_const == Some(operand.llval));
                         }
                         C_fat_ptr(self.ccx, base, info)
@@ -732,40 +743,50 @@ impl<'a, 'tcx> MirConstContext<'a, 'tcx> {
                                 (CastTy::Float, CastTy::Float) => {
                                     llvm::LLVMConstFPCast(llval, ll_t_out.to_ref())
                                 }
-                                (CastTy::Float, CastTy::Int(IntTy::I)) => {
-                                    cast_const_float_to_int(self.ccx, &operand,
-                                                            true, ll_t_out, span)
-                                }
-                                (CastTy::Float, CastTy::Int(_)) => {
-                                    cast_const_float_to_int(self.ccx, &operand,
-                                                            false, ll_t_out, span)
-                                }
-                                (CastTy::Ptr(_), CastTy::Ptr(_)) |
-                                (CastTy::FnPtr, CastTy::Ptr(_)) |
-                                (CastTy::RPtr(_), CastTy::Ptr(_)) => {
+                                (CastTy::Float, CastTy::Int(IntTy::I)) => cast_const_float_to_int(
+                                    self.ccx,
+                                    &operand,
+                                    true,
+                                    ll_t_out,
+                                    span,
+                                ),
+                                (CastTy::Float, CastTy::Int(_)) => cast_const_float_to_int(
+                                    self.ccx,
+                                    &operand,
+                                    false,
+                                    ll_t_out,
+                                    span,
+                                ),
+                                (CastTy::Ptr(_), CastTy::Ptr(_))
+                                | (CastTy::FnPtr, CastTy::Ptr(_))
+                                | (CastTy::RPtr(_), CastTy::Ptr(_)) => {
                                     consts::ptrcast(llval, ll_t_out)
                                 }
                                 (CastTy::Int(_), CastTy::Ptr(_)) => {
                                     llvm::LLVMConstIntToPtr(llval, ll_t_out.to_ref())
                                 }
-                                (CastTy::Ptr(_), CastTy::Int(_)) |
-                                (CastTy::FnPtr, CastTy::Int(_)) => {
+                                (CastTy::Ptr(_), CastTy::Int(_))
+                                | (CastTy::FnPtr, CastTy::Int(_)) => {
                                     llvm::LLVMConstPtrToInt(llval, ll_t_out.to_ref())
                                 }
-                                _ => bug!("unsupported cast: {:?} to {:?}", operand.ty, cast_ty)
+                                _ => bug!("unsupported cast: {:?} to {:?}", operand.ty, cast_ty),
                             }
                         }
                     }
-                    mir::CastKind::Misc => { // Casts from a fat-ptr.
+                    mir::CastKind::Misc => {
+                        // Casts from a fat-ptr.
                         let l = self.ccx.layout_of(operand.ty);
                         let cast = self.ccx.layout_of(cast_ty);
                         if l.is_llvm_scalar_pair() {
                             let (data_ptr, meta) = operand.get_fat_ptr(self.ccx);
                             if cast.is_llvm_scalar_pair() {
-                                let data_cast = consts::ptrcast(data_ptr,
-                                    cast.scalar_pair_element_llvm_type(self.ccx, 0));
+                                let data_cast = consts::ptrcast(
+                                    data_ptr,
+                                    cast.scalar_pair_element_llvm_type(self.ccx, 0),
+                                );
                                 C_fat_ptr(self.ccx, data_cast, meta)
-                            } else { // cast to thin-ptr
+                            } else {
+                                // cast to thin-ptr
                                 // Cast of fat-ptr to thin-ptr is an extraction of data-ptr and
                                 // pointer-cast of that pointer to desired pointer type.
                                 let llcast_ty = cast.immediate_llvm_type(self.ccx);
@@ -783,8 +804,13 @@ impl<'a, 'tcx> MirConstContext<'a, 'tcx> {
                 let tr_lvalue = self.const_lvalue(lvalue, span)?;
 
                 let ty = tr_lvalue.ty;
-                let ref_ty = tcx.mk_ref(tcx.types.re_erased,
-                    ty::TypeAndMut { ty: ty, mutbl: bk.to_mutbl_lossy() });
+                let ref_ty = tcx.mk_ref(
+                    tcx.types.re_erased,
+                    ty::TypeAndMut {
+                        ty: ty,
+                        mutbl: bk.to_mutbl_lossy(),
+                    },
+                );
 
                 let base = match tr_lvalue.base {
                     Base::Value(llval) => {
@@ -800,8 +826,7 @@ impl<'a, 'tcx> MirConstContext<'a, 'tcx> {
                             consts::addr_of(self.ccx, llval, align, "ref")
                         }
                     }
-                    Base::Str(llval) |
-                    Base::Static(llval) => llval
+                    Base::Str(llval) | Base::Static(llval) => llval,
                 };
 
                 let ptr = if self.ccx.shared().type_is_sized(ty) {
@@ -836,15 +861,23 @@ impl<'a, 'tcx> MirConstContext<'a, 'tcx> {
                 assert!(!ty.is_fp());
 
                 match const_scalar_checked_binop(tcx, op, lhs, rhs, ty) {
-                    Some((llval, of)) => {
-                        trans_const_adt(self.ccx, binop_ty, &mir::AggregateKind::Tuple, &[
+                    Some((llval, of)) => trans_const_adt(
+                        self.ccx,
+                        binop_ty,
+                        &mir::AggregateKind::Tuple,
+                        &[
                             Const::new(llval, val_ty),
-                            Const::new(C_bool(self.ccx, of), tcx.types.bool)
-                        ])
-                    }
+                            Const::new(C_bool(self.ccx, of), tcx.types.bool),
+                        ],
+                    ),
                     None => {
-                        span_bug!(span, "{:?} got non-integer operands: {:?} and {:?}",
-                                  rvalue, Value(lhs), Value(rhs));
+                        span_bug!(
+                            span,
+                            "{:?} got non-integer operands: {:?} and {:?}",
+                            rvalue,
+                            Value(lhs),
+                            Value(rhs)
+                        );
                     }
                 }
             }
@@ -853,11 +886,7 @@ impl<'a, 'tcx> MirConstContext<'a, 'tcx> {
                 let operand = self.const_operand(operand, span)?;
                 let lloperand = operand.llval;
                 let llval = match op {
-                    mir::UnOp::Not => {
-                        unsafe {
-                            llvm::LLVMConstNot(lloperand)
-                        }
-                    }
+                    mir::UnOp::Not => unsafe { llvm::LLVMConstNot(lloperand) },
                     mir::UnOp::Neg => {
                         let is_float = operand.ty.is_fp();
                         unsafe {
@@ -878,33 +907,33 @@ impl<'a, 'tcx> MirConstContext<'a, 'tcx> {
                 Const::new(llval, tcx.types.usize)
             }
 
-            _ => span_bug!(span, "{:?} in constant", rvalue)
+            _ => span_bug!(span, "{:?} in constant", rvalue),
         };
 
-        debug!("const_rvalue({:?}: {:?} @ {:?}) = {:?}", rvalue, dest_ty, span, val);
+        debug!(
+            "const_rvalue({:?}: {:?} @ {:?}) = {:?}",
+            rvalue,
+            dest_ty,
+            span,
+            val
+        );
 
         Ok(val)
     }
-
 }
 
 fn to_const_int(value: ValueRef, t: Ty, tcx: TyCtxt) -> Option<ConstInt> {
     match t.sty {
-        ty::TyInt(int_type) => const_to_opt_u128(value, true)
-            .and_then(|input| ConstInt::new_signed(input as i128, int_type,
-                                                   tcx.sess.target.isize_ty)),
+        ty::TyInt(int_type) => const_to_opt_u128(value, true).and_then(|input| {
+            ConstInt::new_signed(input as i128, int_type, tcx.sess.target.isize_ty)
+        }),
         ty::TyUint(uint_type) => const_to_opt_u128(value, false)
-            .and_then(|input| ConstInt::new_unsigned(input, uint_type,
-                                                     tcx.sess.target.usize_ty)),
-        _ => None
-
+            .and_then(|input| ConstInt::new_unsigned(input, uint_type, tcx.sess.target.usize_ty)),
+        _ => None,
     }
 }
 
-pub fn const_scalar_binop(op: mir::BinOp,
-                          lhs: ValueRef,
-                          rhs: ValueRef,
-                          input_ty: Ty) -> ValueRef {
+pub fn const_scalar_binop(op: mir::BinOp, lhs: ValueRef, rhs: ValueRef, input_ty: Ty) -> ValueRef {
     assert!(!input_ty.is_simd());
     let is_float = input_ty.is_fp();
     let signed = input_ty.is_signed();
@@ -912,77 +941,87 @@ pub fn const_scalar_binop(op: mir::BinOp,
     unsafe {
         match op {
             mir::BinOp::Add if is_float => llvm::LLVMConstFAdd(lhs, rhs),
-            mir::BinOp::Add             => llvm::LLVMConstAdd(lhs, rhs),
+            mir::BinOp::Add => llvm::LLVMConstAdd(lhs, rhs),
 
             mir::BinOp::Sub if is_float => llvm::LLVMConstFSub(lhs, rhs),
-            mir::BinOp::Sub             => llvm::LLVMConstSub(lhs, rhs),
+            mir::BinOp::Sub => llvm::LLVMConstSub(lhs, rhs),
 
             mir::BinOp::Mul if is_float => llvm::LLVMConstFMul(lhs, rhs),
-            mir::BinOp::Mul             => llvm::LLVMConstMul(lhs, rhs),
+            mir::BinOp::Mul => llvm::LLVMConstMul(lhs, rhs),
 
             mir::BinOp::Div if is_float => llvm::LLVMConstFDiv(lhs, rhs),
-            mir::BinOp::Div if signed   => llvm::LLVMConstSDiv(lhs, rhs),
-            mir::BinOp::Div             => llvm::LLVMConstUDiv(lhs, rhs),
+            mir::BinOp::Div if signed => llvm::LLVMConstSDiv(lhs, rhs),
+            mir::BinOp::Div => llvm::LLVMConstUDiv(lhs, rhs),
 
             mir::BinOp::Rem if is_float => llvm::LLVMConstFRem(lhs, rhs),
-            mir::BinOp::Rem if signed   => llvm::LLVMConstSRem(lhs, rhs),
-            mir::BinOp::Rem             => llvm::LLVMConstURem(lhs, rhs),
+            mir::BinOp::Rem if signed => llvm::LLVMConstSRem(lhs, rhs),
+            mir::BinOp::Rem => llvm::LLVMConstURem(lhs, rhs),
 
             mir::BinOp::BitXor => llvm::LLVMConstXor(lhs, rhs),
             mir::BinOp::BitAnd => llvm::LLVMConstAnd(lhs, rhs),
-            mir::BinOp::BitOr  => llvm::LLVMConstOr(lhs, rhs),
-            mir::BinOp::Shl    => {
+            mir::BinOp::BitOr => llvm::LLVMConstOr(lhs, rhs),
+            mir::BinOp::Shl => {
                 let rhs = base::cast_shift_const_rhs(op.to_hir_binop(), lhs, rhs);
                 llvm::LLVMConstShl(lhs, rhs)
             }
-            mir::BinOp::Shr    => {
+            mir::BinOp::Shr => {
                 let rhs = base::cast_shift_const_rhs(op.to_hir_binop(), lhs, rhs);
-                if signed { llvm::LLVMConstAShr(lhs, rhs) }
-                else      { llvm::LLVMConstLShr(lhs, rhs) }
+                if signed {
+                    llvm::LLVMConstAShr(lhs, rhs)
+                } else {
+                    llvm::LLVMConstLShr(lhs, rhs)
+                }
             }
-            mir::BinOp::Eq | mir::BinOp::Ne |
-            mir::BinOp::Lt | mir::BinOp::Le |
-            mir::BinOp::Gt | mir::BinOp::Ge => {
+            mir::BinOp::Eq
+            | mir::BinOp::Ne
+            | mir::BinOp::Lt
+            | mir::BinOp::Le
+            | mir::BinOp::Gt
+            | mir::BinOp::Ge => {
                 if is_float {
                     let cmp = base::bin_op_to_fcmp_predicate(op.to_hir_binop());
                     llvm::LLVMConstFCmp(cmp, lhs, rhs)
                 } else {
-                    let cmp = base::bin_op_to_icmp_predicate(op.to_hir_binop(),
-                                                                signed);
+                    let cmp = base::bin_op_to_icmp_predicate(op.to_hir_binop(), signed);
                     llvm::LLVMConstICmp(cmp, lhs, rhs)
                 }
             }
-            mir::BinOp::Offset => unreachable!("BinOp::Offset in const-eval!")
+            mir::BinOp::Offset => unreachable!("BinOp::Offset in const-eval!"),
         }
     }
 }
 
-pub fn const_scalar_checked_binop<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                                            op: mir::BinOp,
-                                            lllhs: ValueRef,
-                                            llrhs: ValueRef,
-                                            input_ty: Ty<'tcx>)
-                                            -> Option<(ValueRef, bool)> {
-    if let (Some(lhs), Some(rhs)) = (to_const_int(lllhs, input_ty, tcx),
-                                     to_const_int(llrhs, input_ty, tcx)) {
+pub fn const_scalar_checked_binop<'a, 'tcx>(
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    op: mir::BinOp,
+    lllhs: ValueRef,
+    llrhs: ValueRef,
+    input_ty: Ty<'tcx>,
+) -> Option<(ValueRef, bool)> {
+    if let (Some(lhs), Some(rhs)) = (
+        to_const_int(lllhs, input_ty, tcx),
+        to_const_int(llrhs, input_ty, tcx),
+    ) {
         let result = match op {
             mir::BinOp::Add => lhs + rhs,
             mir::BinOp::Sub => lhs - rhs,
             mir::BinOp::Mul => lhs * rhs,
             mir::BinOp::Shl => lhs << rhs,
             mir::BinOp::Shr => lhs >> rhs,
-            _ => {
-                bug!("Operator `{:?}` is not a checkable operator", op)
-            }
+            _ => bug!("Operator `{:?}` is not a checkable operator", op),
         };
 
         let of = match result {
             Ok(_) => false,
-            Err(ConstMathErr::Overflow(_)) |
-            Err(ConstMathErr::ShiftNegative) => true,
+            Err(ConstMathErr::Overflow(_)) | Err(ConstMathErr::ShiftNegative) => true,
             Err(err) => {
-                bug!("Operator `{:?}` on `{:?}` and `{:?}` errored: {}",
-                     op, lhs, rhs, err.description());
+                bug!(
+                    "Operator `{:?}` on `{:?}` and `{:?}` errored: {}",
+                    op,
+                    lhs,
+                    rhs,
+                    err.description()
+                );
             }
         };
 
@@ -992,11 +1031,13 @@ pub fn const_scalar_checked_binop<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
     }
 }
 
-unsafe fn cast_const_float_to_int(ccx: &CrateContext,
-                                  operand: &Const,
-                                  signed: bool,
-                                  int_ty: Type,
-                                  span: Span) -> ValueRef {
+unsafe fn cast_const_float_to_int(
+    ccx: &CrateContext,
+    operand: &Const,
+    signed: bool,
+    int_ty: Type,
+    span: Span,
+) -> ValueRef {
     let llval = operand.llval;
     let float_bits = match operand.ty.sty {
         ty::TyFloat(fty) => fty.bit_width(),
@@ -1008,36 +1049,46 @@ unsafe fn cast_const_float_to_int(ccx: &CrateContext,
     // In any case, an ICE is better than producing undef.
     let llval_bits = consts::bitcast(llval, Type::ix(ccx, float_bits as u64));
     let bits = const_to_opt_u128(llval_bits, false).unwrap_or_else(|| {
-        panic!("could not get bits of constant float {:?}",
-               Value(llval));
+        panic!("could not get bits of constant float {:?}", Value(llval));
     });
     let int_width = int_ty.int_width() as usize;
     // Try to convert, but report an error for overflow and NaN. This matches HIR const eval.
     let cast_result = match float_bits {
-        32 if signed => ieee::Single::from_bits(bits).to_i128(int_width).map(|v| v as u128),
-        64 if signed => ieee::Double::from_bits(bits).to_i128(int_width).map(|v| v as u128),
+        32 if signed => ieee::Single::from_bits(bits)
+            .to_i128(int_width)
+            .map(|v| v as u128),
+        64 if signed => ieee::Double::from_bits(bits)
+            .to_i128(int_width)
+            .map(|v| v as u128),
         32 => ieee::Single::from_bits(bits).to_u128(int_width),
         64 => ieee::Double::from_bits(bits).to_u128(int_width),
         n => bug!("unsupported float width {}", n),
     };
     if cast_result.status.contains(Status::INVALID_OP) {
-        let err = ConstEvalErr { span: span, kind: ErrKind::CannotCast };
+        let err = ConstEvalErr {
+            span: span,
+            kind: ErrKind::CannotCast,
+        };
         err.report(ccx.tcx(), span, "expression");
     }
     C_uint_big(int_ty, cast_result.value)
 }
 
-unsafe fn cast_const_int_to_float(ccx: &CrateContext,
-                                  llval: ValueRef,
-                                  signed: bool,
-                                  float_ty: Type) -> ValueRef {
+unsafe fn cast_const_int_to_float(
+    ccx: &CrateContext,
+    llval: ValueRef,
+    signed: bool,
+    float_ty: Type,
+) -> ValueRef {
     // Note: this breaks if llval is a complex constant expression rather than a simple constant.
     // One way that might happen would be if addresses could be turned into integers in constant
     // expressions, but that doesn't appear to be possible?
     // In any case, an ICE is better than producing undef.
     let value = const_to_opt_u128(llval, signed).unwrap_or_else(|| {
-        panic!("could not get z128 value of constant integer {:?}",
-               Value(llval));
+        panic!(
+            "could not get z128 value of constant integer {:?}",
+            Value(llval)
+        );
     });
     if signed {
         llvm::LLVMConstSIToFP(llval, float_ty.to_ref())
@@ -1051,11 +1102,11 @@ unsafe fn cast_const_int_to_float(ccx: &CrateContext,
 }
 
 impl<'a, 'tcx> MirContext<'a, 'tcx> {
-    pub fn trans_constant(&mut self,
-                          bcx: &Builder<'a, 'tcx>,
-                          constant: &mir::Constant<'tcx>)
-                          -> Const<'tcx>
-    {
+    pub fn trans_constant(
+        &mut self,
+        bcx: &Builder<'a, 'tcx>,
+        constant: &mir::Constant<'tcx>,
+    ) -> Const<'tcx> {
         debug!("trans_constant({:?})", constant);
         let ty = self.monomorphize(&constant.ty);
         let result = match constant.literal.clone() {
@@ -1087,11 +1138,9 @@ impl<'a, 'tcx> MirContext<'a, 'tcx> {
 
 pub fn trans_static_initializer<'a, 'tcx>(
     ccx: &CrateContext<'a, 'tcx>,
-    def_id: DefId)
-    -> Result<ValueRef, ConstEvalErr<'tcx>>
-{
-    MirConstContext::trans_def(ccx, def_id, Substs::empty(), IndexVec::new())
-        .map(|c| c.llval)
+    def_id: DefId,
+) -> Result<ValueRef, ConstEvalErr<'tcx>> {
+    MirConstContext::trans_def(ccx, def_id, Substs::empty(), IndexVec::new()).map(|c| c.llval)
 }
 
 /// Construct a constant value, suitable for initializing a
@@ -1117,7 +1166,7 @@ fn trans_const_adt<'a, 'tcx>(
     ccx: &CrateContext<'a, 'tcx>,
     t: Ty<'tcx>,
     kind: &mir::AggregateKind,
-    vals: &[Const<'tcx>]
+    vals: &[Const<'tcx>],
 ) -> Const<'tcx> {
     let l = ccx.layout_of(t);
     let variant_index = match *kind {
@@ -1133,13 +1182,16 @@ fn trans_const_adt<'a, 'tcx>(
         layout::Variants::Single { index } => {
             assert_eq!(variant_index, index);
             if let layout::Abi::Vector = l.abi {
-                Const::new(C_vector(&vals.iter().map(|x| x.llval).collect::<Vec<_>>()), t)
+                Const::new(
+                    C_vector(&vals.iter().map(|x| x.llval).collect::<Vec<_>>()),
+                    t,
+                )
             } else if let layout::FieldPlacement::Union(_) = l.fields {
                 assert_eq!(variant_index, 0);
                 assert_eq!(vals.len(), 1);
                 let contents = [
                     vals[0].llval,
-                    padding(ccx, l.size - ccx.size_of(vals[0].ty))
+                    padding(ccx, l.size - ccx.size_of(vals[0].ty)),
                 ];
 
                 Const::new(C_struct(ccx, &contents, l.is_packed()), t)
@@ -1149,10 +1201,10 @@ fn trans_const_adt<'a, 'tcx>(
         }
         layout::Variants::Tagged { .. } => {
             let discr = match *kind {
-                mir::AggregateKind::Adt(adt_def, _, _, _) => {
-                    adt_def.discriminant_for_variant(ccx.tcx(), variant_index)
-                           .to_u128_unchecked() as u64
-                },
+                mir::AggregateKind::Adt(adt_def, _, _, _) => adt_def
+                    .discriminant_for_variant(ccx.tcx(), variant_index)
+                    .to_u128_unchecked()
+                    as u64,
                 _ => 0,
             };
             let discr_field = l.field(ccx, 0);
@@ -1175,8 +1227,8 @@ fn trans_const_adt<'a, 'tcx>(
             } else {
                 let niche = l.field(ccx, 0);
                 let niche_llty = niche.llvm_type(ccx);
-                let niche_value = ((variant_index - niche_variants.start) as u128)
-                    .wrapping_add(niche_start);
+                let niche_value =
+                    ((variant_index - niche_variants.start) as u128).wrapping_add(niche_start);
                 // FIXME(eddyb) Check the actual primitive type here.
                 let niche_llval = if niche_value == 0 {
                     // HACK(eddyb) Using `C_null` as it works on all types.
@@ -1198,19 +1250,20 @@ fn trans_const_adt<'a, 'tcx>(
 /// initializer is 4-byte aligned then simply translating the tuple as
 /// a two-element struct will locate it at offset 4, and accesses to it
 /// will read the wrong memory.
-fn build_const_struct<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
-                                layout: layout::TyLayout<'tcx>,
-                                vals: &[Const<'tcx>],
-                                discr: Option<Const<'tcx>>)
-                                -> Const<'tcx> {
+fn build_const_struct<'a, 'tcx>(
+    ccx: &CrateContext<'a, 'tcx>,
+    layout: layout::TyLayout<'tcx>,
+    vals: &[Const<'tcx>],
+    discr: Option<Const<'tcx>>,
+) -> Const<'tcx> {
     assert_eq!(vals.len(), layout.fields.count());
 
     match layout.abi {
-        layout::Abi::Scalar(_) |
-        layout::Abi::ScalarPair(..) if discr.is_none() => {
-            let mut non_zst_fields = vals.iter().enumerate().map(|(i, f)| {
-                (f, layout.fields.offset(i))
-            }).filter(|&(f, _)| !ccx.layout_of(f.ty).is_zst());
+        layout::Abi::Scalar(_) | layout::Abi::ScalarPair(..) if discr.is_none() => {
+            let mut non_zst_fields = vals.iter()
+                .enumerate()
+                .map(|(i, f)| (f, layout.fields.offset(i)))
+                .filter(|&(f, _)| !ccx.layout_of(f.ty).is_zst());
             match (non_zst_fields.next(), non_zst_fields.next()) {
                 (Some((x, offset)), None) if offset.bytes() == 0 => {
                     return Const::new(x.llval, layout.ty);
@@ -1237,9 +1290,10 @@ fn build_const_struct<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
         offset = ccx.size_of(discr.ty);
     }
 
-    let parts = layout.fields.index_by_increasing_offset().map(|i| {
-        (vals[i], layout.fields.offset(i))
-    });
+    let parts = layout
+        .fields
+        .index_by_increasing_offset()
+        .map(|i| (vals[i], layout.fields.offset(i)));
     for (val, target_offset) in parts {
         cfields.push(padding(ccx, target_offset - offset));
         cfields.push(val.llval);

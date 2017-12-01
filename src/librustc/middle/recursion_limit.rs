@@ -21,14 +21,29 @@ use syntax::ast;
 use std::cell::Cell;
 
 pub fn update_limits(sess: &Session, krate: &ast::Crate) {
-    update_limit(sess, krate, &sess.recursion_limit, "recursion_limit",
-                 "recursion limit");
-    update_limit(sess, krate, &sess.type_length_limit, "type_length_limit",
-                 "type length limit");
+    update_limit(
+        sess,
+        krate,
+        &sess.recursion_limit,
+        "recursion_limit",
+        "recursion limit",
+    );
+    update_limit(
+        sess,
+        krate,
+        &sess.type_length_limit,
+        "type_length_limit",
+        "type length limit",
+    );
 }
 
-fn update_limit(sess: &Session, krate: &ast::Crate, limit: &Cell<usize>,
-                name: &str, description: &str) {
+fn update_limit(
+    sess: &Session,
+    krate: &ast::Crate,
+    limit: &Cell<usize>,
+    name: &str,
+    description: &str,
+) {
     for attr in &krate.attrs {
         if !attr.check_name(name) {
             continue;
@@ -41,8 +56,13 @@ fn update_limit(sess: &Session, krate: &ast::Crate, limit: &Cell<usize>,
             }
         }
 
-        span_err!(sess, attr.span, E0296,
-                  "malformed {} attribute, expected #![{}=\"N\"]",
-                  description, name);
+        span_err!(
+            sess,
+            attr.span,
+            E0296,
+            "malformed {} attribute, expected #![{}=\"N\"]",
+            description,
+            name
+        );
     }
 }

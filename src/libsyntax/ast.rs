@@ -24,10 +24,10 @@ use ext::hygiene::{Mark, SyntaxContext};
 use print::pprust;
 use ptr::P;
 use rustc_data_structures::indexed_vec;
-use symbol::{Symbol, keywords};
+use symbol::{keywords, Symbol};
 use tokenstream::{ThinTokenStream, TokenStream};
 
-use serialize::{self, Encoder, Decoder};
+use serialize::{self, Decoder, Encoder};
 use std::collections::HashSet;
 use std::fmt;
 use std::rc::Rc;
@@ -42,7 +42,12 @@ pub struct Lifetime {
 
 impl fmt::Debug for Lifetime {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "lifetime({}: {})", self.id, pprust::lifetime_to_string(self))
+        write!(
+            f,
+            "lifetime({}: {})",
+            self.id,
+            pprust::lifetime_to_string(self)
+        )
     }
 }
 
@@ -51,7 +56,7 @@ impl fmt::Debug for Lifetime {
 pub struct LifetimeDef {
     pub attrs: ThinVec<Attribute>,
     pub lifetime: Lifetime,
-    pub bounds: Vec<Lifetime>
+    pub bounds: Vec<Lifetime>,
 }
 
 /// A "Path" is essentially Rust's notion of a name.
@@ -101,8 +106,9 @@ impl Path {
     pub fn default_to_global(mut self) -> Path {
         if !self.is_global() {
             let ident = self.segments[0].identifier;
-            if !::parse::token::Ident(ident).is_path_segment_keyword() ||
-               ident.name == keywords::Crate.name() {
+            if !::parse::token::Ident(ident).is_path_segment_keyword()
+                || ident.name == keywords::Crate.name()
+            {
                 self.segments.insert(0, PathSegment::crate_root(self.span));
             }
         }
@@ -135,11 +141,18 @@ pub struct PathSegment {
 
 impl PathSegment {
     pub fn from_ident(ident: Ident, span: Span) -> Self {
-        PathSegment { identifier: ident, span: span, parameters: None }
+        PathSegment {
+            identifier: ident,
+            span: span,
+            parameters: None,
+        }
     }
     pub fn crate_root(span: Span) -> Self {
         PathSegment {
-            identifier: Ident { ctxt: span.ctxt(), ..keywords::CrateRoot.ident() },
+            identifier: Ident {
+                ctxt: span.ctxt(),
+                ..keywords::CrateRoot.ident()
+            },
             span,
             parameters: None,
         }
@@ -279,7 +292,7 @@ pub const DUMMY_NODE_ID: NodeId = NodeId(!0);
 #[derive(Clone, PartialEq, Eq, RustcEncodable, RustcDecodable, Hash, Debug)]
 pub enum TyParamBound {
     TraitTyParamBound(PolyTraitRef, TraitBoundModifier),
-    RegionTyParamBound(Lifetime)
+    RegionTyParamBound(Lifetime),
 }
 
 /// A modifier on a bound, currently this is only used for `?Sized`, where the
@@ -334,7 +347,7 @@ impl Generics {
 
 impl Default for Generics {
     /// Creates an instance of `Generics`.
-    fn default() ->  Generics {
+    fn default() -> Generics {
         Generics {
             lifetimes: Vec::new(),
             ty_params: Vec::new(),
@@ -455,7 +468,7 @@ pub enum MetaItemKind {
     /// Name value meta item.
     ///
     /// E.g. `feature = "foo"` as in `#[feature = "foo"]`
-    NameValue(Lit)
+    NameValue(Lit),
 }
 
 /// A Block (`{ .. }`).
@@ -486,7 +499,8 @@ impl fmt::Debug for Pat {
 
 impl Pat {
     pub fn walk<F>(&self, it: &mut F) -> bool
-        where F: FnMut(&Pat) -> bool
+    where
+        F: FnMut(&Pat) -> bool,
     {
         if !it(self) {
             return false;
@@ -494,28 +508,21 @@ impl Pat {
 
         match self.node {
             PatKind::Ident(_, _, Some(ref p)) => p.walk(it),
-            PatKind::Struct(_, ref fields, _) => {
-                fields.iter().all(|field| field.node.pat.walk(it))
-            }
+            PatKind::Struct(_, ref fields, _) => fields.iter().all(|field| field.node.pat.walk(it)),
             PatKind::TupleStruct(_, ref s, _) | PatKind::Tuple(ref s, _) => {
                 s.iter().all(|p| p.walk(it))
             }
-            PatKind::Box(ref s) | PatKind::Ref(ref s, _) => {
-                s.walk(it)
-            }
+            PatKind::Box(ref s) | PatKind::Ref(ref s, _) => s.walk(it),
             PatKind::Slice(ref before, ref slice, ref after) => {
-                before.iter().all(|p| p.walk(it)) &&
-                slice.iter().all(|p| p.walk(it)) &&
-                after.iter().all(|p| p.walk(it))
+                before.iter().all(|p| p.walk(it)) && slice.iter().all(|p| p.walk(it))
+                    && after.iter().all(|p| p.walk(it))
             }
-            PatKind::Wild |
-            PatKind::Lit(_) |
-            PatKind::Range(..) |
-            PatKind::Ident(..) |
-            PatKind::Path(..) |
-            PatKind::Mac(_) => {
-                true
-            }
+            PatKind::Wild
+            | PatKind::Lit(_)
+            | PatKind::Range(..)
+            | PatKind::Ident(..)
+            | PatKind::Path(..)
+            | PatKind::Mac(_) => true,
         }
     }
 }
@@ -671,24 +678,21 @@ impl BinOpKind {
     pub fn lazy(&self) -> bool {
         match *self {
             BinOpKind::And | BinOpKind::Or => true,
-            _ => false
+            _ => false,
         }
     }
 
     pub fn is_shift(&self) -> bool {
         match *self {
             BinOpKind::Shl | BinOpKind::Shr => true,
-            _ => false
+            _ => false,
         }
     }
     pub fn is_comparison(&self) -> bool {
         use self::BinOpKind::*;
         match *self {
-            Eq | Lt | Le | Ne | Gt | Ge =>
-            true,
-            And | Or | Add | Sub | Mul | Div | Rem |
-            BitXor | BitAnd | BitOr | Shl | Shr =>
-            false,
+            Eq | Lt | Le | Ne | Gt | Ge => true,
+            And | Or | Add | Sub | Mul | Div | Rem | BitXor | BitAnd | BitOr | Shl | Shr => false,
         }
     }
     /// Returns `true` if the binary operator takes its arguments by value
@@ -739,9 +743,9 @@ impl Stmt {
     pub fn add_trailing_semicolon(mut self) -> Self {
         self.node = match self.node {
             StmtKind::Expr(expr) => StmtKind::Semi(expr),
-            StmtKind::Mac(mac) => StmtKind::Mac(mac.map(|(mac, _style, attrs)| {
-                (mac, MacStmtStyle::Semicolon, attrs)
-            })),
+            StmtKind::Mac(mac) => {
+                StmtKind::Mac(mac.map(|(mac, _style, attrs)| (mac, MacStmtStyle::Semicolon, attrs)))
+            }
             node => node,
         };
         self
@@ -757,7 +761,12 @@ impl Stmt {
 
 impl fmt::Debug for Stmt {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "stmt({}: {})", self.id.to_string(), pprust::stmt_to_string(self))
+        write!(
+            f,
+            "stmt({}: {})",
+            self.id.to_string(),
+            pprust::stmt_to_string(self)
+        )
     }
 }
 
@@ -846,12 +855,12 @@ pub enum UnsafeSource {
 }
 
 /// An expression
-#[derive(Clone, PartialEq, Eq, RustcEncodable, RustcDecodable, Hash,)]
+#[derive(Clone, PartialEq, Eq, RustcEncodable, RustcDecodable, Hash)]
 pub struct Expr {
     pub id: NodeId,
     pub node: ExprKind,
     pub span: Span,
-    pub attrs: ThinVec<Attribute>
+    pub attrs: ThinVec<Attribute>,
 }
 
 impl Expr {
@@ -1050,7 +1059,7 @@ pub enum ExprKind {
 #[derive(Clone, PartialEq, Eq, RustcEncodable, RustcDecodable, Hash, Debug)]
 pub struct QSelf {
     pub ty: P<Ty>,
-    pub position: usize
+    pub position: usize,
 }
 
 /// A capture clause
@@ -1099,7 +1108,7 @@ pub enum StrStyle {
     /// A raw string, like `r##"foo"##`
     ///
     /// The uint is the number of `#` symbols used
-    Raw(usize)
+    Raw(usize),
 }
 
 /// A literal
@@ -1149,17 +1158,17 @@ impl LitKind {
     pub fn is_unsuffixed(&self) -> bool {
         match *self {
             // unsuffixed variants
-            LitKind::Str(..) |
-            LitKind::ByteStr(..) |
-            LitKind::Byte(..) |
-            LitKind::Char(..) |
-            LitKind::Int(_, LitIntType::Unsuffixed) |
-            LitKind::FloatUnsuffixed(..) |
-            LitKind::Bool(..) => true,
+            LitKind::Str(..)
+            | LitKind::ByteStr(..)
+            | LitKind::Byte(..)
+            | LitKind::Char(..)
+            | LitKind::Int(_, LitIntType::Unsuffixed)
+            | LitKind::FloatUnsuffixed(..)
+            | LitKind::Bool(..) => true,
             // suffixed variants
-            LitKind::Int(_, LitIntType::Signed(..)) |
-            LitKind::Int(_, LitIntType::Unsigned(..)) |
-            LitKind::Float(..) => false,
+            LitKind::Int(_, LitIntType::Signed(..))
+            | LitKind::Int(_, LitIntType::Unsigned(..))
+            | LitKind::Float(..) => false,
         }
     }
 
@@ -1233,8 +1242,7 @@ pub enum ImplItemKind {
     Macro(Mac),
 }
 
-#[derive(Clone, PartialEq, Eq, RustcEncodable, RustcDecodable, Hash, Copy,
-         PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, RustcEncodable, RustcDecodable, Hash, Copy, PartialOrd, Ord)]
 pub enum IntTy {
     Is,
     I8,
@@ -1287,8 +1295,7 @@ impl IntTy {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, RustcEncodable, RustcDecodable, Hash, Copy,
-         PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, RustcEncodable, RustcDecodable, Hash, Copy, PartialOrd, Ord)]
 pub enum UintTy {
     Us,
     U8,
@@ -1338,8 +1345,7 @@ impl fmt::Display for UintTy {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, RustcEncodable, RustcDecodable, Hash, Copy,
-         PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, RustcEncodable, RustcDecodable, Hash, Copy, PartialOrd, Ord)]
 pub enum FloatTy {
     F32,
     F64,
@@ -1400,7 +1406,7 @@ pub struct BareFnTy {
     pub unsafety: Unsafety,
     pub abi: Abi,
     pub lifetimes: Vec<LifetimeDef>,
-    pub decl: P<FnDecl>
+    pub decl: P<FnDecl>,
 }
 
 /// The different kinds of types recognized by the compiler
@@ -1419,7 +1425,7 @@ pub enum TyKind {
     /// The never type (`!`)
     Never,
     /// A tuple (`(A, B, C, D,...)`)
-    Tup(Vec<P<Ty>> ),
+    Tup(Vec<P<Ty>>),
     /// A path (`module::module::...::Type`), optionally
     /// "qualified", e.g. `<Vec<T> as SomeTrait>::SomeType`.
     ///
@@ -1520,12 +1526,16 @@ impl Arg {
             if ident.node.name == keywords::SelfValue.name() {
                 return match self.ty.node {
                     TyKind::ImplicitSelf => Some(respan(self.pat.span, SelfKind::Value(mutbl))),
-                    TyKind::Rptr(lt, MutTy{ref ty, mutbl}) if ty.node == TyKind::ImplicitSelf => {
+                    TyKind::Rptr(lt, MutTy { ref ty, mutbl })
+                        if ty.node == TyKind::ImplicitSelf =>
+                    {
                         Some(respan(self.pat.span, SelfKind::Region(lt, mutbl)))
                     }
-                    _ => Some(respan(self.pat.span.to(self.ty.span),
-                                     SelfKind::Explicit(self.ty.clone(), mutbl))),
-                }
+                    _ => Some(respan(
+                        self.pat.span.to(self.ty.span),
+                        SelfKind::Explicit(self.ty.clone(), mutbl),
+                    )),
+                };
             }
         }
         None
@@ -1546,23 +1556,34 @@ impl Arg {
             node: TyKind::ImplicitSelf,
             span,
         });
-        let arg = |mutbl, ty| Arg {
-            pat: P(Pat {
+        let arg = |mutbl, ty| {
+            Arg {
+                pat: P(Pat {
+                    id: DUMMY_NODE_ID,
+                    node: PatKind::Ident(BindingMode::ByValue(mutbl), eself_ident, None),
+                    span,
+                }),
+                ty,
                 id: DUMMY_NODE_ID,
-                node: PatKind::Ident(BindingMode::ByValue(mutbl), eself_ident, None),
-                span,
-            }),
-            ty,
-            id: DUMMY_NODE_ID,
+            }
         };
         match eself.node {
             SelfKind::Explicit(ty, mutbl) => arg(mutbl, ty),
             SelfKind::Value(mutbl) => arg(mutbl, infer_ty),
-            SelfKind::Region(lt, mutbl) => arg(Mutability::Immutable, P(Ty {
-                id: DUMMY_NODE_ID,
-                node: TyKind::Rptr(lt, MutTy { ty: infer_ty, mutbl: mutbl }),
-                span,
-            })),
+            SelfKind::Region(lt, mutbl) => arg(
+                Mutability::Immutable,
+                P(Ty {
+                    id: DUMMY_NODE_ID,
+                    node: TyKind::Rptr(
+                        lt,
+                        MutTy {
+                            ty: infer_ty,
+                            mutbl: mutbl,
+                        },
+                    ),
+                    span,
+                }),
+            ),
         }
     }
 }
@@ -1574,7 +1595,7 @@ impl Arg {
 pub struct FnDecl {
     pub inputs: Vec<Arg>,
     pub output: FunctionRetTy,
-    pub variadic: bool
+    pub variadic: bool,
 }
 
 impl FnDecl {
@@ -1590,7 +1611,7 @@ impl FnDecl {
 #[derive(Copy, Clone, PartialEq, Eq, RustcEncodable, RustcDecodable, Hash, Debug)]
 pub enum IsAuto {
     Yes,
-    No
+    No,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, RustcEncodable, RustcDecodable, Hash, Debug)]
@@ -1613,10 +1634,13 @@ pub enum Defaultness {
 
 impl fmt::Display for Unsafety {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(match *self {
-            Unsafety::Normal => "normal",
-            Unsafety::Unsafe => "unsafe",
-        }, f)
+        fmt::Display::fmt(
+            match *self {
+                Unsafety::Normal => "normal",
+                Unsafety::Unsafe => "unsafe",
+            },
+            f,
+        )
     }
 }
 
@@ -1719,7 +1743,6 @@ pub type ViewPath = Spanned<ViewPath_>;
 
 #[derive(Clone, PartialEq, Eq, RustcEncodable, RustcDecodable, Hash, Debug)]
 pub enum ViewPath_ {
-
     /// `foo::bar::baz as quux`
     ///
     /// or just
@@ -1731,15 +1754,15 @@ pub enum ViewPath_ {
     ViewPathGlob(Path),
 
     /// `foo::bar::{a,b,c}`
-    ViewPathList(Path, Vec<PathListItem>)
+    ViewPathList(Path, Vec<PathListItem>),
 }
 
 impl ViewPath_ {
     pub fn path(&self) -> &Path {
         match *self {
-            ViewPathSimple(_, ref path) |
-            ViewPathGlob (ref path) |
-            ViewPathList(ref path, _) => path
+            ViewPathSimple(_, ref path) | ViewPathGlob(ref path) | ViewPathList(ref path, _) => {
+                path
+            }
         }
     }
 }
@@ -1796,7 +1819,10 @@ impl PolyTraitRef {
     pub fn new(lifetimes: Vec<LifetimeDef>, path: Path, span: Span) -> Self {
         PolyTraitRef {
             bound_lifetimes: lifetimes,
-            trait_ref: TraitRef { path: path, ref_id: DUMMY_NODE_ID },
+            trait_ref: TraitRef {
+                path: path,
+                ref_id: DUMMY_NODE_ID,
+            },
             span,
         }
     }
@@ -1868,17 +1894,29 @@ impl VariantData {
     }
     pub fn id(&self) -> NodeId {
         match *self {
-            VariantData::Struct(_, id) | VariantData::Tuple(_, id) | VariantData::Unit(id) => id
+            VariantData::Struct(_, id) | VariantData::Tuple(_, id) | VariantData::Unit(id) => id,
         }
     }
     pub fn is_struct(&self) -> bool {
-        if let VariantData::Struct(..) = *self { true } else { false }
+        if let VariantData::Struct(..) = *self {
+            true
+        } else {
+            false
+        }
     }
     pub fn is_tuple(&self) -> bool {
-        if let VariantData::Tuple(..) = *self { true } else { false }
+        if let VariantData::Tuple(..) = *self {
+            true
+        } else {
+            false
+        }
     }
     pub fn is_unit(&self) -> bool {
-        if let VariantData::Unit(..) = *self { true } else { false }
+        if let VariantData::Unit(..) = *self {
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -1925,7 +1963,14 @@ pub enum ItemKind {
     /// A function declaration (`fn` or `pub fn`).
     ///
     /// E.g. `fn foo(bar: usize) -> usize { .. }`
-    Fn(P<FnDecl>, Unsafety, Spanned<Constness>, Abi, Generics, P<Block>),
+    Fn(
+        P<FnDecl>,
+        Unsafety,
+        Spanned<Constness>,
+        Abi,
+        Generics,
+        P<Block>,
+    ),
     /// A module declaration (`mod` or `pub mod`).
     ///
     /// E.g. `mod foo;` or `mod foo { .. }`
@@ -1963,13 +2008,15 @@ pub enum ItemKind {
     /// An implementation.
     ///
     /// E.g. `impl<A> Foo<A> { .. }` or `impl<A> Trait for Foo<A> { .. }`
-    Impl(Unsafety,
-             ImplPolarity,
-             Defaultness,
-             Generics,
-             Option<TraitRef>, // (optional) trait this impl implements
-             P<Ty>, // self
-             Vec<ImplItem>),
+    Impl(
+        Unsafety,
+        ImplPolarity,
+        Defaultness,
+        Generics,
+        Option<TraitRef>, // (optional) trait this impl implements
+        P<Ty>,            // self
+        Vec<ImplItem>,
+    ),
     /// A macro invocation.
     ///
     /// E.g. `macro_rules! foo { .. }` or `foo!(..)`
@@ -1995,10 +2042,10 @@ impl ItemKind {
             ItemKind::Struct(..) => "struct",
             ItemKind::Union(..) => "union",
             ItemKind::Trait(..) => "trait",
-            ItemKind::Mac(..) |
-            ItemKind::MacroDef(..) |
-            ItemKind::Impl(..) |
-            ItemKind::AutoImpl(..) => "item"
+            ItemKind::Mac(..)
+            | ItemKind::MacroDef(..)
+            | ItemKind::Impl(..)
+            | ItemKind::AutoImpl(..) => "item",
         }
     }
 }

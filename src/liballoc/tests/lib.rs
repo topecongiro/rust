@@ -9,7 +9,6 @@
 // except according to those terms.
 
 #![deny(warnings)]
-
 #![feature(allocator_api)]
 #![feature(alloc_system)]
 #![feature(attr_literals)]
@@ -32,8 +31,8 @@
 #![feature(unicode)]
 
 extern crate alloc_system;
-extern crate std_unicode;
 extern crate rand;
+extern crate std_unicode;
 
 use std::hash::{Hash, Hasher};
 use std::collections::hash_map::DefaultHasher;

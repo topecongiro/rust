@@ -11,7 +11,7 @@
 use std::env;
 use std::io::{self, Error, ErrorKind};
 use std::fs;
-use std::path::{self, PathBuf, Path};
+use std::path::{self, Path, PathBuf};
 use rand::{thread_rng, Rng};
 
 /// A wrapper for a path to temporary directory implementing automatic
@@ -36,8 +36,7 @@ impl TempDir {
     ///
     /// If no directory can be created, `Err` is returned.
     #[allow(deprecated)] // rand usage
-    pub fn new_in<P: AsRef<Path>>(tmpdir: P, prefix: &str)
-                                  -> io::Result<TempDir> {
+    pub fn new_in<P: AsRef<Path>>(tmpdir: P, prefix: &str) -> io::Result<TempDir> {
         Self::_new_in(tmpdir.as_ref(), prefix)
     }
 
@@ -66,12 +65,14 @@ impl TempDir {
             match fs::create_dir(&path) {
                 Ok(_) => return Ok(TempDir { path: Some(path) }),
                 Err(ref e) if e.kind() == ErrorKind::AlreadyExists => {}
-                Err(e) => return Err(e)
+                Err(e) => return Err(e),
             }
         }
 
-        Err(Error::new(ErrorKind::AlreadyExists,
-                       "too many temporary directories already exist"))
+        Err(Error::new(
+            ErrorKind::AlreadyExists,
+            "too many temporary directories already exist",
+        ))
     }
 
     /// Attempts to make a temporary directory inside of `env::temp_dir()` whose
@@ -98,7 +99,7 @@ impl TempDir {
     fn cleanup_dir(&mut self) -> io::Result<()> {
         match self.path {
             Some(ref p) => fs::remove_dir_all(p),
-            None => Ok(())
+            None => Ok(()),
         }
     }
 }

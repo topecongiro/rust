@@ -32,9 +32,11 @@ use super::work_product;
 
 use super::load::load_prev_metadata_hashes;
 
-pub fn save_dep_graph<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                                metadata_hashes: &EncodedMetadataHashes,
-                                svh: Svh) {
+pub fn save_dep_graph<'a, 'tcx>(
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    metadata_hashes: &EncodedMetadataHashes,
+    svh: Svh,
+) {
     debug!("save_dep_graph()");
     let _ignore = tcx.dep_graph.in_ignore();
     let sess = tcx.sess;
@@ -52,35 +54,24 @@ pub fn save_dep_graph<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
 
     let mut current_metadata_hashes = FxHashMap();
 
-    if sess.opts.debugging_opts.incremental_cc ||
-       sess.opts.debugging_opts.query_dep_graph {
-        save_in(sess,
-                metadata_hash_export_path(sess),
-                |e| encode_metadata_hashes(tcx,
-                                           svh,
-                                           metadata_hashes,
-                                           &mut current_metadata_hashes,
-                                           e));
+    if sess.opts.debugging_opts.incremental_cc || sess.opts.debugging_opts.query_dep_graph {
+        save_in(sess, metadata_hash_export_path(sess), |e| {
+            encode_metadata_hashes(tcx, svh, metadata_hashes, &mut current_metadata_hashes, e)
+        });
     }
 
     time(sess.time_passes(), "persist query result cache", || {
-        save_in(sess,
-                query_cache_path(sess),
-                |e| encode_query_cache(tcx, e));
+        save_in(sess, query_cache_path(sess), |e| encode_query_cache(tcx, e));
     });
 
     if tcx.sess.opts.debugging_opts.incremental_queries {
         time(sess.time_passes(), "persist dep-graph", || {
-            save_in(sess,
-                    dep_graph_path(sess),
-                    |e| encode_dep_graph(tcx, e));
+            save_in(sess, dep_graph_path(sess), |e| encode_dep_graph(tcx, e));
         });
     }
 
     dirty_clean::check_dirty_clean_annotations(tcx);
-    dirty_clean::check_dirty_clean_metadata(tcx,
-                                            &prev_metadata_hashes,
-                                            &current_metadata_hashes);
+    dirty_clean::check_dirty_clean_metadata(tcx, &prev_metadata_hashes, &current_metadata_hashes);
 }
 
 pub fn save_work_products(sess: &Session, dep_graph: &DepGraph) {
@@ -102,25 +93,27 @@ pub fn save_work_products(sess: &Session, dep_graph: &DepGraph) {
     for (id, wp) in previous_work_products.iter() {
         if !new_work_products.contains_key(id) {
             work_product::delete_workproduct_files(sess, wp);
-            debug_assert!(wp.saved_files.iter().all(|&(_, ref file_name)| {
-                !in_incr_comp_dir_sess(sess, file_name).exists()
-            }));
+            debug_assert!(
+                wp.saved_files.iter().all(|&(_, ref file_name)| {
+                    !in_incr_comp_dir_sess(sess, file_name).exists()
+                })
+            );
         }
     }
 
     // Check that we did not delete one of the current work-products:
     debug_assert!({
-        new_work_products.iter()
-                         .flat_map(|(_, wp)| wp.saved_files
-                                               .iter()
-                                               .map(|&(_, ref name)| name))
-                         .map(|name| in_incr_comp_dir_sess(sess, name))
-                         .all(|path| path.exists())
+        new_work_products
+            .iter()
+            .flat_map(|(_, wp)| wp.saved_files.iter().map(|&(_, ref name)| name))
+            .map(|name| in_incr_comp_dir_sess(sess, name))
+            .all(|path| path.exists())
     });
 }
 
 fn save_in<F>(sess: &Session, path_buf: PathBuf, encode: F)
-    where F: FnOnce(&mut Encoder) -> io::Result<()>
+where
+    F: FnOnce(&mut Encoder) -> io::Result<()>,
 {
     debug!("save: storing data in {}", path_buf.display());
 
@@ -134,9 +127,11 @@ fn save_in<F>(sess: &Session, path_buf: PathBuf, encode: F)
                 debug!("save: remove old file");
             }
             Err(err) => {
-                sess.err(&format!("unable to delete old dep-graph at `{}`: {}",
-                                  path_buf.display(),
-                                  err));
+                sess.err(&format!(
+                    "unable to delete old dep-graph at `{}`: {}",
+                    path_buf.display(),
+                    err
+                ));
                 return;
             }
         }
@@ -148,9 +143,11 @@ fn save_in<F>(sess: &Session, path_buf: PathBuf, encode: F)
     match encode(&mut Encoder::new(&mut wr)) {
         Ok(()) => {}
         Err(err) => {
-            sess.err(&format!("could not encode dep-graph to `{}`: {}",
-                              path_buf.display(),
-                              err));
+            sess.err(&format!(
+                "could not encode dep-graph to `{}`: {}",
+                path_buf.display(),
+                err
+            ));
             return;
         }
     }
@@ -162,17 +159,17 @@ fn save_in<F>(sess: &Session, path_buf: PathBuf, encode: F)
             debug!("save: data written to disk successfully");
         }
         Err(err) => {
-            sess.err(&format!("failed to write dep-graph to `{}`: {}",
-                              path_buf.display(),
-                              err));
+            sess.err(&format!(
+                "failed to write dep-graph to `{}`: {}",
+                path_buf.display(),
+                err
+            ));
             return;
         }
     }
 }
 
-fn encode_dep_graph(tcx: TyCtxt,
-                    encoder: &mut Encoder)
-                    -> io::Result<()> {
+fn encode_dep_graph(tcx: TyCtxt, encoder: &mut Encoder) -> io::Result<()> {
     // First encode the commandline arguments hash
     tcx.sess.opts.dep_tracking_hash().encode(encoder)?;
 
@@ -209,13 +206,15 @@ fn encode_dep_graph(tcx: TyCtxt,
         let mut counts: Vec<_> = counts.values().cloned().collect();
         counts.sort_by_key(|s| -(s.node_counter as i64));
 
-        let percentage_of_all_nodes: Vec<f64> = counts.iter().map(|s| {
-            (100.0 * (s.node_counter as f64)) / (total_node_count as f64)
-        }).collect();
+        let percentage_of_all_nodes: Vec<f64> = counts
+            .iter()
+            .map(|s| (100.0 * (s.node_counter as f64)) / (total_node_count as f64))
+            .collect();
 
-        let average_edges_per_kind: Vec<f64> = counts.iter().map(|s| {
-            (s.edge_counter as f64) / (s.node_counter as f64)
-        }).collect();
+        let average_edges_per_kind: Vec<f64> = counts
+            .iter()
+            .map(|s| (s.edge_counter as f64) / (s.node_counter as f64))
+            .collect();
 
         println!("[incremental]");
         println!("[incremental] DepGraph Statistics");
@@ -229,24 +228,33 @@ fn encode_dep_graph(tcx: TyCtxt,
         println!("[incremental] Total Node Count: {}", total_node_count);
         println!("[incremental] Total Edge Count: {}", total_edge_count);
         println!("[incremental] Total Edge Reads: {}", total_edge_reads);
-        println!("[incremental] Total Duplicate Edge Reads: {}", total_duplicate_edge_reads);
+        println!(
+            "[incremental] Total Duplicate Edge Reads: {}",
+            total_duplicate_edge_reads
+        );
         println!("[incremental]");
-        println!("[incremental]  {:<36}| {:<17}| {:<12}| {:<17}|",
-                 "Node Kind",
-                 "Node Frequency",
-                 "Node Count",
-                 "Avg. Edge Count");
-        println!("[incremental] -------------------------------------\
-                  |------------------\
-                  |-------------\
-                  |------------------|");
+        println!(
+            "[incremental]  {:<36}| {:<17}| {:<12}| {:<17}|",
+            "Node Kind",
+            "Node Frequency",
+            "Node Count",
+            "Avg. Edge Count"
+        );
+        println!(
+            "[incremental] -------------------------------------\
+             |------------------\
+             |-------------\
+             |------------------|"
+        );
 
         for (i, stat) in counts.iter().enumerate() {
-            println!("[incremental]  {:<36}|{:>16.1}% |{:>12} |{:>17.1} |",
+            println!(
+                "[incremental]  {:<36}|{:>16.1}% |{:>12} |{:>17.1} |",
                 format!("{:?}", stat.kind),
                 percentage_of_all_nodes[i],
                 stat.node_counter,
-                average_edges_per_kind[i]);
+                average_edges_per_kind[i]
+            );
         }
 
         println!("{}", SEPARATOR);
@@ -258,18 +266,26 @@ fn encode_dep_graph(tcx: TyCtxt,
     Ok(())
 }
 
-fn encode_metadata_hashes(tcx: TyCtxt,
-                          svh: Svh,
-                          metadata_hashes: &EncodedMetadataHashes,
-                          current_metadata_hashes: &mut FxHashMap<DefId, Fingerprint>,
-                          encoder: &mut Encoder)
-                          -> io::Result<()> {
-    assert_eq!(metadata_hashes.hashes.len(),
-        metadata_hashes.hashes.iter().map(|x| (x.def_index, ())).collect::<FxHashMap<_,_>>().len());
+fn encode_metadata_hashes(
+    tcx: TyCtxt,
+    svh: Svh,
+    metadata_hashes: &EncodedMetadataHashes,
+    current_metadata_hashes: &mut FxHashMap<DefId, Fingerprint>,
+    encoder: &mut Encoder,
+) -> io::Result<()> {
+    assert_eq!(
+        metadata_hashes.hashes.len(),
+        metadata_hashes
+            .hashes
+            .iter()
+            .map(|x| (x.def_index, ()))
+            .collect::<FxHashMap<_, _>>()
+            .len()
+    );
 
     let mut serialized_hashes = SerializedMetadataHashes {
         entry_hashes: metadata_hashes.hashes.to_vec(),
-        index_map: FxHashMap()
+        index_map: FxHashMap(),
     };
 
     if tcx.sess.opts.debugging_opts.query_dep_graph {
@@ -278,14 +294,18 @@ fn encode_metadata_hashes(tcx: TyCtxt,
 
             // Store entry in the index_map
             let def_path_hash = tcx.def_path_hash(def_id);
-            serialized_hashes.index_map.insert(def_id.index.as_u32(), def_path_hash);
+            serialized_hashes
+                .index_map
+                .insert(def_id.index.as_u32(), def_path_hash);
 
             // Record hash in current_metadata_hashes
             current_metadata_hashes.insert(def_id, serialized_hash.hash);
         }
 
-        debug!("save: stored index_map (len={}) for serialized hashes",
-               serialized_hashes.index_map.len());
+        debug!(
+            "save: stored index_map (len={}) for serialized hashes",
+            serialized_hashes.index_map.len()
+        );
     }
 
     // Encode everything.
@@ -295,8 +315,7 @@ fn encode_metadata_hashes(tcx: TyCtxt,
     Ok(())
 }
 
-fn encode_work_products(dep_graph: &DepGraph,
-                        encoder: &mut Encoder) -> io::Result<()> {
+fn encode_work_products(dep_graph: &DepGraph, encoder: &mut Encoder) -> io::Result<()> {
     let work_products: Vec<_> = dep_graph
         .work_products()
         .iter()
@@ -311,8 +330,6 @@ fn encode_work_products(dep_graph: &DepGraph,
     work_products.encode(encoder)
 }
 
-fn encode_query_cache(tcx: TyCtxt,
-                      encoder: &mut Encoder)
-                      -> io::Result<()> {
+fn encode_query_cache(tcx: TyCtxt, encoder: &mut Encoder) -> io::Result<()> {
     tcx.serialize_query_result_cache(encoder)
 }

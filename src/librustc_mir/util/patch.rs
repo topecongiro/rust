@@ -10,7 +10,7 @@
 
 use rustc::ty::Ty;
 use rustc::mir::*;
-use rustc_data_structures::indexed_vec::{IndexVec, Idx};
+use rustc_data_structures::indexed_vec::{Idx, IndexVec};
 use syntax_pos::Span;
 
 /// This struct represents a patch to MIR, which can add
@@ -33,7 +33,7 @@ impl<'tcx> MirPatch<'tcx> {
             new_statements: vec![],
             new_locals: vec![],
             next_local: mir.local_decls.len(),
-            resume_block: START_BLOCK
+            resume_block: START_BLOCK,
         };
 
         // make sure the MIR we create has a resume block. It is
@@ -51,7 +51,7 @@ impl<'tcx> MirPatch<'tcx> {
                 } else {
                     resume_block = Some(bb);
                 }
-                break
+                break;
             }
         }
         let resume_block = resume_block.unwrap_or_else(|| {
@@ -60,17 +60,21 @@ impl<'tcx> MirPatch<'tcx> {
                 terminator: Some(Terminator {
                     source_info: SourceInfo {
                         span: mir.span,
-                        scope: ARGUMENT_VISIBILITY_SCOPE
+                        scope: ARGUMENT_VISIBILITY_SCOPE,
                     },
-                    kind: TerminatorKind::Resume
+                    kind: TerminatorKind::Resume,
                 }),
-                is_cleanup: true
-            })});
+                is_cleanup: true,
+            })
+        });
         result.resume_block = resume_block;
         if let Some(resume_stmt_block) = resume_stmt_block {
-            result.patch_terminator(resume_stmt_block, TerminatorKind::Goto {
-                target: resume_block
-            });
+            result.patch_terminator(
+                resume_stmt_block,
+                TerminatorKind::Goto {
+                    target: resume_block,
+                },
+            );
         }
         result
     }
@@ -86,11 +90,11 @@ impl<'tcx> MirPatch<'tcx> {
     pub fn terminator_loc(&self, mir: &Mir<'tcx>, bb: BasicBlock) -> Location {
         let offset = match bb.index().checked_sub(mir.basic_blocks().len()) {
             Some(index) => self.new_blocks[index].statements.len(),
-            None => mir[bb].statements.len()
+            None => mir[bb].statements.len(),
         };
         Location {
             block: bb,
-            statement_index: offset
+            statement_index: offset,
         }
     }
 
@@ -132,10 +136,17 @@ impl<'tcx> MirPatch<'tcx> {
     }
 
     pub fn apply(self, mir: &mut Mir<'tcx>) {
-        debug!("MirPatch: {:?} new temps, starting from index {}: {:?}",
-               self.new_locals.len(), mir.local_decls.len(), self.new_locals);
-        debug!("MirPatch: {} new blocks, starting from index {}",
-               self.new_blocks.len(), mir.basic_blocks().len());
+        debug!(
+            "MirPatch: {:?} new temps, starting from index {}: {:?}",
+            self.new_locals.len(),
+            mir.local_decls.len(),
+            self.new_locals
+        );
+        debug!(
+            "MirPatch: {} new blocks, starting from index {}",
+            self.new_blocks.len(),
+            mir.basic_blocks().len()
+        );
         mir.basic_blocks_mut().extend(self.new_blocks);
         mir.local_decls.extend(self.new_locals);
         for (src, patch) in self.patch_map.into_iter_enumerated() {
@@ -146,7 +157,7 @@ impl<'tcx> MirPatch<'tcx> {
         }
 
         let mut new_statements = self.new_statements;
-        new_statements.sort_by(|u,v| u.0.cmp(&v.0));
+        new_statements.sort_by(|u, v| u.0.cmp(&v.0));
 
         let mut delta = 0;
         let mut last_bb = START_BLOCK;
@@ -155,17 +166,21 @@ impl<'tcx> MirPatch<'tcx> {
                 delta = 0;
                 last_bb = loc.block;
             }
-            debug!("MirPatch: adding statement {:?} at loc {:?}+{}",
-                   stmt, loc, delta);
-            loc.statement_index += delta;
-            let source_info = Self::source_info_for_index(
-                &mir[loc.block], loc
+            debug!(
+                "MirPatch: adding statement {:?} at loc {:?}+{}",
+                stmt,
+                loc,
+                delta
             );
+            loc.statement_index += delta;
+            let source_info = Self::source_info_for_index(&mir[loc.block], loc);
             mir[loc.block].statements.insert(
-                loc.statement_index, Statement {
+                loc.statement_index,
+                Statement {
                     source_info,
-                    kind: stmt
-                });
+                    kind: stmt,
+                },
+            );
             delta += 1;
         }
     }
@@ -173,14 +188,14 @@ impl<'tcx> MirPatch<'tcx> {
     pub fn source_info_for_index(data: &BasicBlockData, loc: Location) -> SourceInfo {
         match data.statements.get(loc.statement_index) {
             Some(stmt) => stmt.source_info,
-            None => data.terminator().source_info
+            None => data.terminator().source_info,
         }
     }
 
     pub fn source_info_for_location(&self, mir: &Mir, loc: Location) -> SourceInfo {
         let data = match loc.block.index().checked_sub(mir.basic_blocks().len()) {
             Some(new) => &self.new_blocks[new],
-            None => &mir[loc.block]
+            None => &mir[loc.block],
         };
         Self::source_info_for_index(data, loc)
     }

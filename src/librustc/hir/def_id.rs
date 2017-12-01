@@ -55,7 +55,12 @@ impl CrateNum {
         self.0
     }
 
-    pub fn as_def_id(&self) -> DefId { DefId { krate: *self, index: CRATE_DEF_INDEX } }
+    pub fn as_def_id(&self) -> DefId {
+        DefId {
+            krate: *self,
+            index: CRATE_DEF_INDEX,
+        }
+    }
 }
 
 impl fmt::Display for CrateNum {
@@ -95,10 +100,12 @@ newtype_index!(DefIndex
 
 impl fmt::Debug for DefIndex {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,
-               "DefIndex({}:{})",
-               self.address_space().index(),
-               self.as_array_index())
+        write!(
+            f,
+            "DefIndex({}:{})",
+            self.address_space().index(),
+            self.as_array_index()
+        )
     }
 }
 
@@ -172,10 +179,13 @@ pub struct DefId {
 
 impl fmt::Debug for DefId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "DefId({:?}/{}:{}",
-               self.krate.index(),
-               self.index.address_space().index(),
-               self.index.as_array_index())?;
+        write!(
+            f,
+            "DefId({:?}/{}:{}",
+            self.krate.index(),
+            self.index.address_space().index(),
+            self.index.as_array_index()
+        )?;
 
         ty::tls::with_opt(|opt_tcx| {
             if let Some(tcx) = opt_tcx {
@@ -192,7 +202,10 @@ impl DefId {
     /// Make a local `DefId` with the given index.
     #[inline]
     pub fn local(index: DefIndex) -> DefId {
-        DefId { krate: LOCAL_CRATE, index: index }
+        DefId {
+            krate: LOCAL_CRATE,
+            index: index,
+        }
     }
 
     #[inline]
@@ -219,7 +232,6 @@ impl serialize::UseSpecializedDecodable for DefId {}
 pub struct LocalDefId(DefIndex);
 
 impl LocalDefId {
-
     #[inline]
     pub fn from_def_id(def_id: DefId) -> LocalDefId {
         assert!(def_id.is_local());
@@ -230,7 +242,7 @@ impl LocalDefId {
     pub fn to_def_id(self) -> DefId {
         DefId {
             krate: LOCAL_CRATE,
-            index: self.0
+            index: self.0,
         }
     }
 }

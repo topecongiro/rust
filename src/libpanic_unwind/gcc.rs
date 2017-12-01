@@ -62,7 +62,7 @@ use alloc::boxed::Box;
 
 use unwind as uw;
 use libc::{c_int, uintptr_t};
-use dwarf::eh::{self, EHContext, EHAction};
+use dwarf::eh::{self, EHAction, EHContext};
 
 #[repr(C)]
 struct Exception {
@@ -82,8 +82,10 @@ pub unsafe fn panic(data: Box<Any + Send>) -> u32 {
     let exception_param = Box::into_raw(exception) as *mut uw::_Unwind_Exception;
     return uw::_Unwind_RaiseException(exception_param) as u32;
 
-    extern "C" fn exception_cleanup(_unwind_code: uw::_Unwind_Reason_Code,
-                                    exception: *mut uw::_Unwind_Exception) {
+    extern "C" fn exception_cleanup(
+        _unwind_code: uw::_Unwind_Reason_Code,
+        exception: *mut uw::_Unwind_Exception,
+    ) {
         unsafe {
             let _: Box<Exception> = Box::from_raw(exception as *mut Exception);
         }
@@ -147,12 +149,13 @@ const UNWIND_DATA_REG: (i32, i32) = (24, 25); // I0, I1
 #[lang = "eh_personality"]
 #[no_mangle]
 #[allow(unused)]
-unsafe extern "C" fn rust_eh_personality(version: c_int,
-                                         actions: uw::_Unwind_Action,
-                                         exception_class: uw::_Unwind_Exception_Class,
-                                         exception_object: *mut uw::_Unwind_Exception,
-                                         context: *mut uw::_Unwind_Context)
-                                         -> uw::_Unwind_Reason_Code {
+unsafe extern "C" fn rust_eh_personality(
+    version: c_int,
+    actions: uw::_Unwind_Action,
+    exception_class: uw::_Unwind_Exception_Class,
+    exception_object: *mut uw::_Unwind_Exception,
+    context: *mut uw::_Unwind_Context,
+) -> uw::_Unwind_Reason_Code {
     if version != 1 {
         return uw::_URC_FATAL_PHASE1_ERROR;
     }
@@ -162,16 +165,14 @@ unsafe extern "C" fn rust_eh_personality(version: c_int,
     };
     if actions as i32 & uw::_UA_SEARCH_PHASE as i32 != 0 {
         match eh_action {
-            EHAction::None |
-            EHAction::Cleanup(_) => return uw::_URC_CONTINUE_UNWIND,
+            EHAction::None | EHAction::Cleanup(_) => return uw::_URC_CONTINUE_UNWIND,
             EHAction::Catch(_) => return uw::_URC_HANDLER_FOUND,
             EHAction::Terminate => return uw::_URC_FATAL_PHASE1_ERROR,
         }
     } else {
         match eh_action {
             EHAction::None => return uw::_URC_CONTINUE_UNWIND,
-            EHAction::Cleanup(lpad) |
-            EHAction::Catch(lpad) => {
+            EHAction::Cleanup(lpad) | EHAction::Catch(lpad) => {
                 uw::_Unwind_SetGR(context, UNWIND_DATA_REG.0, exception_object as uintptr_t);
                 uw::_Unwind_SetGR(context, UNWIND_DATA_REG.1, 0);
                 uw::_Unwind_SetIP(context, lpad);
@@ -187,10 +188,11 @@ unsafe extern "C" fn rust_eh_personality(version: c_int,
 #[cfg(all(target_arch = "arm", not(target_os = "ios")))]
 #[lang = "eh_personality"]
 #[no_mangle]
-unsafe extern "C" fn rust_eh_personality(state: uw::_Unwind_State,
-                                         exception_object: *mut uw::_Unwind_Exception,
-                                         context: *mut uw::_Unwind_Context)
-                                         -> uw::_Unwind_Reason_Code {
+unsafe extern "C" fn rust_eh_personality(
+    state: uw::_Unwind_State,
+    exception_object: *mut uw::_Unwind_Exception,
+    context: *mut uw::_Unwind_Context,
+) -> uw::_Unwind_Reason_Code {
     let state = state as c_int;
     let action = state & uw::_US_ACTION_MASK as c_int;
     let search_phase = if action == uw::_US_VIRTUAL_UNWIND_FRAME as c_int {
@@ -215,9 +217,11 @@ unsafe extern "C" fn rust_eh_personality(state: uw::_Unwind_State,
     // To preserve signatures of functions like _Unwind_GetLanguageSpecificData(), which
     // take only the context pointer, GCC personality routines stash a pointer to exception_object
     // in the context, using location reserved for ARM's "scratch register" (r12).
-    uw::_Unwind_SetGR(context,
-                      uw::UNWIND_POINTER_REG,
-                      exception_object as uw::_Unwind_Ptr);
+    uw::_Unwind_SetGR(
+        context,
+        uw::UNWIND_POINTER_REG,
+        exception_object as uw::_Unwind_Ptr,
+    );
     // ...A more principled approach would be to provide the full definition of ARM's
     // _Unwind_Context in our libunwind bindings and fetch the required data from there directly,
     // bypassing DWARF compatibility functions.
@@ -228,16 +232,16 @@ unsafe extern "C" fn rust_eh_personality(state: uw::_Unwind_State,
     };
     if search_phase {
         match eh_action {
-            EHAction::None |
-            EHAction::Cleanup(_) => return continue_unwind(exception_object, context),
+            EHAction::None | EHAction::Cleanup(_) => {
+                return continue_unwind(exception_object, context)
+            }
             EHAction::Catch(_) => return uw::_URC_HANDLER_FOUND,
             EHAction::Terminate => return uw::_URC_FAILURE,
         }
     } else {
         match eh_action {
             EHAction::None => return continue_unwind(exception_object, context),
-            EHAction::Cleanup(lpad) |
-            EHAction::Catch(lpad) => {
+            EHAction::Cleanup(lpad) | EHAction::Catch(lpad) => {
                 uw::_Unwind_SetGR(context, UNWIND_DATA_REG.0, exception_object as uintptr_t);
                 uw::_Unwind_SetGR(context, UNWIND_DATA_REG.1, 0);
                 uw::_Unwind_SetIP(context, lpad);
@@ -249,9 +253,10 @@ unsafe extern "C" fn rust_eh_personality(state: uw::_Unwind_State,
 
     // On ARM EHABI the personality routine is responsible for actually
     // unwinding a single stack frame before returning (ARM EHABI Sec. 6.1).
-    unsafe fn continue_unwind(exception_object: *mut uw::_Unwind_Exception,
-                              context: *mut uw::_Unwind_Context)
-                              -> uw::_Unwind_Reason_Code {
+    unsafe fn continue_unwind(
+        exception_object: *mut uw::_Unwind_Exception,
+        context: *mut uw::_Unwind_Context,
+    ) -> uw::_Unwind_Reason_Code {
         if __gnu_unwind_frame(exception_object, context) == uw::_URC_NO_REASON {
             uw::_URC_CONTINUE_UNWIND
         } else {
@@ -260,15 +265,14 @@ unsafe extern "C" fn rust_eh_personality(state: uw::_Unwind_State,
     }
     // defined in libgcc
     extern "C" {
-        fn __gnu_unwind_frame(exception_object: *mut uw::_Unwind_Exception,
-                              context: *mut uw::_Unwind_Context)
-                              -> uw::_Unwind_Reason_Code;
+        fn __gnu_unwind_frame(
+            exception_object: *mut uw::_Unwind_Exception,
+            context: *mut uw::_Unwind_Context,
+        ) -> uw::_Unwind_Reason_Code;
     }
 }
 
-unsafe fn find_eh_action(context: *mut uw::_Unwind_Context)
-    -> Result<EHAction, ()>
-{
+unsafe fn find_eh_action(context: *mut uw::_Unwind_Context) -> Result<EHAction, ()> {
     let lsda = uw::_Unwind_GetLanguageSpecificData(context) as *const u8;
     let mut ip_before_instr: c_int = 0;
     let ip = uw::_Unwind_GetIPInfo(context, &mut ip_before_instr);
@@ -284,7 +288,7 @@ unsafe fn find_eh_action(context: *mut uw::_Unwind_Context)
 }
 
 // See docs in the `unwind` module.
-#[cfg(all(target_os="windows", target_arch = "x86", target_env="gnu"))]
+#[cfg(all(target_os = "windows", target_arch = "x86", target_env = "gnu"))]
 #[lang = "eh_unwind_resume"]
 #[unwind]
 unsafe extern "C" fn rust_eh_unwind_resume(panic_ctx: *mut u8) -> ! {
@@ -307,7 +311,7 @@ unsafe extern "C" fn rust_eh_unwind_resume(panic_ctx: *mut u8) -> ! {
 // implementation of stack unwinding is (for now) deferred to libgcc_eh, however
 // Rust crates use these Rust-specific entry points to avoid potential clashes
 // with any GCC runtime.
-#[cfg(all(target_os="windows", target_arch = "x86", target_env="gnu"))]
+#[cfg(all(target_os = "windows", target_arch = "x86", target_env = "gnu"))]
 pub mod eh_frame_registry {
     extern "C" {
         fn __register_frame_info(eh_frame_begin: *const u8, object: *mut u8);
@@ -320,8 +324,7 @@ pub mod eh_frame_registry {
     }
 
     #[no_mangle]
-    pub unsafe extern "C" fn rust_eh_unregister_frames(eh_frame_begin: *const u8,
-                                                       object: *mut u8) {
+    pub unsafe extern "C" fn rust_eh_unregister_frames(eh_frame_begin: *const u8, object: *mut u8) {
         __deregister_frame_info(eh_frame_begin, object);
     }
 }

@@ -11,7 +11,7 @@
 use fmt;
 use marker;
 use ops::Deref;
-use sys_common::poison::{self, TryLockError, TryLockResult, LockResult};
+use sys_common::poison::{self, LockResult, TryLockError, TryLockResult};
 use sys::mutex as sys;
 
 /// A re-entrant mutual exclusion
@@ -116,25 +116,30 @@ impl<T> Drop for ReentrantMutex<T> {
 impl<T: fmt::Debug + 'static> fmt::Debug for ReentrantMutex<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.try_lock() {
-            Ok(guard) => f.debug_struct("ReentrantMutex").field("data", &*guard).finish(),
-            Err(TryLockError::Poisoned(err)) => {
-                f.debug_struct("ReentrantMutex").field("data", &**err.get_ref()).finish()
-            },
+            Ok(guard) => f.debug_struct("ReentrantMutex")
+                .field("data", &*guard)
+                .finish(),
+            Err(TryLockError::Poisoned(err)) => f.debug_struct("ReentrantMutex")
+                .field("data", &**err.get_ref())
+                .finish(),
             Err(TryLockError::WouldBlock) => {
                 struct LockedPlaceholder;
                 impl fmt::Debug for LockedPlaceholder {
-                    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { f.write_str("<locked>") }
+                    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                        f.write_str("<locked>")
+                    }
                 }
 
-                f.debug_struct("ReentrantMutex").field("data", &LockedPlaceholder).finish()
+                f.debug_struct("ReentrantMutex")
+                    .field("data", &LockedPlaceholder)
+                    .finish()
             }
         }
     }
 }
 
 impl<'mutex, T> ReentrantMutexGuard<'mutex, T> {
-    fn new(lock: &'mutex ReentrantMutex<T>)
-            -> LockResult<ReentrantMutexGuard<'mutex, T>> {
+    fn new(lock: &'mutex ReentrantMutex<T>) -> LockResult<ReentrantMutexGuard<'mutex, T>> {
         poison::map_result(lock.poison.borrow(), |guard| {
             ReentrantMutexGuard {
                 __lock: lock,
@@ -213,7 +218,8 @@ mod tests {
         thread::spawn(move || {
             let lock = m2.try_lock();
             assert!(lock.is_err());
-        }).join().unwrap();
+        }).join()
+            .unwrap();
         let _lock3 = m.try_lock().unwrap();
     }
 
@@ -228,7 +234,7 @@ mod tests {
     fn poison_works() {
         let m = Arc::new(ReentrantMutex::new(RefCell::new(0)));
         let mc = m.clone();
-        let result = thread::spawn(move ||{
+        let result = thread::spawn(move || {
             let lock = mc.lock().unwrap();
             *lock.borrow_mut() = 1;
             let lock2 = mc.lock().unwrap();

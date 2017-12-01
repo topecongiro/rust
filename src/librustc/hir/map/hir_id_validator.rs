@@ -45,9 +45,7 @@ struct OuterVisitor<'a, 'hir: 'a> {
 }
 
 impl<'a, 'hir: 'a> OuterVisitor<'a, 'hir> {
-    fn new_inner_visitor(&self,
-                         hir_map: &'a hir::map::Map<'hir>)
-                         -> HirIdValidator<'a, 'hir> {
+    fn new_inner_visitor(&self, hir_map: &'a hir::map::Map<'hir>) -> HirIdValidator<'a, 'hir> {
         HirIdValidator {
             hir_map,
             owner_def_index: None,
@@ -78,31 +76,28 @@ impl<'a, 'hir: 'a> ItemLikeVisitor<'hir> for OuterVisitor<'a, 'hir> {
 }
 
 impl<'a, 'hir: 'a> HirIdValidator<'a, 'hir> {
-
-    fn check<F: FnOnce(&mut HirIdValidator<'a, 'hir>)>(&mut self,
-                                                       node_id: NodeId,
-                                                       walk: F) {
+    fn check<F: FnOnce(&mut HirIdValidator<'a, 'hir>)>(&mut self, node_id: NodeId, walk: F) {
         assert!(self.owner_def_index.is_none());
         let owner_def_index = self.hir_map.local_def_id(node_id).index;
         self.owner_def_index = Some(owner_def_index);
         walk(self);
 
         if owner_def_index == CRATE_DEF_INDEX {
-            return
+            return;
         }
 
         // There's always at least one entry for the owning item itself
         let max = self.hir_ids_seen
-                      .keys()
-                      .map(|local_id| local_id.as_usize())
-                      .max()
-                      .unwrap();
+            .keys()
+            .map(|local_id| local_id.as_usize())
+            .max()
+            .unwrap();
 
         if max != self.hir_ids_seen.len() - 1 {
             // Collect the missing ItemLocalIds
-            let missing: Vec<_> = (0 .. max + 1)
-              .filter(|&i| !self.hir_ids_seen.contains_key(&ItemLocalId(i as u32)))
-              .collect();
+            let missing: Vec<_> = (0..max + 1)
+                .filter(|&i| !self.hir_ids_seen.contains_key(&ItemLocalId(i as u32)))
+                .collect();
 
             // Try to map those to something more useful
             let mut missing_items = vec![];
@@ -116,32 +111,35 @@ impl<'a, 'hir: 'a> HirIdValidator<'a, 'hir> {
                 // We are already in ICE mode here, so doing a linear search
                 // should be fine.
                 let (node_id, _) = self.hir_map
-                                       .definitions()
-                                       .node_to_hir_id
-                                       .iter()
-                                       .enumerate()
-                                       .find(|&(_, &entry)| hir_id == entry)
-                                       .unwrap();
+                    .definitions()
+                    .node_to_hir_id
+                    .iter()
+                    .enumerate()
+                    .find(|&(_, &entry)| hir_id == entry)
+                    .unwrap();
                 let node_id = NodeId::new(node_id);
-                missing_items.push(format!("[local_id: {}, node:{}]",
-                                           local_id,
-                                           self.hir_map.node_to_string(node_id)));
+                missing_items.push(format!(
+                    "[local_id: {}, node:{}]",
+                    local_id,
+                    self.hir_map.node_to_string(node_id)
+                ));
             }
 
             self.errors.push(format!(
                 "ItemLocalIds not assigned densely in {}. \
-                Max ItemLocalId = {}, missing IDs = {:?}",
-                self.hir_map.def_path(DefId::local(owner_def_index)).to_string_no_crate(),
+                 Max ItemLocalId = {}, missing IDs = {:?}",
+                self.hir_map
+                    .def_path(DefId::local(owner_def_index))
+                    .to_string_no_crate(),
                 max,
-                missing_items));
+                missing_items
+            ));
         }
     }
 }
 
 impl<'a, 'hir: 'a> intravisit::Visitor<'hir> for HirIdValidator<'a, 'hir> {
-
-    fn nested_visit_map<'this>(&'this mut self)
-                               -> intravisit::NestedVisitorMap<'this, 'hir> {
+    fn nested_visit_map<'this>(&'this mut self) -> intravisit::NestedVisitorMap<'this, 'hir> {
         intravisit::NestedVisitorMap::OnlyBodies(self.hir_map)
     }
 
@@ -150,27 +148,37 @@ impl<'a, 'hir: 'a> intravisit::Visitor<'hir> for HirIdValidator<'a, 'hir> {
         let stable_id = self.hir_map.definitions().node_to_hir_id[node_id];
 
         if stable_id == hir::DUMMY_HIR_ID {
-            self.errors.push(format!("HirIdValidator: No HirId assigned for NodeId {}: {:?}",
-                                     node_id,
-                                     self.hir_map.node_to_string(node_id)));
+            self.errors.push(format!(
+                "HirIdValidator: No HirId assigned for NodeId {}: {:?}",
+                node_id,
+                self.hir_map.node_to_string(node_id)
+            ));
         }
 
         if owner != stable_id.owner {
             self.errors.push(format!(
                 "HirIdValidator: The recorded owner of {} is {} instead of {}",
                 self.hir_map.node_to_string(node_id),
-                self.hir_map.def_path(DefId::local(stable_id.owner)).to_string_no_crate(),
-                self.hir_map.def_path(DefId::local(owner)).to_string_no_crate()));
+                self.hir_map
+                    .def_path(DefId::local(stable_id.owner))
+                    .to_string_no_crate(),
+                self.hir_map
+                    .def_path(DefId::local(owner))
+                    .to_string_no_crate()
+            ));
         }
 
         if let Some(prev) = self.hir_ids_seen.insert(stable_id.local_id, node_id) {
             if prev != node_id {
                 self.errors.push(format!(
                     "HirIdValidator: Same HirId {}/{} assigned for nodes {} and {}",
-                    self.hir_map.def_path(DefId::local(stable_id.owner)).to_string_no_crate(),
+                    self.hir_map
+                        .def_path(DefId::local(stable_id.owner))
+                        .to_string_no_crate(),
                     stable_id.local_id.as_usize(),
                     self.hir_map.node_to_string(prev),
-                    self.hir_map.node_to_string(node_id)));
+                    self.hir_map.node_to_string(node_id)
+                ));
             }
         }
     }

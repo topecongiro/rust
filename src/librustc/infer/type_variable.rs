@@ -9,7 +9,7 @@
 // except according to those terms.
 
 use self::TypeVariableValue::*;
-use hir::def_id::{DefId};
+use hir::def_id::DefId;
 use syntax::ast;
 use syntax_pos::Span;
 use ty::{self, Ty};
@@ -75,14 +75,12 @@ pub type TypeVariableMap = FxHashMap<ty::TyVid, TypeVariableOrigin>;
 struct TypeVariableData<'tcx> {
     value: TypeVariableValue<'tcx>,
     origin: TypeVariableOrigin,
-    diverging: bool
+    diverging: bool,
 }
 
 enum TypeVariableValue<'tcx> {
     Known(Ty<'tcx>),
-    Bounded {
-        default: Option<Default<'tcx>>
-    }
+    Bounded { default: Option<Default<'tcx>> },
 }
 
 // We will use this to store the required information to recapitulate what happened when
@@ -93,7 +91,7 @@ pub struct Default<'tcx> {
     /// The span where the default was incurred
     pub origin_span: Span,
     /// The definition that the default originates from
-    pub def_id: DefId
+    pub def_id: DefId,
 }
 
 pub struct Snapshot {
@@ -121,7 +119,7 @@ impl<'tcx> TypeVariableTable<'tcx> {
     pub fn default(&self, vid: ty::TyVid) -> Option<Default<'tcx>> {
         match &self.values.get(vid.index as usize).value {
             &Known(_) => None,
-            &Bounded { ref default, .. } => default.clone()
+            &Bounded { ref default, .. } => default.clone(),
         }
     }
 
@@ -166,19 +164,26 @@ impl<'tcx> TypeVariableTable<'tcx> {
 
         match old_value {
             TypeVariableValue::Bounded { default } => {
-                self.values.record(Instantiate { vid: vid, default: default });
+                self.values.record(Instantiate {
+                    vid: vid,
+                    default: default,
+                });
             }
-            TypeVariableValue::Known(old_ty) => {
-                bug!("instantiating type variable `{:?}` twice: new-value = {:?}, old-value={:?}",
-                     vid, ty, old_ty)
-            }
+            TypeVariableValue::Known(old_ty) => bug!(
+                "instantiating type variable `{:?}` twice: new-value = {:?}, old-value={:?}",
+                vid,
+                ty,
+                old_ty
+            ),
         }
     }
 
-    pub fn new_var(&mut self,
-                   diverging: bool,
-                   origin: TypeVariableOrigin,
-                   default: Option<Default<'tcx>>,) -> ty::TyVid {
+    pub fn new_var(
+        &mut self,
+        diverging: bool,
+        origin: TypeVariableOrigin,
+        default: Option<Default<'tcx>>,
+    ) -> ty::TyVid {
         debug!("new_var(diverging={:?}, origin={:?})", diverging, origin);
         self.eq_relations.new_key(());
         self.sub_relations.new_key(());
@@ -187,7 +192,9 @@ impl<'tcx> TypeVariableTable<'tcx> {
             origin,
             diverging,
         });
-        let v = ty::TyVid { index: index as u32 };
+        let v = ty::TyVid {
+            index: index as u32,
+        };
         debug!("new_var: diverging={:?} index={:?}", diverging, v);
         v
     }
@@ -236,18 +243,16 @@ impl<'tcx> TypeVariableTable<'tcx> {
         debug_assert!(self.root_var(vid) == vid);
         match self.values.get(vid.index as usize).value {
             Bounded { .. } => None,
-            Known(t) => Some(t)
+            Known(t) => Some(t),
         }
     }
 
     pub fn replace_if_possible(&mut self, t: Ty<'tcx>) -> Ty<'tcx> {
         match t.sty {
-            ty::TyInfer(ty::TyVar(v)) => {
-                match self.probe(v) {
-                    None => t,
-                    Some(u) => u
-                }
-            }
+            ty::TyInfer(ty::TyVar(v)) => match self.probe(v) {
+                None => t,
+                Some(u) => u,
+            },
             _ => t,
         }
     }
@@ -264,22 +269,28 @@ impl<'tcx> TypeVariableTable<'tcx> {
         debug!("rollback_to{:?}", {
             for action in self.values.actions_since_snapshot(&s.snapshot) {
                 match *action {
-                    sv::UndoLog::NewElem(index) => {
-                        debug!("inference variable _#{}t popped", index)
-                    }
-                    _ => { }
+                    sv::UndoLog::NewElem(index) => debug!("inference variable _#{}t popped", index),
+                    _ => {}
                 }
             }
         });
 
-        let Snapshot { snapshot, eq_snapshot, sub_snapshot } = s;
+        let Snapshot {
+            snapshot,
+            eq_snapshot,
+            sub_snapshot,
+        } = s;
         self.values.rollback_to(snapshot);
         self.eq_relations.rollback_to(eq_snapshot);
         self.sub_relations.rollback_to(sub_snapshot);
     }
 
     pub fn commit(&mut self, s: Snapshot) {
-        let Snapshot { snapshot, eq_snapshot, sub_snapshot } = s;
+        let Snapshot {
+            snapshot,
+            eq_snapshot,
+            sub_snapshot,
+        } = s;
         self.values.commit(snapshot);
         self.eq_relations.commit(eq_snapshot);
         self.sub_relations.commit(sub_snapshot);
@@ -295,7 +306,9 @@ impl<'tcx> TypeVariableTable<'tcx> {
         actions_since_snapshot
             .iter()
             .filter_map(|action| match action {
-                &sv::UndoLog::NewElem(index) => Some(ty::TyVid { index: index as u32 }),
+                &sv::UndoLog::NewElem(index) => Some(ty::TyVid {
+                    index: index as u32,
+                }),
                 _ => None,
             })
             .map(|vid| {
@@ -318,7 +331,10 @@ impl<'tcx> TypeVariableTable<'tcx> {
         let mut new_elem_threshold = u32::MAX;
         let mut escaping_types = Vec::new();
         let actions_since_snapshot = self.values.actions_since_snapshot(&s.snapshot);
-        debug!("actions_since_snapshot.len() = {}", actions_since_snapshot.len());
+        debug!(
+            "actions_since_snapshot.len() = {}",
+            actions_since_snapshot.len()
+        );
         for action in actions_since_snapshot {
             match *action {
                 sv::UndoLog::NewElem(index) => {
@@ -328,7 +344,11 @@ impl<'tcx> TypeVariableTable<'tcx> {
                     // action must precede those variables being
                     // specified.
                     new_elem_threshold = min(new_elem_threshold, index as u32);
-                    debug!("NewElem({}) new_elem_threshold={}", index, new_elem_threshold);
+                    debug!(
+                        "NewElem({}) new_elem_threshold={}",
+                        index,
+                        new_elem_threshold
+                    );
                 }
 
                 sv::UndoLog::Other(Instantiate { vid, .. }) => {
@@ -341,10 +361,14 @@ impl<'tcx> TypeVariableTable<'tcx> {
                         };
                         escaping_types.push(escaping_type);
                     }
-                    debug!("SpecifyVar({:?}) new_elem_threshold={}", vid, new_elem_threshold);
+                    debug!(
+                        "SpecifyVar({:?}) new_elem_threshold={}",
+                        vid,
+                        new_elem_threshold
+                    );
                 }
 
-                _ => { }
+                _ => {}
             }
         }
 
@@ -371,8 +395,6 @@ impl<'tcx> sv::SnapshotVecDelegate for Delegate<'tcx> {
 
     fn reverse(values: &mut Vec<TypeVariableData<'tcx>>, action: Instantiate<'tcx>) {
         let Instantiate { vid, default } = action;
-        values[vid.index as usize].value = Bounded {
-            default,
-        };
+        values[vid.index as usize].value = Bounded { default };
     }
 }

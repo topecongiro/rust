@@ -39,7 +39,6 @@
        html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
        html_root_url = "https://doc.rust-lang.org/nightly/")]
 #![deny(warnings)]
-
 #![feature(box_patterns)]
 #![feature(box_syntax)]
 #![feature(conservative_impl_trait)]
@@ -64,27 +63,30 @@
 #![feature(underscore_lifetimes)]
 #![feature(trace_macros)]
 #![feature(test)]
-
-#![recursion_limit="512"]
+#![recursion_limit = "512"]
 
 extern crate arena;
-#[macro_use] extern crate bitflags;
+#[macro_use]
+extern crate bitflags;
 extern crate core;
 extern crate fmt_macros;
 extern crate getopts;
 extern crate graphviz;
+extern crate jobserver;
 #[cfg(windows)]
 extern crate libc;
+#[macro_use]
+extern crate log;
 extern crate owning_ref;
 extern crate rustc_back;
-#[macro_use] extern crate rustc_data_structures;
-extern crate serialize;
 extern crate rustc_const_math;
+#[macro_use]
+extern crate rustc_data_structures;
 extern crate rustc_errors as errors;
-#[macro_use] extern crate log;
-#[macro_use] extern crate syntax;
+extern crate serialize;
+#[macro_use]
+extern crate syntax;
 extern crate syntax_pos;
-extern crate jobserver;
 
 extern crate serialize as rustc_serialize; // used by deriving
 

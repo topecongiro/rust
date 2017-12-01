@@ -8,7 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use core::ops::{Range, RangeFull, RangeFrom, RangeTo, RangeInclusive};
+use core::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo};
 
 // Test the Range structs without the syntactic sugar.
 
@@ -55,11 +55,17 @@ fn test_range_inclusive() {
     assert_eq!(r.next(), Some(2));
     assert_eq!(r.next(), None);
 
-    r = RangeInclusive { start: 127i8, end: 127 };
+    r = RangeInclusive {
+        start: 127i8,
+        end: 127,
+    };
     assert_eq!(r.next(), Some(127));
     assert_eq!(r.next(), None);
 
-    r = RangeInclusive { start: -128i8, end: -128 };
+    r = RangeInclusive {
+        start: -128i8,
+        end: -128,
+    };
     assert_eq!(r.next_back(), Some(-128));
     assert_eq!(r.next_back(), None);
 

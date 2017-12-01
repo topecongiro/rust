@@ -9,7 +9,6 @@
 // except according to those terms.
 
 #![deny(warnings)]
-
 #![feature(i128_type)]
 #![feature(rand)]
 #![feature(repr_simd)]

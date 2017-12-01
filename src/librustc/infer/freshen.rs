@@ -50,15 +50,14 @@ use std::collections::hash_map::Entry;
 use super::InferCtxt;
 use super::unify_key::ToType;
 
-pub struct TypeFreshener<'a, 'gcx: 'a+'tcx, 'tcx: 'a> {
+pub struct TypeFreshener<'a, 'gcx: 'a + 'tcx, 'tcx: 'a> {
     infcx: &'a InferCtxt<'a, 'gcx, 'tcx>,
     freshen_count: u32,
     freshen_map: FxHashMap<ty::InferTy, Ty<'tcx>>,
 }
 
 impl<'a, 'gcx, 'tcx> TypeFreshener<'a, 'gcx, 'tcx> {
-    pub fn new(infcx: &'a InferCtxt<'a, 'gcx, 'tcx>)
-               -> TypeFreshener<'a, 'gcx, 'tcx> {
+    pub fn new(infcx: &'a InferCtxt<'a, 'gcx, 'tcx>) -> TypeFreshener<'a, 'gcx, 'tcx> {
         TypeFreshener {
             infcx,
             freshen_count: 0,
@@ -66,11 +65,8 @@ impl<'a, 'gcx, 'tcx> TypeFreshener<'a, 'gcx, 'tcx> {
         }
     }
 
-    fn freshen<F>(&mut self,
-                  opt_ty: Option<Ty<'tcx>>,
-                  key: ty::InferTy,
-                  freshener: F)
-                  -> Ty<'tcx> where
+    fn freshen<F>(&mut self, opt_ty: Option<Ty<'tcx>>, key: ty::InferTy, freshener: F) -> Ty<'tcx>
+    where
         F: FnOnce(u32) -> ty::InferTy,
     {
         if let Some(ty) = opt_ty {
@@ -102,14 +98,14 @@ impl<'a, 'gcx, 'tcx> TypeFolder<'gcx, 'tcx> for TypeFreshener<'a, 'gcx, 'tcx> {
                 r
             }
 
-            ty::ReStatic |
-            ty::ReEarlyBound(..) |
-            ty::ReFree(_) |
-            ty::ReScope(_) |
-            ty::ReVar(_) |
-            ty::ReSkolemized(..) |
-            ty::ReEmpty |
-            ty::ReErased => {
+            ty::ReStatic
+            | ty::ReEarlyBound(..)
+            | ty::ReFree(_)
+            | ty::ReScope(_)
+            | ty::ReVar(_)
+            | ty::ReSkolemized(..)
+            | ty::ReEmpty
+            | ty::ReErased => {
                 // replace all free regions with 'erased
                 self.tcx().types.re_erased
             }
@@ -117,8 +113,9 @@ impl<'a, 'gcx, 'tcx> TypeFolder<'gcx, 'tcx> for TypeFreshener<'a, 'gcx, 'tcx> {
     }
 
     fn fold_ty(&mut self, t: Ty<'tcx>) -> Ty<'tcx> {
-        if !t.needs_infer() && !t.has_erasable_regions() &&
-            !(t.has_closure_types() && self.infcx.in_progress_tables.is_some()) {
+        if !t.needs_infer() && !t.has_erasable_regions()
+            && !(t.has_closure_types() && self.infcx.in_progress_tables.is_some())
+        {
             return t;
         }
 
@@ -127,67 +124,66 @@ impl<'a, 'gcx, 'tcx> TypeFolder<'gcx, 'tcx> for TypeFreshener<'a, 'gcx, 'tcx> {
         match t.sty {
             ty::TyInfer(ty::TyVar(v)) => {
                 let opt_ty = self.infcx.type_variables.borrow_mut().probe(v);
-                self.freshen(
-                    opt_ty,
-                    ty::TyVar(v),
-                    ty::FreshTy)
+                self.freshen(opt_ty, ty::TyVar(v), ty::FreshTy)
             }
 
-            ty::TyInfer(ty::IntVar(v)) => {
-                self.freshen(
-                    self.infcx.int_unification_table.borrow_mut()
-                                                    .probe(v)
-                                                    .map(|v| v.to_type(tcx)),
-                    ty::IntVar(v),
-                    ty::FreshIntTy)
-            }
+            ty::TyInfer(ty::IntVar(v)) => self.freshen(
+                self.infcx
+                    .int_unification_table
+                    .borrow_mut()
+                    .probe(v)
+                    .map(|v| v.to_type(tcx)),
+                ty::IntVar(v),
+                ty::FreshIntTy,
+            ),
 
-            ty::TyInfer(ty::FloatVar(v)) => {
-                self.freshen(
-                    self.infcx.float_unification_table.borrow_mut()
-                                                      .probe(v)
-                                                      .map(|v| v.to_type(tcx)),
-                    ty::FloatVar(v),
-                    ty::FreshFloatTy)
-            }
+            ty::TyInfer(ty::FloatVar(v)) => self.freshen(
+                self.infcx
+                    .float_unification_table
+                    .borrow_mut()
+                    .probe(v)
+                    .map(|v| v.to_type(tcx)),
+                ty::FloatVar(v),
+                ty::FreshFloatTy,
+            ),
 
-            ty::TyInfer(ty::FreshTy(c)) |
-            ty::TyInfer(ty::FreshIntTy(c)) |
-            ty::TyInfer(ty::FreshFloatTy(c)) => {
+            ty::TyInfer(ty::FreshTy(c))
+            | ty::TyInfer(ty::FreshIntTy(c))
+            | ty::TyInfer(ty::FreshFloatTy(c)) => {
                 if c >= self.freshen_count {
-                    bug!("Encountered a freshend type with id {} \
-                          but our counter is only at {}",
-                         c,
-                         self.freshen_count);
+                    bug!(
+                        "Encountered a freshend type with id {} \
+                         but our counter is only at {}",
+                        c,
+                        self.freshen_count
+                    );
                 }
                 t
             }
 
-            ty::TyGenerator(..) |
-            ty::TyBool |
-            ty::TyChar |
-            ty::TyInt(..) |
-            ty::TyUint(..) |
-            ty::TyFloat(..) |
-            ty::TyAdt(..) |
-            ty::TyStr |
-            ty::TyError |
-            ty::TyArray(..) |
-            ty::TySlice(..) |
-            ty::TyRawPtr(..) |
-            ty::TyRef(..) |
-            ty::TyFnDef(..) |
-            ty::TyFnPtr(_) |
-            ty::TyDynamic(..) |
-            ty::TyNever |
-            ty::TyTuple(..) |
-            ty::TyProjection(..) |
-            ty::TyForeign(..) |
-            ty::TyParam(..) |
-            ty::TyClosure(..) |
-            ty::TyAnon(..) => {
-                t.super_fold_with(self)
-            }
+            ty::TyGenerator(..)
+            | ty::TyBool
+            | ty::TyChar
+            | ty::TyInt(..)
+            | ty::TyUint(..)
+            | ty::TyFloat(..)
+            | ty::TyAdt(..)
+            | ty::TyStr
+            | ty::TyError
+            | ty::TyArray(..)
+            | ty::TySlice(..)
+            | ty::TyRawPtr(..)
+            | ty::TyRef(..)
+            | ty::TyFnDef(..)
+            | ty::TyFnPtr(_)
+            | ty::TyDynamic(..)
+            | ty::TyNever
+            | ty::TyTuple(..)
+            | ty::TyProjection(..)
+            | ty::TyForeign(..)
+            | ty::TyParam(..)
+            | ty::TyClosure(..)
+            | ty::TyAnon(..) => t.super_fold_with(self),
         }
     }
 }

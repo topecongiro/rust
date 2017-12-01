@@ -10,21 +10,20 @@
 
 // Utility Functions.
 
-use super::{CrateDebugContext};
+use super::CrateDebugContext;
 use super::namespace::item_namespace;
 
 use rustc::hir::def_id::DefId;
 use rustc::ty::DefIdTree;
 
 use llvm;
-use llvm::debuginfo::{DIScope, DIBuilderRef, DIDescriptor, DIArray};
-use common::{CrateContext};
+use llvm::debuginfo::{DIArray, DIBuilderRef, DIDescriptor, DIScope};
+use common::CrateContext;
 
 use syntax_pos::{self, Span};
 use syntax::ast;
 
-pub fn is_node_local_to_unit(cx: &CrateContext, node_id: ast::NodeId) -> bool
-{
+pub fn is_node_local_to_unit(cx: &CrateContext, node_id: ast::NodeId) -> bool {
     // The is_local_to_unit flag indicates whether a function is local to the
     // current compilation unit (i.e. if it is *static* in the C-sense). The
     // *reachable* set should provide a good approximation of this, as it
@@ -50,8 +49,7 @@ pub fn span_start(cx: &CrateContext, span: Span) -> syntax_pos::Loc {
 }
 
 #[inline]
-pub fn debug_context<'a, 'tcx>(cx: &'a CrateContext<'a, 'tcx>)
-                           -> &'a CrateDebugContext<'tcx> {
+pub fn debug_context<'a, 'tcx>(cx: &'a CrateContext<'a, 'tcx>) -> &'a CrateDebugContext<'tcx> {
     cx.dbg_cx().as_ref().unwrap()
 }
 
@@ -62,6 +60,10 @@ pub fn DIB(cx: &CrateContext) -> DIBuilderRef {
 }
 
 pub fn get_namespace_for_item(cx: &CrateContext, def_id: DefId) -> DIScope {
-    item_namespace(cx, cx.tcx().parent(def_id)
-        .expect("get_namespace_for_item: missing parent?"))
+    item_namespace(
+        cx,
+        cx.tcx()
+            .parent(def_id)
+            .expect("get_namespace_for_item: missing parent?"),
+    )
 }

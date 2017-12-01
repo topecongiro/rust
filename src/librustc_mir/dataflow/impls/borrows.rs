@@ -15,9 +15,9 @@ use rustc::ty::RegionKind;
 use rustc::ty::RegionKind::ReScope;
 use rustc::util::nodemap::{FxHashMap, FxHashSet};
 
-use rustc_data_structures::bitslice::{BitwiseOperator};
-use rustc_data_structures::indexed_set::{IdxSet};
-use rustc_data_structures::indexed_vec::{IndexVec};
+use rustc_data_structures::bitslice::BitwiseOperator;
+use rustc_data_structures::indexed_set::IdxSet;
+use rustc_data_structures::indexed_vec::IndexVec;
 
 use dataflow::{BitDenotation, BlockSets, DataflowOperator};
 pub use dataflow::indexes::BorrowIndex;
@@ -61,32 +61,39 @@ impl<'tcx> fmt::Display for BorrowData<'tcx> {
             mir::BorrowKind::Mut => "mut ",
         };
         let region = format!("{}", self.region);
-        let region = if region.len() > 0 { format!("{} ", region) } else { region };
+        let region = if region.len() > 0 {
+            format!("{} ", region)
+        } else {
+            region
+        };
         write!(w, "&{}{}{:?}", region, kind, self.lvalue)
     }
 }
 
 impl<'a, 'gcx, 'tcx> Borrows<'a, 'gcx, 'tcx> {
-    pub fn new(tcx: TyCtxt<'a, 'gcx, 'tcx>,
-               mir: &'a Mir<'tcx>,
-               nonlexical_regioncx: Option<&'a RegionInferenceContext<'tcx>>)
-               -> Self {
+    pub fn new(
+        tcx: TyCtxt<'a, 'gcx, 'tcx>,
+        mir: &'a Mir<'tcx>,
+        nonlexical_regioncx: Option<&'a RegionInferenceContext<'tcx>>,
+    ) -> Self {
         let mut visitor = GatherBorrows {
             tcx,
             mir,
             idx_vec: IndexVec::new(),
             location_map: FxHashMap(),
             region_map: FxHashMap(),
-            region_span_map: FxHashMap()
+            region_span_map: FxHashMap(),
         };
         visitor.visit_mir(mir);
-        return Borrows { tcx: tcx,
-                         mir: mir,
-                         borrows: visitor.idx_vec,
-                         location_map: visitor.location_map,
-                         region_map: visitor.region_map,
-                         region_span_map: visitor.region_span_map,
-                         nonlexical_regioncx };
+        return Borrows {
+            tcx: tcx,
+            mir: mir,
+            borrows: visitor.idx_vec,
+            location_map: visitor.location_map,
+            region_map: visitor.region_map,
+            region_span_map: visitor.region_span_map,
+            nonlexical_regioncx,
+        };
 
         struct GatherBorrows<'a, 'gcx: 'tcx, 'tcx: 'a> {
             tcx: TyCtxt<'a, 'gcx, 'tcx>,
@@ -98,14 +105,17 @@ impl<'a, 'gcx, 'tcx> Borrows<'a, 'gcx, 'tcx> {
         }
 
         impl<'a, 'gcx, 'tcx> Visitor<'tcx> for GatherBorrows<'a, 'gcx, 'tcx> {
-            fn visit_rvalue(&mut self,
-                            rvalue: &mir::Rvalue<'tcx>,
-                            location: mir::Location) {
+            fn visit_rvalue(&mut self, rvalue: &mir::Rvalue<'tcx>, location: mir::Location) {
                 if let mir::Rvalue::Ref(region, kind, ref lvalue) = *rvalue {
-                    if is_unsafe_lvalue(self.tcx, self.mir, lvalue) { return; }
+                    if is_unsafe_lvalue(self.tcx, self.mir, lvalue) {
+                        return;
+                    }
 
                     let borrow = BorrowData {
-                        location: location, kind: kind, region: region, lvalue: lvalue.clone(),
+                        location: location,
+                        kind: kind,
+                        region: region,
+                        lvalue: lvalue.clone(),
                     };
                     let idx = self.idx_vec.push(borrow);
                     self.location_map.insert(location, idx);
@@ -114,19 +124,24 @@ impl<'a, 'gcx, 'tcx> Borrows<'a, 'gcx, 'tcx> {
                 }
             }
 
-            fn visit_statement(&mut self,
-                               block: mir::BasicBlock,
-                               statement: &mir::Statement<'tcx>,
-                               location: Location) {
+            fn visit_statement(
+                &mut self,
+                block: mir::BasicBlock,
+                statement: &mir::Statement<'tcx>,
+                location: Location,
+            ) {
                 if let mir::StatementKind::EndRegion(region_scope) = statement.kind {
-                    self.region_span_map.insert(ReScope(region_scope), statement.source_info.span);
+                    self.region_span_map
+                        .insert(ReScope(region_scope), statement.source_info.span);
                 }
                 self.super_statement(block, statement, location);
             }
         }
     }
 
-    pub fn borrows(&self) -> &IndexVec<BorrowIndex, BorrowData<'tcx>> { &self.borrows }
+    pub fn borrows(&self) -> &IndexVec<BorrowIndex, BorrowData<'tcx>> {
+        &self.borrows
+    }
 
     pub fn location(&self, idx: BorrowIndex) -> &Location {
         &self.borrows[idx].location
@@ -139,19 +154,19 @@ impl<'a, 'gcx, 'tcx> Borrows<'a, 'gcx, 'tcx> {
     pub fn opt_region_end_span(&self, region: &Region) -> Option<Span> {
         match self.nonlexical_regioncx {
             Some(_) => None,
-            None => {
-                match self.region_span_map.get(region) {
-                    Some(span) => Some(span.end_point()),
-                    None => Some(self.mir.span.end_point())
-                }
-            }
+            None => match self.region_span_map.get(region) {
+                Some(span) => Some(span.end_point()),
+                None => Some(self.mir.span.end_point()),
+            },
         }
     }
 
     /// Add all borrows to the kill set, if those borrows are out of scope at `location`.
-    fn kill_loans_out_of_scope_at_location(&self,
-                                           sets: &mut BlockSets<BorrowIndex>,
-                                           location: Location) {
+    fn kill_loans_out_of_scope_at_location(
+        &self,
+        sets: &mut BlockSets<BorrowIndex>,
+        location: Location,
+    ) {
         if let Some(regioncx) = self.nonlexical_regioncx {
             for (borrow_index, borrow_data) in self.borrows.iter_enumerated() {
                 let borrow_region = borrow_data.region.to_region_vid();
@@ -177,29 +192,37 @@ impl<'a, 'gcx, 'tcx> Borrows<'a, 'gcx, 'tcx> {
 
 impl<'a, 'gcx, 'tcx> BitDenotation for Borrows<'a, 'gcx, 'tcx> {
     type Idx = BorrowIndex;
-    fn name() -> &'static str { "borrows" }
+    fn name() -> &'static str {
+        "borrows"
+    }
     fn bits_per_block(&self) -> usize {
         self.borrows.len()
     }
-    fn start_block_effect(&self, _sets: &mut BlockSets<BorrowIndex>)  {
+    fn start_block_effect(&self, _sets: &mut BlockSets<BorrowIndex>) {
         // no borrows of code region_scopes have been taken prior to
         // function execution, so this method has no effect on
         // `_sets`.
     }
-    fn statement_effect(&self,
-                        sets: &mut BlockSets<BorrowIndex>,
-                        location: Location) {
-        let block = &self.mir.basic_blocks().get(location.block).unwrap_or_else(|| {
-            panic!("could not find block at location {:?}", location);
-        });
-        let stmt = block.statements.get(location.statement_index).unwrap_or_else(|| {
-            panic!("could not find statement at location {:?}");
-        });
+    fn statement_effect(&self, sets: &mut BlockSets<BorrowIndex>, location: Location) {
+        let block = &self.mir
+            .basic_blocks()
+            .get(location.block)
+            .unwrap_or_else(|| {
+                panic!("could not find block at location {:?}", location);
+            });
+        let stmt = block
+            .statements
+            .get(location.statement_index)
+            .unwrap_or_else(|| {
+                panic!("could not find statement at location {:?}");
+            });
         match stmt.kind {
             mir::StatementKind::EndRegion(region_scope) => {
                 if let Some(borrow_indexes) = self.region_map.get(&ReScope(region_scope)) {
                     assert!(self.nonlexical_regioncx.is_none());
-                    for idx in borrow_indexes { sets.kill(&idx); }
+                    for idx in borrow_indexes {
+                        sets.kill(&idx);
+                    }
                 } else {
                     // (if there is no entry, then there are no borrows to be tracked)
                 }
@@ -207,39 +230,46 @@ impl<'a, 'gcx, 'tcx> BitDenotation for Borrows<'a, 'gcx, 'tcx> {
 
             mir::StatementKind::Assign(_, ref rhs) => {
                 if let mir::Rvalue::Ref(region, _, ref lvalue) = *rhs {
-                    if is_unsafe_lvalue(self.tcx, self.mir, lvalue) { return; }
+                    if is_unsafe_lvalue(self.tcx, self.mir, lvalue) {
+                        return;
+                    }
                     let index = self.location_map.get(&location).unwrap_or_else(|| {
                         panic!("could not find BorrowIndex for location {:?}", location);
                     });
-                    assert!(self.region_map.get(region).unwrap_or_else(|| {
-                        panic!("could not find BorrowIndexs for region {:?}", region);
-                    }).contains(&index));
+                    assert!(
+                        self.region_map
+                            .get(region)
+                            .unwrap_or_else(|| {
+                                panic!("could not find BorrowIndexs for region {:?}", region);
+                            })
+                            .contains(&index)
+                    );
                     sets.gen(&index);
                 }
             }
 
-            mir::StatementKind::InlineAsm { .. } |
-            mir::StatementKind::SetDiscriminant { .. } |
-            mir::StatementKind::StorageLive(..) |
-            mir::StatementKind::StorageDead(..) |
-            mir::StatementKind::Validate(..) |
-            mir::StatementKind::Nop => {}
-
+            mir::StatementKind::InlineAsm { .. }
+            | mir::StatementKind::SetDiscriminant { .. }
+            | mir::StatementKind::StorageLive(..)
+            | mir::StatementKind::StorageDead(..)
+            | mir::StatementKind::Validate(..)
+            | mir::StatementKind::Nop => {}
         }
 
         self.kill_loans_out_of_scope_at_location(sets, location);
     }
 
-    fn terminator_effect(&self,
-                         sets: &mut BlockSets<BorrowIndex>,
-                         location: Location) {
-        let block = &self.mir.basic_blocks().get(location.block).unwrap_or_else(|| {
-            panic!("could not find block at location {:?}", location);
-        });
+    fn terminator_effect(&self, sets: &mut BlockSets<BorrowIndex>, location: Location) {
+        let block = &self.mir
+            .basic_blocks()
+            .get(location.block)
+            .unwrap_or_else(|| {
+                panic!("could not find block at location {:?}", location);
+            });
         match block.terminator().kind {
-            mir::TerminatorKind::Resume |
-            mir::TerminatorKind::Return |
-            mir::TerminatorKind::GeneratorDrop => {
+            mir::TerminatorKind::Resume
+            | mir::TerminatorKind::Return
+            | mir::TerminatorKind::GeneratorDrop => {
                 // When we return from the function, then all `ReScope`-style regions
                 // are guaranteed to have ended.
                 // Normally, there would be `EndRegion` statements that come before,
@@ -252,24 +282,26 @@ impl<'a, 'gcx, 'tcx> BitDenotation for Borrows<'a, 'gcx, 'tcx> {
                     }
                 }
             }
-            mir::TerminatorKind::SwitchInt {..} |
-            mir::TerminatorKind::Drop {..} |
-            mir::TerminatorKind::DropAndReplace {..} |
-            mir::TerminatorKind::Call {..} |
-            mir::TerminatorKind::Assert {..} |
-            mir::TerminatorKind::Yield {..} |
-            mir::TerminatorKind::Goto {..} |
-            mir::TerminatorKind::FalseEdges {..} |
-            mir::TerminatorKind::Unreachable => {}
+            mir::TerminatorKind::SwitchInt { .. }
+            | mir::TerminatorKind::Drop { .. }
+            | mir::TerminatorKind::DropAndReplace { .. }
+            | mir::TerminatorKind::Call { .. }
+            | mir::TerminatorKind::Assert { .. }
+            | mir::TerminatorKind::Yield { .. }
+            | mir::TerminatorKind::Goto { .. }
+            | mir::TerminatorKind::FalseEdges { .. }
+            | mir::TerminatorKind::Unreachable => {}
         }
         self.kill_loans_out_of_scope_at_location(sets, location);
     }
 
-    fn propagate_call_return(&self,
-                             _in_out: &mut IdxSet<BorrowIndex>,
-                             _call_bb: mir::BasicBlock,
-                             _dest_bb: mir::BasicBlock,
-                             _dest_lval: &mir::Lvalue) {
+    fn propagate_call_return(
+        &self,
+        _in_out: &mut IdxSet<BorrowIndex>,
+        _call_bb: mir::BasicBlock,
+        _dest_bb: mir::BasicBlock,
+        _dest_lval: &mir::Lvalue,
+    ) {
         // there are no effects on the region scopes from method calls.
     }
 }
@@ -291,7 +323,7 @@ impl<'a, 'gcx, 'tcx> DataflowOperator for Borrows<'a, 'gcx, 'tcx> {
 fn is_unsafe_lvalue<'a, 'gcx: 'tcx, 'tcx: 'a>(
     tcx: TyCtxt<'a, 'gcx, 'tcx>,
     mir: &'a Mir<'tcx>,
-    lvalue: &mir::Lvalue<'tcx>
+    lvalue: &mir::Lvalue<'tcx>,
 ) -> bool {
     use self::mir::Lvalue::*;
     use self::mir::ProjectionElem;
@@ -299,23 +331,19 @@ fn is_unsafe_lvalue<'a, 'gcx: 'tcx, 'tcx: 'a>(
     match *lvalue {
         Local(_) => false,
         Static(ref static_) => tcx.is_static_mut(static_.def_id),
-        Projection(ref proj) => {
-            match proj.elem {
-                ProjectionElem::Field(..) |
-                ProjectionElem::Downcast(..) |
-                ProjectionElem::Subslice { .. } |
-                ProjectionElem::ConstantIndex { .. } |
-                ProjectionElem::Index(_) => {
-                    is_unsafe_lvalue(tcx, mir, &proj.base)
-                }
-                ProjectionElem::Deref => {
-                    let ty = proj.base.ty(mir, tcx).to_ty(tcx);
-                    match ty.sty {
-                        ty::TyRawPtr(..) => true,
-                        _ => is_unsafe_lvalue(tcx, mir, &proj.base),
-                    }
+        Projection(ref proj) => match proj.elem {
+            ProjectionElem::Field(..)
+            | ProjectionElem::Downcast(..)
+            | ProjectionElem::Subslice { .. }
+            | ProjectionElem::ConstantIndex { .. }
+            | ProjectionElem::Index(_) => is_unsafe_lvalue(tcx, mir, &proj.base),
+            ProjectionElem::Deref => {
+                let ty = proj.base.ty(mir, tcx).to_ty(tcx);
+                match ty.sty {
+                    ty::TyRawPtr(..) => true,
+                    _ => is_unsafe_lvalue(tcx, mir, &proj.base),
                 }
             }
-        }
+        },
     }
 }

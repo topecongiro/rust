@@ -15,10 +15,9 @@
 //! This API is completely unstable and subject to change.
 
 #![doc(html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
-      html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
-      html_root_url = "https://doc.rust-lang.org/nightly/")]
+       html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
+       html_root_url = "https://doc.rust-lang.org/nightly/")]
 #![deny(warnings)]
-
 #![feature(rustc_diagnostic_macros)]
 #![feature(slice_patterns)]
 #![feature(box_patterns)]
@@ -26,13 +25,16 @@
 #![feature(i128_type)]
 
 extern crate arena;
-#[macro_use] extern crate syntax;
-#[macro_use] extern crate log;
-#[macro_use] extern crate rustc;
+#[macro_use]
+extern crate log;
+#[macro_use]
+extern crate rustc;
 extern crate rustc_back;
 extern crate rustc_const_math;
 extern crate rustc_data_structures;
 extern crate rustc_errors;
+#[macro_use]
+extern crate syntax;
 extern crate syntax_pos;
 
 // NB: This module needs to be declared first so diagnostics are

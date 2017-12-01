@@ -28,7 +28,7 @@ use rustc::{lint, ty};
 use rustc::util::nodemap::NodeMap;
 use syntax::ast::{self, ViewPathGlob, ViewPathList, ViewPathSimple};
 use syntax::visit::{self, Visitor};
-use syntax_pos::{Span, MultiSpan, DUMMY_SP};
+use syntax_pos::{MultiSpan, Span, DUMMY_SP};
 
 
 struct UnusedImportCheckVisitor<'a, 'b: 'a> {
@@ -63,7 +63,10 @@ impl<'a, 'b> UnusedImportCheckVisitor<'a, 'b> {
                 // Check later.
                 return;
             }
-            self.unused_imports.entry(item_id).or_insert_with(NodeMap).insert(id, span);
+            self.unused_imports
+                .entry(item_id)
+                .or_insert_with(NodeMap)
+                .insert(id, span);
         } else {
             // This trait import is definitely used, in a way other than
             // method resolution.
@@ -87,28 +90,24 @@ impl<'a, 'b> Visitor<'a> for UnusedImportCheckVisitor<'a, 'b> {
         }
 
         match item.node {
-            ast::ItemKind::Use(ref p) => {
-                match p.node {
-                    ViewPathSimple(..) => {
-                        self.check_import(item.id, item.id, p.span)
-                    }
+            ast::ItemKind::Use(ref p) => match p.node {
+                ViewPathSimple(..) => self.check_import(item.id, item.id, p.span),
 
-                    ViewPathList(_, ref list) => {
-                        if list.len() == 0 {
-                            self.unused_imports
-                                .entry(item.id)
-                                .or_insert_with(NodeMap)
-                                .insert(item.id, item.span);
-                        }
-                        for i in list {
-                            self.check_import(item.id, i.node.id, i.span);
-                        }
+                ViewPathList(_, ref list) => {
+                    if list.len() == 0 {
+                        self.unused_imports
+                            .entry(item.id)
+                            .or_insert_with(NodeMap)
+                            .insert(item.id, item.span);
                     }
-                    ViewPathGlob(_) => {
-                        self.check_import(item.id, item.id, p.span);
+                    for i in list {
+                        self.check_import(item.id, i.node.id, i.span);
                     }
                 }
-            }
+                ViewPathGlob(_) => {
+                    self.check_import(item.id, item.id, p.span);
+                }
+            },
             _ => {}
         }
     }
@@ -117,16 +116,19 @@ impl<'a, 'b> Visitor<'a> for UnusedImportCheckVisitor<'a, 'b> {
 pub fn check_crate(resolver: &mut Resolver, krate: &ast::Crate) {
     for directive in resolver.potentially_unused_imports.iter() {
         match directive.subclass {
-            _ if directive.used.get() ||
-                 directive.vis.get() == ty::Visibility::Public ||
-                 directive.span.source_equal(&DUMMY_SP) => {}
+            _ if directive.used.get() || directive.vis.get() == ty::Visibility::Public
+                || directive.span.source_equal(&DUMMY_SP) => {}
             ImportDirectiveSubclass::ExternCrate(_) => {
-                resolver.maybe_unused_extern_crates.push((directive.id, directive.span));
+                resolver
+                    .maybe_unused_extern_crates
+                    .push((directive.id, directive.span));
             }
             ImportDirectiveSubclass::MacroUse => {
                 let lint = lint::builtin::UNUSED_IMPORTS;
                 let msg = "unused `#[macro_use]` import";
-                resolver.session.buffer_lint(lint, directive.id, directive.span, msg);
+                resolver
+                    .session
+                    .buffer_lint(lint, directive.id, directive.span, msg);
             }
             _ => {}
         }
@@ -143,21 +145,25 @@ pub fn check_crate(resolver: &mut Resolver, krate: &ast::Crate) {
         let mut spans = spans.values().map(|s| *s).collect::<Vec<Span>>();
         spans.sort();
         let ms = MultiSpan::from_spans(spans.clone());
-        let mut span_snippets = spans.iter()
-            .filter_map(|s| {
-                match visitor.session.codemap().span_to_snippet(*s) {
-                    Ok(s) => Some(format!("`{}`", s)),
-                    _ => None,
-                }
-            }).collect::<Vec<String>>();
+        let mut span_snippets = spans
+            .iter()
+            .filter_map(|s| match visitor.session.codemap().span_to_snippet(*s) {
+                Ok(s) => Some(format!("`{}`", s)),
+                _ => None,
+            })
+            .collect::<Vec<String>>();
         span_snippets.sort();
-        let msg = format!("unused import{}{}",
-                          if len > 1 { "s" } else { "" },
-                          if span_snippets.len() > 0 {
-                              format!(": {}", span_snippets.join(", "))
-                          } else {
-                              String::new()
-                          });
-        visitor.session.buffer_lint(lint::builtin::UNUSED_IMPORTS, *id, ms, &msg);
+        let msg = format!(
+            "unused import{}{}",
+            if len > 1 { "s" } else { "" },
+            if span_snippets.len() > 0 {
+                format!(": {}", span_snippets.join(", "))
+            } else {
+                String::new()
+            }
+        );
+        visitor
+            .session
+            .buffer_lint(lint::builtin::UNUSED_IMPORTS, *id, ms, &msg);
     }
 }

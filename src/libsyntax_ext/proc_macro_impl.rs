@@ -25,17 +25,20 @@ pub struct AttrProcMacro {
 }
 
 impl base::AttrProcMacro for AttrProcMacro {
-    fn expand<'cx>(&self,
-                   ecx: &'cx mut ExtCtxt,
-                   span: Span,
-                   annotation: TokenStream,
-                   annotated: TokenStream)
-                   -> TokenStream {
+    fn expand<'cx>(
+        &self,
+        ecx: &'cx mut ExtCtxt,
+        span: Span,
+        annotation: TokenStream,
+        annotated: TokenStream,
+    ) -> TokenStream {
         let annotation = __internal::token_stream_wrap(annotation);
         let annotated = __internal::token_stream_wrap(annotated);
 
         let res = __internal::set_sess(ecx, || {
-            panic::catch_unwind(panic::AssertUnwindSafe(|| (self.inner)(annotation, annotated)))
+            panic::catch_unwind(panic::AssertUnwindSafe(|| {
+                (self.inner)(annotation, annotated)
+            }))
         });
 
         match res {
@@ -62,11 +65,7 @@ pub struct BangProcMacro {
 }
 
 impl base::ProcMacro for BangProcMacro {
-    fn expand<'cx>(&self,
-                   ecx: &'cx mut ExtCtxt,
-                   span: Span,
-                   input: TokenStream)
-                   -> TokenStream {
+    fn expand<'cx>(&self, ecx: &'cx mut ExtCtxt, span: Span, input: TokenStream) -> TokenStream {
         let input = __internal::token_stream_wrap(input);
 
         let res = __internal::set_sess(ecx, || {

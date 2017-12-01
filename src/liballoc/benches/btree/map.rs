@@ -12,8 +12,8 @@
 use std::iter::Iterator;
 use std::vec::Vec;
 use std::collections::BTreeMap;
-use std::__rand::{Rng, thread_rng};
-use test::{Bencher, black_box};
+use std::__rand::{thread_rng, Rng};
+use test::{black_box, Bencher};
 
 macro_rules! map_insert_rand_bench {
     ($name: ident, $n: expr, $map: ident) => (

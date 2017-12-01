@@ -84,7 +84,8 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
     /// various ways, depending on the `root_mode` of the `buffer`.
     /// (See `RootMode` enum for more details.)
     pub fn push_krate_path<T>(self, buffer: &mut T, cnum: CrateNum)
-        where T: ItemPathBuffer
+    where
+        T: ItemPathBuffer,
     {
         match *buffer.root_mode() {
             RootMode::Local => {
@@ -127,7 +128,8 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
     /// from at least one local module and returns true. If the crate defining `external_def_id` is
     /// declared with an `extern crate`, the path is guaranteed to use the `extern crate`.
     pub fn try_push_visible_item_path<T>(self, buffer: &mut T, external_def_id: DefId) -> bool
-        where T: ItemPathBuffer
+    where
+        T: ItemPathBuffer,
     {
         let visible_parent_map = self.visible_parent_map(LOCAL_CRATE);
 
@@ -139,15 +141,23 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
                 match *self.extern_crate(cur_def) {
                     Some(ref extern_crate) if extern_crate.direct => {
                         self.push_item_path(buffer, extern_crate.def_id);
-                        cur_path.iter().rev().map(|segment| buffer.push(&segment)).count();
+                        cur_path
+                            .iter()
+                            .rev()
+                            .map(|segment| buffer.push(&segment))
+                            .count();
                         return true;
                     }
                     None => {
                         buffer.push(&self.crate_name(cur_def.krate).as_str());
-                        cur_path.iter().rev().map(|segment| buffer.push(&segment)).count();
+                        cur_path
+                            .iter()
+                            .rev()
+                            .map(|segment| buffer.push(&segment))
+                            .count();
                         return true;
                     }
-                    _ => {},
+                    _ => {}
                 }
             }
 
@@ -157,15 +167,17 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
             if let DefPathData::StructCtor = cur_def_key.disambiguated_data.data {
                 let parent = DefId {
                     krate: cur_def.krate,
-                    index: cur_def_key.parent.expect("DefPathData::StructCtor missing a parent"),
+                    index: cur_def_key
+                        .parent
+                        .expect("DefPathData::StructCtor missing a parent"),
                 };
 
                 cur_def_key = self.def_key(parent);
             }
 
             let data = cur_def_key.disambiguated_data.data;
-            let symbol =
-                data.get_opt_name().unwrap_or_else(|| Symbol::intern("<unnamed>").as_str());
+            let symbol = data.get_opt_name()
+                .unwrap_or_else(|| Symbol::intern("<unnamed>").as_str());
             cur_path.push(symbol);
 
             match visible_parent_map.get(&cur_def) {
@@ -176,11 +188,15 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
     }
 
     pub fn push_item_path<T>(self, buffer: &mut T, def_id: DefId)
-        where T: ItemPathBuffer
+    where
+        T: ItemPathBuffer,
     {
         match *buffer.root_mode() {
-            RootMode::Local if !def_id.is_local() =>
-                if self.try_push_visible_item_path(buffer, def_id) { return },
+            RootMode::Local if !def_id.is_local() => {
+                if self.try_push_visible_item_path(buffer, def_id) {
+                    return;
+                }
+            }
             _ => {}
         }
 
@@ -198,35 +214,35 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
             // Unclear if there is any value in distinguishing these.
             // Probably eventually (and maybe we would even want
             // finer-grained distinctions, e.g. between enum/struct).
-            data @ DefPathData::Misc |
-            data @ DefPathData::TypeNs(..) |
-            data @ DefPathData::ValueNs(..) |
-            data @ DefPathData::Module(..) |
-            data @ DefPathData::TypeParam(..) |
-            data @ DefPathData::LifetimeDef(..) |
-            data @ DefPathData::EnumVariant(..) |
-            data @ DefPathData::Field(..) |
-            data @ DefPathData::Initializer |
-            data @ DefPathData::MacroDef(..) |
-            data @ DefPathData::ClosureExpr |
-            data @ DefPathData::ImplTrait |
-            data @ DefPathData::Typeof |
-            data @ DefPathData::GlobalMetaData(..) => {
+            data @ DefPathData::Misc
+            | data @ DefPathData::TypeNs(..)
+            | data @ DefPathData::ValueNs(..)
+            | data @ DefPathData::Module(..)
+            | data @ DefPathData::TypeParam(..)
+            | data @ DefPathData::LifetimeDef(..)
+            | data @ DefPathData::EnumVariant(..)
+            | data @ DefPathData::Field(..)
+            | data @ DefPathData::Initializer
+            | data @ DefPathData::MacroDef(..)
+            | data @ DefPathData::ClosureExpr
+            | data @ DefPathData::ImplTrait
+            | data @ DefPathData::Typeof
+            | data @ DefPathData::GlobalMetaData(..) => {
                 let parent_def_id = self.parent_def_id(def_id).unwrap();
                 self.push_item_path(buffer, parent_def_id);
                 buffer.push(&data.as_interned_str());
             }
-            DefPathData::StructCtor => { // present `X` instead of `X::{{constructor}}`
+            DefPathData::StructCtor => {
+                // present `X` instead of `X::{{constructor}}`
                 let parent_def_id = self.parent_def_id(def_id).unwrap();
                 self.push_item_path(buffer, parent_def_id);
             }
         }
     }
 
-    fn push_impl_path<T>(self,
-                         buffer: &mut T,
-                         impl_def_id: DefId)
-        where T: ItemPathBuffer
+    fn push_impl_path<T>(self, buffer: &mut T, impl_def_id: DefId)
+    where
+        T: ItemPathBuffer,
     {
         let parent_def_id = self.parent_def_id(impl_def_id).unwrap();
 
@@ -277,9 +293,7 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
 
         if let Some(trait_ref) = impl_trait_ref {
             // Trait impls.
-            buffer.push(&format!("<{} as {}>",
-                                 self_ty,
-                                 trait_ref));
+            buffer.push(&format!("<{} as {}>", self_ty, trait_ref));
             return;
         }
 
@@ -288,7 +302,8 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
         // anything other than a simple path.
         match self_ty.sty {
             ty::TyAdt(adt_def, substs) => {
-                if substs.types().next().is_none() { // ignore regions
+                if substs.types().next().is_none() {
+                    // ignore regions
                     self.push_item_path(buffer, adt_def.did);
                 } else {
                     buffer.push(&format!("<{}>", self_ty));
@@ -297,12 +312,7 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
 
             ty::TyForeign(did) => self.push_item_path(buffer, did),
 
-            ty::TyBool |
-            ty::TyChar |
-            ty::TyInt(_) |
-            ty::TyUint(_) |
-            ty::TyFloat(_) |
-            ty::TyStr => {
+            ty::TyBool | ty::TyChar | ty::TyInt(_) | ty::TyUint(_) | ty::TyFloat(_) | ty::TyStr => {
                 buffer.push(&format!("{}", self_ty));
             }
 
@@ -312,10 +322,9 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
         }
     }
 
-    fn push_impl_path_fallback<T>(self,
-                                  buffer: &mut T,
-                                  impl_def_id: DefId)
-        where T: ItemPathBuffer
+    fn push_impl_path_fallback<T>(self, buffer: &mut T, impl_def_id: DefId)
+    where
+        T: ItemPathBuffer,
     {
         // If no type info is available, fall back to
         // pretty printing some span information. This should
@@ -333,7 +342,12 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
     /// inlined root.
     pub fn parent_def_id(self, def_id: DefId) -> Option<DefId> {
         let key = self.def_key(def_id);
-        key.parent.map(|index| DefId { krate: def_id.krate, index: index })
+        key.parent.map(|index| {
+            DefId {
+                krate: def_id.krate,
+                index: index,
+            }
+        })
     }
 }
 
@@ -349,34 +363,32 @@ pub fn characteristic_def_id_of_type(ty: Ty) -> Option<DefId> {
 
         ty::TyDynamic(data, ..) => data.principal().map(|p| p.def_id()),
 
-        ty::TyArray(subty, _) |
-        ty::TySlice(subty) => characteristic_def_id_of_type(subty),
+        ty::TyArray(subty, _) | ty::TySlice(subty) => characteristic_def_id_of_type(subty),
 
-        ty::TyRawPtr(mt) |
-        ty::TyRef(_, mt) => characteristic_def_id_of_type(mt.ty),
+        ty::TyRawPtr(mt) | ty::TyRef(_, mt) => characteristic_def_id_of_type(mt.ty),
 
         ty::TyTuple(ref tys, _) => tys.iter()
-                                      .filter_map(|ty| characteristic_def_id_of_type(ty))
-                                      .next(),
+            .filter_map(|ty| characteristic_def_id_of_type(ty))
+            .next(),
 
-        ty::TyFnDef(def_id, _) |
-        ty::TyClosure(def_id, _) |
-        ty::TyGenerator(def_id, _, _) |
-        ty::TyForeign(def_id) => Some(def_id),
+        ty::TyFnDef(def_id, _)
+        | ty::TyClosure(def_id, _)
+        | ty::TyGenerator(def_id, _, _)
+        | ty::TyForeign(def_id) => Some(def_id),
 
-        ty::TyBool |
-        ty::TyChar |
-        ty::TyInt(_) |
-        ty::TyUint(_) |
-        ty::TyStr |
-        ty::TyFnPtr(_) |
-        ty::TyProjection(_) |
-        ty::TyParam(_) |
-        ty::TyAnon(..) |
-        ty::TyInfer(_) |
-        ty::TyError |
-        ty::TyNever |
-        ty::TyFloat(_) => None,
+        ty::TyBool
+        | ty::TyChar
+        | ty::TyInt(_)
+        | ty::TyUint(_)
+        | ty::TyStr
+        | ty::TyFnPtr(_)
+        | ty::TyProjection(_)
+        | ty::TyParam(_)
+        | ty::TyAnon(..)
+        | ty::TyInfer(_)
+        | ty::TyError
+        | ty::TyNever
+        | ty::TyFloat(_) => None,
     }
 }
 

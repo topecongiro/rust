@@ -14,14 +14,14 @@
 use abi::{ArgType, CastTarget, FnType, LayoutExt, Reg, RegKind};
 use context::CrateContext;
 
-use rustc::ty::layout::{self, TyLayout, Size};
+use rustc::ty::layout::{self, Size, TyLayout};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Class {
     None,
     Int,
     Sse,
-    SseUp
+    SseUp,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -31,32 +31,31 @@ struct Memory;
 const LARGEST_VECTOR_SIZE: usize = 512;
 const MAX_EIGHTBYTES: usize = LARGEST_VECTOR_SIZE / 64;
 
-fn classify_arg<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>, arg: &ArgType<'tcx>)
-                          -> Result<[Class; MAX_EIGHTBYTES], Memory> {
-    fn unify(cls: &mut [Class],
-             off: Size,
-             c: Class) {
+fn classify_arg<'a, 'tcx>(
+    ccx: &CrateContext<'a, 'tcx>,
+    arg: &ArgType<'tcx>,
+) -> Result<[Class; MAX_EIGHTBYTES], Memory> {
+    fn unify(cls: &mut [Class], off: Size, c: Class) {
         let i = (off.bytes() / 8) as usize;
         let to_write = match (cls[i], c) {
             (Class::None, _) => c,
             (_, Class::None) => return,
 
-            (Class::Int, _) |
-            (_, Class::Int) => Class::Int,
+            (Class::Int, _) | (_, Class::Int) => Class::Int,
 
-            (Class::Sse, _) |
-            (_, Class::Sse) => Class::Sse,
+            (Class::Sse, _) | (_, Class::Sse) => Class::Sse,
 
-            (Class::SseUp, Class::SseUp) => Class::SseUp
+            (Class::SseUp, Class::SseUp) => Class::SseUp,
         };
         cls[i] = to_write;
     }
 
-    fn classify<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
-                          layout: TyLayout<'tcx>,
-                          cls: &mut [Class],
-                          off: Size)
-                          -> Result<(), Memory> {
+    fn classify<'a, 'tcx>(
+        ccx: &CrateContext<'a, 'tcx>,
+        layout: TyLayout<'tcx>,
+        cls: &mut [Class],
+        off: Size,
+    ) -> Result<(), Memory> {
         if !off.is_abi_aligned(layout.align) {
             if !layout.is_zst() {
                 return Err(Memory);
@@ -69,10 +68,8 @@ fn classify_arg<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>, arg: &ArgType<'tcx>)
 
             layout::Abi::Scalar(ref scalar) => {
                 let reg = match scalar.value {
-                    layout::Int(..) |
-                    layout::Pointer => Class::Int,
-                    layout::F32 |
-                    layout::F64 => Class::Sse
+                    layout::Int(..) | layout::Pointer => Class::Int,
+                    layout::F32 | layout::F64 => Class::Sse,
                 };
                 unify(cls, off, reg);
             }
@@ -88,20 +85,15 @@ fn classify_arg<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>, arg: &ArgType<'tcx>)
                 }
             }
 
-            layout::Abi::ScalarPair(..) |
-            layout::Abi::Aggregate { .. } => {
-                match layout.variants {
-                    layout::Variants::Single { .. } => {
-                        for i in 0..layout.fields.count() {
-                            let field_off = off + layout.fields.offset(i);
-                            classify(ccx, layout.field(ccx, i), cls, field_off)?;
-                        }
-                    }
-                    layout::Variants::Tagged { .. } |
-                    layout::Variants::NicheFilling { .. } => return Err(Memory),
+            layout::Abi::ScalarPair(..) | layout::Abi::Aggregate { .. } => match layout.variants {
+                layout::Variants::Single { .. } => for i in 0..layout.fields.count() {
+                    let field_off = off + layout.fields.offset(i);
+                    classify(ccx, layout.field(ccx, i), cls, field_off)?;
+                },
+                layout::Variants::Tagged { .. } | layout::Variants::NicheFilling { .. } => {
+                    return Err(Memory)
                 }
-            }
-
+            },
         }
 
         Ok(())
@@ -128,7 +120,9 @@ fn classify_arg<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>, arg: &ArgType<'tcx>)
                 cls[i] = Class::Sse;
             } else if cls[i] == Class::Sse {
                 i += 1;
-                while i != n && cls[i] == Class::SseUp { i += 1; }
+                while i != n && cls[i] == Class::SseUp {
+                    i += 1;
+                }
             } else {
                 i += 1;
             }
@@ -150,27 +144,30 @@ fn reg_component(cls: &[Class], i: &mut usize, size: Size) -> Option<Reg> {
             Some(match size.bytes() {
                 1 => Reg::i8(),
                 2 => Reg::i16(),
-                3 |
-                4 => Reg::i32(),
-                _ => Reg::i64()
+                3 | 4 => Reg::i32(),
+                _ => Reg::i64(),
             })
         }
         Class::Sse => {
-            let vec_len = 1 + cls[*i+1..].iter().take_while(|&&c| c == Class::SseUp).count();
+            let vec_len = 1
+                + cls[*i + 1..]
+                    .iter()
+                    .take_while(|&&c| c == Class::SseUp)
+                    .count();
             *i += vec_len;
             Some(if vec_len == 1 {
                 match size.bytes() {
                     4 => Reg::f32(),
-                    _ => Reg::f64()
+                    _ => Reg::f64(),
                 }
             } else {
                 Reg {
                     kind: RegKind::Vector,
-                    size: Size::from_bytes(8) * (vec_len as u64)
+                    size: Size::from_bytes(8) * (vec_len as u64),
                 }
             })
         }
-        c => bug!("reg_component: unhandled class {:?}", c)
+        c => bug!("reg_component: unhandled class {:?}", c),
     }
 }
 
@@ -207,10 +204,9 @@ pub fn compute_abi_info<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>, fty: &mut FnType
                         _ => {}
                     }
                 }
-                arg.layout.is_aggregate() &&
-                    (int_regs < needed_int || sse_regs < needed_sse)
+                arg.layout.is_aggregate() && (int_regs < needed_int || sse_regs < needed_sse)
             }
-            Ok(_) => false
+            Ok(_) => false,
         };
 
         if in_mem {
@@ -240,7 +236,9 @@ pub fn compute_abi_info<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>, fty: &mut FnType
     }
 
     for arg in &mut fty.args {
-        if arg.is_ignore() { continue; }
+        if arg.is_ignore() {
+            continue;
+        }
         x86_64_ty(arg, true);
     }
 }

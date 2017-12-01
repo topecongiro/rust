@@ -11,16 +11,12 @@
 //! Helper routines for higher-ranked things. See the `doc` module at
 //! the end of the file for details.
 
-use super::{CombinedSnapshot,
-            InferCtxt,
-            HigherRankedType,
-            SubregionOrigin,
-            SkolemizationMap};
+use super::{CombinedSnapshot, HigherRankedType, InferCtxt, SkolemizationMap, SubregionOrigin};
 use super::combine::CombineFields;
-use super::region_constraints::{TaintDirections};
+use super::region_constraints::TaintDirections;
 
 use std::collections::BTreeMap;
-use ty::{self, TyCtxt, Binder, TypeFoldable};
+use ty::{self, Binder, TyCtxt, TypeFoldable};
 use ty::error::TypeError;
 use ty::relate::{Relate, RelateResult, TypeRelation};
 use syntax_pos::Span;
@@ -31,12 +27,16 @@ pub struct HrMatchResult<U> {
 }
 
 impl<'a, 'gcx, 'tcx> CombineFields<'a, 'gcx, 'tcx> {
-    pub fn higher_ranked_sub<T>(&mut self, a: &Binder<T>, b: &Binder<T>, a_is_expected: bool)
-                                -> RelateResult<'tcx, Binder<T>>
-        where T: Relate<'tcx>
+    pub fn higher_ranked_sub<T>(
+        &mut self,
+        a: &Binder<T>,
+        b: &Binder<T>,
+        a_is_expected: bool,
+    ) -> RelateResult<'tcx, Binder<T>>
+    where
+        T: Relate<'tcx>,
     {
-        debug!("higher_ranked_sub(a={:?}, b={:?})",
-               a, b);
+        debug!("higher_ranked_sub(a={:?}, b={:?})", a, b);
 
         // Rather than checking the subtype relationship between `a` and `b`
         // as-is, we need to do some extra work here in order to make sure
@@ -54,15 +54,12 @@ impl<'a, 'gcx, 'tcx> CombineFields<'a, 'gcx, 'tcx> {
             // First, we instantiate each bound region in the subtype with a fresh
             // region variable.
             let (a_prime, _) =
-                self.infcx.replace_late_bound_regions_with_fresh_var(
-                    span,
-                    HigherRankedType,
-                    a);
+                self.infcx
+                    .replace_late_bound_regions_with_fresh_var(span, HigherRankedType, a);
 
             // Second, we instantiate each bound region in the supertype with a
             // fresh concrete region.
-            let (b_prime, skol_map) =
-                self.infcx.skolemize_late_bound_regions(b, snapshot);
+            let (b_prime, skol_map) = self.infcx.skolemize_late_bound_regions(b, snapshot);
 
             debug!("a_prime={:?}", a_prime);
             debug!("b_prime={:?}", b_prime);
@@ -72,7 +69,8 @@ impl<'a, 'gcx, 'tcx> CombineFields<'a, 'gcx, 'tcx> {
 
             // Presuming type comparison succeeds, we need to check
             // that the skolemized regions do not "leak".
-            self.infcx.leak_check(!a_is_expected, span, &skol_map, snapshot)?;
+            self.infcx
+                .leak_check(!a_is_expected, span, &skol_map, snapshot)?;
 
             // We are finished with the skolemized regions now so pop
             // them off.
@@ -97,16 +95,17 @@ impl<'a, 'gcx, 'tcx> CombineFields<'a, 'gcx, 'tcx> {
     /// NB. It should not happen that there are LBR appearing in `U`
     /// that do not appear in `T`. If that happens, those regions are
     /// unconstrained, and this routine replaces them with `'static`.
-    pub fn higher_ranked_match<T, U>(&mut self,
-                                     a_pair: &Binder<(T, U)>,
-                                     b_match: &T,
-                                     a_is_expected: bool)
-                                     -> RelateResult<'tcx, HrMatchResult<U>>
-        where T: Relate<'tcx>,
-              U: TypeFoldable<'tcx>
+    pub fn higher_ranked_match<T, U>(
+        &mut self,
+        a_pair: &Binder<(T, U)>,
+        b_match: &T,
+        a_is_expected: bool,
+    ) -> RelateResult<'tcx, HrMatchResult<U>>
+    where
+        T: Relate<'tcx>,
+        U: TypeFoldable<'tcx>,
     {
-        debug!("higher_ranked_match(a={:?}, b={:?})",
-               a_pair, b_match);
+        debug!("higher_ranked_match(a={:?}, b={:?})", a_pair, b_match);
 
         // Start a snapshot so we can examine "all bindings that were
         // created as part of this type comparison".
@@ -125,14 +124,12 @@ impl<'a, 'gcx, 'tcx> CombineFields<'a, 'gcx, 'tcx> {
             // Map each skolemized region to a vector of other regions that it
             // must be equated with. (Note that this vector may include other
             // skolemized regions from `skol_map`.)
-            let skol_resolution_map: FxHashMap<_, _> =
-                skol_map
+            let skol_resolution_map: FxHashMap<_, _> = skol_map
                 .iter()
                 .map(|(&br, &skol)| {
                     let tainted_regions =
-                        self.infcx.tainted_regions(snapshot,
-                                                   skol,
-                                                   TaintDirections::incoming()); // [1]
+                        self.infcx
+                            .tainted_regions(snapshot, skol, TaintDirections::incoming()); // [1]
 
                     // [1] this routine executes after the skolemized
                     // regions have been *equated* with something
@@ -147,19 +144,21 @@ impl<'a, 'gcx, 'tcx> CombineFields<'a, 'gcx, 'tcx> {
             // be any region from the sets above, except for other members of
             // `skol_map`. There should always be a representative if things
             // are properly well-formed.
-            let skol_representatives: FxHashMap<_, _> =
-                skol_resolution_map
+            let skol_representatives: FxHashMap<_, _> = skol_resolution_map
                 .iter()
                 .map(|(&skol, &(_, ref regions))| {
-                    let representative =
-                        regions.iter()
-                               .filter(|&&r| !skol_resolution_map.contains_key(r))
-                               .cloned()
-                               .next()
-                               .unwrap_or_else(|| {
-                                   bug!("no representative region for `{:?}` in `{:?}`",
-                                        skol, regions)
-                               });
+                    let representative = regions
+                        .iter()
+                        .filter(|&&r| !skol_resolution_map.contains_key(r))
+                        .cloned()
+                        .next()
+                        .unwrap_or_else(|| {
+                            bug!(
+                                "no representative region for `{:?}` in `{:?}`",
+                                skol,
+                                regions
+                            )
+                        });
 
                     (skol, representative)
                 })
@@ -169,28 +168,32 @@ impl<'a, 'gcx, 'tcx> CombineFields<'a, 'gcx, 'tcx> {
             // representative.
             for (skol, &(_br, ref regions)) in &skol_resolution_map {
                 let representative = &skol_representatives[skol];
-                debug!("higher_ranked_match: \
-                        skol={:?} representative={:?} regions={:?}",
-                       skol, representative, regions);
-                for region in regions.iter()
-                                     .filter(|&r| !skol_resolution_map.contains_key(r))
-                                     .filter(|&r| r != representative)
+                debug!(
+                    "higher_ranked_match: \
+                     skol={:?} representative={:?} regions={:?}",
+                    skol,
+                    representative,
+                    regions
+                );
+                for region in regions
+                    .iter()
+                    .filter(|&r| !skol_resolution_map.contains_key(r))
+                    .filter(|&r| r != representative)
                 {
                     let origin = SubregionOrigin::Subtype(self.trace.clone());
-                    self.infcx.borrow_region_constraints()
-                              .make_eqregion(origin,
-                                             *representative,
-                                             *region);
+                    self.infcx.borrow_region_constraints().make_eqregion(
+                        origin,
+                        *representative,
+                        *region,
+                    );
                 }
             }
 
             // Replace the skolemized regions appearing in value with
             // their representatives
-            let a_value =
-                fold_regions_in(
-                    self.tcx(),
-                    &a_value,
-                    |r, _| skol_representatives.get(&r).cloned().unwrap_or(r));
+            let a_value = fold_regions_in(self.tcx(), &a_value, |r, _| {
+                skol_representatives.get(&r).cloned().unwrap_or(r)
+            });
 
             debug!("higher_ranked_match: value={:?}", a_value);
 
@@ -201,9 +204,14 @@ impl<'a, 'gcx, 'tcx> CombineFields<'a, 'gcx, 'tcx> {
         });
     }
 
-    pub fn higher_ranked_lub<T>(&mut self, a: &Binder<T>, b: &Binder<T>, a_is_expected: bool)
-                                -> RelateResult<'tcx, Binder<T>>
-        where T: Relate<'tcx>
+    pub fn higher_ranked_lub<T>(
+        &mut self,
+        a: &Binder<T>,
+        b: &Binder<T>,
+        a_is_expected: bool,
+    ) -> RelateResult<'tcx, Binder<T>>
+    where
+        T: Relate<'tcx>,
     {
         // Start a snapshot so we can examine "all bindings that were
         // created as part of this type comparison".
@@ -211,45 +219,39 @@ impl<'a, 'gcx, 'tcx> CombineFields<'a, 'gcx, 'tcx> {
             // Instantiate each bound region with a fresh region variable.
             let span = self.trace.cause.span;
             let (a_with_fresh, a_map) =
-                self.infcx.replace_late_bound_regions_with_fresh_var(
-                    span, HigherRankedType, a);
+                self.infcx
+                    .replace_late_bound_regions_with_fresh_var(span, HigherRankedType, a);
             let (b_with_fresh, _) =
-                self.infcx.replace_late_bound_regions_with_fresh_var(
-                    span, HigherRankedType, b);
+                self.infcx
+                    .replace_late_bound_regions_with_fresh_var(span, HigherRankedType, b);
 
             // Collect constraints.
-            let result0 =
-                self.lub(a_is_expected).relate(&a_with_fresh, &b_with_fresh)?;
-            let result0 =
-                self.infcx.resolve_type_vars_if_possible(&result0);
+            let result0 = self.lub(a_is_expected)
+                .relate(&a_with_fresh, &b_with_fresh)?;
+            let result0 = self.infcx.resolve_type_vars_if_possible(&result0);
             debug!("lub result0 = {:?}", result0);
 
             // Generalize the regions appearing in result0 if possible
             let new_vars = self.infcx.region_vars_confined_to_snapshot(snapshot);
             let span = self.trace.cause.span;
-            let result1 =
-                fold_regions_in(
-                    self.tcx(),
-                    &result0,
-                    |r, debruijn| generalize_region(self.infcx, span, snapshot, debruijn,
-                                                    &new_vars, &a_map, r));
+            let result1 = fold_regions_in(self.tcx(), &result0, |r, debruijn| {
+                generalize_region(self.infcx, span, snapshot, debruijn, &new_vars, &a_map, r)
+            });
 
-            debug!("lub({:?},{:?}) = {:?}",
-                   a,
-                   b,
-                   result1);
+            debug!("lub({:?},{:?}) = {:?}", a, b, result1);
 
             Ok(ty::Binder(result1))
         });
 
-        fn generalize_region<'a, 'gcx, 'tcx>(infcx: &InferCtxt<'a, 'gcx, 'tcx>,
-                                             span: Span,
-                                             snapshot: &CombinedSnapshot,
-                                             debruijn: ty::DebruijnIndex,
-                                             new_vars: &[ty::RegionVid],
-                                             a_map: &BTreeMap<ty::BoundRegion, ty::Region<'tcx>>,
-                                             r0: ty::Region<'tcx>)
-                                             -> ty::Region<'tcx> {
+        fn generalize_region<'a, 'gcx, 'tcx>(
+            infcx: &InferCtxt<'a, 'gcx, 'tcx>,
+            span: Span,
+            snapshot: &CombinedSnapshot,
+            debruijn: ty::DebruijnIndex,
+            new_vars: &[ty::RegionVid],
+            a_map: &BTreeMap<ty::BoundRegion, ty::Region<'tcx>>,
+            r0: ty::Region<'tcx>,
+        ) -> ty::Region<'tcx> {
             // Regions that pre-dated the LUB computation stay as they are.
             if !is_var_in_set(new_vars, r0) {
                 assert!(!r0.is_late_bound());
@@ -263,9 +265,12 @@ impl<'a, 'gcx, 'tcx> CombineFields<'a, 'gcx, 'tcx> {
             // *related* to regions that pre-date the LUB computation
             // stay as they are.
             if !tainted.iter().all(|&r| is_var_in_set(new_vars, r)) {
-                debug!("generalize_region(r0={:?}): \
-                        non-new-variables found in {:?}",
-                       r0, tainted);
+                debug!(
+                    "generalize_region(r0={:?}): \
+                     non-new-variables found in {:?}",
+                    r0,
+                    tainted
+                );
                 assert!(!r0.is_late_bound());
                 return r0;
             }
@@ -277,9 +282,13 @@ impl<'a, 'gcx, 'tcx> CombineFields<'a, 'gcx, 'tcx> {
             // with.
             for (a_br, a_r) in a_map {
                 if tainted.iter().any(|x| x == a_r) {
-                    debug!("generalize_region(r0={:?}): \
-                            replacing with {:?}, tainted={:?}",
-                           r0, *a_br, tainted);
+                    debug!(
+                        "generalize_region(r0={:?}): \
+                         replacing with {:?}, tainted={:?}",
+                        r0,
+                        *a_br,
+                        tainted
+                    );
                     return infcx.tcx.mk_region(ty::ReLateBound(debruijn, *a_br));
                 }
             }
@@ -287,67 +296,78 @@ impl<'a, 'gcx, 'tcx> CombineFields<'a, 'gcx, 'tcx> {
             span_bug!(
                 span,
                 "region {:?} is not associated with any bound region from A!",
-                r0)
+                r0
+            )
         }
     }
 
-    pub fn higher_ranked_glb<T>(&mut self, a: &Binder<T>, b: &Binder<T>, a_is_expected: bool)
-                                -> RelateResult<'tcx, Binder<T>>
-        where T: Relate<'tcx>
+    pub fn higher_ranked_glb<T>(
+        &mut self,
+        a: &Binder<T>,
+        b: &Binder<T>,
+        a_is_expected: bool,
+    ) -> RelateResult<'tcx, Binder<T>>
+    where
+        T: Relate<'tcx>,
     {
-        debug!("higher_ranked_glb({:?}, {:?})",
-               a, b);
+        debug!("higher_ranked_glb({:?}, {:?})", a, b);
 
         // Make a snapshot so we can examine "all bindings that were
         // created as part of this type comparison".
         return self.infcx.commit_if_ok(|snapshot| {
             // Instantiate each bound region with a fresh region variable.
-            let (a_with_fresh, a_map) =
-                self.infcx.replace_late_bound_regions_with_fresh_var(
-                    self.trace.cause.span, HigherRankedType, a);
-            let (b_with_fresh, b_map) =
-                self.infcx.replace_late_bound_regions_with_fresh_var(
-                    self.trace.cause.span, HigherRankedType, b);
+            let (a_with_fresh, a_map) = self.infcx.replace_late_bound_regions_with_fresh_var(
+                self.trace.cause.span,
+                HigherRankedType,
+                a,
+            );
+            let (b_with_fresh, b_map) = self.infcx.replace_late_bound_regions_with_fresh_var(
+                self.trace.cause.span,
+                HigherRankedType,
+                b,
+            );
             let a_vars = var_ids(self, &a_map);
             let b_vars = var_ids(self, &b_map);
 
             // Collect constraints.
-            let result0 =
-                self.glb(a_is_expected).relate(&a_with_fresh, &b_with_fresh)?;
-            let result0 =
-                self.infcx.resolve_type_vars_if_possible(&result0);
+            let result0 = self.glb(a_is_expected)
+                .relate(&a_with_fresh, &b_with_fresh)?;
+            let result0 = self.infcx.resolve_type_vars_if_possible(&result0);
             debug!("glb result0 = {:?}", result0);
 
             // Generalize the regions appearing in result0 if possible
             let new_vars = self.infcx.region_vars_confined_to_snapshot(snapshot);
             let span = self.trace.cause.span;
-            let result1 =
-                fold_regions_in(
-                    self.tcx(),
-                    &result0,
-                    |r, debruijn| generalize_region(self.infcx, span, snapshot, debruijn,
-                                                    &new_vars,
-                                                    &a_map, &a_vars, &b_vars,
-                                                    r));
+            let result1 = fold_regions_in(self.tcx(), &result0, |r, debruijn| {
+                generalize_region(
+                    self.infcx,
+                    span,
+                    snapshot,
+                    debruijn,
+                    &new_vars,
+                    &a_map,
+                    &a_vars,
+                    &b_vars,
+                    r,
+                )
+            });
 
-            debug!("glb({:?},{:?}) = {:?}",
-                   a,
-                   b,
-                   result1);
+            debug!("glb({:?},{:?}) = {:?}", a, b, result1);
 
             Ok(ty::Binder(result1))
         });
 
-        fn generalize_region<'a, 'gcx, 'tcx>(infcx: &InferCtxt<'a, 'gcx, 'tcx>,
-                                             span: Span,
-                                             snapshot: &CombinedSnapshot,
-                                             debruijn: ty::DebruijnIndex,
-                                             new_vars: &[ty::RegionVid],
-                                             a_map: &BTreeMap<ty::BoundRegion, ty::Region<'tcx>>,
-                                             a_vars: &[ty::RegionVid],
-                                             b_vars: &[ty::RegionVid],
-                                             r0: ty::Region<'tcx>)
-                                             -> ty::Region<'tcx> {
+        fn generalize_region<'a, 'gcx, 'tcx>(
+            infcx: &InferCtxt<'a, 'gcx, 'tcx>,
+            span: Span,
+            snapshot: &CombinedSnapshot,
+            debruijn: ty::DebruijnIndex,
+            new_vars: &[ty::RegionVid],
+            a_map: &BTreeMap<ty::BoundRegion, ty::Region<'tcx>>,
+            a_vars: &[ty::RegionVid],
+            b_vars: &[ty::RegionVid],
+            r0: ty::Region<'tcx>,
+        ) -> ty::Region<'tcx> {
             if !is_var_in_set(new_vars, r0) {
                 assert!(!r0.is_late_bound());
                 return r0;
@@ -410,59 +430,62 @@ impl<'a, 'gcx, 'tcx> CombineFields<'a, 'gcx, 'tcx> {
             }
         }
 
-        fn rev_lookup<'a, 'gcx, 'tcx>(infcx: &InferCtxt<'a, 'gcx, 'tcx>,
-                                      span: Span,
-                                      a_map: &BTreeMap<ty::BoundRegion, ty::Region<'tcx>>,
-                                      r: ty::Region<'tcx>) -> ty::Region<'tcx>
-        {
+        fn rev_lookup<'a, 'gcx, 'tcx>(
+            infcx: &InferCtxt<'a, 'gcx, 'tcx>,
+            span: Span,
+            a_map: &BTreeMap<ty::BoundRegion, ty::Region<'tcx>>,
+            r: ty::Region<'tcx>,
+        ) -> ty::Region<'tcx> {
             for (a_br, a_r) in a_map {
                 if *a_r == r {
-                    return infcx.tcx.mk_region(ty::ReLateBound(ty::DebruijnIndex::new(1), *a_br));
+                    return infcx
+                        .tcx
+                        .mk_region(ty::ReLateBound(ty::DebruijnIndex::new(1), *a_br));
                 }
             }
-            span_bug!(
-                span,
-                "could not find original bound region for {:?}",
-                r);
+            span_bug!(span, "could not find original bound region for {:?}", r);
         }
 
-        fn fresh_bound_variable<'a, 'gcx, 'tcx>(infcx: &InferCtxt<'a, 'gcx, 'tcx>,
-                                                debruijn: ty::DebruijnIndex)
-                                                -> ty::Region<'tcx> {
-            infcx.borrow_region_constraints().new_bound(infcx.tcx, debruijn)
+        fn fresh_bound_variable<'a, 'gcx, 'tcx>(
+            infcx: &InferCtxt<'a, 'gcx, 'tcx>,
+            debruijn: ty::DebruijnIndex,
+        ) -> ty::Region<'tcx> {
+            infcx
+                .borrow_region_constraints()
+                .new_bound(infcx.tcx, debruijn)
         }
     }
 }
 
-fn var_ids<'a, 'gcx, 'tcx>(fields: &CombineFields<'a, 'gcx, 'tcx>,
-                           map: &BTreeMap<ty::BoundRegion, ty::Region<'tcx>>)
-                           -> Vec<ty::RegionVid> {
+fn var_ids<'a, 'gcx, 'tcx>(
+    fields: &CombineFields<'a, 'gcx, 'tcx>,
+    map: &BTreeMap<ty::BoundRegion, ty::Region<'tcx>>,
+) -> Vec<ty::RegionVid> {
     map.iter()
-       .map(|(_, &r)| match *r {
-           ty::ReVar(r) => { r }
-           _ => {
-               span_bug!(
-                   fields.trace.cause.span,
-                   "found non-region-vid: {:?}",
-                   r);
-           }
-       })
-       .collect()
+        .map(|(_, &r)| match *r {
+            ty::ReVar(r) => r,
+            _ => {
+                span_bug!(fields.trace.cause.span, "found non-region-vid: {:?}", r);
+            }
+        })
+        .collect()
 }
 
 fn is_var_in_set(new_vars: &[ty::RegionVid], r: ty::Region) -> bool {
     match *r {
         ty::ReVar(ref v) => new_vars.iter().any(|x| x == v),
-        _ => false
+        _ => false,
     }
 }
 
-fn fold_regions_in<'a, 'gcx, 'tcx, T, F>(tcx: TyCtxt<'a, 'gcx, 'tcx>,
-                                         unbound_value: &T,
-                                         mut fldr: F)
-                                         -> T
-    where T: TypeFoldable<'tcx>,
-          F: FnMut(ty::Region<'tcx>, ty::DebruijnIndex) -> ty::Region<'tcx>,
+fn fold_regions_in<'a, 'gcx, 'tcx, T, F>(
+    tcx: TyCtxt<'a, 'gcx, 'tcx>,
+    unbound_value: &T,
+    mut fldr: F,
+) -> T
+where
+    T: TypeFoldable<'tcx>,
+    F: FnMut(ty::Region<'tcx>, ty::DebruijnIndex) -> ty::Region<'tcx>,
 {
     tcx.fold_regions(unbound_value, &mut false, |region, current_depth| {
         // we should only be encountering "escaping" late-bound regions here,
@@ -470,7 +493,7 @@ fn fold_regions_in<'a, 'gcx, 'tcx, T, F>(tcx: TyCtxt<'a, 'gcx, 'tcx>,
         // with fresh variables
         assert!(match *region {
             ty::ReLateBound(..) => false,
-            _ => true
+            _ => true,
         });
 
         fldr(region, ty::DebruijnIndex::new(current_depth))
@@ -478,22 +501,21 @@ fn fold_regions_in<'a, 'gcx, 'tcx, T, F>(tcx: TyCtxt<'a, 'gcx, 'tcx>,
 }
 
 impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
-    fn tainted_regions(&self,
-                       snapshot: &CombinedSnapshot,
-                       r: ty::Region<'tcx>,
-                       directions: TaintDirections)
-                       -> FxHashSet<ty::Region<'tcx>> {
+    fn tainted_regions(
+        &self,
+        snapshot: &CombinedSnapshot,
+        r: ty::Region<'tcx>,
+        directions: TaintDirections,
+    ) -> FxHashSet<ty::Region<'tcx>> {
         self.borrow_region_constraints().tainted(
             self.tcx,
             &snapshot.region_constraints_snapshot,
             r,
-            directions)
+            directions,
+        )
     }
 
-    fn region_vars_confined_to_snapshot(&self,
-                                        snapshot: &CombinedSnapshot)
-                                        -> Vec<ty::RegionVid>
-    {
+    fn region_vars_confined_to_snapshot(&self, snapshot: &CombinedSnapshot) -> Vec<ty::RegionVid> {
         /*!
          * Returns the set of region variables that do not affect any
          * types/regions which existed before `snapshot` was
@@ -544,12 +566,12 @@ impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
          * snapshot.
          */
 
-        let mut region_vars =
-            self.borrow_region_constraints().vars_created_since_snapshot(
-                &snapshot.region_constraints_snapshot);
+        let mut region_vars = self.borrow_region_constraints()
+            .vars_created_since_snapshot(&snapshot.region_constraints_snapshot);
 
-        let escaping_types =
-            self.type_variables.borrow_mut().types_escaping_snapshot(&snapshot.type_snapshot);
+        let escaping_types = self.type_variables
+            .borrow_mut()
+            .types_escaping_snapshot(&snapshot.type_snapshot);
 
         let mut escaping_region_vars = FxHashSet();
         for ty in &escaping_types {
@@ -561,9 +583,11 @@ impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
             !escaping_region_vars.contains(&r)
         });
 
-        debug!("region_vars_confined_to_snapshot: region_vars={:?} escaping_types={:?}",
-               region_vars,
-               escaping_types);
+        debug!(
+            "region_vars_confined_to_snapshot: region_vars={:?} escaping_types={:?}",
+            region_vars,
+            escaping_types
+        );
 
         region_vars
     }
@@ -581,21 +605,28 @@ impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
     /// needed (but is also permitted).
     ///
     /// See `README.md` for more details.
-    pub fn skolemize_late_bound_regions<T>(&self,
-                                           binder: &ty::Binder<T>,
-                                           snapshot: &CombinedSnapshot)
-                                           -> (T, SkolemizationMap<'tcx>)
-        where T : TypeFoldable<'tcx>
+    pub fn skolemize_late_bound_regions<T>(
+        &self,
+        binder: &ty::Binder<T>,
+        snapshot: &CombinedSnapshot,
+    ) -> (T, SkolemizationMap<'tcx>)
+    where
+        T: TypeFoldable<'tcx>,
     {
         let (result, map) = self.tcx.replace_late_bound_regions(binder, |br| {
-            self.borrow_region_constraints()
-                .push_skolemized(self.tcx, br, &snapshot.region_constraints_snapshot)
+            self.borrow_region_constraints().push_skolemized(
+                self.tcx,
+                br,
+                &snapshot.region_constraints_snapshot,
+            )
         });
 
-        debug!("skolemize_bound_regions(binder={:?}, result={:?}, map={:?})",
-               binder,
-               result,
-               map);
+        debug!(
+            "skolemize_bound_regions(binder={:?}, result={:?}, map={:?})",
+            binder,
+            result,
+            map
+        );
 
         (result, map)
     }
@@ -605,23 +636,20 @@ impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
     /// in `skol_map` would "escape" -- meaning that they are related to
     /// other regions in some way. If so, the higher-ranked subtyping doesn't
     /// hold. See `README.md` for more details.
-    pub fn leak_check(&self,
-                      overly_polymorphic: bool,
-                      _span: Span,
-                      skol_map: &SkolemizationMap<'tcx>,
-                      snapshot: &CombinedSnapshot)
-                      -> RelateResult<'tcx, ()>
-    {
-        debug!("leak_check: skol_map={:?}",
-               skol_map);
+    pub fn leak_check(
+        &self,
+        overly_polymorphic: bool,
+        _span: Span,
+        skol_map: &SkolemizationMap<'tcx>,
+        snapshot: &CombinedSnapshot,
+    ) -> RelateResult<'tcx, ()> {
+        debug!("leak_check: skol_map={:?}", skol_map);
 
         let new_vars = self.region_vars_confined_to_snapshot(snapshot);
         for (&skol_br, &skol) in skol_map {
             // The inputs to a skolemized variable can only
             // be itself or other new variables.
-            let incoming_taints = self.tainted_regions(snapshot,
-                                                       skol,
-                                                       TaintDirections::both());
+            let incoming_taints = self.tainted_regions(snapshot, skol, TaintDirections::both());
             for &tainted_region in &incoming_taints {
                 // Each skolemized should only be relatable to itself
                 // or new variables:
@@ -632,14 +660,18 @@ impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
                         }
                     }
                     _ => {
-                        if tainted_region == skol { continue; }
+                        if tainted_region == skol {
+                            continue;
+                        }
                     }
                 };
 
-                debug!("{:?} (which replaced {:?}) is tainted by {:?}",
-                       skol,
-                       skol_br,
-                       tainted_region);
+                debug!(
+                    "{:?} (which replaced {:?}) is tainted by {:?}",
+                    skol,
+                    skol_br,
+                    tainted_region
+                );
 
                 return Err(if overly_polymorphic {
                     debug!("Overly polymorphic!");
@@ -647,7 +679,7 @@ impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
                 } else {
                     debug!("Not as polymorphic!");
                     TypeError::RegionsInsufficientlyPolymorphic(skol_br, tainted_region)
-                })
+                });
             }
         }
 
@@ -682,15 +714,16 @@ impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
     /// replace `'0` with a late-bound region `'a`.  The depth is matched
     /// to the depth of the predicate, in this case 1, so that the final
     /// predicate is `for<'a> &'a int : Clone`.
-    pub fn plug_leaks<T>(&self,
-                         skol_map: SkolemizationMap<'tcx>,
-                         snapshot: &CombinedSnapshot,
-                         value: T) -> T
-        where T : TypeFoldable<'tcx>
+    pub fn plug_leaks<T>(
+        &self,
+        skol_map: SkolemizationMap<'tcx>,
+        snapshot: &CombinedSnapshot,
+        value: T,
+    ) -> T
+    where
+        T: TypeFoldable<'tcx>,
     {
-        debug!("plug_leaks(skol_map={:?}, value={:?})",
-               skol_map,
-               value);
+        debug!("plug_leaks(skol_map={:?}, value={:?})", skol_map, value);
 
         if skol_map.is_empty() {
             return value;
@@ -700,8 +733,7 @@ impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
         // region back to the `ty::BoundRegion` that it originally
         // represented. Because `leak_check` passed, we know that
         // these taint sets are mutually disjoint.
-        let inv_skol_map: FxHashMap<ty::Region<'tcx>, ty::BoundRegion> =
-            skol_map
+        let inv_skol_map: FxHashMap<ty::Region<'tcx>, ty::BoundRegion> = skol_map
             .iter()
             .flat_map(|(&skol_br, &skol)| {
                 self.tainted_regions(snapshot, skol, TaintDirections::both())
@@ -710,8 +742,7 @@ impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
             })
             .collect();
 
-        debug!("plug_leaks: inv_skol_map={:?}",
-               inv_skol_map);
+        debug!("plug_leaks: inv_skol_map={:?}", inv_skol_map);
 
         // Remove any instantiated type variables from `value`; those can hide
         // references to regions from the `fold_regions` code below.
@@ -722,36 +753,41 @@ impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
         // binder is that we encountered in `value`. The caller is
         // responsible for ensuring that (a) `value` contains at least one
         // binder and (b) that binder is the one we want to use.
-        let result = self.tcx.fold_regions(&value, &mut false, |r, current_depth| {
-            match inv_skol_map.get(&r) {
-                None => r,
-                Some(br) => {
-                    // It is the responsibility of the caller to ensure
-                    // that each skolemized region appears within a
-                    // binder. In practice, this routine is only used by
-                    // trait checking, and all of the skolemized regions
-                    // appear inside predicates, which always have
-                    // binders, so this assert is satisfied.
-                    assert!(current_depth > 1);
+        let result = self.tcx
+            .fold_regions(&value, &mut false, |r, current_depth| {
+                match inv_skol_map.get(&r) {
+                    None => r,
+                    Some(br) => {
+                        // It is the responsibility of the caller to ensure
+                        // that each skolemized region appears within a
+                        // binder. In practice, this routine is only used by
+                        // trait checking, and all of the skolemized regions
+                        // appear inside predicates, which always have
+                        // binders, so this assert is satisfied.
+                        assert!(current_depth > 1);
 
-                    // since leak-check passed, this skolemized region
-                    // should only have incoming edges from variables
-                    // (which ought not to escape the snapshot, but we
-                    // don't check that) or itself
-                    assert!(
-                        match *r {
-                            ty::ReVar(_) => true,
-                            ty::ReSkolemized(_, ref br1) => br == br1,
-                            _ => false,
-                        },
-                        "leak-check would have us replace {:?} with {:?}",
-                        r, br);
+                        // since leak-check passed, this skolemized region
+                        // should only have incoming edges from variables
+                        // (which ought not to escape the snapshot, but we
+                        // don't check that) or itself
+                        assert!(
+                            match *r {
+                                ty::ReVar(_) => true,
+                                ty::ReSkolemized(_, ref br1) => br == br1,
+                                _ => false,
+                            },
+                            "leak-check would have us replace {:?} with {:?}",
+                            r,
+                            br
+                        );
 
-                    self.tcx.mk_region(ty::ReLateBound(
-                        ty::DebruijnIndex::new(current_depth - 1), br.clone()))
+                        self.tcx.mk_region(ty::ReLateBound(
+                            ty::DebruijnIndex::new(current_depth - 1),
+                            br.clone(),
+                        ))
+                    }
                 }
-            }
-        });
+            });
 
         self.pop_skolemized(skol_map, snapshot);
 
@@ -768,17 +804,18 @@ impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
     /// popping happens as part of the rollback).
     ///
     /// Note: popping also occurs implicitly as part of `leak_check`.
-    pub fn pop_skolemized(&self,
-                          skol_map: SkolemizationMap<'tcx>,
-                          snapshot: &CombinedSnapshot)
-    {
+    pub fn pop_skolemized(&self, skol_map: SkolemizationMap<'tcx>, snapshot: &CombinedSnapshot) {
         debug!("pop_skolemized({:?})", skol_map);
         let skol_regions: FxHashSet<_> = skol_map.values().cloned().collect();
-        self.borrow_region_constraints()
-            .pop_skolemized(self.tcx, &skol_regions, &snapshot.region_constraints_snapshot);
+        self.borrow_region_constraints().pop_skolemized(
+            self.tcx,
+            &skol_regions,
+            &snapshot.region_constraints_snapshot,
+        );
         if !skol_map.is_empty() {
-            self.projection_cache.borrow_mut().rollback_skolemized(
-                &snapshot.projection_cache_snapshot);
+            self.projection_cache
+                .borrow_mut()
+                .rollback_skolemized(&snapshot.projection_cache_snapshot);
         }
     }
 }

@@ -15,17 +15,19 @@ use rustc::mir::*;
 /// Return `true` if this lvalue is allowed to be less aligned
 /// than its containing struct (because it is within a packed
 /// struct).
-pub fn is_disaligned<'a, 'tcx, L>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                                  local_decls: &L,
-                                  param_env: ty::ParamEnv<'tcx>,
-                                  lvalue: &Lvalue<'tcx>)
-                                  -> bool
-    where L: HasLocalDecls<'tcx>
+pub fn is_disaligned<'a, 'tcx, L>(
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    local_decls: &L,
+    param_env: ty::ParamEnv<'tcx>,
+    lvalue: &Lvalue<'tcx>,
+) -> bool
+where
+    L: HasLocalDecls<'tcx>,
 {
     debug!("is_disaligned({:?})", lvalue);
     if !is_within_packed(tcx, local_decls, lvalue) {
         debug!("is_disaligned({:?}) - not within packed", lvalue);
-        return false
+        return false;
     }
 
     let ty = lvalue.ty(local_decls, tcx).to_ty(tcx);
@@ -43,25 +45,23 @@ pub fn is_disaligned<'a, 'tcx, L>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
     }
 }
 
-fn is_within_packed<'a, 'tcx, L>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                                 local_decls: &L,
-                                 lvalue: &Lvalue<'tcx>)
-                                 -> bool
-    where L: HasLocalDecls<'tcx>
+fn is_within_packed<'a, 'tcx, L>(
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    local_decls: &L,
+    lvalue: &Lvalue<'tcx>,
+) -> bool
+where
+    L: HasLocalDecls<'tcx>,
 {
     let mut lvalue = lvalue;
-    while let &Lvalue::Projection(box Projection {
-        ref base, ref elem
-    }) = lvalue {
+    while let &Lvalue::Projection(box Projection { ref base, ref elem }) = lvalue {
         match *elem {
             // encountered a Deref, which is ABI-aligned
             ProjectionElem::Deref => break,
             ProjectionElem::Field(..) => {
                 let ty = base.ty(local_decls, tcx).to_ty(tcx);
                 match ty.sty {
-                    ty::TyAdt(def, _) if def.repr.packed() => {
-                        return true
-                    }
+                    ty::TyAdt(def, _) if def.repr.packed() => return true,
                     _ => {}
                 }
             }

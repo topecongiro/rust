@@ -88,7 +88,11 @@ impl<'cx, 'gcx, 'tcx> InferCtxt<'cx, 'gcx, 'tcx> {
         body_id: ast::NodeId,
         obligation: RegionObligation<'tcx>,
     ) {
-        debug!("register_region_obligation({:?}, {:?})", body_id, obligation);
+        debug!(
+            "register_region_obligation({:?}, {:?})",
+            body_id,
+            obligation
+        );
         self.region_obligations
             .borrow_mut()
             .push((body_id, obligation));
@@ -157,10 +161,9 @@ impl<'cx, 'gcx, 'tcx> InferCtxt<'cx, 'gcx, 'tcx> {
             cause,
         } in my_region_obligations
         {
-            let origin = SubregionOrigin::from_obligation_cause(
-                &cause,
-                || infer::RelateParamBound(cause.span, sup_type),
-            );
+            let origin = SubregionOrigin::from_obligation_cause(&cause, || {
+                infer::RelateParamBound(cause.span, sup_type)
+            });
 
             outlives.type_must_outlive(origin, sup_type, sub_region);
         }

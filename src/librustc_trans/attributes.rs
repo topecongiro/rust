@@ -24,14 +24,14 @@ use context::CrateContext;
 pub fn inline(val: ValueRef, inline: InlineAttr) {
     use self::InlineAttr::*;
     match inline {
-        Hint   => Attribute::InlineHint.apply_llfn(Function, val),
+        Hint => Attribute::InlineHint.apply_llfn(Function, val),
         Always => Attribute::AlwaysInline.apply_llfn(Function, val),
-        Never  => Attribute::NoInline.apply_llfn(Function, val),
-        None   => {
+        Never => Attribute::NoInline.apply_llfn(Function, val),
+        None => {
             Attribute::InlineHint.unapply_llfn(Function, val);
             Attribute::AlwaysInline.unapply_llfn(Function, val);
             Attribute::NoInline.unapply_llfn(Function, val);
-        },
+        }
     };
 }
 
@@ -65,8 +65,11 @@ pub fn set_frame_pointer_elimination(ccx: &CrateContext, llfn: ValueRef) {
     // parameter.
     if ccx.sess().must_not_eliminate_frame_pointers() {
         llvm::AddFunctionAttrStringValue(
-            llfn, llvm::AttributePlace::Function,
-            cstr("no-frame-pointer-elim\0"), cstr("true\0"));
+            llfn,
+            llvm::AttributePlace::Function,
+            cstr("no-frame-pointer-elim\0"),
+            cstr("true\0"),
+        );
     }
 }
 
@@ -74,7 +77,7 @@ pub fn set_probestack(ccx: &CrateContext, llfn: ValueRef) {
     // Only use stack probes if the target specification indicates that we
     // should be using stack probes
     if !ccx.sess().target.target.options.stack_probes {
-        return
+        return;
     }
 
     // Currently stack probes seem somewhat incompatible with the address
@@ -88,8 +91,11 @@ pub fn set_probestack(ccx: &CrateContext, llfn: ValueRef) {
     // Flag our internal `__rust_probestack` function as the stack probe symbol.
     // This is defined in the `compiler-builtins` crate for each architecture.
     llvm::AddFunctionAttrStringValue(
-        llfn, llvm::AttributePlace::Function,
-        cstr("probe-stack\0"), cstr("__rust_probestack\0"));
+        llfn,
+        llvm::AttributePlace::Function,
+        cstr("probe-stack\0"),
+        cstr("__rust_probestack\0"),
+    );
 }
 
 /// Composite function which sets LLVM attributes for function depending on its AST (#[attribute])
@@ -115,8 +121,7 @@ pub fn from_fn_attrs(ccx: &CrateContext, attrs: &[ast::Attribute], llfn: ValueRe
         } else if attr.check_name("naked") {
             naked(llfn, true);
         } else if attr.check_name("allocator") {
-            Attribute::NoAlias.apply_llfn(
-                llvm::AttributePlace::ReturnValue, llfn);
+            Attribute::NoAlias.apply_llfn(llvm::AttributePlace::ReturnValue, llfn);
         } else if attr.check_name("unwind") {
             unwind(llfn, true);
         } else if attr.check_name("rustc_allocator_nounwind") {
@@ -126,8 +131,11 @@ pub fn from_fn_attrs(ccx: &CrateContext, attrs: &[ast::Attribute], llfn: ValueRe
     if !target_features.is_empty() {
         let val = CString::new(target_features.join(",")).unwrap();
         llvm::AddFunctionAttrStringValue(
-            llfn, llvm::AttributePlace::Function,
-            cstr("target-features\0"), &val);
+            llfn,
+            llvm::AttributePlace::Function,
+            cstr("target-features\0"),
+            &val,
+        );
     }
 }
 

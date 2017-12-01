@@ -43,8 +43,10 @@ pub fn provide(providers: &mut Providers) {
     };
 }
 
-fn crate_variances<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, crate_num: CrateNum)
-                             -> Rc<CrateVariancesMap> {
+fn crate_variances<'a, 'tcx>(
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    crate_num: CrateNum,
+) -> Rc<CrateVariancesMap> {
     assert_eq!(crate_num, LOCAL_CRATE);
     let mut arena = arena::TypedArena::new();
     let terms_cx = terms::determine_parameters_to_be_inferred(tcx, &mut arena);
@@ -52,44 +54,48 @@ fn crate_variances<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, crate_num: CrateNum)
     Rc::new(solve::solve_constraints(constraints_cx))
 }
 
-fn variances_of<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, item_def_id: DefId)
-                            -> Rc<Vec<ty::Variance>> {
-    let id = tcx.hir.as_local_node_id(item_def_id).expect("expected local def-id");
+fn variances_of<'a, 'tcx>(
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    item_def_id: DefId,
+) -> Rc<Vec<ty::Variance>> {
+    let id = tcx.hir
+        .as_local_node_id(item_def_id)
+        .expect("expected local def-id");
     let unsupported = || {
         // Variance not relevant.
-        span_bug!(tcx.hir.span(id), "asked to compute variance for wrong kind of item")
+        span_bug!(
+            tcx.hir.span(id),
+            "asked to compute variance for wrong kind of item"
+        )
     };
     match tcx.hir.get(id) {
         hir::map::NodeItem(item) => match item.node {
-            hir::ItemEnum(..) |
-            hir::ItemStruct(..) |
-            hir::ItemUnion(..) |
-            hir::ItemFn(..) => {}
+            hir::ItemEnum(..) | hir::ItemStruct(..) | hir::ItemUnion(..) | hir::ItemFn(..) => {}
 
-            _ => unsupported()
+            _ => unsupported(),
         },
 
         hir::map::NodeTraitItem(item) => match item.node {
             hir::TraitItemKind::Method(..) => {}
 
-            _ => unsupported()
+            _ => unsupported(),
         },
 
         hir::map::NodeImplItem(item) => match item.node {
             hir::ImplItemKind::Method(..) => {}
 
-            _ => unsupported()
+            _ => unsupported(),
         },
 
         hir::map::NodeForeignItem(item) => match item.node {
             hir::ForeignItemFn(..) => {}
 
-            _ => unsupported()
+            _ => unsupported(),
         },
 
         hir::map::NodeVariant(_) | hir::map::NodeStructCtor(_) => {}
 
-        _ => unsupported()
+        _ => unsupported(),
     }
 
     // Everything else must be inferred.
@@ -98,8 +104,9 @@ fn variances_of<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, item_def_id: DefId)
     let dep_node = item_def_id.to_dep_node(tcx, DepKind::ItemVarianceConstraints);
     tcx.dep_graph.read(dep_node);
 
-    crate_map.variances.get(&item_def_id)
-                       .unwrap_or(&crate_map.empty_variance)
-                       .clone()
+    crate_map
+        .variances
+        .get(&item_def_id)
+        .unwrap_or(&crate_map.empty_variance)
+        .clone()
 }
-

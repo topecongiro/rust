@@ -10,7 +10,7 @@
 
 //! Defines the set of legal keys that can be used in queries.
 
-use hir::def_id::{CrateNum, DefId, LOCAL_CRATE, DefIndex};
+use hir::def_id::{CrateNum, DefId, DefIndex, LOCAL_CRATE};
 use ty::{self, Ty, TyCtxt};
 use ty::subst::Substs;
 use ty::fast_reject::SimplifiedType;
@@ -124,7 +124,7 @@ impl<'tcx> Key for (ty::ParamEnv<'tcx>, ty::PolyTraitRef<'tcx>) {
     }
 }
 
-impl<'tcx> Key for ty::PolyTraitRef<'tcx>{
+impl<'tcx> Key for ty::PolyTraitRef<'tcx> {
     fn map_crate(&self) -> CrateNum {
         self.def_id().krate
     }

@@ -33,6 +33,8 @@ pub fn strip_private(mut krate: clean::Crate) -> plugins::PluginResult {
     }
 
     // strip all impls referencing private items
-    let mut stripper = ImplStripper { retained: &retained };
+    let mut stripper = ImplStripper {
+        retained: &retained,
+    };
     stripper.fold_crate(krate)
 }

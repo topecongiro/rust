@@ -15,7 +15,7 @@
 
 use std::env;
 use std::fs;
-use std::path::{Path, PathBuf, Component};
+use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 
 use dist::{self, pkgname, sanitize_sh, tmpdir};
@@ -59,7 +59,7 @@ fn install_sh(
     package: &str,
     name: &str,
     stage: u32,
-    host: Option<Interned<String>>
+    host: Option<Interned<String>>,
 ) {
     let build = builder.build;
     println!("Install {} stage{} ({:?})", package, stage, host);
@@ -71,7 +71,11 @@ fn install_sh(
     let libdir_default = PathBuf::from("lib");
     let mandir_default = PathBuf::from("share/man");
     let prefix = build.config.prefix.as_ref().unwrap_or(&prefix_default);
-    let sysconfdir = build.config.sysconfdir.as_ref().unwrap_or(&sysconfdir_default);
+    let sysconfdir = build
+        .config
+        .sysconfdir
+        .as_ref()
+        .unwrap_or(&sysconfdir_default);
     let docdir = build.config.docdir.as_ref().unwrap_or(&docdir_default);
     let bindir = build.config.bindir.as_ref().unwrap_or(&bindir_default);
     let libdir = build.config.libdir.as_ref().unwrap_or(&libdir_default);
@@ -103,7 +107,9 @@ fn install_sh(
 
     let mut cmd = Command::new("sh");
     cmd.current_dir(&empty_dir)
-        .arg(sanitize_sh(&tmpdir(build).join(&package_name).join("install.sh")))
+        .arg(sanitize_sh(&tmpdir(build)
+            .join(&package_name)
+            .join("install.sh")))
         .arg(format!("--prefix={}", sanitize_sh(&prefix)))
         .arg(format!("--sysconfdir={}", sanitize_sh(&sysconfdir)))
         .arg(format!("--docdir={}", sanitize_sh(&docdir)))

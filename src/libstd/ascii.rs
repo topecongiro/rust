@@ -163,7 +163,9 @@ pub trait AsciiExt {
     /// This method will be deprecated in favor of the identically-named
     /// inherent methods on `u8`, `char`, `[u8]` and `str`.
     #[unstable(feature = "ascii_ctype", issue = "39658")]
-    fn is_ascii_alphabetic(&self) -> bool { unimplemented!(); }
+    fn is_ascii_alphabetic(&self) -> bool {
+        unimplemented!();
+    }
 
     /// Checks if the value is an ASCII uppercase character:
     /// U+0041 'A' ... U+005A 'Z'.
@@ -175,7 +177,9 @@ pub trait AsciiExt {
     /// This method will be deprecated in favor of the identically-named
     /// inherent methods on `u8`, `char`, `[u8]` and `str`.
     #[unstable(feature = "ascii_ctype", issue = "39658")]
-    fn is_ascii_uppercase(&self) -> bool { unimplemented!(); }
+    fn is_ascii_uppercase(&self) -> bool {
+        unimplemented!();
+    }
 
     /// Checks if the value is an ASCII lowercase character:
     /// U+0061 'a' ... U+007A 'z'.
@@ -187,7 +191,9 @@ pub trait AsciiExt {
     /// This method will be deprecated in favor of the identically-named
     /// inherent methods on `u8`, `char`, `[u8]` and `str`.
     #[unstable(feature = "ascii_ctype", issue = "39658")]
-    fn is_ascii_lowercase(&self) -> bool { unimplemented!(); }
+    fn is_ascii_lowercase(&self) -> bool {
+        unimplemented!();
+    }
 
     /// Checks if the value is an ASCII alphanumeric character:
     /// U+0041 'A' ... U+005A 'Z', U+0061 'a' ... U+007A 'z', or
@@ -200,7 +206,9 @@ pub trait AsciiExt {
     /// This method will be deprecated in favor of the identically-named
     /// inherent methods on `u8`, `char`, `[u8]` and `str`.
     #[unstable(feature = "ascii_ctype", issue = "39658")]
-    fn is_ascii_alphanumeric(&self) -> bool { unimplemented!(); }
+    fn is_ascii_alphanumeric(&self) -> bool {
+        unimplemented!();
+    }
 
     /// Checks if the value is an ASCII decimal digit:
     /// U+0030 '0' ... U+0039 '9'.
@@ -212,7 +220,9 @@ pub trait AsciiExt {
     /// This method will be deprecated in favor of the identically-named
     /// inherent methods on `u8`, `char`, `[u8]` and `str`.
     #[unstable(feature = "ascii_ctype", issue = "39658")]
-    fn is_ascii_digit(&self) -> bool { unimplemented!(); }
+    fn is_ascii_digit(&self) -> bool {
+        unimplemented!();
+    }
 
     /// Checks if the value is an ASCII hexadecimal digit:
     /// U+0030 '0' ... U+0039 '9', U+0041 'A' ... U+0046 'F', or
@@ -225,7 +235,9 @@ pub trait AsciiExt {
     /// This method will be deprecated in favor of the identically-named
     /// inherent methods on `u8`, `char`, `[u8]` and `str`.
     #[unstable(feature = "ascii_ctype", issue = "39658")]
-    fn is_ascii_hexdigit(&self) -> bool { unimplemented!(); }
+    fn is_ascii_hexdigit(&self) -> bool {
+        unimplemented!();
+    }
 
     /// Checks if the value is an ASCII punctuation character:
     ///
@@ -242,7 +254,9 @@ pub trait AsciiExt {
     /// This method will be deprecated in favor of the identically-named
     /// inherent methods on `u8`, `char`, `[u8]` and `str`.
     #[unstable(feature = "ascii_ctype", issue = "39658")]
-    fn is_ascii_punctuation(&self) -> bool { unimplemented!(); }
+    fn is_ascii_punctuation(&self) -> bool {
+        unimplemented!();
+    }
 
     /// Checks if the value is an ASCII graphic character:
     /// U+0021 '@' ... U+007E '~'.
@@ -254,7 +268,9 @@ pub trait AsciiExt {
     /// This method will be deprecated in favor of the identically-named
     /// inherent methods on `u8`, `char`, `[u8]` and `str`.
     #[unstable(feature = "ascii_ctype", issue = "39658")]
-    fn is_ascii_graphic(&self) -> bool { unimplemented!(); }
+    fn is_ascii_graphic(&self) -> bool {
+        unimplemented!();
+    }
 
     /// Checks if the value is an ASCII whitespace character:
     /// U+0020 SPACE, U+0009 HORIZONTAL TAB, U+000A LINE FEED,
@@ -283,7 +299,9 @@ pub trait AsciiExt {
     /// This method will be deprecated in favor of the identically-named
     /// inherent methods on `u8`, `char`, `[u8]` and `str`.
     #[unstable(feature = "ascii_ctype", issue = "39658")]
-    fn is_ascii_whitespace(&self) -> bool { unimplemented!(); }
+    fn is_ascii_whitespace(&self) -> bool {
+        unimplemented!();
+    }
 
     /// Checks if the value is an ASCII control character:
     /// U+0000 NUL ... U+001F UNIT SEPARATOR, or U+007F DELETE.
@@ -295,7 +313,9 @@ pub trait AsciiExt {
     /// This method will be deprecated in favor of the identically-named
     /// inherent methods on `u8`, `char`, `[u8]` and `str`.
     #[unstable(feature = "ascii_ctype", issue = "39658")]
-    fn is_ascii_control(&self) -> bool { unimplemented!(); }
+    fn is_ascii_control(&self) -> bool {
+        unimplemented!();
+    }
 }
 
 // FIXME(LukasKalbertodt): this impl block can be removed in the future. This is
@@ -409,22 +429,22 @@ impl AsciiExt for [u8] {
     fn to_ascii_uppercase(&self) -> Vec<u8> {
         let mut me = self.to_vec();
         me.make_ascii_uppercase();
-        return me
+        return me;
     }
 
     #[inline]
     fn to_ascii_lowercase(&self) -> Vec<u8> {
         let mut me = self.to_vec();
         me.make_ascii_lowercase();
-        return me
+        return me;
     }
 
     #[inline]
     fn eq_ignore_ascii_case(&self, other: &[u8]) -> bool {
-        self.len() == other.len() &&
-        self.iter().zip(other).all(|(a, b)| {
-            a.eq_ignore_ascii_case(b)
-        })
+        self.len() == other.len()
+            && self.iter()
+                .zip(other)
+                .all(|(a, b)| a.eq_ignore_ascii_case(b))
     }
 
     fn make_ascii_uppercase(&mut self) {
@@ -762,15 +782,18 @@ pub fn escape_default(c: u8) -> EscapeDefault {
         b'\\' => ([b'\\', b'\\', 0, 0], 2),
         b'\'' => ([b'\\', b'\'', 0, 0], 2),
         b'"' => ([b'\\', b'"', 0, 0], 2),
-        b'\x20' ... b'\x7e' => ([c, 0, 0, 0], 1),
+        b'\x20'...b'\x7e' => ([c, 0, 0, 0], 1),
         _ => ([b'\\', b'x', hexify(c >> 4), hexify(c & 0xf)], 4),
     };
 
-    return EscapeDefault { range: (0.. len), data: data };
+    return EscapeDefault {
+        range: (0..len),
+        data: data,
+    };
 
     fn hexify(b: u8) -> u8 {
         match b {
-            0 ... 9 => b'0' + b,
+            0...9 => b'0' + b,
             _ => b'a' + b - 10,
         }
     }
@@ -779,8 +802,12 @@ pub fn escape_default(c: u8) -> EscapeDefault {
 #[stable(feature = "rust1", since = "1.0.0")]
 impl Iterator for EscapeDefault {
     type Item = u8;
-    fn next(&mut self) -> Option<u8> { self.range.next().map(|i| self.data[i]) }
-    fn size_hint(&self) -> (usize, Option<usize>) { self.range.size_hint() }
+    fn next(&mut self) -> Option<u8> {
+        self.range.next().map(|i| self.data[i])
+    }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.range.size_hint()
+    }
 }
 #[stable(feature = "rust1", since = "1.0.0")]
 impl DoubleEndedIterator for EscapeDefault {
@@ -821,34 +848,54 @@ mod tests {
         assert!("".is_ascii());
         assert!("banana\0\u{7F}".is_ascii());
         assert!("banana\0\u{7F}".chars().all(|c| c.is_ascii()));
-        assert!(!"ประเทศไทย中华Việt Nam".chars().all(|c| c.is_ascii()));
-        assert!(!"ประเทศไทย中华ệ ".chars().any(|c| c.is_ascii()));
+        assert!(!"ประเทศไทย中华Việt Nam"
+            .chars()
+            .all(|c| c.is_ascii()));
+        assert!(!"ประเทศไทย中华ệ "
+            .chars()
+            .any(|c| c.is_ascii()));
     }
 
     #[test]
     fn test_to_ascii_uppercase() {
-        assert_eq!("url()URL()uRl()ürl".to_ascii_uppercase(), "URL()URL()URL()üRL");
+        assert_eq!(
+            "url()URL()uRl()ürl".to_ascii_uppercase(),
+            "URL()URL()URL()üRL"
+        );
         assert_eq!("hıKß".to_ascii_uppercase(), "HıKß");
 
         for i in 0..501 {
-            let upper = if 'a' as u32 <= i && i <= 'z' as u32 { i + 'A' as u32 - 'a' as u32 }
-                        else { i };
-            assert_eq!((from_u32(i).unwrap()).to_string().to_ascii_uppercase(),
-                       (from_u32(upper).unwrap()).to_string());
+            let upper = if 'a' as u32 <= i && i <= 'z' as u32 {
+                i + 'A' as u32 - 'a' as u32
+            } else {
+                i
+            };
+            assert_eq!(
+                (from_u32(i).unwrap()).to_string().to_ascii_uppercase(),
+                (from_u32(upper).unwrap()).to_string()
+            );
         }
     }
 
     #[test]
     fn test_to_ascii_lowercase() {
-        assert_eq!("url()URL()uRl()Ürl".to_ascii_lowercase(), "url()url()url()Ürl");
+        assert_eq!(
+            "url()URL()uRl()Ürl".to_ascii_lowercase(),
+            "url()url()url()Ürl"
+        );
         // Dotted capital I, Kelvin sign, Sharp S.
         assert_eq!("HİKß".to_ascii_lowercase(), "hİKß");
 
         for i in 0..501 {
-            let lower = if 'A' as u32 <= i && i <= 'Z' as u32 { i + 'a' as u32 - 'A' as u32 }
-                        else { i };
-            assert_eq!((from_u32(i).unwrap()).to_string().to_ascii_lowercase(),
-                       (from_u32(lower).unwrap()).to_string());
+            let lower = if 'A' as u32 <= i && i <= 'Z' as u32 {
+                i + 'a' as u32 - 'A' as u32
+            } else {
+                i
+            };
+            assert_eq!(
+                (from_u32(i).unwrap()).to_string().to_ascii_lowercase(),
+                (from_u32(lower).unwrap()).to_string()
+            );
         }
     }
 
@@ -897,7 +944,7 @@ mod tests {
         test!("hıKß".to_string(), "HıKß");
 
         let mut x = "Hello".to_string();
-        x[..3].make_ascii_uppercase();  // Test IndexMut on String.
+        x[..3].make_ascii_uppercase(); // Test IndexMut on String.
         assert_eq!(x, "HELlo")
     }
 
@@ -912,10 +959,16 @@ mod tests {
         assert!(!"ß".eq_ignore_ascii_case("s"));
 
         for i in 0..501 {
-            let lower = if 'A' as u32 <= i && i <= 'Z' as u32 { i + 'a' as u32 - 'A' as u32 }
-                        else { i };
-            assert!((from_u32(i).unwrap()).to_string().eq_ignore_ascii_case(
-                    &from_u32(lower).unwrap().to_string()));
+            let lower = if 'A' as u32 <= i && i <= 'Z' as u32 {
+                i + 'a' as u32 - 'A' as u32
+            } else {
+                i
+            };
+            assert!(
+                (from_u32(i).unwrap())
+                    .to_string()
+                    .eq_ignore_ascii_case(&from_u32(lower).unwrap().to_string())
+            );
         }
     }
 
@@ -969,12 +1022,14 @@ mod tests {
 
     #[test]
     fn test_is_ascii_alphabetic() {
-        assert_all!(is_ascii_alphabetic,
+        assert_all!(
+            is_ascii_alphabetic,
             "",
             "abcdefghijklmnopqrstuvwxyz",
             "ABCDEFGHIJKLMNOQPRSTUVWXYZ",
         );
-        assert_none!(is_ascii_alphabetic,
+        assert_none!(
+            is_ascii_alphabetic,
             "0123456789",
             "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~",
             " \t\n\x0c\r",
@@ -988,11 +1043,9 @@ mod tests {
 
     #[test]
     fn test_is_ascii_uppercase() {
-        assert_all!(is_ascii_uppercase,
-            "",
-            "ABCDEFGHIJKLMNOQPRSTUVWXYZ",
-        );
-        assert_none!(is_ascii_uppercase,
+        assert_all!(is_ascii_uppercase, "", "ABCDEFGHIJKLMNOQPRSTUVWXYZ",);
+        assert_none!(
+            is_ascii_uppercase,
             "abcdefghijklmnopqrstuvwxyz",
             "0123456789",
             "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~",
@@ -1007,10 +1060,9 @@ mod tests {
 
     #[test]
     fn test_is_ascii_lowercase() {
-        assert_all!(is_ascii_lowercase,
-            "abcdefghijklmnopqrstuvwxyz",
-        );
-        assert_none!(is_ascii_lowercase,
+        assert_all!(is_ascii_lowercase, "abcdefghijklmnopqrstuvwxyz",);
+        assert_none!(
+            is_ascii_lowercase,
             "ABCDEFGHIJKLMNOQPRSTUVWXYZ",
             "0123456789",
             "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~",
@@ -1025,13 +1077,15 @@ mod tests {
 
     #[test]
     fn test_is_ascii_alphanumeric() {
-        assert_all!(is_ascii_alphanumeric,
+        assert_all!(
+            is_ascii_alphanumeric,
             "",
             "abcdefghijklmnopqrstuvwxyz",
             "ABCDEFGHIJKLMNOQPRSTUVWXYZ",
             "0123456789",
         );
-        assert_none!(is_ascii_alphanumeric,
+        assert_none!(
+            is_ascii_alphanumeric,
             "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~",
             " \t\n\x0c\r",
             "\x00\x01\x02\x03\x04\x05\x06\x07",
@@ -1044,11 +1098,9 @@ mod tests {
 
     #[test]
     fn test_is_ascii_digit() {
-        assert_all!(is_ascii_digit,
-            "",
-            "0123456789",
-        );
-        assert_none!(is_ascii_digit,
+        assert_all!(is_ascii_digit, "", "0123456789",);
+        assert_none!(
+            is_ascii_digit,
             "abcdefghijklmnopqrstuvwxyz",
             "ABCDEFGHIJKLMNOQPRSTUVWXYZ",
             "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~",
@@ -1063,12 +1115,9 @@ mod tests {
 
     #[test]
     fn test_is_ascii_hexdigit() {
-        assert_all!(is_ascii_hexdigit,
-            "",
-            "0123456789",
-            "abcdefABCDEF",
-        );
-        assert_none!(is_ascii_hexdigit,
+        assert_all!(is_ascii_hexdigit, "", "0123456789", "abcdefABCDEF",);
+        assert_none!(
+            is_ascii_hexdigit,
             "ghijklmnopqrstuvwxyz",
             "GHIJKLMNOQPRSTUVWXYZ",
             "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~",
@@ -1083,11 +1132,13 @@ mod tests {
 
     #[test]
     fn test_is_ascii_punctuation() {
-        assert_all!(is_ascii_punctuation,
+        assert_all!(
+            is_ascii_punctuation,
             "",
             "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~",
         );
-        assert_none!(is_ascii_punctuation,
+        assert_none!(
+            is_ascii_punctuation,
             "abcdefghijklmnopqrstuvwxyz",
             "ABCDEFGHIJKLMNOQPRSTUVWXYZ",
             "0123456789",
@@ -1102,14 +1153,16 @@ mod tests {
 
     #[test]
     fn test_is_ascii_graphic() {
-        assert_all!(is_ascii_graphic,
+        assert_all!(
+            is_ascii_graphic,
             "",
             "abcdefghijklmnopqrstuvwxyz",
             "ABCDEFGHIJKLMNOQPRSTUVWXYZ",
             "0123456789",
             "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~",
         );
-        assert_none!(is_ascii_graphic,
+        assert_none!(
+            is_ascii_graphic,
             " \t\n\x0c\r",
             "\x00\x01\x02\x03\x04\x05\x06\x07",
             "\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f",
@@ -1121,11 +1174,9 @@ mod tests {
 
     #[test]
     fn test_is_ascii_whitespace() {
-        assert_all!(is_ascii_whitespace,
-            "",
-            " \t\n\x0c\r",
-        );
-        assert_none!(is_ascii_whitespace,
+        assert_all!(is_ascii_whitespace, "", " \t\n\x0c\r",);
+        assert_none!(
+            is_ascii_whitespace,
             "abcdefghijklmnopqrstuvwxyz",
             "ABCDEFGHIJKLMNOQPRSTUVWXYZ",
             "0123456789",
@@ -1140,7 +1191,8 @@ mod tests {
 
     #[test]
     fn test_is_ascii_control() {
-        assert_all!(is_ascii_control,
+        assert_all!(
+            is_ascii_control,
             "",
             "\x00\x01\x02\x03\x04\x05\x06\x07",
             "\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f",
@@ -1148,7 +1200,8 @@ mod tests {
             "\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f",
             "\x7f",
         );
-        assert_none!(is_ascii_control,
+        assert_none!(
+            is_ascii_control,
             "abcdefghijklmnopqrstuvwxyz",
             "ABCDEFGHIJKLMNOQPRSTUVWXYZ",
             "0123456789",

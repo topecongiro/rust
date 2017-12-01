@@ -95,7 +95,6 @@ pub struct Constraint {
     // it is for convenience. Before we dump the constraints in the
     // debugging logs, we sort them, and we'd like the "super region"
     // to be first, etc. (In particular, span should remain last.)
-
     /// The region SUP must outlive SUB...
     sup: RegionVid,
 
@@ -299,7 +298,10 @@ impl<'a, 'gcx, 'tcx> RegionInferenceContext<'tcx> {
                 let sup_def = &mut self.definitions[constraint.sup];
 
                 debug!("propagate_constraints:    sub (before): {:?}", sub);
-                debug!("propagate_constraints:    sup (before): {:?}", sup_def.value);
+                debug!(
+                    "propagate_constraints:    sup (before): {:?}",
+                    sup_def.value
+                );
 
                 if !sup_def.constant {
                     // If this is not a constant, then grow the value as needed to
@@ -309,7 +311,10 @@ impl<'a, 'gcx, 'tcx> RegionInferenceContext<'tcx> {
                         changed = true;
                     }
 
-                    debug!("propagate_constraints:    sup (after) : {:?}", sup_def.value);
+                    debug!(
+                        "propagate_constraints:    sup (after) : {:?}",
+                        sup_def.value
+                    );
                     debug!("propagate_constraints:    changed     : {:?}", changed);
                 } else {
                     // If this is a constant, check whether it *would

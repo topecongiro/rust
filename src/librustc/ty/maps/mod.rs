@@ -12,20 +12,19 @@ use dep_graph::{DepConstructor, DepNode};
 use errors::DiagnosticBuilder;
 use hir::def_id::{CrateNum, DefId, DefIndex};
 use hir::def::{Def, Export};
-use hir::{self, TraitCandidate, ItemLocalId};
+use hir::{self, ItemLocalId, TraitCandidate};
 use hir::svh::Svh;
 use lint;
 use middle::borrowck::BorrowCheckResult;
 use middle::const_val;
-use middle::cstore::{ExternCrate, LinkagePreference, NativeLibrary,
-                     ExternBodyNestedBodies};
-use middle::cstore::{NativeLibraryKind, DepKind, CrateSource, ExternConstBody};
+use middle::cstore::{ExternBodyNestedBodies, ExternCrate, LinkagePreference, NativeLibrary};
+use middle::cstore::{CrateSource, DepKind, ExternConstBody, NativeLibraryKind};
 use middle::privacy::AccessLevels;
 use middle::reachable::ReachableSet;
 use middle::region;
-use middle::resolve_lifetime::{Region, ObjectLifetimeDefault};
+use middle::resolve_lifetime::{ObjectLifetimeDefault, Region};
 use middle::stability::{self, DeprecationEntry};
-use middle::lang_items::{LanguageItems, LangItem};
+use middle::lang_items::{LangItem, LanguageItems};
 use middle::exported_symbols::SymbolExportLevel;
 use middle::trans::{CodegenUnit, Stats};
 use mir;
@@ -36,7 +35,7 @@ use traits::specialization_graph;
 use ty::{self, CrateInherentImpls, Ty, TyCtxt};
 use ty::steal::Steal;
 use ty::subst::Substs;
-use util::nodemap::{DefIdSet, DefIdMap, ItemLocalSet};
+use util::nodemap::{DefIdMap, DefIdSet, ItemLocalSet};
 use util::common::{profq_msg, ErrorReported, ProfileQueriesMsg};
 
 use rustc_data_structures::indexed_set::IdxSetBuf;
@@ -367,17 +366,15 @@ fn erase_regions_ty<'tcx>(ty: Ty<'tcx>) -> DepConstructor<'tcx> {
 }
 
 fn type_param_predicates<'tcx>((item_id, param_id): (DefId, DefId)) -> DepConstructor<'tcx> {
-    DepConstructor::TypeParamPredicates {
-        item_id,
-        param_id
-    }
+    DepConstructor::TypeParamPredicates { item_id, param_id }
 }
 
-fn fulfill_obligation_dep_node<'tcx>((param_env, trait_ref):
-    (ty::ParamEnv<'tcx>, ty::PolyTraitRef<'tcx>)) -> DepConstructor<'tcx> {
+fn fulfill_obligation_dep_node<'tcx>(
+    (param_env, trait_ref): (ty::ParamEnv<'tcx>, ty::PolyTraitRef<'tcx>),
+) -> DepConstructor<'tcx> {
     DepConstructor::FulfillObligation {
         param_env,
-        trait_ref
+        trait_ref,
     }
 }
 
@@ -398,9 +395,7 @@ fn reachability_dep_node<'tcx>(_: CrateNum) -> DepConstructor<'tcx> {
 }
 
 fn mir_shim_dep_node<'tcx>(instance_def: ty::InstanceDef<'tcx>) -> DepConstructor<'tcx> {
-    DepConstructor::MirShim {
-        instance_def
-    }
+    DepConstructor::MirShim { instance_def }
 }
 
 fn symbol_name_dep_node<'tcx>(instance: ty::Instance<'tcx>) -> DepConstructor<'tcx> {
@@ -411,8 +406,9 @@ fn typeck_item_bodies_dep_node<'tcx>(_: CrateNum) -> DepConstructor<'tcx> {
     DepConstructor::TypeckBodiesKrate
 }
 
-fn const_eval_dep_node<'tcx>(param_env: ty::ParamEnvAnd<'tcx, (DefId, &'tcx Substs<'tcx>)>)
-                             -> DepConstructor<'tcx> {
+fn const_eval_dep_node<'tcx>(
+    param_env: ty::ParamEnvAnd<'tcx, (DefId, &'tcx Substs<'tcx>)>,
+) -> DepConstructor<'tcx> {
     DepConstructor::ConstEval { param_env }
 }
 
@@ -452,9 +448,9 @@ fn specializes_node<'tcx>((a, b): (DefId, DefId)) -> DepConstructor<'tcx> {
     DepConstructor::Specializes { impl1: a, impl2: b }
 }
 
-fn implementations_of_trait_node<'tcx>((krate, trait_id): (CrateNum, DefId))
-    -> DepConstructor<'tcx>
-{
+fn implementations_of_trait_node<'tcx>(
+    (krate, trait_id): (CrateNum, DefId),
+) -> DepConstructor<'tcx> {
     DepConstructor::ImplementationsOfTrait { krate, trait_id }
 }
 
@@ -495,7 +491,7 @@ fn output_filenames_node<'tcx>(_: CrateNum) -> DepConstructor<'tcx> {
 }
 
 fn vtable_methods_node<'tcx>(trait_ref: ty::PolyTraitRef<'tcx>) -> DepConstructor<'tcx> {
-    DepConstructor::VtableMethods{ trait_ref }
+    DepConstructor::VtableMethods { trait_ref }
 }
 fn normalize_ty_node<'tcx>(_: Ty<'tcx>) -> DepConstructor<'tcx> {
     DepConstructor::NormalizeTy

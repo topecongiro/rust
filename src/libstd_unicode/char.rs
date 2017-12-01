@@ -35,7 +35,7 @@ use tables::{conversions, derived_property, general_category, property};
 
 // stable reexports
 #[stable(feature = "rust1", since = "1.0.0")]
-pub use core::char::{MAX, from_digit, from_u32, from_u32_unchecked};
+pub use core::char::{from_digit, from_u32, from_u32_unchecked, MAX};
 #[stable(feature = "rust1", since = "1.0.0")]
 pub use core::char::{EscapeDebug, EscapeDefault, EscapeUnicode};
 #[stable(feature = "char_from_str", since = "1.20.0")]
@@ -105,7 +105,7 @@ impl CaseMappingIter {
     fn new(chars: [char; 3]) -> CaseMappingIter {
         if chars[2] == '\0' {
             if chars[1] == '\0' {
-                CaseMappingIter::One(chars[0])  // Including if chars[0] == '\0'
+                CaseMappingIter::One(chars[0]) // Including if chars[0] == '\0'
             } else {
                 CaseMappingIter::Two(chars[0], chars[1])
             }
@@ -148,9 +148,7 @@ impl fmt::Display for CaseMappingIter {
                 f.write_char(b)?;
                 f.write_char(c)
             }
-            CaseMappingIter::One(c) => {
-                f.write_char(c)
-            }
+            CaseMappingIter::One(c) => f.write_char(c),
             CaseMappingIter::Zero => Ok(()),
         }
     }
@@ -601,8 +599,7 @@ impl char {
     /// 'XID_Start' is a Unicode Derived Property specified in
     /// [UAX #31](http://unicode.org/reports/tr31/#NFKC_Modifications),
     /// mostly similar to `ID_Start` but modified for closure under `NFKx`.
-    #[unstable(feature = "rustc_private",
-               reason = "mainly needed for compiler internals",
+    #[unstable(feature = "rustc_private", reason = "mainly needed for compiler internals",
                issue = "27812")]
     #[inline]
     pub fn is_xid_start(self) -> bool {
@@ -615,8 +612,7 @@ impl char {
     /// 'XID_Continue' is a Unicode Derived Property specified in
     /// [UAX #31](http://unicode.org/reports/tr31/#NFKC_Modifications),
     /// mostly similar to 'ID_Continue' but modified for closure under NFKx.
-    #[unstable(feature = "rustc_private",
-               reason = "mainly needed for compiler internals",
+    #[unstable(feature = "rustc_private", reason = "mainly needed for compiler internals",
                issue = "27812")]
     #[inline]
     pub fn is_xid_continue(self) -> bool {
@@ -1455,7 +1451,8 @@ impl char {
 #[stable(feature = "decode_utf16", since = "1.9.0")]
 #[derive(Clone, Debug)]
 pub struct DecodeUtf16<I>
-    where I: Iterator<Item = u16>
+where
+    I: Iterator<Item = u16>,
 {
     iter: I,
     buf: Option<u16>,
@@ -1528,12 +1525,10 @@ impl<I: Iterator<Item = u16>> Iterator for DecodeUtf16<I> {
     fn next(&mut self) -> Option<Result<char, DecodeUtf16Error>> {
         let u = match self.buf.take() {
             Some(buf) => buf,
-            None => {
-                match self.iter.next() {
-                    Some(u) => u,
-                    None => return None,
-                }
-            }
+            None => match self.iter.next() {
+                Some(u) => u,
+                None => return None,
+            },
         };
 
         if u < 0xD800 || 0xDFFF < u {

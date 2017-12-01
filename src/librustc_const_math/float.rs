@@ -14,7 +14,7 @@ use std::num::ParseFloatError;
 use syntax::ast;
 
 use rustc_apfloat::{Float, FloatConvert, Status};
-use rustc_apfloat::ieee::{Single, Double};
+use rustc_apfloat::ieee::{Double, Single};
 
 use super::err::*;
 
@@ -40,7 +40,7 @@ impl ConstFloat {
     /// Compares the values if they are of the same type
     pub fn try_cmp(self, rhs: Self) -> Result<Ordering, ConstMathErr> {
         match (self.ty, rhs.ty) {
-            (ast::FloatTy::F64, ast::FloatTy::F64)  => {
+            (ast::FloatTy::F64, ast::FloatTy::F64) => {
                 let a = Double::from_bits(self.bits);
                 let b = Double::from_bits(rhs.bits);
                 // This is pretty bad but it is the existing behavior.
@@ -60,7 +60,7 @@ impl ConstFloat {
     pub fn from_i128(input: i128, ty: ast::FloatTy) -> Self {
         let bits = match ty {
             ast::FloatTy::F32 => Single::from_i128(input).value.to_bits(),
-            ast::FloatTy::F64 => Double::from_i128(input).value.to_bits()
+            ast::FloatTy::F64 => Double::from_i128(input).value.to_bits(),
         };
         ConstFloat { bits, ty }
     }
@@ -68,7 +68,7 @@ impl ConstFloat {
     pub fn from_u128(input: u128, ty: ast::FloatTy) -> Self {
         let bits = match ty {
             ast::FloatTy::F32 => Single::from_u128(input).value.to_bits(),
-            ast::FloatTy::F64 => Double::from_u128(input).value.to_bits()
+            ast::FloatTy::F64 => Double::from_u128(input).value.to_bits(),
         };
         ConstFloat { bits, ty }
     }
@@ -81,11 +81,16 @@ impl ConstFloat {
                     panic!("apfloat::ieee::Single failed to parse `{}`: {:?}", num, e);
                 });
                 let apfloat_bits = apfloat.to_bits();
-                assert!(rust_bits == apfloat_bits,
+                assert!(
+                    rust_bits == apfloat_bits,
                     "apfloat::ieee::Single gave different result for `{}`: \
                      {}({:#x}) vs Rust's {}({:#x})",
-                    num, apfloat, apfloat_bits,
-                    Single::from_bits(rust_bits), rust_bits);
+                    num,
+                    apfloat,
+                    apfloat_bits,
+                    Single::from_bits(rust_bits),
+                    rust_bits
+                );
                 apfloat_bits
             }
             ast::FloatTy::F64 => {
@@ -94,11 +99,16 @@ impl ConstFloat {
                     panic!("apfloat::ieee::Double failed to parse `{}`: {:?}", num, e);
                 });
                 let apfloat_bits = apfloat.to_bits();
-                assert!(rust_bits == apfloat_bits,
+                assert!(
+                    rust_bits == apfloat_bits,
                     "apfloat::ieee::Double gave different result for `{}`: \
                      {}({:#x}) vs Rust's {}({:#x})",
-                    num, apfloat, apfloat_bits,
-                    Double::from_bits(rust_bits), rust_bits);
+                    num,
+                    apfloat,
+                    apfloat_bits,
+                    Double::from_bits(rust_bits),
+                    rust_bits
+                );
                 apfloat_bits
             }
         };
@@ -109,7 +119,7 @@ impl ConstFloat {
         assert!(width <= 128);
         let r = match self.ty {
             ast::FloatTy::F32 => Single::from_bits(self.bits).to_i128(width),
-            ast::FloatTy::F64 => Double::from_bits(self.bits).to_i128(width)
+            ast::FloatTy::F64 => Double::from_bits(self.bits).to_i128(width),
         };
         if r.status.intersects(Status::INVALID_OP) {
             None
@@ -122,7 +132,7 @@ impl ConstFloat {
         assert!(width <= 128);
         let r = match self.ty {
             ast::FloatTy::F32 => Single::from_bits(self.bits).to_u128(width),
-            ast::FloatTy::F64 => Double::from_bits(self.bits).to_u128(width)
+            ast::FloatTy::F64 => Double::from_bits(self.bits).to_u128(width),
         };
         if r.status.intersects(Status::INVALID_OP) {
             None
@@ -133,8 +143,9 @@ impl ConstFloat {
 
     pub fn convert(self, to: ast::FloatTy) -> Self {
         let bits = match (self.ty, to) {
-            (ast::FloatTy::F32, ast::FloatTy::F32) |
-            (ast::FloatTy::F64, ast::FloatTy::F64) => return self,
+            (ast::FloatTy::F32, ast::FloatTy::F32) | (ast::FloatTy::F64, ast::FloatTy::F64) => {
+                return self
+            }
 
             (ast::FloatTy::F32, ast::FloatTy::F64) => {
                 Double::to_bits(Single::from_bits(self.bits).convert(&mut false).value)
@@ -209,5 +220,5 @@ impl ::std::ops::Neg for ConstFloat {
 ///
 /// NB: Computed as maximum significand with an extra 1 bit added (for the half ULP)
 /// shifted by the maximum exponent (accounting for normalization).
-pub const MAX_F32_PLUS_HALF_ULP: u128 = ((1 << (Single::PRECISION + 1)) - 1)
-                                        << (Single::MAX_EXP - Single::PRECISION as i16);
+pub const MAX_F32_PLUS_HALF_ULP: u128 =
+    ((1 << (Single::PRECISION + 1)) - 1) << (Single::MAX_EXP - Single::PRECISION as i16);

@@ -8,12 +8,14 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use abi::{FnType, ArgType, LayoutExt, Reg, RegKind, Uniform};
+use abi::{ArgType, FnType, LayoutExt, Reg, RegKind, Uniform};
 use context::CrateContext;
 use llvm::CallConv;
 
-fn is_homogeneous_aggregate<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>, arg: &mut ArgType<'tcx>)
-                                     -> Option<Uniform> {
+fn is_homogeneous_aggregate<'a, 'tcx>(
+    ccx: &CrateContext<'a, 'tcx>,
+    arg: &mut ArgType<'tcx>,
+) -> Option<Uniform> {
     arg.layout.homogeneous_aggregate(ccx).and_then(|unit| {
         let size = arg.layout.size;
 
@@ -25,14 +27,11 @@ fn is_homogeneous_aggregate<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>, arg: &mut Ar
         let valid_unit = match unit.kind {
             RegKind::Integer => false,
             RegKind::Float => true,
-            RegKind::Vector => size.bits() == 64 || size.bits() == 128
+            RegKind::Vector => size.bits() == 64 || size.bits() == 128,
         };
 
         if valid_unit {
-            Some(Uniform {
-                unit,
-                total: size
-            })
+            Some(Uniform { unit, total: size })
         } else {
             None
         }
@@ -62,10 +61,7 @@ fn classify_ret_ty<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>, ret: &mut ArgType<'tc
         } else {
             Reg::i32()
         };
-        ret.cast_to(Uniform {
-            unit,
-            total: size
-        });
+        ret.cast_to(Uniform { unit, total: size });
         return;
     }
     ret.make_indirect();
@@ -88,7 +84,7 @@ fn classify_arg_ty<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>, arg: &mut ArgType<'tc
     let total = arg.layout.size;
     arg.cast_to(Uniform {
         unit: if align <= 4 { Reg::i32() } else { Reg::i64() },
-        total
+        total,
     });
 }
 
@@ -96,15 +92,16 @@ pub fn compute_abi_info<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>, fty: &mut FnType
     // If this is a target with a hard-float ABI, and the function is not explicitly
     // `extern "aapcs"`, then we must use the VFP registers for homogeneous aggregates.
     let vfp = ccx.sess().target.target.llvm_target.ends_with("hf")
-        && fty.cconv != CallConv::ArmAapcsCallConv
-        && !fty.variadic;
+        && fty.cconv != CallConv::ArmAapcsCallConv && !fty.variadic;
 
     if !fty.ret.is_ignore() {
         classify_ret_ty(ccx, &mut fty.ret, vfp);
     }
 
     for arg in &mut fty.args {
-        if arg.is_ignore() { continue; }
+        if arg.is_ignore() {
+            continue;
+        }
         classify_arg_ty(ccx, arg, vfp);
     }
 }

@@ -13,10 +13,9 @@
 //! This API is completely unstable and subject to change.
 
 #![doc(html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
-      html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
-      html_root_url = "https://doc.rust-lang.org/nightly/")]
+       html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
+       html_root_url = "https://doc.rust-lang.org/nightly/")]
 #![deny(warnings)]
-
 #![feature(box_patterns)]
 #![feature(box_syntax)]
 #![feature(custom_attribute)]
@@ -29,9 +28,9 @@
 
 extern crate ar;
 extern crate flate2;
-extern crate owning_ref;
 #[macro_use]
 extern crate log;
+extern crate owning_ref;
 
 #[macro_use]
 extern crate rustc;
@@ -40,7 +39,7 @@ extern crate rustc_data_structures;
 extern crate syntax;
 extern crate syntax_pos;
 
-use rustc::ty::{TyCtxt, Instance};
+use rustc::ty::{Instance, TyCtxt};
 use rustc::hir;
 use rustc::hir::def_id::LOCAL_CRATE;
 use rustc::hir::map as hir_map;
@@ -76,42 +75,53 @@ pub fn check_for_rustc_errors_attr(tcx: TyCtxt) {
 /// This list is later used by linkers to determine the set of symbols needed to
 /// be exposed from a dynamic library and it's also encoded into the metadata.
 pub fn find_exported_symbols<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>) -> NodeSet {
-    tcx.reachable_set(LOCAL_CRATE).0.iter().cloned().filter(|&id| {
-        // Next, we want to ignore some FFI functions that are not exposed from
-        // this crate. Reachable FFI functions can be lumped into two
-        // categories:
-        //
-        // 1. Those that are included statically via a static library
-        // 2. Those included otherwise (e.g. dynamically or via a framework)
-        //
-        // Although our LLVM module is not literally emitting code for the
-        // statically included symbols, it's an export of our library which
-        // needs to be passed on to the linker and encoded in the metadata.
-        //
-        // As a result, if this id is an FFI item (foreign item) then we only
-        // let it through if it's included statically.
-        match tcx.hir.get(id) {
-            hir_map::NodeForeignItem(..) => {
-                let def_id = tcx.hir.local_def_id(id);
-                tcx.is_statically_included_foreign_item(def_id)
-            }
+    tcx.reachable_set(LOCAL_CRATE)
+        .0
+        .iter()
+        .cloned()
+        .filter(|&id| {
+            // Next, we want to ignore some FFI functions that are not exposed from
+            // this crate. Reachable FFI functions can be lumped into two
+            // categories:
+            //
+            // 1. Those that are included statically via a static library
+            // 2. Those included otherwise (e.g. dynamically or via a framework)
+            //
+            // Although our LLVM module is not literally emitting code for the
+            // statically included symbols, it's an export of our library which
+            // needs to be passed on to the linker and encoded in the metadata.
+            //
+            // As a result, if this id is an FFI item (foreign item) then we only
+            // let it through if it's included statically.
+            match tcx.hir.get(id) {
+                hir_map::NodeForeignItem(..) => {
+                    let def_id = tcx.hir.local_def_id(id);
+                    tcx.is_statically_included_foreign_item(def_id)
+                }
 
-            // Only consider nodes that actually have exported symbols.
-            hir_map::NodeItem(&hir::Item {
-                node: hir::ItemStatic(..), .. }) |
-            hir_map::NodeItem(&hir::Item {
-                node: hir::ItemFn(..), .. }) |
-            hir_map::NodeImplItem(&hir::ImplItem {
-                node: hir::ImplItemKind::Method(..), .. }) => {
-                let def_id = tcx.hir.local_def_id(id);
-                let generics = tcx.generics_of(def_id);
-                (generics.parent_types == 0 && generics.types.is_empty()) &&
+                // Only consider nodes that actually have exported symbols.
+                hir_map::NodeItem(&hir::Item {
+                    node: hir::ItemStatic(..),
+                    ..
+                })
+                | hir_map::NodeItem(&hir::Item {
+                    node: hir::ItemFn(..),
+                    ..
+                })
+                | hir_map::NodeImplItem(&hir::ImplItem {
+                    node: hir::ImplItemKind::Method(..),
+                    ..
+                }) => {
+                    let def_id = tcx.hir.local_def_id(id);
+                    let generics = tcx.generics_of(def_id);
+                    (generics.parent_types == 0 && generics.types.is_empty()) &&
                 // Functions marked with #[inline] are only ever translated
                 // with "internal" linkage and are never exported.
                 !common::requests_inline(tcx, &Instance::mono(tcx, def_id))
-            }
+                }
 
-            _ => false
-        }
-    }).collect()
+                _ => false,
+            }
+        })
+        .collect()
 }
