@@ -2678,9 +2678,9 @@ impl<'a> Resolver<'a> {
                                 | Def::Const(..)
                                 | Def::Static(..) => {
                                     // This is unambiguously a fresh binding, either syntactically
-                                    // (e.g. `IDENT @ PAT` or `ref IDENT`) or because `IDENT` resolves
-                                    // to something unusable as a pattern (e.g. constructor function),
-                                    // but we still conservatively report an error, see
+                                    // (e.g. `IDENT @ PAT` or `ref IDENT`) or because `IDENT`
+                                    // resolves to something unusable as a pattern (e.g. constructor
+                                    // function), but we still conservatively report an error, see
                                     // issues/33118#issuecomment-233962221 for one reason why.
                                     resolve_error(
                                         self,

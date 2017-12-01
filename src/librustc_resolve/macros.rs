@@ -561,9 +561,10 @@ impl<'a> Resolver<'a> {
             let orig_current_module = self.current_module;
             let result = if let Some(module) = module {
                 self.current_module = module; // Lexical resolutions can never be a privacy error.
-                                              // Since expanded macros may not shadow the lexical scope and
-                                              // globs may not shadow global macros (both enforced below),
-                                              // we resolve with restricted shadowing (indicated by the penultimate argument).
+
+                // Since expanded macros may not shadow the lexical scope and
+                // globs may not shadow global macros (both enforced below),
+                // we resolve with restricted shadowing (indicated by the penultimate argument).
                 self.resolve_ident_in_module_unadjusted(
                     module,
                     ident,

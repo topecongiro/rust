@@ -234,7 +234,8 @@ pub struct FulfillmentError<'tcx> {
 pub enum FulfillmentErrorCode<'tcx> {
     CodeSelectionError(SelectionError<'tcx>),
     CodeProjectionError(MismatchedProjectionTypes<'tcx>),
-    CodeSubtypeError(ExpectedFound<Ty<'tcx>>, TypeError<'tcx>), // always comes from a SubtypePredicate
+    // always comes from a SubtypePredicate
+    CodeSubtypeError(ExpectedFound<Ty<'tcx>>, TypeError<'tcx>),
     CodeAmbiguity,
 }
 
@@ -508,9 +509,10 @@ pub fn normalize_param_env_or_error<'a, 'tcx>(
         unnormalized_env
     );
 
-    let predicates: Vec<_> = util::elaborate_predicates(tcx, unnormalized_env.caller_bounds.to_vec())
-        .filter(|p| !p.is_global()) // (*)
-        .collect();
+    let predicates: Vec<_> =
+        util::elaborate_predicates(tcx, unnormalized_env.caller_bounds.to_vec())
+            .filter(|p| !p.is_global()) // (*)
+            .collect();
 
     // (*) Any predicate like `i32: Trait<u32>` or whatever doesn't
     // need to be in the *environment* to be proven, so screen those

@@ -514,9 +514,10 @@ fn arg_local_refs<'a, 'tcx>(
             arg_scope.map(|scope| {
                 // Is this a regular argument?
                 if arg_index > 0 || mir.upvar_decls.is_empty() {
-                    // The Rust ABI passes indirect variables using a pointer and a manual copy, so we
-                    // need to insert a deref here, but the C ABI uses a pointer and a copy using the
-                    // byval attribute, for which LLVM does the deref itself, so we must not add it.
+                    // The Rust ABI passes indirect variables using a pointer and a manual copy,
+                    // so we need to insert a deref here, but the C ABI uses a pointer and a copy
+                    // using the byval attribute, for which LLVM does the deref itself, so we must
+                    // not add it.
                     let mut variable_access = VariableAccess::DirectVariable {
                         alloca: lvalue.llval,
                     };

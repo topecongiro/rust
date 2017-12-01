@@ -46,7 +46,8 @@ pub enum ImportDirectiveSubclass<'a> {
     GlobImport {
         is_prelude: bool,
         max_vis: Cell<ty::Visibility>, // The visibility of the greatest reexport.
-                                       // n.b. `max_vis` is only used in `finalize_import` to check for reexport errors.
+                                       // n.b. `max_vis` is only used in `finalize_import` to
+                                       // check for reexport errors.
     },
     ExternCrate(Option<Name>),
     MacroUse,

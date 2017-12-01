@@ -308,8 +308,8 @@ pub fn parse(file: &mut io::Read, longnames: bool) -> Result<TermInfo, String> {
                     };
 
                     if offset == 0xFFFE {
-                        // undocumented: FFFE indicates cap@, which means the capability is not present
-                        // unsure if the handling for this is correct
+                        // undocumented: FFFE indicates cap@, which means the capability is not
+                        // present. Unsure if the handling for this is correct
                         return Ok((name.to_string(), Vec::new()));
                     }
 
