@@ -1239,7 +1239,7 @@ impl<'a> State<'a> {
                     &item.vis
                 )?;
                 self.s.word(" ")?;
-                self.print_block_with_attrs(body, &item.attrs)?;
+                self.print_block_with_attrs(body)?;
             }
             ast::ItemKind::Mod(ref _mod) => {
                 self.head(&visibility_qualified(&item.vis, "mod"))?;
@@ -1591,7 +1591,7 @@ impl<'a> State<'a> {
                 self.print_method_sig(ti.ident, &ti.generics, sig, &ast::Visibility::Inherited)?;
                 if let Some(ref body) = *body {
                     self.nbsp()?;
-                    self.print_block_with_attrs(body, &ti.attrs)?;
+                    self.print_block_with_attrs(body)?;
                 } else {
                     self.s.word(";")?;
                 }
@@ -1629,7 +1629,7 @@ impl<'a> State<'a> {
                 self.head("")?;
                 self.print_method_sig(ii.ident, &ii.generics, sig, &ii.vis)?;
                 self.nbsp()?;
-                self.print_block_with_attrs(body, &ii.attrs)?;
+                self.print_block_with_attrs(body)?;
             }
             ast::ImplItemKind::Type(ref ty) => {
                 self.print_associated_type(ii.ident, None, Some(ty))?;
@@ -1700,34 +1700,29 @@ impl<'a> State<'a> {
     }
 
     pub fn print_block(&mut self, blk: &ast::Block) -> io::Result<()> {
-        self.print_block_with_attrs(blk, &[])
+        self.print_block_with_attrs(blk)
     }
 
     pub fn print_block_unclosed(&mut self, blk: &ast::Block) -> io::Result<()> {
         self.print_block_unclosed_indent(blk, INDENT_UNIT)
     }
 
-    pub fn print_block_unclosed_with_attrs(&mut self, blk: &ast::Block,
-                                            attrs: &[ast::Attribute])
-                                           -> io::Result<()> {
-        self.print_block_maybe_unclosed(blk, INDENT_UNIT, attrs, false)
+    pub fn print_block_unclosed_with_attrs(&mut self, blk: &ast::Block) -> io::Result<()> {
+        self.print_block_maybe_unclosed(blk, INDENT_UNIT, false)
     }
 
     pub fn print_block_unclosed_indent(&mut self, blk: &ast::Block,
                                        indented: usize) -> io::Result<()> {
-        self.print_block_maybe_unclosed(blk, indented, &[], false)
+        self.print_block_maybe_unclosed(blk, indented, false)
     }
 
-    pub fn print_block_with_attrs(&mut self,
-                                  blk: &ast::Block,
-                                  attrs: &[ast::Attribute]) -> io::Result<()> {
-        self.print_block_maybe_unclosed(blk, INDENT_UNIT, attrs, true)
+    pub fn print_block_with_attrs(&mut self, blk: &ast::Block) -> io::Result<()> {
+        self.print_block_maybe_unclosed(blk, INDENT_UNIT, true)
     }
 
     pub fn print_block_maybe_unclosed(&mut self,
                                       blk: &ast::Block,
                                       indented: usize,
-                                      attrs: &[ast::Attribute],
                                       close_box: bool) -> io::Result<()> {
         match blk.rules {
             BlockCheckMode::Unsafe(..) => self.word_space("unsafe")?,
@@ -1737,7 +1732,7 @@ impl<'a> State<'a> {
         self.ann.pre(self, NodeBlock(blk))?;
         self.bopen()?;
 
-        self.print_inner_attributes(attrs)?;
+        self.print_inner_attributes(&blk.attrs)?;
 
         for (i, st) in blk.stmts.iter().enumerate() {
             match st.node {
@@ -2123,7 +2118,7 @@ impl<'a> State<'a> {
                 self.head("while")?;
                 self.print_expr_as_cond(test)?;
                 self.s.space()?;
-                self.print_block_with_attrs(blk, attrs)?;
+                self.print_block_with_attrs(blk)?;
             }
             ast::ExprKind::WhileLet(ref pat, ref expr, ref blk, opt_ident) => {
                 if let Some(ident) = opt_ident {
@@ -2136,7 +2131,7 @@ impl<'a> State<'a> {
                 self.word_space("=")?;
                 self.print_expr_as_cond(expr)?;
                 self.s.space()?;
-                self.print_block_with_attrs(blk, attrs)?;
+                self.print_block_with_attrs(blk)?;
             }
             ast::ExprKind::ForLoop(ref pat, ref iter, ref blk, opt_ident) => {
                 if let Some(ident) = opt_ident {
@@ -2149,7 +2144,7 @@ impl<'a> State<'a> {
                 self.word_space("in")?;
                 self.print_expr_as_cond(iter)?;
                 self.s.space()?;
-                self.print_block_with_attrs(blk, attrs)?;
+                self.print_block_with_attrs(blk)?;
             }
             ast::ExprKind::Loop(ref blk, opt_ident) => {
                 if let Some(ident) = opt_ident {
@@ -2158,7 +2153,7 @@ impl<'a> State<'a> {
                 }
                 self.head("loop")?;
                 self.s.space()?;
-                self.print_block_with_attrs(blk, attrs)?;
+                self.print_block_with_attrs(blk)?;
             }
             ast::ExprKind::Match(ref expr, ref arms) => {
                 self.cbox(INDENT_UNIT)?;
@@ -2191,7 +2186,7 @@ impl<'a> State<'a> {
                 self.cbox(INDENT_UNIT)?;
                 // head-box, will be closed by print-block after {
                 self.ibox(0)?;
-                self.print_block_with_attrs(blk, attrs)?;
+                self.print_block_with_attrs(blk)?;
             }
             ast::ExprKind::Assign(ref lhs, ref rhs) => {
                 let prec = AssocOp::Assign.precedence() as i8;
@@ -2362,7 +2357,7 @@ impl<'a> State<'a> {
             ast::ExprKind::Catch(ref blk) => {
                 self.head("do catch")?;
                 self.s.space()?;
-                self.print_block_with_attrs(blk, attrs)?
+                self.print_block_with_attrs(blk)?
             }
         }
         self.ann.post(self, NodeExpr(expr))?;

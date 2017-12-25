@@ -915,6 +915,7 @@ mod tests {
                                         span: syntax_pos::DUMMY_SP,
                                     },
                                     P(ast::Block {
+                                        attrs: ast::ThinVec::new(),
                                         stmts: vec![ast::Stmt {
                                             node: ast::StmtKind::Semi(P(ast::Expr{
                                                 id: ast::DUMMY_NODE_ID,

@@ -316,7 +316,7 @@ enum HasTestSignature {
 }
 
 fn is_test_fn(cx: &TestCtxt, i: &ast::Item) -> bool {
-    let has_test_attr = attr::contains_name(&i.attrs, "test");
+    let has_test_attr = attr::contains_name(&i.get_attrs(), "test");
 
     fn has_test_signature(i: &ast::Item) -> HasTestSignature {
         match i.node {
@@ -352,7 +352,7 @@ fn is_test_fn(cx: &TestCtxt, i: &ast::Item) -> bool {
 }
 
 fn is_bench_fn(cx: &TestCtxt, i: &ast::Item) -> bool {
-    let has_bench_attr = attr::contains_name(&i.attrs, "bench");
+    let has_bench_attr = attr::contains_name(&i.get_attrs(), "bench");
 
     fn has_test_signature(i: &ast::Item) -> bool {
         match i.node {
@@ -386,15 +386,15 @@ fn is_bench_fn(cx: &TestCtxt, i: &ast::Item) -> bool {
 }
 
 fn is_ignored(i: &ast::Item) -> bool {
-    i.attrs.iter().any(|attr| attr.check_name("ignore"))
+    attr::contains_name(&i.get_attrs(), "ignore")
 }
 
 fn is_allowed_fail(i: &ast::Item) -> bool {
-    i.attrs.iter().any(|attr| attr.check_name("allow_fail"))
+    attr::contains_name(&i.get_attrs(), "allow_fail")
 }
 
 fn should_panic(i: &ast::Item, cx: &TestCtxt) -> ShouldPanic {
-    match i.attrs.iter().find(|attr| attr.check_name("should_panic")) {
+    match attr::find_by_name(&i.get_attrs(), "should_panic") {
         Some(attr) => {
             let sd = cx.span_diagnostic;
             if attr.is_value_str() {

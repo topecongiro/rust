@@ -1454,7 +1454,7 @@ impl<'a> Visitor<'a> for PostExpansionVisitor<'a> {
     fn visit_item(&mut self, i: &'a ast::Item) {
         match i.node {
             ast::ItemKind::ExternCrate(_) => {
-                if let Some(attr) = attr::find_by_name(&i.attrs[..], "macro_reexport") {
+                if let Some(attr) = attr::find_by_name(&i.get_attrs(), "macro_reexport") {
                     gate_feature_post!(&self, macro_reexport, attr.span,
                                        "macros reexports are experimental \
                                         and possibly buggy");
@@ -1466,23 +1466,23 @@ impl<'a> Visitor<'a> for PostExpansionVisitor<'a> {
             }
 
             ast::ItemKind::Fn(..) => {
-                if attr::contains_name(&i.attrs[..], "plugin_registrar") {
+                if attr::contains_name(&i.get_attrs(), "plugin_registrar") {
                     gate_feature_post!(&self, plugin_registrar, i.span,
                                        "compiler plugins are experimental and possibly buggy");
                 }
-                if attr::contains_name(&i.attrs[..], "start") {
+                if attr::contains_name(&i.get_attrs(), "start") {
                     gate_feature_post!(&self, start, i.span,
                                       "a #[start] function is an experimental \
                                        feature whose signature may change \
                                        over time");
                 }
-                if attr::contains_name(&i.attrs[..], "main") {
+                if attr::contains_name(&i.get_attrs(), "main") {
                     gate_feature_post!(&self, main, i.span,
                                        "declaration of a nonstandard #[main] \
                                         function may change over time, for now \
                                         a top-level `fn main()` is required");
                 }
-                if let Some(attr) = attr::find_by_name(&i.attrs[..], "must_use") {
+                if let Some(attr) = attr::find_by_name(&i.get_attrs(), "must_use") {
                     gate_feature_post!(&self, fn_must_use, attr.span,
                                        "`#[must_use]` on functions is experimental",
                                        GateStrength::Soft);
@@ -1490,7 +1490,7 @@ impl<'a> Visitor<'a> for PostExpansionVisitor<'a> {
             }
 
             ast::ItemKind::Struct(..) => {
-                if let Some(attr) = attr::find_by_name(&i.attrs[..], "simd") {
+                if let Some(attr) = attr::find_by_name(&i.get_attrs(), "simd") {
                     gate_feature_post!(&self, simd, attr.span,
                                        "SIMD types are experimental and possibly buggy");
                     self.context.parse_sess.span_diagnostic.span_warn(attr.span,
@@ -1498,7 +1498,7 @@ impl<'a> Visitor<'a> for PostExpansionVisitor<'a> {
                                                                        is deprecated, use \
                                                                        `#[repr(simd)]` instead");
                 }
-                if let Some(attr) = attr::find_by_name(&i.attrs[..], "repr") {
+                if let Some(attr) = attr::find_by_name(&i.get_attrs(), "repr") {
                     for item in attr.meta_item_list().unwrap_or_else(Vec::new) {
                         if item.check_name("simd") {
                             gate_feature_post!(&self, repr_simd, attr.span,

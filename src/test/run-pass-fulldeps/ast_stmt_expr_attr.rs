@@ -190,13 +190,13 @@ fn main() {
     reject_expr_parse("if let Some(false) = false {} else if let Some(false) = true #[attr] {}");
     reject_expr_parse("if let Some(false) = false {} else if let Some(false) = true {#![attr]}");
 
-    check_expr_attrs("#[attr] while true {#![attr]}", both);
+    check_expr_attrs("#[attr] while true {#![attr]}", outer);
 
-    check_expr_attrs("#[attr] while let Some(false) = true {#![attr]}", both);
+    check_expr_attrs("#[attr] while let Some(false) = true {#![attr]}", outer);
 
-    check_expr_attrs("#[attr] for x in y {#![attr]}", both);
+    check_expr_attrs("#[attr] for x in y {#![attr]}", outer);
 
-    check_expr_attrs("#[attr] loop {#![attr]}", both);
+    check_expr_attrs("#[attr] loop {#![attr]}", outer);
 
     check_expr_attrs("#[attr] match true {#![attr] #[attr] _ => false}", both);
 
@@ -211,9 +211,9 @@ fn main() {
     reject_expr_parse("|| #![attr] {foo}");
     reject_expr_parse("move || #![attr] {foo}");
 
-    check_expr_attrs("#[attr] { #![attr] }", both);
-    check_expr_attrs("#[attr] { #![attr] let _ = (); }", both);
-    check_expr_attrs("#[attr] { #![attr] let _ = (); foo }", both);
+    check_expr_attrs("#[attr] { #![attr] }", outer);
+    check_expr_attrs("#[attr] { #![attr] let _ = (); }", outer);
+    check_expr_attrs("#[attr] { #![attr] let _ = (); foo }", outer);
 
     check_expr_attrs("#[attr] x = y", none);
     check_expr_attrs("#[attr] (x = y)", outer);
@@ -277,7 +277,7 @@ fn main() {
 
     check_stmt_attrs("#[attr] let _ = 0", outer);
     check_stmt_attrs("#[attr] 0",         outer);
-    check_stmt_attrs("#[attr] {#![attr]}", both);
+    check_stmt_attrs("#[attr] {#![attr]}", outer);
     check_stmt_attrs("#[attr] foo!()",    outer);
     check_stmt_attrs("#[attr] foo![]",    outer);
     check_stmt_attrs("#[attr] foo!{}",    outer);

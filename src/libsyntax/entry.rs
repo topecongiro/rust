@@ -24,9 +24,9 @@ pub enum EntryPointType {
 pub fn entry_point_type(item: &Item, depth: usize) -> EntryPointType {
     match item.node {
         ItemKind::Fn(..) => {
-            if attr::contains_name(&item.attrs, "start") {
+            if attr::contains_name(&item.get_attrs(), "start") {
                 EntryPointType::Start
-            } else if attr::contains_name(&item.attrs, "main") {
+            } else if attr::contains_name(&item.get_attrs(), "main") {
                 EntryPointType::MainAttr
             } else if item.ident.name == "main" {
                 if depth == 1 {

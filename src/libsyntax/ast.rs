@@ -487,6 +487,8 @@ pub enum MetaItemKind {
 /// E.g. `{ .. }` as in `fn foo() { .. }`
 #[derive(Clone, PartialEq, Eq, RustcEncodable, RustcDecodable, Hash, Debug)]
 pub struct Block {
+    /// Inner attributes
+    pub attrs: ThinVec<Attribute>,
     /// Statements in a block
     pub stmts: Vec<Stmt>,
     pub id: NodeId,
@@ -1964,6 +1966,17 @@ pub struct Item {
     /// Note that the tokens here do not include the outer attributes, but will
     /// include inner attributes.
     pub tokens: Option<TokenStream>,
+}
+
+impl Item {
+    pub fn get_attrs(&self) -> Vec<Attribute> {
+        let mut attrs = self.attrs.clone();
+        match self.node {
+            ItemKind::Fn(_, _, _, _, _, ref block) => attrs.append(&mut block.attrs.clone().into()),
+            _ => (),
+        }
+        attrs
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, RustcEncodable, RustcDecodable, Hash, Debug)]

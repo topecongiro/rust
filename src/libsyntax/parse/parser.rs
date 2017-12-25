@@ -1361,7 +1361,7 @@ impl<'a> Parser<'a> {
 
     fn parse_trait_item_(&mut self,
                          at_end: &mut bool,
-                         mut attrs: Vec<Attribute>) -> PResult<'a, TraitItem> {
+                         attrs: Vec<Attribute>) -> PResult<'a, TraitItem> {
         let lo = self.span;
 
         let (name, node, generics) = if self.eat_keyword(keywords::Type) {
@@ -1437,8 +1437,7 @@ impl<'a> Parser<'a> {
                 token::OpenDelim(token::Brace) => {
                     debug!("parse_trait_methods(): parsing provided method");
                     *at_end = true;
-                    let (inner_attrs, body) = self.parse_inner_attrs_and_block()?;
-                    attrs.extend(inner_attrs.iter().cloned());
+                    let body = self.parse_inner_attrs_and_block()?;
                     Some(body)
                 }
                 _ => {
@@ -2495,12 +2494,9 @@ impl<'a> Parser<'a> {
                             outer_attrs: ThinVec<Attribute>)
                             -> PResult<'a, P<Expr>> {
         self.expect(&token::OpenDelim(token::Brace))?;
-
-        let mut attrs = outer_attrs;
-        attrs.extend(self.parse_inner_attributes()?);
-
-        let blk = self.parse_block_tail(lo, blk_mode)?;
-        return Ok(self.mk_expr(blk.span, ExprKind::Block(blk), attrs));
+        let inner_attrs = ThinVec::from(self.parse_inner_attributes()?);
+        let blk = self.parse_block_tail(lo, blk_mode, inner_attrs)?;
+        return Ok(self.mk_expr(blk.span, ExprKind::Block(blk), outer_attrs));
     }
 
     /// parse a.b or a(13) or a[4] or just a
@@ -3239,7 +3235,7 @@ impl<'a> Parser<'a> {
     /// Parse a 'for' .. 'in' expression ('for' token already eaten)
     pub fn parse_for_expr(&mut self, opt_ident: Option<ast::SpannedIdent>,
                           span_lo: Span,
-                          mut attrs: ThinVec<Attribute>) -> PResult<'a, P<Expr>> {
+                          attrs: ThinVec<Attribute>) -> PResult<'a, P<Expr>> {
         // Parse: `for <src_pat> in <src_expr> <src_loop_block>`
 
         let pat = self.parse_pat()?;
@@ -3251,8 +3247,7 @@ impl<'a> Parser<'a> {
             err.emit();
         }
         let expr = self.parse_expr_res(Restrictions::NO_STRUCT_LITERAL, None)?;
-        let (iattrs, loop_block) = self.parse_inner_attrs_and_block()?;
-        attrs.extend(iattrs);
+        let loop_block = self.parse_inner_attrs_and_block()?;
 
         let hi = self.prev_span;
         Ok(self.mk_expr(span_lo.to(hi), ExprKind::ForLoop(pat, expr, loop_block, opt_ident), attrs))
@@ -3261,13 +3256,12 @@ impl<'a> Parser<'a> {
     /// Parse a 'while' or 'while let' expression ('while' token already eaten)
     pub fn parse_while_expr(&mut self, opt_ident: Option<ast::SpannedIdent>,
                             span_lo: Span,
-                            mut attrs: ThinVec<Attribute>) -> PResult<'a, P<Expr>> {
+                            attrs: ThinVec<Attribute>) -> PResult<'a, P<Expr>> {
         if self.token.is_keyword(keywords::Let) {
             return self.parse_while_let_expr(opt_ident, span_lo, attrs);
         }
         let cond = self.parse_expr_res(Restrictions::NO_STRUCT_LITERAL, None)?;
-        let (iattrs, body) = self.parse_inner_attrs_and_block()?;
-        attrs.extend(iattrs);
+        let body = self.parse_inner_attrs_and_block()?;
         let span = span_lo.to(body.span);
         return Ok(self.mk_expr(span, ExprKind::While(cond, body, opt_ident), attrs));
     }
@@ -3275,13 +3269,12 @@ impl<'a> Parser<'a> {
     /// Parse a 'while let' expression ('while' token already eaten)
     pub fn parse_while_let_expr(&mut self, opt_ident: Option<ast::SpannedIdent>,
                                 span_lo: Span,
-                                mut attrs: ThinVec<Attribute>) -> PResult<'a, P<Expr>> {
+                                attrs: ThinVec<Attribute>) -> PResult<'a, P<Expr>> {
         self.expect_keyword(keywords::Let)?;
         let pat = self.parse_pat()?;
         self.expect(&token::Eq)?;
         let expr = self.parse_expr_res(Restrictions::NO_STRUCT_LITERAL, None)?;
-        let (iattrs, body) = self.parse_inner_attrs_and_block()?;
-        attrs.extend(iattrs);
+        let body = self.parse_inner_attrs_and_block()?;
         let span = span_lo.to(body.span);
         return Ok(self.mk_expr(span, ExprKind::WhileLet(pat, expr, body, opt_ident), attrs));
     }
@@ -3289,19 +3282,17 @@ impl<'a> Parser<'a> {
     // parse `loop {...}`, `loop` token already eaten
     pub fn parse_loop_expr(&mut self, opt_ident: Option<ast::SpannedIdent>,
                            span_lo: Span,
-                           mut attrs: ThinVec<Attribute>) -> PResult<'a, P<Expr>> {
-        let (iattrs, body) = self.parse_inner_attrs_and_block()?;
-        attrs.extend(iattrs);
+                           attrs: ThinVec<Attribute>) -> PResult<'a, P<Expr>> {
+        let body = self.parse_inner_attrs_and_block()?;
         let span = span_lo.to(body.span);
         Ok(self.mk_expr(span, ExprKind::Loop(body, opt_ident), attrs))
     }
 
     /// Parse a `do catch {...}` expression (`do catch` token already eaten)
-    pub fn parse_catch_expr(&mut self, span_lo: Span, mut attrs: ThinVec<Attribute>)
+    pub fn parse_catch_expr(&mut self, span_lo: Span, attrs: ThinVec<Attribute>)
         -> PResult<'a, P<Expr>>
     {
-        let (iattrs, body) = self.parse_inner_attrs_and_block()?;
-        attrs.extend(iattrs);
+        let body = self.parse_inner_attrs_and_block()?;
         Ok(self.mk_expr(span_lo.to(body.span), ExprKind::Catch(body), attrs))
     }
 
@@ -4355,22 +4346,26 @@ impl<'a> Parser<'a> {
             return Err(e);
         }
 
-        self.parse_block_tail(lo, BlockCheckMode::Default)
+        self.parse_block_tail(lo, BlockCheckMode::Default, ThinVec::new())
     }
 
     /// Parse a block. Inner attrs are allowed.
-    fn parse_inner_attrs_and_block(&mut self) -> PResult<'a, (Vec<Attribute>, P<Block>)> {
-        maybe_whole!(self, NtBlock, |x| (Vec::new(), x));
+    fn parse_inner_attrs_and_block(&mut self) -> PResult<'a, P<Block>> {
+        maybe_whole!(self, NtBlock, |x| x);
 
         let lo = self.span;
         self.expect(&token::OpenDelim(token::Brace))?;
-        Ok((self.parse_inner_attributes()?,
-            self.parse_block_tail(lo, BlockCheckMode::Default)?))
+        let inner_attrs = ThinVec::from(self.parse_inner_attributes()?);
+        Ok(self.parse_block_tail(lo, BlockCheckMode::Default, inner_attrs)?)
     }
 
     /// Parse the rest of a block expression or function body
-    /// Precondition: already parsed the '{'.
-    fn parse_block_tail(&mut self, lo: Span, s: BlockCheckMode) -> PResult<'a, P<Block>> {
+    /// Precondition: already parsed the '{' and inner attributes if available.
+    fn parse_block_tail(&mut self,
+                        lo: Span,
+                        s: BlockCheckMode,
+                        inner_attrs: ThinVec<Attribute>)
+                        -> PResult<'a, P<Block>> {
         let mut stmts = vec![];
         let mut recovered = false;
 
@@ -4395,6 +4390,7 @@ impl<'a> Parser<'a> {
             };
         }
         Ok(P(ast::Block {
+            attrs: inner_attrs,
             stmts,
             id: ast::DUMMY_NODE_ID,
             rules: s,
@@ -5069,8 +5065,8 @@ impl<'a> Parser<'a> {
         let (ident, mut generics) = self.parse_fn_header()?;
         let decl = self.parse_fn_decl(false)?;
         generics.where_clause = self.parse_where_clause()?;
-        let (inner_attrs, body) = self.parse_inner_attrs_and_block()?;
-        Ok((ident, ItemKind::Fn(decl, unsafety, constness, abi, generics, body), Some(inner_attrs)))
+        let body = self.parse_inner_attrs_and_block()?;
+        Ok((ident, ItemKind::Fn(decl, unsafety, constness, abi, generics, body), None))
     }
 
     /// true if we are looking at `const ID`, false for things like `const fn` etc
@@ -5126,7 +5122,7 @@ impl<'a> Parser<'a> {
 
     fn parse_impl_item_(&mut self,
                         at_end: &mut bool,
-                        mut attrs: Vec<Attribute>) -> PResult<'a, ImplItem> {
+                        attrs: Vec<Attribute>) -> PResult<'a, ImplItem> {
         let lo = self.span;
         let vis = self.parse_visibility(false)?;
         let defaultness = self.parse_defaultness()?;
@@ -5152,8 +5148,7 @@ impl<'a> Parser<'a> {
             self.expect(&token::Semi)?;
             (name, ast::ImplItemKind::Const(typ, expr), ast::Generics::default())
         } else {
-            let (name, inner_attrs, generics, node) = self.parse_impl_method(&vis, at_end)?;
-            attrs.extend(inner_attrs);
+            let (name, generics, node) = self.parse_impl_method(&vis, at_end)?;
             (name, node, generics)
         };
 
@@ -5222,8 +5217,7 @@ impl<'a> Parser<'a> {
 
     /// Parse a method or a macro invocation in a trait impl.
     fn parse_impl_method(&mut self, vis: &Visibility, at_end: &mut bool)
-                         -> PResult<'a, (Ident, Vec<ast::Attribute>, ast::Generics,
-                             ast::ImplItemKind)> {
+                         -> PResult<'a, (Ident, ast::Generics, ast::ImplItemKind)> {
         // code copied from parse_macro_use_or_failure... abstraction!
         if self.token.is_path_start() {
             // Method macro.
@@ -5250,8 +5244,7 @@ impl<'a> Parser<'a> {
             }
 
             let mac = respan(lo.to(self.prev_span), Mac_ { path: pth, tts: tts });
-            Ok((keywords::Invalid.ident(), vec![], ast::Generics::default(),
-                ast::ImplItemKind::Macro(mac)))
+            Ok((keywords::Invalid.ident(), ast::Generics::default(), ast::ImplItemKind::Macro(mac)))
         } else {
             let (constness, unsafety, abi) = self.parse_fn_front_matter()?;
             let ident = self.parse_ident()?;
@@ -5259,8 +5252,8 @@ impl<'a> Parser<'a> {
             let decl = self.parse_fn_decl_with_self(|p| p.parse_arg())?;
             generics.where_clause = self.parse_where_clause()?;
             *at_end = true;
-            let (inner_attrs, body) = self.parse_inner_attrs_and_block()?;
-            Ok((ident, inner_attrs, generics, ast::ImplItemKind::Method(ast::MethodSig {
+            let body = self.parse_inner_attrs_and_block()?;
+            Ok((ident, generics, ast::ImplItemKind::Method(ast::MethodSig {
                 abi,
                 unsafety,
                 constness,
@@ -6711,7 +6704,7 @@ impl<'a> Parser<'a> {
         // expansion correct, but we should fix this bug one day!
         Ok(ret.map(|item| {
             item.map(|mut i| {
-                if !i.attrs.iter().any(|attr| attr.style == AttrStyle::Inner) {
+                if !i.get_attrs().iter().any(|attr| attr.style == AttrStyle::Inner) {
                     i.tokens = Some(tokens);
                 }
                 i

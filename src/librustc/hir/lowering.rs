@@ -2220,6 +2220,7 @@ impl<'a> LoweringContext<'a> {
     }
 
     fn lower_impl_item(&mut self, i: &ImplItem) -> hir::ImplItem {
+        let mut attrs = i.attrs.clone();
         self.with_parent_def(i.id, |this| {
             let LoweredNodeId { node_id, hir_id } = this.lower_node_id(i.id);
             let fn_def_id = this.resolver.definitions().opt_local_def_id(node_id);
@@ -2236,6 +2237,7 @@ impl<'a> LoweringContext<'a> {
                     )
                 }
                 ImplItemKind::Method(ref sig, ref body) => {
+                    attrs.append(&mut body.attrs.clone().into());
                     let body_id = this.lower_body(Some(&sig.decl), |this| {
                         let body = this.lower_block(body, false);
                         this.expr_block(body, ThinVec::new())
@@ -2259,7 +2261,7 @@ impl<'a> LoweringContext<'a> {
                 id: node_id,
                 hir_id,
                 name: this.lower_ident(i.ident),
-                attrs: this.lower_attrs(&i.attrs),
+                attrs: this.lower_attrs(&attrs),
                 generics,
                 vis: this.lower_visibility(&i.vis, None),
                 defaultness: this.lower_defaultness(i.defaultness, true /* [1] */),
@@ -2329,7 +2331,11 @@ impl<'a> LoweringContext<'a> {
     pub fn lower_item(&mut self, i: &Item) -> Option<hir::Item> {
         let mut name = i.ident.name;
         let mut vis = self.lower_visibility(&i.vis, None);
-        let attrs = self.lower_attrs(&i.attrs);
+        let mut attrs = i.attrs.clone();
+        if let ItemKind::Fn(_, _, _, _, _, ref block) = i.node {
+            attrs.append(&mut block.attrs.clone().into());
+        }
+        let attrs = self.lower_attrs(&attrs);
         if let ItemKind::MacroDef(ref def) = i.node {
             if !def.legacy || i.attrs.iter().any(|attr| attr.path == "macro_export") {
                 let body = self.lower_token_stream(def.stream());

@@ -590,11 +590,12 @@ impl<'a> AstBuilder for ExtCtxt<'a> {
     }
     fn block(&self, span: Span, stmts: Vec<ast::Stmt>) -> P<ast::Block> {
         P(ast::Block {
-           stmts,
-           id: ast::DUMMY_NODE_ID,
-           rules: BlockCheckMode::Default,
-           span,
-           recovered: false,
+            attrs: ast::ThinVec::new(),
+            stmts,
+            id: ast::DUMMY_NODE_ID,
+            rules: BlockCheckMode::Default,
+            span,
+            recovered: false,
         })
     }
 

@@ -864,7 +864,8 @@ fn noop_fold_bounds<T: Folder>(bounds: TyParamBounds, folder: &mut T)
 }
 
 pub fn noop_fold_block<T: Folder>(b: P<Block>, folder: &mut T) -> P<Block> {
-    b.map(|Block {id, stmts, rules, span, recovered}| Block {
+    b.map(|Block {attrs, id, stmts, rules, span, recovered}| Block {
+        attrs,
         id: folder.new_id(id),
         stmts: stmts.move_flat_map(|s| folder.fold_stmt(s).into_iter()),
         rules,

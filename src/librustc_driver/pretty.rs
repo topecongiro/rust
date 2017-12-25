@@ -729,6 +729,7 @@ impl<'a> fold::Folder for ReplaceBodyWithLoop<'a> {
                          e: Option<P<ast::Expr>>,
                          sess: &Session) -> P<ast::Block> {
             P(ast::Block {
+                attrs: ast::ThinVec::new(),
                 stmts: e.map(|e| {
                         ast::Stmt {
                             id: sess.next_node_id(),

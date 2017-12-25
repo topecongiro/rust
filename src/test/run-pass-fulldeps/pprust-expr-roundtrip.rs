@@ -127,6 +127,7 @@ fn iter_exprs(depth: usize, f: &mut FnMut(P<Expr>)) {
             },
             8 => {
                 let block = P(Block {
+                    attrs: ThinVec::new(),
                     stmts: Vec::new(),
                     id: DUMMY_NODE_ID,
                     rules: BlockCheckMode::Default,

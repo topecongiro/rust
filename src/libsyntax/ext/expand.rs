@@ -946,6 +946,12 @@ impl<'a, 'b> Folder for InvocationCollector<'a, 'b> {
             return self.collect_attr(attr, traits, item, ExpansionKind::Items).make_items();
         }
 
+        // Add inner attributes in fn body.
+        let mut attrs = item.attrs.clone();
+        if let ast::ItemKind::Fn(_, _, _, _, _, ref block) = item.node {
+            attrs.append(&mut block.attrs.clone().into());
+        }
+
         match item.node {
             ast::ItemKind::Mac(..) => {
                 self.check_attributes(&item.attrs);
@@ -1009,7 +1015,7 @@ impl<'a, 'b> Folder for InvocationCollector<'a, 'b> {
             }
             // Ensure that test functions are accessible from the test harness.
             ast::ItemKind::Fn(..) if self.cx.ecfg.should_test => {
-                if item.attrs.iter().any(|attr| is_test_or_bench(attr)) {
+                if attrs.iter().any(|attr| is_test_or_bench(attr)) {
                     item = item.map(|mut item| { item.vis = ast::Visibility::Public; item });
                 }
                 noop_fold_item(item, self)

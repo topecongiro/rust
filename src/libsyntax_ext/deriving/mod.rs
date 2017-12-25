@@ -156,6 +156,7 @@ fn call_intrinsic(cx: &ExtCtxt,
     let call = cx.expr_call_global(span, path, args);
 
     cx.expr_block(P(ast::Block {
+        attrs: ast::ThinVec::new(),
         stmts: vec![cx.stmt_expr(call)],
         id: ast::DUMMY_NODE_ID,
         rules: ast::BlockCheckMode::Unsafe(ast::CompilerGenerated),
