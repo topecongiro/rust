@@ -30,7 +30,7 @@
 //! future.
 
 use rustc::hir;
-use rustc::mir::{Constant, Local, LocalKind, Location, Place, Mir, Operand, Rvalue, StatementKind};
+use rustc::mir::{Constant, Local, LocalKind, Location, Mir, Operand, Place, Rvalue, StatementKind};
 use rustc::mir::visit::MutVisitor;
 use rustc::ty::TyCtxt;
 use transform::{MirPass, MirSource};
@@ -39,24 +39,26 @@ use util::def_use::DefUseAnalysis;
 pub struct CopyPropagation;
 
 impl MirPass for CopyPropagation {
-    fn run_pass<'a, 'tcx>(&self,
-                          tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                          source: MirSource,
-                          mir: &mut Mir<'tcx>) {
+    fn run_pass<'a, 'tcx>(
+        &self,
+        tcx: TyCtxt<'a, 'tcx, 'tcx>,
+        source: MirSource,
+        mir: &mut Mir<'tcx>,
+    ) {
         // Don't run on constant MIR, because trans might not be able to
         // evaluate the modified MIR.
         // FIXME(eddyb) Remove check after miri is merged.
         let id = tcx.hir.as_local_node_id(source.def_id).unwrap();
         match (tcx.hir.body_owner_kind(id), source.promoted) {
-            (_, Some(_)) |
-            (hir::BodyOwnerKind::Const, _) |
-            (hir::BodyOwnerKind::Static(_), _) => return,
+            (_, Some(_)) | (hir::BodyOwnerKind::Const, _) | (hir::BodyOwnerKind::Static(_), _) => {
+                return
+            }
 
             (hir::BodyOwnerKind::Fn, _) => {
                 if tcx.is_const_fn(source.def_id) {
                     // Don't run on const functions, as, again, trans might not be able to evaluate
                     // the optimized IR.
-                    return
+                    return;
                 }
             }
         }
@@ -86,26 +88,31 @@ impl MirPass for CopyPropagation {
                     let dest_use_info = def_use_analysis.local_info(dest_local);
                     let dest_def_count = dest_use_info.def_count_not_including_drop();
                     if dest_def_count == 0 {
-                        debug!("  Can't copy-propagate local: dest {:?} undefined",
-                               dest_local);
-                        continue
+                        debug!(
+                            "  Can't copy-propagate local: dest {:?} undefined",
+                            dest_local
+                        );
+                        continue;
                     }
                     if dest_def_count > 1 {
-                        debug!("  Can't copy-propagate local: dest {:?} defined {} times",
-                               dest_local,
-                               dest_use_info.def_count());
-                        continue
+                        debug!(
+                            "  Can't copy-propagate local: dest {:?} defined {} times",
+                            dest_local,
+                            dest_use_info.def_count()
+                        );
+                        continue;
                     }
                     if dest_use_info.use_count() == 0 {
-                        debug!("  Can't copy-propagate local: dest {:?} unused",
-                               dest_local);
-                        continue
+                        debug!("  Can't copy-propagate local: dest {:?} unused", dest_local);
+                        continue;
                     }
                     // Conservatively gives up if the dest is an argument,
                     // because there may be uses of the original argument value.
                     if mir.local_kind(dest_local) == LocalKind::Arg {
-                        debug!("  Can't copy-propagate local: dest {:?} (argument)",
-                            dest_local);
+                        debug!(
+                            "  Can't copy-propagate local: dest {:?} (argument)",
+                            dest_local
+                        );
                         continue;
                     }
                     let dest_place_def = dest_use_info.defs_not_including_drop().next().unwrap();
@@ -117,17 +124,17 @@ impl MirPass for CopyPropagation {
                         Some(statement) => statement,
                         None => {
                             debug!("  Can't copy-propagate local: used in terminator");
-                            continue
+                            continue;
                         }
                     };
 
                     // That use of the source must be an assignment.
                     match statement.kind {
-                        StatementKind::Assign(Place::Local(local), Rvalue::Use(ref operand)) if
-                                local == dest_local => {
+                        StatementKind::Assign(Place::Local(local), Rvalue::Use(ref operand))
+                            if local == dest_local =>
+                        {
                             let maybe_action = match *operand {
-                                Operand::Copy(ref src_place) |
-                                Operand::Move(ref src_place) => {
+                                Operand::Copy(ref src_place) | Operand::Move(ref src_place) => {
                                     Action::local_copy(&mir, &def_use_analysis, src_place)
                                 }
                                 Operand::Constant(ref src_constant) => {
@@ -140,9 +147,11 @@ impl MirPass for CopyPropagation {
                             }
                         }
                         _ => {
-                            debug!("  Can't copy-propagate local: source use is not an \
-                                    assignment");
-                            continue
+                            debug!(
+                                "  Can't copy-propagate local: source use is not an \
+                                 assignment"
+                            );
+                            continue;
                         }
                     }
                 }
@@ -150,10 +159,10 @@ impl MirPass for CopyPropagation {
                 changed = action.perform(mir, &def_use_analysis, dest_local, location) || changed;
                 // FIXME(pcwalton): Update the use-def chains to delete the instructions instead of
                 // regenerating the chains.
-                break
+                break;
             }
             if !changed {
-                break
+                break;
             }
         }
     }
@@ -175,8 +184,8 @@ fn eliminate_self_assignments<'tcx>(
                     StatementKind::Assign(
                         Place::Local(local),
                         Rvalue::Use(Operand::Copy(Place::Local(src_local))),
-                    ) |
-                    StatementKind::Assign(
+                    )
+                    | StatementKind::Assign(
                         Place::Local(local),
                         Rvalue::Use(Operand::Move(Place::Local(src_local))),
                     ) if local == dest_local && dest_local == src_local => {}
@@ -202,8 +211,11 @@ enum Action<'tcx> {
 }
 
 impl<'tcx> Action<'tcx> {
-    fn local_copy(mir: &Mir<'tcx>, def_use_analysis: &DefUseAnalysis, src_place: &Place<'tcx>)
-                  -> Option<Action<'tcx>> {
+    fn local_copy(
+        mir: &Mir<'tcx>,
+        def_use_analysis: &DefUseAnalysis,
+        src_place: &Place<'tcx>,
+    ) -> Option<Action<'tcx>> {
         // The source must be a local.
         let src_local = if let Place::Local(local) = *src_place {
             local
@@ -218,11 +230,14 @@ impl<'tcx> Action<'tcx> {
         let src_use_count = src_use_info.use_count();
         if src_use_count == 0 {
             debug!("  Can't copy-propagate local: no uses");
-            return None
+            return None;
         }
         if src_use_count != 1 {
-            debug!("  Can't copy-propagate local: {} uses", src_use_info.use_count());
-            return None
+            debug!(
+                "  Can't copy-propagate local: {} uses",
+                src_use_info.use_count()
+            );
+            return None;
         }
 
         // Verify that the source doesn't change in between. This is done conservatively for now,
@@ -246,7 +261,7 @@ impl<'tcx> Action<'tcx> {
                 src_def_count,
                 if is_arg { " (argument)" } else { "" },
             );
-            return None
+            return None;
         }
 
         Some(Action::PropagateLocalCopy(src_local))
@@ -256,12 +271,13 @@ impl<'tcx> Action<'tcx> {
         Some(Action::PropagateConstant((*src_constant).clone()))
     }
 
-    fn perform(self,
-               mir: &mut Mir<'tcx>,
-               def_use_analysis: &DefUseAnalysis<'tcx>,
-               dest_local: Local,
-               location: Location)
-               -> bool {
+    fn perform(
+        self,
+        mir: &mut Mir<'tcx>,
+        def_use_analysis: &DefUseAnalysis<'tcx>,
+        dest_local: Local,
+        location: Location,
+    ) -> bool {
         match self {
             Action::PropagateLocalCopy(src_local) => {
                 // Eliminate the destination and the assignment.
@@ -269,9 +285,10 @@ impl<'tcx> Action<'tcx> {
                 // First, remove all markers.
                 //
                 // FIXME(pcwalton): Don't do this. Merge live ranges instead.
-                debug!("  Replacing all uses of {:?} with {:?} (local)",
-                       dest_local,
-                       src_local);
+                debug!(
+                    "  Replacing all uses of {:?} with {:?} (local)",
+                    dest_local, src_local
+                );
                 for place_use in &def_use_analysis.local_info(dest_local).defs_and_uses {
                     if place_use.context.is_storage_marker() {
                         mir.make_statement_nop(place_use.location)
@@ -296,9 +313,10 @@ impl<'tcx> Action<'tcx> {
                 // First, remove all markers.
                 //
                 // FIXME(pcwalton): Don't do this. Merge live ranges instead.
-                debug!("  Replacing all uses of {:?} with {:?} (constant)",
-                       dest_local,
-                       src_constant);
+                debug!(
+                    "  Replacing all uses of {:?} with {:?} (constant)",
+                    dest_local, src_constant
+                );
                 let dest_local_info = def_use_analysis.local_info(dest_local);
                 for place_use in &dest_local_info.defs_and_uses {
                     if place_use.context.is_storage_marker() {
@@ -307,8 +325,7 @@ impl<'tcx> Action<'tcx> {
                 }
 
                 // Replace all uses of the destination local with the constant.
-                let mut visitor = ConstantPropagationVisitor::new(dest_local,
-                                                                  src_constant);
+                let mut visitor = ConstantPropagationVisitor::new(dest_local, src_constant);
                 for dest_place_use in &dest_local_info.defs_and_uses {
                     visitor.visit_location(mir, dest_place_use.location)
                 }
@@ -318,18 +335,20 @@ impl<'tcx> Action<'tcx> {
                 // must have places on their LHS.
                 let use_count = dest_local_info.use_count();
                 if visitor.uses_replaced == use_count {
-                    debug!("  {} of {} use(s) replaced; deleting assignment",
-                           visitor.uses_replaced,
-                           use_count);
+                    debug!(
+                        "  {} of {} use(s) replaced; deleting assignment",
+                        visitor.uses_replaced, use_count
+                    );
                     mir.make_statement_nop(location);
                     true
                 } else if visitor.uses_replaced == 0 {
                     debug!("  No uses replaced; not deleting assignment");
                     false
                 } else {
-                    debug!("  {} of {} use(s) replaced; not deleting assignment",
-                           visitor.uses_replaced,
-                           use_count);
+                    debug!(
+                        "  {} of {} use(s) replaced; not deleting assignment",
+                        visitor.uses_replaced, use_count
+                    );
                     true
                 }
             }
@@ -344,8 +363,7 @@ struct ConstantPropagationVisitor<'tcx> {
 }
 
 impl<'tcx> ConstantPropagationVisitor<'tcx> {
-    fn new(dest_local: Local, constant: Constant<'tcx>)
-           -> ConstantPropagationVisitor<'tcx> {
+    fn new(dest_local: Local, constant: Constant<'tcx>) -> ConstantPropagationVisitor<'tcx> {
         ConstantPropagationVisitor {
             dest_local,
             constant,
@@ -359,8 +377,8 @@ impl<'tcx> MutVisitor<'tcx> for ConstantPropagationVisitor<'tcx> {
         self.super_operand(operand, location);
 
         match *operand {
-            Operand::Copy(Place::Local(local)) |
-            Operand::Move(Place::Local(local)) if local == self.dest_local => {}
+            Operand::Copy(Place::Local(local)) | Operand::Move(Place::Local(local))
+                if local == self.dest_local => {}
             _ => return,
         }
 

@@ -15,10 +15,9 @@
 //! This API is completely unstable and subject to change.
 
 #![doc(html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
-      html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
-      html_root_url = "https://doc.rust-lang.org/nightly/")]
+       html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
+       html_root_url = "https://doc.rust-lang.org/nightly/")]
 #![deny(warnings)]
-
 #![feature(box_patterns)]
 #![feature(box_syntax)]
 #![feature(custom_attribute)]
@@ -41,11 +40,11 @@ use syntax_pos::symbol::Symbol;
 #[macro_use]
 extern crate bitflags;
 extern crate flate2;
-extern crate libc;
-#[macro_use] extern crate rustc;
 extern crate jobserver;
+extern crate libc;
 extern crate num_cpus;
-extern crate rustc_mir;
+#[macro_use]
+extern crate rustc;
 extern crate rustc_allocator;
 extern crate rustc_apfloat;
 extern crate rustc_back;
@@ -55,16 +54,19 @@ extern crate rustc_data_structures;
 extern crate rustc_demangle;
 extern crate rustc_incremental;
 extern crate rustc_llvm as llvm;
+extern crate rustc_mir;
 extern crate rustc_platform_intrinsics as intrinsics;
 extern crate rustc_trans_utils;
 
-#[macro_use] extern crate log;
-#[macro_use] extern crate syntax;
-extern crate syntax_pos;
-extern crate rustc_errors as errors;
-extern crate serialize;
 #[cfg(windows)]
 extern crate cc; // Used to locate MSVC
+#[macro_use]
+extern crate log;
+extern crate rustc_errors as errors;
+extern crate serialize;
+#[macro_use]
+extern crate syntax;
+extern crate syntax_pos;
 extern crate tempdir;
 
 use back::bytecode::RLIB_BYTECODE_EXTENSION;
@@ -79,11 +81,11 @@ use std::sync::mpsc;
 use rustc::dep_graph::DepGraph;
 use rustc::hir::def_id::CrateNum;
 use rustc::middle::cstore::MetadataLoader;
-use rustc::middle::cstore::{NativeLibrary, CrateSource, LibSource};
-use rustc::session::{Session, CompileIncomplete};
+use rustc::middle::cstore::{CrateSource, LibSource, NativeLibrary};
+use rustc::session::{CompileIncomplete, Session};
 use rustc::session::config::{OutputFilenames, OutputType, PrintRequest};
 use rustc::ty::{self, TyCtxt};
-use rustc::util::nodemap::{FxHashSet, FxHashMap};
+use rustc::util::nodemap::{FxHashMap, FxHashSet};
 use rustc_mir::monomorphize;
 use rustc_trans_utils::trans_crate::TransCrate;
 
@@ -170,14 +172,14 @@ impl TransCrate for LlvmTransCrate {
             }
             PrintRequest::CodeModels => {
                 println!("Available code models:");
-                for &(name, _) in back::write::CODE_GEN_MODEL_ARGS.iter(){
+                for &(name, _) in back::write::CODE_GEN_MODEL_ARGS.iter() {
                     println!("    {}", name);
                 }
                 println!("");
             }
             PrintRequest::TlsModels => {
                 println!("Available TLS models:");
-                for &(name, _) in back::write::TLS_MODEL_ARGS.iter(){
+                for &(name, _) in back::write::TLS_MODEL_ARGS.iter() {
                     println!("    {}", name);
                 }
                 println!("");
@@ -221,7 +223,7 @@ impl TransCrate for LlvmTransCrate {
     fn trans_crate<'a, 'tcx>(
         &self,
         tcx: TyCtxt<'a, 'tcx, 'tcx>,
-        rx: mpsc::Receiver<Box<Any + Send>>
+        rx: mpsc::Receiver<Box<Any + Send>>,
     ) -> Box<Any> {
         box base::trans_crate(tcx, rx)
     }
@@ -232,23 +234,27 @@ impl TransCrate for LlvmTransCrate {
         sess: &Session,
         dep_graph: &DepGraph,
         outputs: &OutputFilenames,
-    ) -> Result<(), CompileIncomplete>{
+    ) -> Result<(), CompileIncomplete> {
         use rustc::util::common::time;
-        let trans = trans.downcast::<::back::write::OngoingCrateTranslation>()
+        let trans = trans
+            .downcast::<::back::write::OngoingCrateTranslation>()
             .expect("Expected LlvmTransCrate's OngoingCrateTranslation, found Box<Any>")
             .join(sess, dep_graph);
         if sess.opts.debugging_opts.incremental_info {
             back::write::dump_incremental_data(&trans);
         }
 
-        time(sess.time_passes(),
-             "serialize work products",
-             move || rustc_incremental::save_work_products(sess, &dep_graph));
+        time(sess.time_passes(), "serialize work products", move || {
+            rustc_incremental::save_work_products(sess, &dep_graph)
+        });
 
         sess.compile_status()?;
 
-        if !sess.opts.output_types.keys().any(|&i| i == OutputType::Exe ||
-                                                   i == OutputType::Metadata) {
+        if !sess.opts
+            .output_types
+            .keys()
+            .any(|&i| i == OutputType::Exe || i == OutputType::Metadata)
+        {
             return Ok(());
         }
 
@@ -299,11 +305,13 @@ impl ModuleTranslation {
         }
     }
 
-    fn into_compiled_module(self,
-                                emit_obj: bool,
-                                emit_bc: bool,
-                                emit_bc_compressed: bool,
-                                outputs: &OutputFilenames) -> CompiledModule {
+    fn into_compiled_module(
+        self,
+        emit_obj: bool,
+        emit_bc: bool,
+        emit_bc_compressed: bool,
+        outputs: &OutputFilenames,
+    ) -> CompiledModule {
         let pre_existing = match self.source {
             ModuleSource::Preexisting(_) => true,
             ModuleSource::Translated(_) => false,
@@ -319,8 +327,11 @@ impl ModuleTranslation {
             None
         };
         let bytecode_compressed = if emit_bc_compressed {
-            Some(outputs.temp_path(OutputType::Bitcode, Some(&self.name))
-                    .with_extension(RLIB_BYTECODE_EXTENSION))
+            Some(
+                outputs
+                    .temp_path(OutputType::Bitcode, Some(&self.name))
+                    .with_extension(RLIB_BYTECODE_EXTENSION),
+            )
         } else {
             None
         };
@@ -363,8 +374,8 @@ struct ModuleLlvm {
     tm: llvm::TargetMachineRef,
 }
 
-unsafe impl Send for ModuleLlvm { }
-unsafe impl Sync for ModuleLlvm { }
+unsafe impl Send for ModuleLlvm {}
+unsafe impl Sync for ModuleLlvm {}
 
 impl Drop for ModuleLlvm {
     fn drop(&mut self) {

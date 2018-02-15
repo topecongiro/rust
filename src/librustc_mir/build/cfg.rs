@@ -8,9 +8,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-
-
-
 //! Routines for manipulating the control-flow graph.
 
 use build::CFG;
@@ -45,11 +42,13 @@ impl<'tcx> CFG<'tcx> {
         self.block_data_mut(block).statements.push(statement);
     }
 
-    pub fn push_end_region<'a, 'gcx:'a+'tcx>(&mut self,
-                                             tcx: TyCtxt<'a, 'gcx, 'tcx>,
-                                             block: BasicBlock,
-                                             source_info: SourceInfo,
-                                             region_scope: region::Scope) {
+    pub fn push_end_region<'a, 'gcx: 'a + 'tcx>(
+        &mut self,
+        tcx: TyCtxt<'a, 'gcx, 'tcx>,
+        block: BasicBlock,
+        source_info: SourceInfo,
+        region_scope: region::Scope,
+    ) {
         if tcx.sess.emit_end_regions() {
             if let region::ScopeData::CallSite(_) = region_scope.data() {
                 // The CallSite scope (aka the root scope) is sort of weird, in that it is
@@ -59,57 +58,77 @@ impl<'tcx> CFG<'tcx> {
                 //
                 // It should die a hopefully painful death with NLL, so let's leave this hack
                 // for now so that nobody can complain about soundness.
-                return
+                return;
             }
 
-            self.push(block, Statement {
-                source_info,
-                kind: StatementKind::EndRegion(region_scope),
-            });
+            self.push(
+                block,
+                Statement {
+                    source_info,
+                    kind: StatementKind::EndRegion(region_scope),
+                },
+            );
         }
     }
 
-    pub fn push_assign(&mut self,
-                       block: BasicBlock,
-                       source_info: SourceInfo,
-                       place: &Place<'tcx>,
-                       rvalue: Rvalue<'tcx>) {
-        self.push(block, Statement {
+    pub fn push_assign(
+        &mut self,
+        block: BasicBlock,
+        source_info: SourceInfo,
+        place: &Place<'tcx>,
+        rvalue: Rvalue<'tcx>,
+    ) {
+        self.push(
+            block,
+            Statement {
+                source_info,
+                kind: StatementKind::Assign(place.clone(), rvalue),
+            },
+        );
+    }
+
+    pub fn push_assign_constant(
+        &mut self,
+        block: BasicBlock,
+        source_info: SourceInfo,
+        temp: &Place<'tcx>,
+        constant: Constant<'tcx>,
+    ) {
+        self.push_assign(
+            block,
             source_info,
-            kind: StatementKind::Assign(place.clone(), rvalue)
-        });
+            temp,
+            Rvalue::Use(Operand::Constant(box constant)),
+        );
     }
 
-    pub fn push_assign_constant(&mut self,
-                                block: BasicBlock,
-                                source_info: SourceInfo,
-                                temp: &Place<'tcx>,
-                                constant: Constant<'tcx>) {
-        self.push_assign(block, source_info, temp,
-                         Rvalue::Use(Operand::Constant(box constant)));
+    pub fn push_assign_unit(
+        &mut self,
+        block: BasicBlock,
+        source_info: SourceInfo,
+        place: &Place<'tcx>,
+    ) {
+        self.push_assign(
+            block,
+            source_info,
+            place,
+            Rvalue::Aggregate(box AggregateKind::Tuple, vec![]),
+        );
     }
 
-    pub fn push_assign_unit(&mut self,
-                            block: BasicBlock,
-                            source_info: SourceInfo,
-                            place: &Place<'tcx>) {
-        self.push_assign(block, source_info, place, Rvalue::Aggregate(
-            box AggregateKind::Tuple, vec![]
-        ));
-    }
-
-    pub fn terminate(&mut self,
-                     block: BasicBlock,
-                     source_info: SourceInfo,
-                     kind: TerminatorKind<'tcx>) {
+    pub fn terminate(
+        &mut self,
+        block: BasicBlock,
+        source_info: SourceInfo,
+        kind: TerminatorKind<'tcx>,
+    ) {
         debug!("terminating block {:?} <- {:?}", block, kind);
-        debug_assert!(self.block_data(block).terminator.is_none(),
-                      "terminate: block {:?}={:?} already has a terminator set",
-                      block,
-                      self.block_data(block));
-        self.block_data_mut(block).terminator = Some(Terminator {
-            source_info,
-            kind,
-        });
+        debug_assert!(
+            self.block_data(block).terminator.is_none(),
+            "terminate: block {:?}={:?} already has a terminator set",
+            block,
+            self.block_data(block)
+        );
+        self.block_data_mut(block).terminator = Some(Terminator { source_info, kind });
     }
 }

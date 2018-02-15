@@ -422,7 +422,7 @@
 #[stable(feature = "rust1", since = "1.0.0")]
 pub use alloc::Bound;
 #[stable(feature = "rust1", since = "1.0.0")]
-pub use alloc::{BinaryHeap, BTreeMap, BTreeSet};
+pub use alloc::{BTreeMap, BTreeSet, BinaryHeap};
 #[stable(feature = "rust1", since = "1.0.0")]
 pub use alloc::{LinkedList, VecDeque};
 #[stable(feature = "rust1", since = "1.0.0")]

@@ -49,7 +49,6 @@ unsafe { simd_add(i32x2(0, 0), i32x2(1, 2)); } // ok!
 
 }
 
-
 register_diagnostics! {
     E0558
 }

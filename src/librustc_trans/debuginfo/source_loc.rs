@@ -20,13 +20,16 @@ use builder::Builder;
 
 use libc::c_uint;
 use std::ptr;
-use syntax_pos::{Span, Pos};
+use syntax_pos::{Pos, Span};
 
 /// Sets the current debug location at the beginning of the span.
 ///
 /// Maps to a call to llvm::LLVMSetCurrentDebugLocation(...).
 pub fn set_source_location(
-    debug_context: &FunctionDebugContext, bx: &Builder, scope: DIScope, span: Span
+    debug_context: &FunctionDebugContext,
+    bx: &Builder,
+    scope: DIScope,
+    span: Span,
 ) {
     let function_debug_context = match *debug_context {
         FunctionDebugContext::DebugInfoDisabled => return,
@@ -34,11 +37,14 @@ pub fn set_source_location(
             set_debug_location(bx, UnknownLocation);
             return;
         }
-        FunctionDebugContext::RegularContext(ref data) => data
+        FunctionDebugContext::RegularContext(ref data) => data,
     };
 
     let dbg_loc = if function_debug_context.source_locations_enabled.get() {
-        debug!("set_source_location: {}", bx.sess().codemap().span_to_string(span));
+        debug!(
+            "set_source_location: {}",
+            bx.sess().codemap().span_to_string(span)
+        );
         let loc = span_start(bx.cx, span);
         InternalDebugLocation::new(scope, loc.line, loc.col.to_usize())
     } else {
@@ -55,27 +61,24 @@ pub fn set_source_location(
 /// first real statement/expression of the function is translated.
 pub fn start_emitting_source_locations(dbg_context: &FunctionDebugContext) {
     match *dbg_context {
-        FunctionDebugContext::RegularContext(ref data) => {
-            data.source_locations_enabled.set(true)
-        },
+        FunctionDebugContext::RegularContext(ref data) => data.source_locations_enabled.set(true),
         _ => { /* safe to ignore */ }
     }
 }
 
-
 #[derive(Copy, Clone, PartialEq)]
 pub enum InternalDebugLocation {
-    KnownLocation { scope: DIScope, line: usize, col: usize },
-    UnknownLocation
+    KnownLocation {
+        scope: DIScope,
+        line: usize,
+        col: usize,
+    },
+    UnknownLocation,
 }
 
 impl InternalDebugLocation {
     pub fn new(scope: DIScope, line: usize, col: usize) -> InternalDebugLocation {
-        KnownLocation {
-            scope,
-            line,
-            col,
-        }
+        KnownLocation { scope, line, col }
     }
 }
 
@@ -92,7 +95,8 @@ pub fn set_debug_location(bx: &Builder, debug_location: InternalDebugLocation) {
                     line as c_uint,
                     col as c_uint,
                     scope,
-                    ptr::null_mut())
+                    ptr::null_mut(),
+                )
             }
         }
         UnknownLocation => {

@@ -108,14 +108,14 @@ use rustc::hir::def_id::DefId;
 use rustc::hir::map::DefPathData;
 use rustc::mir::mono::{Linkage, Visibility};
 use rustc::middle::exported_symbols::SymbolExportLevel;
-use rustc::ty::{self, TyCtxt, InstanceDef};
+use rustc::ty::{self, InstanceDef, TyCtxt};
 use rustc::ty::item_path::characteristic_def_id_of_type;
 use rustc::util::nodemap::{FxHashMap, FxHashSet};
 use std::collections::hash_map::Entry;
 use syntax::ast::NodeId;
-use syntax::symbol::{Symbol, InternedString};
+use syntax::symbol::{InternedString, Symbol};
 use rustc::mir::mono::MonoItem;
-use monomorphize::item::{MonoItemExt, InstantiationMode};
+use monomorphize::item::{InstantiationMode, MonoItemExt};
 use core::usize;
 
 pub use rustc::mir::mono::CodegenUnit;
@@ -125,7 +125,7 @@ pub enum PartitioningStrategy {
     PerModule,
 
     /// Partition the whole crate into a fixed number of codegen units.
-    FixedUnitCount(usize)
+    FixedUnitCount(usize),
 }
 
 pub trait CodegenUnitExt<'tcx> {
@@ -136,7 +136,8 @@ pub trait CodegenUnitExt<'tcx> {
     }
 
     fn name<'a>(&'a self) -> &'a InternedString
-        where 'tcx: 'a,
+    where
+        'tcx: 'a,
     {
         &self.as_codegen_unit().name()
     }
@@ -149,49 +150,52 @@ pub trait CodegenUnitExt<'tcx> {
         WorkProductId::from_cgu_name(self.name())
     }
 
-    fn items_in_deterministic_order<'a>(&self,
-                                        tcx: TyCtxt<'a, 'tcx, 'tcx>)
-                                        -> Vec<(MonoItem<'tcx>,
-                                                (Linkage, Visibility))> {
+    fn items_in_deterministic_order<'a>(
+        &self,
+        tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    ) -> Vec<(MonoItem<'tcx>, (Linkage, Visibility))> {
         // The codegen tests rely on items being process in the same order as
         // they appear in the file, so for local items, we sort by node_id first
         #[derive(PartialEq, Eq, PartialOrd, Ord)]
         pub struct ItemSortKey(Option<NodeId>, ty::SymbolName);
 
-        fn item_sort_key<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                                   item: MonoItem<'tcx>) -> ItemSortKey {
-            ItemSortKey(match item {
-                MonoItem::Fn(ref instance) => {
-                    match instance.def {
-                        // We only want to take NodeIds of user-defined
-                        // instances into account. The others don't matter for
-                        // the codegen tests and can even make item order
-                        // unstable.
-                        InstanceDef::Item(def_id) => {
-                            tcx.hir.as_local_node_id(def_id)
-                        }
-                        InstanceDef::Intrinsic(..) |
-                        InstanceDef::FnPtrShim(..) |
-                        InstanceDef::Virtual(..) |
-                        InstanceDef::ClosureOnceShim { .. } |
-                        InstanceDef::DropGlue(..) |
-                        InstanceDef::CloneShim(..) => {
-                            None
+        fn item_sort_key<'a, 'tcx>(
+            tcx: TyCtxt<'a, 'tcx, 'tcx>,
+            item: MonoItem<'tcx>,
+        ) -> ItemSortKey {
+            ItemSortKey(
+                match item {
+                    MonoItem::Fn(ref instance) => {
+                        match instance.def {
+                            // We only want to take NodeIds of user-defined
+                            // instances into account. The others don't matter for
+                            // the codegen tests and can even make item order
+                            // unstable.
+                            InstanceDef::Item(def_id) => tcx.hir.as_local_node_id(def_id),
+                            InstanceDef::Intrinsic(..)
+                            | InstanceDef::FnPtrShim(..)
+                            | InstanceDef::Virtual(..)
+                            | InstanceDef::ClosureOnceShim { .. }
+                            | InstanceDef::DropGlue(..)
+                            | InstanceDef::CloneShim(..) => None,
                         }
                     }
-                }
-                MonoItem::Static(node_id) |
-                MonoItem::GlobalAsm(node_id) => {
-                    Some(node_id)
-                }
-            }, item.symbol_name(tcx))
+                    MonoItem::Static(node_id) | MonoItem::GlobalAsm(node_id) => Some(node_id),
+                },
+                item.symbol_name(tcx),
+            )
         }
 
         let items: Vec<_> = self.items().iter().map(|(&i, &l)| (i, l)).collect();
-        let mut items : Vec<_> = items.iter()
-            .map(|il| (il, item_sort_key(tcx, il.0))).collect();
+        let mut items: Vec<_> = items
+            .iter()
+            .map(|il| (il, item_sort_key(tcx, il.0)))
+            .collect();
         items.sort_by(|&(_, ref key1), &(_, ref key2)| key1.cmp(key2));
-        items.into_iter().map(|(&item_linkage, _)| item_linkage).collect()
+        items
+            .into_iter()
+            .map(|(&item_linkage, _)| item_linkage)
+            .collect()
     }
 }
 
@@ -212,40 +216,53 @@ fn fallback_cgu_name(tcx: TyCtxt) -> InternedString {
     }
 }
 
-
-pub fn partition<'a, 'tcx, I>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                              trans_items: I,
-                              strategy: PartitioningStrategy,
-                              inlining_map: &InliningMap<'tcx>)
-                              -> Vec<CodegenUnit<'tcx>>
-    where I: Iterator<Item = MonoItem<'tcx>>
+pub fn partition<'a, 'tcx, I>(
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    trans_items: I,
+    strategy: PartitioningStrategy,
+    inlining_map: &InliningMap<'tcx>,
+) -> Vec<CodegenUnit<'tcx>>
+where
+    I: Iterator<Item = MonoItem<'tcx>>,
 {
     // In the first step, we place all regular translation items into their
     // respective 'home' codegen unit. Regular translation items are all
     // functions and statics defined in the local crate.
-    let mut initial_partitioning = place_root_translation_items(tcx,
-                                                                trans_items);
+    let mut initial_partitioning = place_root_translation_items(tcx, trans_items);
 
-    initial_partitioning.codegen_units.iter_mut().for_each(|cgu| cgu.estimate_size(&tcx));
+    initial_partitioning
+        .codegen_units
+        .iter_mut()
+        .for_each(|cgu| cgu.estimate_size(&tcx));
 
-    debug_dump(tcx, "INITIAL PARTITIONING:", initial_partitioning.codegen_units.iter());
+    debug_dump(
+        tcx,
+        "INITIAL PARTITIONING:",
+        initial_partitioning.codegen_units.iter(),
+    );
 
     // If the partitioning should produce a fixed count of codegen units, merge
     // until that count is reached.
     if let PartitioningStrategy::FixedUnitCount(count) = strategy {
         merge_codegen_units(&mut initial_partitioning, count, &tcx.crate_name.as_str());
 
-        debug_dump(tcx, "POST MERGING:", initial_partitioning.codegen_units.iter());
+        debug_dump(
+            tcx,
+            "POST MERGING:",
+            initial_partitioning.codegen_units.iter(),
+        );
     }
 
     // In the next step, we use the inlining map to determine which additional
     // translation items have to go into each codegen unit. These additional
     // translation items can be drop-glue, functions from external crates, and
     // local functions the definition of which is marked with #[inline].
-    let mut post_inlining = place_inlined_translation_items(initial_partitioning,
-                                                            inlining_map);
+    let mut post_inlining = place_inlined_translation_items(initial_partitioning, inlining_map);
 
-    post_inlining.codegen_units.iter_mut().for_each(|cgu| cgu.estimate_size(&tcx));
+    post_inlining
+        .codegen_units
+        .iter_mut()
+        .for_each(|cgu| cgu.estimate_size(&tcx));
 
     debug_dump(tcx, "POST INLINING:", post_inlining.codegen_units.iter());
 
@@ -262,9 +279,7 @@ pub fn partition<'a, 'tcx, I>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
         internalization_candidates: _,
     } = post_inlining;
 
-    result.sort_by(|cgu1, cgu2| {
-        cgu1.name().cmp(cgu2.name())
-    });
+    result.sort_by(|cgu1, cgu2| cgu1.name().cmp(cgu2.name()));
 
     result
 }
@@ -290,10 +305,12 @@ struct PostInliningPartitioning<'tcx> {
     internalization_candidates: FxHashSet<MonoItem<'tcx>>,
 }
 
-fn place_root_translation_items<'a, 'tcx, I>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                                             trans_items: I)
-                                             -> PreInliningPartitioning<'tcx>
-    where I: Iterator<Item = MonoItem<'tcx>>
+fn place_root_translation_items<'a, 'tcx, I>(
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    trans_items: I,
+) -> PreInliningPartitioning<'tcx>
+where
+    I: Iterator<Item = MonoItem<'tcx>>,
 {
     let mut roots = FxHashSet();
     let mut codegen_units = FxHashMap();
@@ -307,25 +324,23 @@ fn place_root_translation_items<'a, 'tcx, I>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
         }
 
         let characteristic_def_id = characteristic_def_id_of_trans_item(tcx, trans_item);
-        let is_volatile = is_incremental_build &&
-                          trans_item.is_generic_fn();
+        let is_volatile = is_incremental_build && trans_item.is_generic_fn();
 
         let codegen_unit_name = match characteristic_def_id {
             Some(def_id) => compute_codegen_unit_name(tcx, def_id, is_volatile),
             None => fallback_cgu_name(tcx),
         };
 
-        let make_codegen_unit = || {
-            CodegenUnit::new(codegen_unit_name.clone())
-        };
+        let make_codegen_unit = || CodegenUnit::new(codegen_unit_name.clone());
 
-        let codegen_unit = codegen_units.entry(codegen_unit_name.clone())
-                                            .or_insert_with(make_codegen_unit);
+        let codegen_unit = codegen_units
+            .entry(codegen_unit_name.clone())
+            .or_insert_with(make_codegen_unit);
 
         let mut can_be_internalized = true;
         let default_visibility = |id: DefId| {
-            if tcx.sess.target.target.options.default_hidden_visibility &&
-                tcx.symbol_export_level(id) != SymbolExportLevel::C
+            if tcx.sess.target.target.options.default_hidden_visibility
+                && tcx.symbol_export_level(id) != SymbolExportLevel::C
             {
                 Visibility::Hidden
             } else {
@@ -371,19 +386,16 @@ fn place_root_translation_items<'a, 'tcx, I>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
                                     Visibility::Hidden
                                 }
                             }
-                            InstanceDef::FnPtrShim(..) |
-                            InstanceDef::Virtual(..) |
-                            InstanceDef::Intrinsic(..) |
-                            InstanceDef::ClosureOnceShim { .. } |
-                            InstanceDef::DropGlue(..) |
-                            InstanceDef::CloneShim(..) => {
-                                Visibility::Hidden
-                            }
+                            InstanceDef::FnPtrShim(..)
+                            | InstanceDef::Virtual(..)
+                            | InstanceDef::Intrinsic(..)
+                            | InstanceDef::ClosureOnceShim { .. }
+                            | InstanceDef::DropGlue(..)
+                            | InstanceDef::CloneShim(..) => Visibility::Hidden,
                         };
                         (Linkage::External, visibility)
                     }
-                    MonoItem::Static(node_id) |
-                    MonoItem::GlobalAsm(node_id) => {
+                    MonoItem::Static(node_id) | MonoItem::GlobalAsm(node_id) => {
                         let def_id = tcx.hir.local_def_id(node_id);
                         let visibility = if tcx.is_exported_symbol(def_id) {
                             can_be_internalized = false;
@@ -400,7 +412,9 @@ fn place_root_translation_items<'a, 'tcx, I>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
             internalization_candidates.insert(trans_item);
         }
 
-        codegen_unit.items_mut().insert(trans_item, (linkage, visibility));
+        codegen_unit
+            .items_mut()
+            .insert(trans_item, (linkage, visibility));
         roots.insert(trans_item);
     }
 
@@ -408,22 +422,27 @@ fn place_root_translation_items<'a, 'tcx, I>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
     // crate with just types (for example), we could wind up with no CGU
     if codegen_units.is_empty() {
         let codegen_unit_name = fallback_cgu_name(tcx);
-        codegen_units.insert(codegen_unit_name.clone(),
-                             CodegenUnit::new(codegen_unit_name.clone()));
+        codegen_units.insert(
+            codegen_unit_name.clone(),
+            CodegenUnit::new(codegen_unit_name.clone()),
+        );
     }
 
     PreInliningPartitioning {
-        codegen_units: codegen_units.into_iter()
-                                    .map(|(_, codegen_unit)| codegen_unit)
-                                    .collect(),
+        codegen_units: codegen_units
+            .into_iter()
+            .map(|(_, codegen_unit)| codegen_unit)
+            .collect(),
         roots,
         internalization_candidates,
     }
 }
 
-fn merge_codegen_units<'tcx>(initial_partitioning: &mut PreInliningPartitioning<'tcx>,
-                             target_cgu_count: usize,
-                             crate_name: &str) {
+fn merge_codegen_units<'tcx>(
+    initial_partitioning: &mut PreInliningPartitioning<'tcx>,
+    target_cgu_count: usize,
+    crate_name: &str,
+) {
     assert!(target_cgu_count >= 1);
     let codegen_units = &mut initial_partitioning.codegen_units;
 
@@ -456,9 +475,10 @@ fn merge_codegen_units<'tcx>(initial_partitioning: &mut PreInliningPartitioning<
     }
 }
 
-fn place_inlined_translation_items<'tcx>(initial_partitioning: PreInliningPartitioning<'tcx>,
-                                         inlining_map: &InliningMap<'tcx>)
-                                         -> PostInliningPartitioning<'tcx> {
+fn place_inlined_translation_items<'tcx>(
+    initial_partitioning: PreInliningPartitioning<'tcx>,
+    inlining_map: &InliningMap<'tcx>,
+) -> PostInliningPartitioning<'tcx> {
     let mut new_partitioning = Vec::new();
     let mut trans_item_placements = FxHashMap();
 
@@ -486,15 +506,17 @@ fn place_inlined_translation_items<'tcx>(initial_partitioning: PreInliningPartit
                 new_codegen_unit.items_mut().insert(trans_item, *linkage);
             } else {
                 if roots.contains(&trans_item) {
-                    bug!("GloballyShared trans-item inlined into other CGU: \
-                          {:?}", trans_item);
+                    bug!(
+                        "GloballyShared trans-item inlined into other CGU: \
+                         {:?}",
+                        trans_item
+                    );
                 }
 
                 // This is a cgu-private copy
-                new_codegen_unit.items_mut().insert(
-                    trans_item,
-                    (Linkage::Internal, Visibility::Default),
-                );
+                new_codegen_unit
+                    .items_mut()
+                    .insert(trans_item, (Linkage::Internal, Visibility::Default));
             }
 
             if !single_codegen_unit {
@@ -513,7 +535,7 @@ fn place_inlined_translation_items<'tcx>(initial_partitioning: PreInliningPartit
                     }
                     Entry::Vacant(e) => {
                         e.insert(TransItemPlacement::SingleCgu {
-                            cgu_name: new_codegen_unit.name().clone()
+                            cgu_name: new_codegen_unit.name().clone(),
                         });
                     }
                 }
@@ -529,9 +551,11 @@ fn place_inlined_translation_items<'tcx>(initial_partitioning: PreInliningPartit
         internalization_candidates,
     };
 
-    fn follow_inlining<'tcx>(trans_item: MonoItem<'tcx>,
-                             inlining_map: &InliningMap<'tcx>,
-                             visited: &mut FxHashSet<MonoItem<'tcx>>) {
+    fn follow_inlining<'tcx>(
+        trans_item: MonoItem<'tcx>,
+        inlining_map: &InliningMap<'tcx>,
+        visited: &mut FxHashSet<MonoItem<'tcx>>,
+    ) {
         if !visited.insert(trans_item) {
             return;
         }
@@ -542,17 +566,19 @@ fn place_inlined_translation_items<'tcx>(initial_partitioning: PreInliningPartit
     }
 }
 
-fn internalize_symbols<'a, 'tcx>(_tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                                 partitioning: &mut PostInliningPartitioning<'tcx>,
-                                 inlining_map: &InliningMap<'tcx>) {
+fn internalize_symbols<'a, 'tcx>(
+    _tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    partitioning: &mut PostInliningPartitioning<'tcx>,
+    inlining_map: &InliningMap<'tcx>,
+) {
     if partitioning.codegen_units.len() == 1 {
         // Fast path for when there is only one codegen unit. In this case we
         // can internalize all candidates, since there is nowhere else they
         // could be accessed from.
         for cgu in &mut partitioning.codegen_units {
             for candidate in &partitioning.internalization_candidates {
-                cgu.items_mut().insert(*candidate,
-                                       (Linkage::Internal, Visibility::Default));
+                cgu.items_mut()
+                    .insert(*candidate, (Linkage::Internal, Visibility::Default));
             }
         }
 
@@ -564,9 +590,10 @@ fn internalize_symbols<'a, 'tcx>(_tcx: TyCtxt<'a, 'tcx, 'tcx>,
     let mut accessor_map: FxHashMap<MonoItem<'tcx>, Vec<MonoItem<'tcx>>> = FxHashMap();
     inlining_map.iter_accesses(|accessor, accessees| {
         for accessee in accessees {
-            accessor_map.entry(*accessee)
-                        .or_insert(Vec::new())
-                        .push(accessor);
+            accessor_map
+                .entry(*accessee)
+                .or_insert(Vec::new())
+                .push(accessor);
         }
     });
 
@@ -576,27 +603,29 @@ fn internalize_symbols<'a, 'tcx>(_tcx: TyCtxt<'a, 'tcx, 'tcx>,
     // accessed from outside its defining codegen unit.
     for cgu in &mut partitioning.codegen_units {
         let home_cgu = TransItemPlacement::SingleCgu {
-            cgu_name: cgu.name().clone()
+            cgu_name: cgu.name().clone(),
         };
 
         for (accessee, linkage_and_visibility) in cgu.items_mut() {
             if !partitioning.internalization_candidates.contains(accessee) {
                 // This item is no candidate for internalizing, so skip it.
-                continue
+                continue;
             }
             debug_assert_eq!(trans_item_placements[accessee], home_cgu);
 
             if let Some(accessors) = accessor_map.get(accessee) {
-                if accessors.iter()
-                            .filter_map(|accessor| {
-                                // Some accessors might not have been
-                                // instantiated. We can safely ignore those.
-                                trans_item_placements.get(accessor)
-                            })
-                            .any(|placement| *placement != home_cgu) {
+                if accessors
+                    .iter()
+                    .filter_map(|accessor| {
+                        // Some accessors might not have been
+                        // instantiated. We can safely ignore those.
+                        trans_item_placements.get(accessor)
+                    })
+                    .any(|placement| *placement != home_cgu)
+                {
                     // Found an accessor from another CGU, so skip to the next
                     // item without marking this one as internal.
-                    continue
+                    continue;
                 }
             }
 
@@ -607,19 +636,20 @@ fn internalize_symbols<'a, 'tcx>(_tcx: TyCtxt<'a, 'tcx, 'tcx>,
     }
 }
 
-fn characteristic_def_id_of_trans_item<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                                                 trans_item: MonoItem<'tcx>)
-                                                 -> Option<DefId> {
+fn characteristic_def_id_of_trans_item<'a, 'tcx>(
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    trans_item: MonoItem<'tcx>,
+) -> Option<DefId> {
     match trans_item {
         MonoItem::Fn(instance) => {
             let def_id = match instance.def {
                 ty::InstanceDef::Item(def_id) => def_id,
-                ty::InstanceDef::FnPtrShim(..) |
-                ty::InstanceDef::ClosureOnceShim { .. } |
-                ty::InstanceDef::Intrinsic(..) |
-                ty::InstanceDef::DropGlue(..) |
-                ty::InstanceDef::Virtual(..) |
-                ty::InstanceDef::CloneShim(..) => return None
+                ty::InstanceDef::FnPtrShim(..)
+                | ty::InstanceDef::ClosureOnceShim { .. }
+                | ty::InstanceDef::Intrinsic(..)
+                | ty::InstanceDef::DropGlue(..)
+                | ty::InstanceDef::Virtual(..)
+                | ty::InstanceDef::CloneShim(..) => return None,
             };
 
             // If this is a method, we want to put it into the same module as
@@ -643,15 +673,17 @@ fn characteristic_def_id_of_trans_item<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
 
             Some(def_id)
         }
-        MonoItem::Static(node_id) |
-        MonoItem::GlobalAsm(node_id) => Some(tcx.hir.local_def_id(node_id)),
+        MonoItem::Static(node_id) | MonoItem::GlobalAsm(node_id) => {
+            Some(tcx.hir.local_def_id(node_id))
+        }
     }
 }
 
-fn compute_codegen_unit_name<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                                       def_id: DefId,
-                                       volatile: bool)
-                                       -> InternedString {
+fn compute_codegen_unit_name<'a, 'tcx>(
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    def_id: DefId,
+    volatile: bool,
+) -> InternedString {
     // Unfortunately we cannot just use the `ty::item_path` infrastructure here
     // because we need paths to modules and the DefIds of those are not
     // available anymore for external items.
@@ -661,14 +693,12 @@ fn compute_codegen_unit_name<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
     cgu_name.push_str(&tcx.crate_name(def_path.krate).as_str());
 
     for part in tcx.def_path(def_id)
-                   .data
-                   .iter()
-                   .take_while(|part| {
-                        match part.data {
-                            DefPathData::Module(..) => true,
-                            _ => false,
-                        }
-                    }) {
+        .data
+        .iter()
+        .take_while(|part| match part.data {
+            DefPathData::Module(..) => true,
+            _ => false,
+        }) {
         cgu_name.push_str("-");
         cgu_name.push_str(&part.data.as_interned_str());
     }
@@ -690,11 +720,10 @@ fn numbered_codegen_unit_name(crate_name: &str, index: usize) -> InternedString 
     Symbol::intern(&format!("{}{}", crate_name, index)).as_str()
 }
 
-fn debug_dump<'a, 'b, 'tcx, I>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                               label: &str,
-                               cgus: I)
-    where I: Iterator<Item=&'b CodegenUnit<'tcx>>,
-          'tcx: 'a + 'b
+fn debug_dump<'a, 'b, 'tcx, I>(tcx: TyCtxt<'a, 'tcx, 'tcx>, label: &str, cgus: I)
+where
+    I: Iterator<Item = &'b CodegenUnit<'tcx>>,
+    'tcx: 'a + 'b,
 {
     if cfg!(debug_assertions) {
         debug!("{}", label);
@@ -704,13 +733,16 @@ fn debug_dump<'a, 'b, 'tcx, I>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
             for (trans_item, linkage) in cgu.items() {
                 let symbol_name = trans_item.symbol_name(tcx);
                 let symbol_hash_start = symbol_name.rfind('h');
-                let symbol_hash = symbol_hash_start.map(|i| &symbol_name[i ..])
-                                                   .unwrap_or("<no hash>");
+                let symbol_hash = symbol_hash_start
+                    .map(|i| &symbol_name[i..])
+                    .unwrap_or("<no hash>");
 
-                debug!(" - {} [{:?}] [{}]",
-                       trans_item.to_string(tcx),
-                       linkage,
-                       symbol_hash);
+                debug!(
+                    " - {} [{:?}] [{}]",
+                    trans_item.to_string(tcx),
+                    linkage,
+                    symbol_hash
+                );
             }
 
             debug!("");

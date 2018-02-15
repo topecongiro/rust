@@ -15,7 +15,7 @@ extern crate rustc_apfloat;
 
 use rustc_apfloat::{Category, ExpInt, IEK_INF, IEK_NAN, IEK_ZERO};
 use rustc_apfloat::{Float, FloatConvert, ParseError, Round, Status};
-use rustc_apfloat::ieee::{Half, Single, Double, Quad, X87DoubleExtended};
+use rustc_apfloat::ieee::{Double, Half, Quad, Single, X87DoubleExtended};
 
 trait SingleExt {
     fn from_f32(input: f32) -> Self;
@@ -719,7 +719,6 @@ fn decimal_strings_without_null_terminators() {
     assert_eq!(val.to_f64(), 0.00);
     let val = "0e+3"[..4].parse::<Double>().unwrap();
     assert_eq!(val.to_f64(), 0.00);
-
 }
 
 #[test]
@@ -767,7 +766,6 @@ fn from_zero_decimal_single_exponent_string() {
     assert_eq!(0.0, "+0e-1".parse::<Double>().unwrap().to_f64());
     assert_eq!(-0.0, "-0e-1".parse::<Double>().unwrap().to_f64());
 
-
     assert_eq!(0.0, "0.e1".parse::<Double>().unwrap().to_f64());
     assert_eq!(0.0, "+0.e1".parse::<Double>().unwrap().to_f64());
     assert_eq!(-0.0, "-0.e1".parse::<Double>().unwrap().to_f64());
@@ -792,7 +790,6 @@ fn from_zero_decimal_single_exponent_string() {
     assert_eq!(0.0, "+.0e-1".parse::<Double>().unwrap().to_f64());
     assert_eq!(-0.0, "-.0e-1".parse::<Double>().unwrap().to_f64());
 
-
     assert_eq!(0.0, "0.0e1".parse::<Double>().unwrap().to_f64());
     assert_eq!(0.0, "+0.0e1".parse::<Double>().unwrap().to_f64());
     assert_eq!(-0.0, "-0.0e1".parse::<Double>().unwrap().to_f64());
@@ -804,7 +801,6 @@ fn from_zero_decimal_single_exponent_string() {
     assert_eq!(0.0, "0.0e-1".parse::<Double>().unwrap().to_f64());
     assert_eq!(0.0, "+0.0e-1".parse::<Double>().unwrap().to_f64());
     assert_eq!(-0.0, "-0.0e-1".parse::<Double>().unwrap().to_f64());
-
 
     assert_eq!(0.0, "000.0000e1".parse::<Double>().unwrap().to_f64());
     assert_eq!(0.0, "+000.0000e+1".parse::<Double>().unwrap().to_f64());
@@ -843,7 +839,6 @@ fn from_zero_hexadecimal_string() {
     assert_eq!(0.0, "+0x0p-1".parse::<Double>().unwrap().to_f64());
     assert_eq!(-0.0, "-0x0p-1".parse::<Double>().unwrap().to_f64());
 
-
     assert_eq!(0.0, "0x0.p1".parse::<Double>().unwrap().to_f64());
     assert_eq!(0.0, "+0x0.p1".parse::<Double>().unwrap().to_f64());
     assert_eq!(-0.0, "-0x0.p1".parse::<Double>().unwrap().to_f64());
@@ -855,7 +850,6 @@ fn from_zero_hexadecimal_string() {
     assert_eq!(0.0, "0x0.p-1".parse::<Double>().unwrap().to_f64());
     assert_eq!(0.0, "+0x0.p-1".parse::<Double>().unwrap().to_f64());
     assert_eq!(-0.0, "-0x0.p-1".parse::<Double>().unwrap().to_f64());
-
 
     assert_eq!(0.0, "0x.0p1".parse::<Double>().unwrap().to_f64());
     assert_eq!(0.0, "+0x.0p1".parse::<Double>().unwrap().to_f64());
@@ -869,7 +863,6 @@ fn from_zero_hexadecimal_string() {
     assert_eq!(0.0, "+0x.0p-1".parse::<Double>().unwrap().to_f64());
     assert_eq!(-0.0, "-0x.0p-1".parse::<Double>().unwrap().to_f64());
 
-
     assert_eq!(0.0, "0x0.0p1".parse::<Double>().unwrap().to_f64());
     assert_eq!(0.0, "+0x0.0p1".parse::<Double>().unwrap().to_f64());
     assert_eq!(-0.0, "-0x0.0p1".parse::<Double>().unwrap().to_f64());
@@ -881,7 +874,6 @@ fn from_zero_hexadecimal_string() {
     assert_eq!(0.0, "0x0.0p-1".parse::<Double>().unwrap().to_f64());
     assert_eq!(0.0, "+0x0.0p-1".parse::<Double>().unwrap().to_f64());
     assert_eq!(-0.0, "-0x0.0p-1".parse::<Double>().unwrap().to_f64());
-
 
     assert_eq!(0.0, "0x00000.p1".parse::<Double>().unwrap().to_f64());
     assert_eq!(0.0, "0x0000.00000p1".parse::<Double>().unwrap().to_f64());
@@ -952,7 +944,6 @@ fn from_hexadecimal_string() {
     assert_eq!(1.0, "+0x1p-0".parse::<Double>().unwrap().to_f64());
     assert_eq!(-1.0, "-0x1p-0".parse::<Double>().unwrap().to_f64());
 
-
     assert_eq!(2.0, "0x1p1".parse::<Double>().unwrap().to_f64());
     assert_eq!(2.0, "+0x1p1".parse::<Double>().unwrap().to_f64());
     assert_eq!(-2.0, "-0x1p1".parse::<Double>().unwrap().to_f64());
@@ -965,7 +956,6 @@ fn from_hexadecimal_string() {
     assert_eq!(0.5, "+0x1p-1".parse::<Double>().unwrap().to_f64());
     assert_eq!(-0.5, "-0x1p-1".parse::<Double>().unwrap().to_f64());
 
-
     assert_eq!(3.0, "0x1.8p1".parse::<Double>().unwrap().to_f64());
     assert_eq!(3.0, "+0x1.8p1".parse::<Double>().unwrap().to_f64());
     assert_eq!(-3.0, "-0x1.8p1".parse::<Double>().unwrap().to_f64());
@@ -977,7 +967,6 @@ fn from_hexadecimal_string() {
     assert_eq!(0.75, "0x1.8p-1".parse::<Double>().unwrap().to_f64());
     assert_eq!(0.75, "+0x1.8p-1".parse::<Double>().unwrap().to_f64());
     assert_eq!(-0.75, "-0x1.8p-1".parse::<Double>().unwrap().to_f64());
-
 
     assert_eq!(8192.0, "0x1000.000p1".parse::<Double>().unwrap().to_f64());
     assert_eq!(8192.0, "+0x1000.000p1".parse::<Double>().unwrap().to_f64());
@@ -997,7 +986,6 @@ fn from_hexadecimal_string() {
         "-0x1000.000p-1".parse::<Double>().unwrap().to_f64()
     );
 
-
     assert_eq!(8192.0, "0x1000p1".parse::<Double>().unwrap().to_f64());
     assert_eq!(8192.0, "+0x1000p1".parse::<Double>().unwrap().to_f64());
     assert_eq!(-8192.0, "-0x1000p1".parse::<Double>().unwrap().to_f64());
@@ -1009,7 +997,6 @@ fn from_hexadecimal_string() {
     assert_eq!(2048.0, "0x1000p-1".parse::<Double>().unwrap().to_f64());
     assert_eq!(2048.0, "+0x1000p-1".parse::<Double>().unwrap().to_f64());
     assert_eq!(-2048.0, "-0x1000p-1".parse::<Double>().unwrap().to_f64());
-
 
     assert_eq!(16384.0, "0x10p10".parse::<Double>().unwrap().to_f64());
     assert_eq!(16384.0, "+0x10p10".parse::<Double>().unwrap().to_f64());
@@ -1113,71 +1100,61 @@ fn to_integer() {
 
     assert_eq!(
         Status::OK.and(10),
-        "10".parse::<Double>().unwrap().to_u128_r(
-            5,
-            Round::TowardZero,
-            &mut is_exact,
-        )
+        "10".parse::<Double>()
+            .unwrap()
+            .to_u128_r(5, Round::TowardZero, &mut is_exact,)
     );
     assert!(is_exact);
 
     assert_eq!(
         Status::INVALID_OP.and(0),
-        "-10".parse::<Double>().unwrap().to_u128_r(
-            5,
-            Round::TowardZero,
-            &mut is_exact,
-        )
+        "-10"
+            .parse::<Double>()
+            .unwrap()
+            .to_u128_r(5, Round::TowardZero, &mut is_exact,)
     );
     assert!(!is_exact);
 
     assert_eq!(
         Status::INVALID_OP.and(31),
-        "32".parse::<Double>().unwrap().to_u128_r(
-            5,
-            Round::TowardZero,
-            &mut is_exact,
-        )
+        "32".parse::<Double>()
+            .unwrap()
+            .to_u128_r(5, Round::TowardZero, &mut is_exact,)
     );
     assert!(!is_exact);
 
     assert_eq!(
         Status::INEXACT.and(7),
-        "7.9".parse::<Double>().unwrap().to_u128_r(
-            5,
-            Round::TowardZero,
-            &mut is_exact,
-        )
+        "7.9"
+            .parse::<Double>()
+            .unwrap()
+            .to_u128_r(5, Round::TowardZero, &mut is_exact,)
     );
     assert!(!is_exact);
 
     assert_eq!(
         Status::OK.and(-10),
-        "-10".parse::<Double>().unwrap().to_i128_r(
-            5,
-            Round::TowardZero,
-            &mut is_exact,
-        )
+        "-10"
+            .parse::<Double>()
+            .unwrap()
+            .to_i128_r(5, Round::TowardZero, &mut is_exact,)
     );
     assert!(is_exact);
 
     assert_eq!(
         Status::INVALID_OP.and(-16),
-        "-17".parse::<Double>().unwrap().to_i128_r(
-            5,
-            Round::TowardZero,
-            &mut is_exact,
-        )
+        "-17"
+            .parse::<Double>()
+            .unwrap()
+            .to_i128_r(5, Round::TowardZero, &mut is_exact,)
     );
     assert!(!is_exact);
 
     assert_eq!(
         Status::INVALID_OP.and(15),
-        "16".parse::<Double>().unwrap().to_i128_r(
-            5,
-            Round::TowardZero,
-            &mut is_exact,
-        )
+        "16".parse::<Double>()
+            .unwrap()
+            .to_i128_r(5, Round::TowardZero, &mut is_exact,)
     );
     assert!(!is_exact);
 }
@@ -1300,7 +1277,6 @@ fn string_decimal_significand_death() {
         Err(ParseError("Significand has no digits"))
     );
 
-
     assert_eq!(
         "e".parse::<Double>(),
         Err(ParseError("Significand has no digits"))
@@ -1339,7 +1315,6 @@ fn string_decimal_significand_death() {
         "-.e1".parse::<Double>(),
         Err(ParseError("Significand has no digits"))
     );
-
 
     assert_eq!(
         ".e".parse::<Double>(),
@@ -1408,7 +1383,6 @@ fn string_decimal_exponent_death() {
         "-1.1e".parse::<Double>(),
         Err(ParseError("Exponent has no digits"))
     );
-
 
     assert_eq!(
         "1e+".parse::<Double>(),
@@ -1606,7 +1580,6 @@ fn string_hexadecimal_significand_death() {
         Err(ParseError("Significand has no digits"))
     );
 
-
     assert_eq!(
         "0x.p".parse::<Double>(),
         Err(ParseError("Significand has no digits"))
@@ -1688,7 +1661,6 @@ fn string_hexadecimal_exponent_death() {
         Err(ParseError("Exponent has no digits"))
     );
 
-
     assert_eq!(
         "0x1.p".parse::<Double>(),
         Err(ParseError("Exponent has no digits"))
@@ -1728,7 +1700,6 @@ fn string_hexadecimal_exponent_death() {
         Err(ParseError("Exponent has no digits"))
     );
 
-
     assert_eq!(
         "0x.1p".parse::<Double>(),
         Err(ParseError("Exponent has no digits"))
@@ -1767,7 +1738,6 @@ fn string_hexadecimal_exponent_death() {
         "-0x.1p-".parse::<Double>(),
         Err(ParseError("Exponent has no digits"))
     );
-
 
     assert_eq!(
         "0x1.1p".parse::<Double>(),
@@ -2046,26 +2016,22 @@ fn zero() {
 
 #[test]
 fn copy_sign() {
-    assert!(Double::from_f64(-42.0).bitwise_eq(
-        Double::from_f64(42.0).copy_sign(
-            Double::from_f64(-1.0),
-        ),
-    ));
-    assert!(Double::from_f64(42.0).bitwise_eq(
-        Double::from_f64(-42.0).copy_sign(
-            Double::from_f64(1.0),
-        ),
-    ));
-    assert!(Double::from_f64(-42.0).bitwise_eq(
-        Double::from_f64(-42.0).copy_sign(
-            Double::from_f64(-1.0),
-        ),
-    ));
-    assert!(Double::from_f64(42.0).bitwise_eq(
-        Double::from_f64(42.0).copy_sign(
-            Double::from_f64(1.0),
-        ),
-    ));
+    assert!(
+        Double::from_f64(-42.0)
+            .bitwise_eq(Double::from_f64(42.0).copy_sign(Double::from_f64(-1.0),),)
+    );
+    assert!(
+        Double::from_f64(42.0)
+            .bitwise_eq(Double::from_f64(-42.0).copy_sign(Double::from_f64(1.0),),)
+    );
+    assert!(
+        Double::from_f64(-42.0)
+            .bitwise_eq(Double::from_f64(-42.0).copy_sign(Double::from_f64(-1.0),),)
+    );
+    assert!(
+        Double::from_f64(42.0)
+            .bitwise_eq(Double::from_f64(42.0).copy_sign(Double::from_f64(1.0),),)
+    );
 }
 
 #[test]
@@ -6370,12 +6336,8 @@ fn abs() {
     assert!(p_largest_value.bitwise_eq(m_largest_value.abs()));
     assert!(p_smallest_value.bitwise_eq(p_smallest_value.abs()));
     assert!(p_smallest_value.bitwise_eq(m_smallest_value.abs()));
-    assert!(p_smallest_normalized.bitwise_eq(
-        p_smallest_normalized.abs(),
-    ));
-    assert!(p_smallest_normalized.bitwise_eq(
-        m_smallest_normalized.abs(),
-    ));
+    assert!(p_smallest_normalized.bitwise_eq(p_smallest_normalized.abs(),));
+    assert!(p_smallest_normalized.bitwise_eq(m_smallest_normalized.abs(),));
 }
 
 #[test]
@@ -6430,7 +6392,6 @@ fn ilogb() {
     assert_eq!(1023, Double::largest().ilogb());
     assert_eq!(1023, (-Double::largest()).ilogb());
 
-
     assert_eq!(0, "0x1p+0".parse::<Single>().unwrap().ilogb());
     assert_eq!(0, "-0x1p+0".parse::<Single>().unwrap().ilogb());
     assert_eq!(42, "0x1p+42".parse::<Single>().unwrap().ilogb());
@@ -6454,15 +6415,24 @@ fn ilogb() {
 
 #[test]
 fn scalbn() {
-    assert!("0x1p+0".parse::<Single>().unwrap().bitwise_eq(
-        "0x1p+0".parse::<Single>().unwrap().scalbn(0),
-    ));
-    assert!("0x1p+42".parse::<Single>().unwrap().bitwise_eq(
-        "0x1p+0".parse::<Single>().unwrap().scalbn(42),
-    ));
-    assert!("0x1p-42".parse::<Single>().unwrap().bitwise_eq(
-        "0x1p+0".parse::<Single>().unwrap().scalbn(-42),
-    ));
+    assert!(
+        "0x1p+0"
+            .parse::<Single>()
+            .unwrap()
+            .bitwise_eq("0x1p+0".parse::<Single>().unwrap().scalbn(0),)
+    );
+    assert!(
+        "0x1p+42"
+            .parse::<Single>()
+            .unwrap()
+            .bitwise_eq("0x1p+0".parse::<Single>().unwrap().scalbn(42),)
+    );
+    assert!(
+        "0x1p-42"
+            .parse::<Single>()
+            .unwrap()
+            .bitwise_eq("0x1p+0".parse::<Single>().unwrap().scalbn(-42),)
+    );
 
     let p_inf = Single::INFINITY;
     let m_inf = -Single::INFINITY;
@@ -6491,28 +6461,18 @@ fn scalbn() {
     assert!(quiet_payload.is_nan() && !quiet_payload.is_signaling());
     assert_eq!(payload, quiet_payload.to_bits() & ((1 << 51) - 1));
 
-    assert!(p_inf.bitwise_eq(
-        "0x1p+0".parse::<Single>().unwrap().scalbn(128),
-    ));
-    assert!(m_inf.bitwise_eq(
-        "-0x1p+0".parse::<Single>().unwrap().scalbn(128),
-    ));
-    assert!(p_inf.bitwise_eq(
-        "0x1p+127".parse::<Single>().unwrap().scalbn(1),
-    ));
-    assert!(p_zero.bitwise_eq(
-        "0x1p-127".parse::<Single>().unwrap().scalbn(-127),
-    ));
-    assert!(m_zero.bitwise_eq(
-        "-0x1p-127".parse::<Single>().unwrap().scalbn(-127),
-    ));
-    assert!("-0x1p-149".parse::<Single>().unwrap().bitwise_eq(
-        "-0x1p-127".parse::<Single>().unwrap().scalbn(-22),
-    ));
-    assert!(p_zero.bitwise_eq(
-        "0x1p-126".parse::<Single>().unwrap().scalbn(-24),
-    ));
-
+    assert!(p_inf.bitwise_eq("0x1p+0".parse::<Single>().unwrap().scalbn(128),));
+    assert!(m_inf.bitwise_eq("-0x1p+0".parse::<Single>().unwrap().scalbn(128),));
+    assert!(p_inf.bitwise_eq("0x1p+127".parse::<Single>().unwrap().scalbn(1),));
+    assert!(p_zero.bitwise_eq("0x1p-127".parse::<Single>().unwrap().scalbn(-127),));
+    assert!(m_zero.bitwise_eq("-0x1p-127".parse::<Single>().unwrap().scalbn(-127),));
+    assert!(
+        "-0x1p-149"
+            .parse::<Single>()
+            .unwrap()
+            .bitwise_eq("-0x1p-127".parse::<Single>().unwrap().scalbn(-22),)
+    );
+    assert!(p_zero.bitwise_eq("0x1p-126".parse::<Single>().unwrap().scalbn(-24),));
 
     let smallest_f64 = Double::SMALLEST;
     let neg_smallest_f64 = -Double::SMALLEST;
@@ -6523,33 +6483,31 @@ fn scalbn() {
     let largest_denormal_f64 = "0x1.ffffffffffffep-1023".parse::<Double>().unwrap();
     let neg_largest_denormal_f64 = "-0x1.ffffffffffffep-1023".parse::<Double>().unwrap();
 
+    assert!(smallest_f64.bitwise_eq("0x1p-1074".parse::<Double>().unwrap().scalbn(0),));
+    assert!(neg_smallest_f64.bitwise_eq("-0x1p-1074".parse::<Double>().unwrap().scalbn(0),));
 
-    assert!(smallest_f64.bitwise_eq(
-        "0x1p-1074".parse::<Double>().unwrap().scalbn(0),
-    ));
-    assert!(neg_smallest_f64.bitwise_eq(
-        "-0x1p-1074".parse::<Double>().unwrap().scalbn(0),
-    ));
-
-    assert!("0x1p+1023".parse::<Double>().unwrap().bitwise_eq(
-        smallest_f64.scalbn(
-            2097,
-        ),
-    ));
+    assert!(
+        "0x1p+1023"
+            .parse::<Double>()
+            .unwrap()
+            .bitwise_eq(smallest_f64.scalbn(2097,),)
+    );
 
     assert!(smallest_f64.scalbn(-2097).is_pos_zero());
     assert!(smallest_f64.scalbn(-2098).is_pos_zero());
     assert!(smallest_f64.scalbn(-2099).is_pos_zero());
-    assert!("0x1p+1022".parse::<Double>().unwrap().bitwise_eq(
-        smallest_f64.scalbn(
-            2096,
-        ),
-    ));
-    assert!("0x1p+1023".parse::<Double>().unwrap().bitwise_eq(
-        smallest_f64.scalbn(
-            2097,
-        ),
-    ));
+    assert!(
+        "0x1p+1022"
+            .parse::<Double>()
+            .unwrap()
+            .bitwise_eq(smallest_f64.scalbn(2096,),)
+    );
+    assert!(
+        "0x1p+1023"
+            .parse::<Double>()
+            .unwrap()
+            .bitwise_eq(smallest_f64.scalbn(2097,),)
+    );
     assert!(smallest_f64.scalbn(2098).is_infinite());
     assert!(smallest_f64.scalbn(2099).is_infinite());
 
@@ -6557,12 +6515,8 @@ fn scalbn() {
     assert!(smallest_f64.scalbn(-ExpInt::max_value()).is_pos_zero());
     assert!(largest_f64.scalbn(ExpInt::max_value()).is_infinite());
 
-    assert!(largest_denormal_f64.bitwise_eq(
-        largest_denormal_f64.scalbn(0),
-    ));
-    assert!(neg_largest_denormal_f64.bitwise_eq(
-        neg_largest_denormal_f64.scalbn(0),
-    ));
+    assert!(largest_denormal_f64.bitwise_eq(largest_denormal_f64.scalbn(0),));
+    assert!(neg_largest_denormal_f64.bitwise_eq(neg_largest_denormal_f64.scalbn(0),));
 
     assert!(
         "0x1.ffffffffffffep-1022"
@@ -6614,11 +6568,12 @@ fn scalbn() {
             .unwrap()
             .bitwise_eq(largest_denormal_f64.scalbn(2046))
     );
-    assert!("0x1p+974".parse::<Double>().unwrap().bitwise_eq(
-        smallest_f64.scalbn(
-            2048,
-        ),
-    ));
+    assert!(
+        "0x1p+974"
+            .parse::<Double>()
+            .unwrap()
+            .bitwise_eq(smallest_f64.scalbn(2048,),)
+    );
 
     let random_denormal_f64 = "0x1.c60f120d9f87cp+51".parse::<Double>().unwrap();
     assert!(
@@ -6649,40 +6604,55 @@ fn scalbn() {
     assert!(random_denormal_f64.scalbn(-2097).is_pos_zero());
     assert!(random_denormal_f64.scalbn(-2090).is_pos_zero());
 
+    assert!(
+        "-0x1p-1073"
+            .parse::<Double>()
+            .unwrap()
+            .bitwise_eq(neg_largest_f64.scalbn(-2097),)
+    );
 
-    assert!("-0x1p-1073".parse::<Double>().unwrap().bitwise_eq(
-        neg_largest_f64.scalbn(-2097),
-    ));
+    assert!(
+        "-0x1p-1024"
+            .parse::<Double>()
+            .unwrap()
+            .bitwise_eq(neg_largest_f64.scalbn(-2048),)
+    );
 
-    assert!("-0x1p-1024".parse::<Double>().unwrap().bitwise_eq(
-        neg_largest_f64.scalbn(-2048),
-    ));
+    assert!(
+        "0x1p-1073"
+            .parse::<Double>()
+            .unwrap()
+            .bitwise_eq(largest_f64.scalbn(-2097,),)
+    );
 
-    assert!("0x1p-1073".parse::<Double>().unwrap().bitwise_eq(
-        largest_f64.scalbn(
-            -2097,
-        ),
-    ));
-
-    assert!("0x1p-1074".parse::<Double>().unwrap().bitwise_eq(
-        largest_f64.scalbn(
-            -2098,
-        ),
-    ));
-    assert!("-0x1p-1074".parse::<Double>().unwrap().bitwise_eq(
-        neg_largest_f64.scalbn(-2098),
-    ));
+    assert!(
+        "0x1p-1074"
+            .parse::<Double>()
+            .unwrap()
+            .bitwise_eq(largest_f64.scalbn(-2098,),)
+    );
+    assert!(
+        "-0x1p-1074"
+            .parse::<Double>()
+            .unwrap()
+            .bitwise_eq(neg_largest_f64.scalbn(-2098),)
+    );
     assert!(neg_largest_f64.scalbn(-2099).is_neg_zero());
     assert!(largest_f64.scalbn(1).is_infinite());
 
+    assert!(
+        "0x1p+0"
+            .parse::<Double>()
+            .unwrap()
+            .bitwise_eq("0x1p+52".parse::<Double>().unwrap().scalbn(-52),)
+    );
 
-    assert!("0x1p+0".parse::<Double>().unwrap().bitwise_eq(
-        "0x1p+52".parse::<Double>().unwrap().scalbn(-52),
-    ));
-
-    assert!("0x1p-103".parse::<Double>().unwrap().bitwise_eq(
-        "0x1p-51".parse::<Double>().unwrap().scalbn(-52),
-    ));
+    assert!(
+        "0x1p-103"
+            .parse::<Double>()
+            .unwrap()
+            .bitwise_eq("0x1p-51".parse::<Double>().unwrap().scalbn(-52),)
+    );
 }
 
 #[test]
@@ -6723,7 +6693,6 @@ fn frexp() {
     assert_eq!(0, exp);
     assert!(frac.is_neg_zero());
 
-
     let frac = one.frexp(&mut exp);
     assert_eq!(1, exp);
     assert!("0x1p-1".parse::<Double>().unwrap().bitwise_eq(frac));
@@ -6750,7 +6719,6 @@ fn frexp() {
             .bitwise_eq(frac)
     );
 
-
     let frac = smallest.frexp(&mut exp);
     assert_eq!(-1073, exp);
     assert!("0x1p-1".parse::<Double>().unwrap().bitwise_eq(frac));
@@ -6758,7 +6726,6 @@ fn frexp() {
     let frac = neg_smallest.frexp(&mut exp);
     assert_eq!(-1073, exp);
     assert!("-0x1p-1".parse::<Double>().unwrap().bitwise_eq(frac));
-
 
     let frac = largest.frexp(&mut exp);
     assert_eq!(1024, exp);
@@ -6777,7 +6744,6 @@ fn frexp() {
             .unwrap()
             .bitwise_eq(frac)
     );
-
 
     let frac = p_inf.frexp(&mut exp);
     assert_eq!(IEK_INF, exp);
@@ -6812,9 +6778,10 @@ fn frexp() {
     assert_eq!(-50, exp);
     assert!("0x1p-1".parse::<Double>().unwrap().bitwise_eq(frac));
 
-    let frac = "0x1.c60f120d9f87cp+51".parse::<Double>().unwrap().frexp(
-        &mut exp,
-    );
+    let frac = "0x1.c60f120d9f87cp+51"
+        .parse::<Double>()
+        .unwrap()
+        .frexp(&mut exp);
     assert_eq!(52, exp);
     assert!(
         "0x1.c60f120d9f87cp-1"
@@ -6844,7 +6811,7 @@ fn modulo() {
     {
         let f1 = "0x1.3333333333333p-2".parse::<Double>().unwrap(); // 0.3
         let f2 = "0x1.47ae147ae147bp-7".parse::<Double>().unwrap(); // 0.01
-        // 0.009999999999999983
+                                                                    // 0.009999999999999983
         let expected = "0x1.47ae147ae1471p-7".parse::<Double>().unwrap();
         assert!(unpack!(status=, f1 % f2).bitwise_eq(expected));
         assert_eq!(status, Status::OK);

@@ -18,7 +18,7 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use session::search_paths::{SearchPaths, PathKind};
+use session::search_paths::{PathKind, SearchPaths};
 use util::fs as rustcfs;
 
 #[derive(Copy, Clone)]
@@ -37,8 +37,9 @@ pub struct FileSearch<'a> {
 }
 
 impl<'a> FileSearch<'a> {
-    pub fn for_each_lib_search_path<F>(&self, mut f: F) where
-        F: FnMut(&Path, PathKind)
+    pub fn for_each_lib_search_path<F>(&self, mut f: F)
+    where
+        F: FnMut(&Path, PathKind),
     {
         let mut visited_dirs = HashSet::new();
 
@@ -48,8 +49,7 @@ impl<'a> FileSearch<'a> {
         }
 
         debug!("filesearch: searching lib path");
-        let tlib_path = make_target_lib_path(self.sysroot,
-                                             self.triple);
+        let tlib_path = make_target_lib_path(self.sysroot, self.triple);
         if !visited_dirs.contains(&tlib_path) {
             f(&tlib_path, PathKind::All);
         }
@@ -62,7 +62,8 @@ impl<'a> FileSearch<'a> {
     }
 
     pub fn search<F>(&self, mut pick: F)
-        where F: FnMut(&Path, PathKind) -> FileMatch
+    where
+        F: FnMut(&Path, PathKind) -> FileMatch,
     {
         self.for_each_lib_search_path(|lib_search_path, kind| {
             debug!("searching {}", lib_search_path.display());
@@ -70,8 +71,9 @@ impl<'a> FileSearch<'a> {
                 Ok(files) => files,
                 Err(..) => return,
             };
-            let files = files.filter_map(|p| p.ok().map(|s| s.path()))
-                             .collect::<Vec<_>>();
+            let files = files
+                .filter_map(|p| p.ok().map(|s| s.path()))
+                .collect::<Vec<_>>();
             fn is_rlib(p: &Path) -> bool {
                 p.extension() == Some("rlib".as_ref())
             }
@@ -96,10 +98,12 @@ impl<'a> FileSearch<'a> {
         });
     }
 
-    pub fn new(sysroot: &'a Path,
-               triple: &'a str,
-               search_paths: &'a SearchPaths,
-               kind: PathKind) -> FileSearch<'a> {
+    pub fn new(
+        sysroot: &'a Path,
+        triple: &'a str,
+        search_paths: &'a SearchPaths,
+        kind: PathKind,
+    ) -> FileSearch<'a> {
         debug!("using sysroot = {}, triple = {}", sysroot.display(), triple);
         FileSearch {
             sysroot,
@@ -138,8 +142,7 @@ pub fn relative_target_lib_path(sysroot: &Path, target_triple: &str) -> PathBuf 
     p
 }
 
-fn make_target_lib_path(sysroot: &Path,
-                        target_triple: &str) -> PathBuf {
+fn make_target_lib_path(sysroot: &Path, target_triple: &str) -> PathBuf {
     sysroot.join(&relative_target_lib_path(sysroot, target_triple))
 }
 
@@ -158,13 +161,15 @@ pub fn get_or_default_sysroot() -> PathBuf {
     }
 
     match env::current_exe() {
-        Ok(exe) => {
-            match canonicalize(Some(exe)) {
-                Some(mut p) => { p.pop(); p.pop(); return p; },
-                None => bug!("can't determine value for sysroot")
+        Ok(exe) => match canonicalize(Some(exe)) {
+            Some(mut p) => {
+                p.pop();
+                p.pop();
+                return p;
             }
-        }
-        Err(ref e) => panic!(format!("failed to get current_exe: {}", e))
+            None => bug!("can't determine value for sysroot"),
+        },
+        Err(ref e) => panic!(format!("failed to get current_exe: {}", e)),
     }
 }
 
@@ -184,7 +189,7 @@ fn find_libdir(sysroot: &Path) -> Cow<'static, str> {
             return PRIMARY_LIB_DIR.into();
         } else {
             return SECONDARY_LIB_DIR.into();
-        }
+        },
     }
 
     #[cfg(target_pointer_width = "64")]

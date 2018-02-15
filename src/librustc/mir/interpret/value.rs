@@ -64,9 +64,9 @@ impl<'tcx> Pointer {
         match self.primval {
             PrimVal::Bytes(b) => {
                 assert_eq!(b as u64 as u128, b);
-                Ok(Pointer::from(
-                    PrimVal::Bytes(layout.signed_offset(b as u64, i)? as u128),
-                ))
+                Ok(Pointer::from(PrimVal::Bytes(
+                    layout.signed_offset(b as u64, i)? as u128,
+                )))
             }
             PrimVal::Ptr(ptr) => ptr.signed_offset(i, layout).map(Pointer::from),
             PrimVal::Undef => err!(ReadUndefBytes),
@@ -155,10 +155,20 @@ pub enum PrimVal {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum PrimValKind {
-    I8, I16, I32, I64, I128,
-    U8, U16, U32, U64, U128,
-    F32, F64,
-    Ptr, FnPtr,
+    I8,
+    I16,
+    I32,
+    I64,
+    I128,
+    U8,
+    U16,
+    U32,
+    U64,
+    U128,
+    F32,
+    F64,
+    Ptr,
+    FnPtr,
     Bool,
     Char,
 }

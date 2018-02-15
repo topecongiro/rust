@@ -527,7 +527,9 @@ impl<T> Option<T> {
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn iter(&self) -> Iter<T> {
-        Iter { inner: Item { opt: self.as_ref() } }
+        Iter {
+            inner: Item { opt: self.as_ref() },
+        }
     }
 
     /// Returns a mutable iterator over the possibly contained value.
@@ -548,7 +550,9 @@ impl<T> Option<T> {
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn iter_mut(&mut self) -> IterMut<T> {
-        IterMut { inner: Item { opt: self.as_mut() } }
+        IterMut {
+            inner: Item { opt: self.as_mut() },
+        }
     }
 
     /////////////////////////////////////////////////////////////////////////
@@ -643,7 +647,7 @@ impl<T> Option<T> {
     pub fn filter<P: FnOnce(&T) -> bool>(self, predicate: P) -> Self {
         if let Some(x) = self {
             if predicate(&x) {
-                return Some(x)
+                return Some(x);
             }
         }
         None
@@ -917,7 +921,6 @@ fn expect_failed(msg: &str) -> ! {
     panic!("{}", msg)
 }
 
-
 /////////////////////////////////////////////////////////////////////////////
 // Trait implementations
 /////////////////////////////////////////////////////////////////////////////
@@ -928,7 +931,9 @@ impl<T> Default for Option<T> {
     ///
     /// [`None`]: #variant.None
     #[inline]
-    fn default() -> Option<T> { None }
+    fn default() -> Option<T> {
+        None
+    }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
@@ -951,7 +956,9 @@ impl<T> IntoIterator for Option<T> {
     /// ```
     #[inline]
     fn into_iter(self) -> IntoIter<T> {
-        IntoIter { inner: Item { opt: self } }
+        IntoIter {
+            inner: Item { opt: self },
+        }
     }
 }
 
@@ -988,7 +995,7 @@ impl<T> From<T> for Option<T> {
 
 #[derive(Clone, Debug)]
 struct Item<A> {
-    opt: Option<A>
+    opt: Option<A>,
 }
 
 impl<A> Iterator for Item<A> {
@@ -1030,22 +1037,30 @@ unsafe impl<A> TrustedLen for Item<A> {}
 /// [`Option::iter`]: enum.Option.html#method.iter
 #[stable(feature = "rust1", since = "1.0.0")]
 #[derive(Debug)]
-pub struct Iter<'a, A: 'a> { inner: Item<&'a A> }
+pub struct Iter<'a, A: 'a> {
+    inner: Item<&'a A>,
+}
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<'a, A> Iterator for Iter<'a, A> {
     type Item = &'a A;
 
     #[inline]
-    fn next(&mut self) -> Option<&'a A> { self.inner.next() }
+    fn next(&mut self) -> Option<&'a A> {
+        self.inner.next()
+    }
     #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) { self.inner.size_hint() }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<'a, A> DoubleEndedIterator for Iter<'a, A> {
     #[inline]
-    fn next_back(&mut self) -> Option<&'a A> { self.inner.next_back() }
+    fn next_back(&mut self) -> Option<&'a A> {
+        self.inner.next_back()
+    }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
@@ -1060,7 +1075,9 @@ unsafe impl<'a, A> TrustedLen for Iter<'a, A> {}
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<'a, A> Clone for Iter<'a, A> {
     fn clone(&self) -> Iter<'a, A> {
-        Iter { inner: self.inner.clone() }
+        Iter {
+            inner: self.inner.clone(),
+        }
     }
 }
 
@@ -1075,22 +1092,30 @@ impl<'a, A> Clone for Iter<'a, A> {
 /// [`Option::iter_mut`]: enum.Option.html#method.iter_mut
 #[stable(feature = "rust1", since = "1.0.0")]
 #[derive(Debug)]
-pub struct IterMut<'a, A: 'a> { inner: Item<&'a mut A> }
+pub struct IterMut<'a, A: 'a> {
+    inner: Item<&'a mut A>,
+}
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<'a, A> Iterator for IterMut<'a, A> {
     type Item = &'a mut A;
 
     #[inline]
-    fn next(&mut self) -> Option<&'a mut A> { self.inner.next() }
+    fn next(&mut self) -> Option<&'a mut A> {
+        self.inner.next()
+    }
     #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) { self.inner.size_hint() }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<'a, A> DoubleEndedIterator for IterMut<'a, A> {
     #[inline]
-    fn next_back(&mut self) -> Option<&'a mut A> { self.inner.next_back() }
+    fn next_back(&mut self) -> Option<&'a mut A> {
+        self.inner.next_back()
+    }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
@@ -1112,22 +1137,30 @@ unsafe impl<'a, A> TrustedLen for IterMut<'a, A> {}
 /// [`Option::into_iter`]: enum.Option.html#method.into_iter
 #[derive(Clone, Debug)]
 #[stable(feature = "rust1", since = "1.0.0")]
-pub struct IntoIter<A> { inner: Item<A> }
+pub struct IntoIter<A> {
+    inner: Item<A>,
+}
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<A> Iterator for IntoIter<A> {
     type Item = A;
 
     #[inline]
-    fn next(&mut self) -> Option<A> { self.inner.next() }
+    fn next(&mut self) -> Option<A> {
+        self.inner.next()
+    }
     #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) { self.inner.size_hint() }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<A> DoubleEndedIterator for IntoIter<A> {
     #[inline]
-    fn next_back(&mut self) -> Option<A> { self.inner.next_back() }
+    fn next_back(&mut self) -> Option<A> {
+        self.inner.next_back()
+    }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
@@ -1166,7 +1199,7 @@ impl<A, V: FromIterator<A>> FromIterator<Option<A>> for Option<V> {
     /// [`Iterator`]: ../iter/trait.Iterator.html
     /// [`None`]: enum.Option.html#variant.None
     #[inline]
-    fn from_iter<I: IntoIterator<Item=Option<A>>>(iter: I) -> Option<V> {
+    fn from_iter<I: IntoIterator<Item = Option<A>>>(iter: I) -> Option<V> {
         // FIXME(#11084): This could be replaced with Iterator::scan when this
         // performance bug is closed.
 
@@ -1175,7 +1208,7 @@ impl<A, V: FromIterator<A>> FromIterator<Option<A>> for Option<V> {
             found_none: bool,
         }
 
-        impl<T, Iter: Iterator<Item=Option<T>>> Iterator for Adapter<Iter> {
+        impl<T, Iter: Iterator<Item = Option<T>>> Iterator for Adapter<Iter> {
             type Item = T;
 
             #[inline]
@@ -1191,7 +1224,10 @@ impl<A, V: FromIterator<A>> FromIterator<Option<A>> for Option<V> {
             }
         }
 
-        let mut adapter = Adapter { iter: iter.into_iter(), found_none: false };
+        let mut adapter = Adapter {
+            iter: iter.into_iter(),
+            found_none: false,
+        };
         let v: V = FromIterator::from_iter(adapter.by_ref());
 
         if adapter.found_none {

@@ -26,10 +26,20 @@ impl BitSlice for [Word] {
     /// Clears bit at `idx` to 0; returns true iff this changed `self.`
     fn clear_bit(&mut self, idx: usize) -> bool {
         let words = self;
-        debug!("clear_bit: words={} idx={}",
-               bits_to_string(words, words.len() * mem::size_of::<Word>()), bit_str(idx));
-        let BitLookup { word, bit_in_word, bit_mask } = bit_lookup(idx);
-        debug!("word={} bit_in_word={} bit_mask={}", word, bit_in_word, bit_mask);
+        debug!(
+            "clear_bit: words={} idx={}",
+            bits_to_string(words, words.len() * mem::size_of::<Word>()),
+            bit_str(idx)
+        );
+        let BitLookup {
+            word,
+            bit_in_word,
+            bit_mask,
+        } = bit_lookup(idx);
+        debug!(
+            "word={} bit_in_word={} bit_mask={}",
+            word, bit_in_word, bit_mask
+        );
         let oldv = words[word];
         let newv = oldv & !bit_mask;
         words[word] = newv;
@@ -39,10 +49,20 @@ impl BitSlice for [Word] {
     /// Sets bit at `idx` to 1; returns true iff this changed `self.`
     fn set_bit(&mut self, idx: usize) -> bool {
         let words = self;
-        debug!("set_bit: words={} idx={}",
-               bits_to_string(words, words.len() * mem::size_of::<Word>()), bit_str(idx));
-        let BitLookup { word, bit_in_word, bit_mask } = bit_lookup(idx);
-        debug!("word={} bit_in_word={} bit_mask={}", word, bit_in_word, bit_mask);
+        debug!(
+            "set_bit: words={} idx={}",
+            bits_to_string(words, words.len() * mem::size_of::<Word>()),
+            bit_str(idx)
+        );
+        let BitLookup {
+            word,
+            bit_in_word,
+            bit_mask,
+        } = bit_lookup(idx);
+        debug!(
+            "word={} bit_in_word={} bit_mask={}",
+            word, bit_in_word, bit_mask
+        );
         let oldv = words[word];
         let newv = oldv | bit_mask;
         words[word] = newv;
@@ -72,9 +92,12 @@ fn bit_lookup(bit: usize) -> BitLookup {
     let word = bit / word_bits;
     let bit_in_word = bit % word_bits;
     let bit_mask = 1 << bit_in_word;
-    BitLookup { word: word, bit_in_word: bit_in_word, bit_mask: bit_mask }
+    BitLookup {
+        word: word,
+        bit_in_word: bit_in_word,
+        bit_mask: bit_mask,
+    }
 }
-
 
 fn bit_str(bit: Word) -> String {
     let byte = bit >> 3;
@@ -92,7 +115,8 @@ pub fn bits_to_string(words: &[Word], bits: usize) -> String {
     let mut i = 0;
     for &word in words.iter() {
         let mut v = word;
-        loop { // for each byte in `v`:
+        loop {
+            // for each byte in `v`:
             let remain = bits - i;
             // If less than a byte remains, then mask just that many bits.
             let mask = if remain <= 8 { (1 << remain) - 1 } else { 0xFF };
@@ -102,20 +126,20 @@ pub fn bits_to_string(words: &[Word], bits: usize) -> String {
             result.push(sep);
             result.push_str(&format!("{:02x}", byte));
 
-            if remain <= 8 { break; }
+            if remain <= 8 {
+                break;
+            }
             v >>= 8;
             i += 8;
             sep = '-';
         }
     }
     result.push(']');
-    return result
+    return result;
 }
 
 #[inline]
-pub fn bitwise<Op:BitwiseOperator>(out_vec: &mut [usize],
-                                   in_vec: &[usize],
-                                   op: &Op) -> bool {
+pub fn bitwise<Op: BitwiseOperator>(out_vec: &mut [usize], in_vec: &[usize], op: &Op) -> bool {
     assert_eq!(out_vec.len(), in_vec.len());
     let mut changed = false;
     for (out_elt, in_elt) in out_vec.iter_mut().zip(in_vec) {
@@ -135,15 +159,21 @@ pub trait BitwiseOperator {
 pub struct Intersect;
 impl BitwiseOperator for Intersect {
     #[inline]
-    fn join(&self, a: usize, b: usize) -> usize { a & b }
+    fn join(&self, a: usize, b: usize) -> usize {
+        a & b
+    }
 }
 pub struct Union;
 impl BitwiseOperator for Union {
     #[inline]
-    fn join(&self, a: usize, b: usize) -> usize { a | b }
+    fn join(&self, a: usize, b: usize) -> usize {
+        a | b
+    }
 }
 pub struct Subtract;
 impl BitwiseOperator for Subtract {
     #[inline]
-    fn join(&self, a: usize, b: usize) -> usize { a & !b }
+    fn join(&self, a: usize, b: usize) -> usize {
+        a & !b
+    }
 }

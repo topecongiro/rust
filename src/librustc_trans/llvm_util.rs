@@ -59,8 +59,12 @@ unsafe fn configure_llvm(sess: &Session) {
             llvm_c_strs.push(s);
         };
         add("rustc"); // fake program name
-        if sess.time_llvm_passes() { add("-time-passes"); }
-        if sess.print_llvm_passes() { add("-debug-pass=Structure"); }
+        if sess.time_llvm_passes() {
+            add("-time-passes");
+        }
+        if sess.print_llvm_passes() {
+            add("-debug-pass=Structure");
+        }
 
         for arg in &sess.opts.cg.llvm_args {
             add(&(*arg));
@@ -71,8 +75,7 @@ unsafe fn configure_llvm(sess: &Session) {
 
     llvm::initialize_available_targets();
 
-    llvm::LLVMRustSetLLVMOptions(llvm_args.len() as c_int,
-                                 llvm_args.as_ptr());
+    llvm::LLVMRustSetLLVMOptions(llvm_args.len() as c_int, llvm_args.as_ptr());
 }
 
 // WARNING: the features must be known to LLVM or the feature
@@ -83,25 +86,53 @@ const ARM_WHITELIST: &'static [&'static str] = &["neon\0", "v7\0", "vfp2\0", "vf
 
 const AARCH64_WHITELIST: &'static [&'static str] = &["neon\0", "v7\0"];
 
-const X86_WHITELIST: &'static [&'static str] = &["avx\0", "avx2\0", "bmi\0", "bmi2\0", "sse\0",
-                                                 "sse2\0", "sse3\0", "sse4.1\0", "sse4.2\0",
-                                                 "ssse3\0", "tbm\0", "lzcnt\0", "popcnt\0",
-                                                 "sse4a\0", "rdrnd\0", "rdseed\0", "fma\0",
-                                                 "xsave\0", "xsaveopt\0", "xsavec\0",
-                                                 "xsaves\0", "aes\0",
-                                                 "avx512bw\0", "avx512cd\0",
-                                                 "avx512dq\0", "avx512er\0",
-                                                 "avx512f\0", "avx512ifma\0",
-                                                 "avx512pf\0", "avx512vbmi\0",
-                                                 "avx512vl\0", "avx512vpopcntdq\0",
-                                                 "mmx\0", "fxsr\0"];
+const X86_WHITELIST: &'static [&'static str] = &[
+    "avx\0",
+    "avx2\0",
+    "bmi\0",
+    "bmi2\0",
+    "sse\0",
+    "sse2\0",
+    "sse3\0",
+    "sse4.1\0",
+    "sse4.2\0",
+    "ssse3\0",
+    "tbm\0",
+    "lzcnt\0",
+    "popcnt\0",
+    "sse4a\0",
+    "rdrnd\0",
+    "rdseed\0",
+    "fma\0",
+    "xsave\0",
+    "xsaveopt\0",
+    "xsavec\0",
+    "xsaves\0",
+    "aes\0",
+    "avx512bw\0",
+    "avx512cd\0",
+    "avx512dq\0",
+    "avx512er\0",
+    "avx512f\0",
+    "avx512ifma\0",
+    "avx512pf\0",
+    "avx512vbmi\0",
+    "avx512vl\0",
+    "avx512vpopcntdq\0",
+    "mmx\0",
+    "fxsr\0",
+];
 
 const HEXAGON_WHITELIST: &'static [&'static str] = &["hvx\0", "hvx-double\0"];
 
-const POWERPC_WHITELIST: &'static [&'static str] = &["altivec\0",
-                                                     "power8-altivec\0", "power9-altivec\0",
-                                                     "power8-vector\0", "power9-vector\0",
-                                                     "vsx\0"];
+const POWERPC_WHITELIST: &'static [&'static str] = &[
+    "altivec\0",
+    "power8-altivec\0",
+    "power9-altivec\0",
+    "power8-vector\0",
+    "power9-vector\0",
+    "vsx\0",
+];
 
 const MIPS_WHITELIST: &'static [&'static str] = &["msa\0"];
 
@@ -127,22 +158,28 @@ pub fn target_feature_whitelist(sess: &Session) -> Vec<&CStr> {
         "powerpc" | "powerpc64" => POWERPC_WHITELIST,
         _ => &[],
     };
-    whitelist.iter().map(|m| {
-        CStr::from_bytes_with_nul(m.as_bytes()).unwrap()
-    }).collect()
+    whitelist
+        .iter()
+        .map(|m| CStr::from_bytes_with_nul(m.as_bytes()).unwrap())
+        .collect()
 }
 
 pub fn print_version() {
     // Can be called without initializing LLVM
     unsafe {
-        println!("LLVM version: {}.{}",
-                 llvm::LLVMRustVersionMajor(), llvm::LLVMRustVersionMinor());
+        println!(
+            "LLVM version: {}.{}",
+            llvm::LLVMRustVersionMajor(),
+            llvm::LLVMRustVersionMinor()
+        );
     }
 }
 
 pub fn print_passes() {
     // Can be called without initializing LLVM
-    unsafe { llvm::LLVMRustPrintPasses(); }
+    unsafe {
+        llvm::LLVMRustPrintPasses();
+    }
 }
 
 pub(crate) fn print(req: PrintRequest, sess: &Session) {

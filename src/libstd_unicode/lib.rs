@@ -30,7 +30,6 @@
 #![deny(warnings)]
 #![deny(missing_debug_implementations)]
 #![no_std]
-
 #![feature(ascii_ctype)]
 #![feature(core_char_ext)]
 #![feature(str_internals)]

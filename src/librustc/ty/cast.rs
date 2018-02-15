@@ -23,7 +23,7 @@ pub enum IntTy {
     Ivar,
     CEnum,
     Bool,
-    Char
+    Char,
 }
 
 // Valid types for the result of a non-coercion cast
@@ -55,7 +55,7 @@ pub enum CastKind {
     U8CharCast,
     ArrayPtrCast,
     FnPtrPtrCast,
-    FnPtrAddrCast
+    FnPtrAddrCast,
 }
 
 impl<'tcx> CastTy<'tcx> {
@@ -68,8 +68,7 @@ impl<'tcx> CastTy<'tcx> {
             ty::TyInfer(ty::InferTy::FloatVar(_)) => Some(CastTy::Float),
             ty::TyUint(u) => Some(CastTy::Int(IntTy::U(u))),
             ty::TyFloat(_) => Some(CastTy::Float),
-            ty::TyAdt(d,_) if d.is_enum() && d.is_payloadfree() =>
-                Some(CastTy::Int(IntTy::CEnum)),
+            ty::TyAdt(d, _) if d.is_enum() && d.is_payloadfree() => Some(CastTy::Int(IntTy::CEnum)),
             ty::TyRawPtr(ref mt) => Some(CastTy::Ptr(mt)),
             ty::TyRef(_, ref mt) => Some(CastTy::RPtr(mt)),
             ty::TyFnPtr(..) => Some(CastTy::FnPtr),

@@ -27,7 +27,7 @@ use super::work_product;
 
 pub fn dep_graph_tcx_init<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>) {
     if !tcx.dep_graph.is_fully_enabled() {
-        return
+        return;
     }
 
     tcx.allocate_metadata_dep_nodes();
@@ -37,19 +37,28 @@ pub fn dep_graph_tcx_init<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>) {
         // If we are only building with -Zquery-dep-graph but without an actual
         // incr. comp. session directory, we exit here. Otherwise we'd fail
         // when trying to load work products.
-        return
+        return;
     }
 
     let work_products_path = work_products_path(tcx.sess);
-    let load_result = load_data(tcx.sess.opts.debugging_opts.incremental_info, &work_products_path);
+    let load_result = load_data(
+        tcx.sess.opts.debugging_opts.incremental_info,
+        &work_products_path,
+    );
 
-    if let LoadResult::Ok { data: (work_products_data, start_pos) } = load_result {
+    if let LoadResult::Ok {
+        data: (work_products_data, start_pos),
+    } = load_result
+    {
         // Decode the list of work_products
         let mut work_product_decoder = Decoder::new(&work_products_data[..], start_pos);
         let work_products: Vec<SerializedWorkProduct> =
             RustcDecodable::decode(&mut work_product_decoder).unwrap_or_else(|e| {
-                let msg = format!("Error decoding `work-products` from incremental \
-                                   compilation session directory: {}", e);
+                let msg = format!(
+                    "Error decoding `work-products` from incremental \
+                     compilation session directory: {}",
+                    e
+                );
                 tcx.sess.fatal(&msg[..])
             });
 
@@ -61,17 +70,24 @@ pub fn dep_graph_tcx_init<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>) {
                     all_files_exist = false;
 
                     if tcx.sess.opts.debugging_opts.incremental_info {
-                        eprintln!("incremental: could not find file for work \
-                                   product: {}", path.display());
+                        eprintln!(
+                            "incremental: could not find file for work \
+                             product: {}",
+                            path.display()
+                        );
                     }
                 }
             }
 
             if all_files_exist {
                 debug!("reconcile_work_products: all files for {:?} exist", swp);
-                tcx.dep_graph.insert_previous_work_product(&swp.id, swp.work_product);
+                tcx.dep_graph
+                    .insert_previous_work_product(&swp.id, swp.work_product);
             } else {
-                debug!("reconcile_work_products: some file for {:?} does not exist", swp);
+                debug!(
+                    "reconcile_work_products: some file for {:?} does not exist",
+                    swp
+                );
                 delete_dirty_work_product(tcx, swp);
             }
         }
@@ -84,48 +100,47 @@ pub enum LoadResult<T> {
     Error { message: String },
 }
 
-
 impl LoadResult<PreviousDepGraph> {
     pub fn open(self, sess: &Session) -> PreviousDepGraph {
         match self {
             LoadResult::Error { message } => {
                 sess.fatal(&message) /* never returns */
-            },
+            }
             LoadResult::DataOutOfDate => {
                 if let Err(err) = delete_all_session_dir_contents(sess) {
-                    sess.err(&format!("Failed to delete invalidated or incompatible \
-                                      incremental compilation session directory contents `{}`: {}.",
-                                      dep_graph_path(sess).display(), err));
+                    sess.err(&format!(
+                        "Failed to delete invalidated or incompatible \
+                         incremental compilation session directory contents `{}`: {}.",
+                        dep_graph_path(sess).display(),
+                        err
+                    ));
                 }
                 PreviousDepGraph::new(SerializedDepGraph::new())
             }
-            LoadResult::Ok { data } => data
+            LoadResult::Ok { data } => data,
         }
     }
 }
 
-
 fn load_data(report_incremental_info: bool, path: &Path) -> LoadResult<(Vec<u8>, usize)> {
     match file_format::read_file(report_incremental_info, path) {
-        Ok(Some(data_and_pos)) => LoadResult::Ok {
-            data: data_and_pos
-        },
+        Ok(Some(data_and_pos)) => LoadResult::Ok { data: data_and_pos },
         Ok(None) => {
             // The file either didn't exist or was produced by an incompatible
             // compiler version. Neither is an error.
             LoadResult::DataOutOfDate
         }
-        Err(err) => {
-            LoadResult::Error {
-                message: format!("could not load dep-graph from `{}`: {}",
-                                  path.display(), err)
-            }
-        }
+        Err(err) => LoadResult::Error {
+            message: format!(
+                "could not load dep-graph from `{}`: {}",
+                path.display(),
+                err
+            ),
+        },
     }
 }
 
-fn delete_dirty_work_product(tcx: TyCtxt,
-                             swp: SerializedWorkProduct) {
+fn delete_dirty_work_product(tcx: TyCtxt, swp: SerializedWorkProduct) {
     debug!("delete_dirty_work_product({:?})", swp);
     work_product::delete_workproduct_files(tcx.sess, &swp.work_product);
 }
@@ -135,28 +150,29 @@ fn delete_dirty_work_product(tcx: TyCtxt,
 /// by a background thread.
 pub enum MaybeAsync<T> {
     Sync(T),
-    Async(std::thread::JoinHandle<T>)
+    Async(std::thread::JoinHandle<T>),
 }
 impl<T> MaybeAsync<T> {
     pub fn open(self) -> std::thread::Result<T> {
         match self {
             MaybeAsync::Sync(result) => Ok(result),
-            MaybeAsync::Async(handle) => handle.join()
+            MaybeAsync::Async(handle) => handle.join(),
         }
     }
 }
 
 /// Launch a thread and load the dependency graph in the background.
-pub fn load_dep_graph(sess: &Session, time_passes: bool) ->
-    MaybeAsync<LoadResult<PreviousDepGraph>>
-{
+pub fn load_dep_graph(
+    sess: &Session,
+    time_passes: bool,
+) -> MaybeAsync<LoadResult<PreviousDepGraph>> {
     // Since `sess` isn't `Sync`, we perform all accesses to `sess`
     // before we fire the background thread.
 
     if sess.opts.incremental.is_none() {
         // No incremental compilation.
         return MaybeAsync::Sync(LoadResult::Ok {
-            data: PreviousDepGraph::new(SerializedDepGraph::new())
+            data: PreviousDepGraph::new(SerializedDepGraph::new()),
         });
     }
 
@@ -171,16 +187,19 @@ pub fn load_dep_graph(sess: &Session, time_passes: bool) ->
             match load_data(report_incremental_info, &path) {
                 LoadResult::DataOutOfDate => LoadResult::DataOutOfDate,
                 LoadResult::Error { message } => LoadResult::Error { message },
-                LoadResult::Ok { data: (bytes, start_pos) } => {
-
+                LoadResult::Ok {
+                    data: (bytes, start_pos),
+                } => {
                     let mut decoder = Decoder::new(&bytes, start_pos);
                     let prev_commandline_args_hash = u64::decode(&mut decoder)
                         .expect("Error reading commandline arg hash from cached dep-graph");
 
                     if prev_commandline_args_hash != expected_hash {
                         if report_incremental_info {
-                            println!("[incremental] completely ignoring cache because of \
-                                    differing commandline arguments");
+                            println!(
+                                "[incremental] completely ignoring cache because of \
+                                 differing commandline arguments"
+                            );
                         }
                         // We can't reuse the cache, purge it.
                         debug!("load_dep_graph_new: differing commandline arg hashes");
@@ -192,7 +211,9 @@ pub fn load_dep_graph(sess: &Session, time_passes: bool) ->
                     let dep_graph = SerializedDepGraph::decode(&mut decoder)
                         .expect("Error reading cached dep-graph");
 
-                    LoadResult::Ok { data: PreviousDepGraph::new(dep_graph) }
+                    LoadResult::Ok {
+                        data: PreviousDepGraph::new(dep_graph),
+                    }
                 }
             }
         })
@@ -200,13 +221,17 @@ pub fn load_dep_graph(sess: &Session, time_passes: bool) ->
 }
 
 pub fn load_query_result_cache<'sess>(sess: &'sess Session) -> OnDiskCache<'sess> {
-    if sess.opts.incremental.is_none() ||
-       !sess.opts.debugging_opts.incremental_queries {
+    if sess.opts.incremental.is_none() || !sess.opts.debugging_opts.incremental_queries {
         return OnDiskCache::new_empty(sess.codemap());
     }
 
-    match load_data(sess.opts.debugging_opts.incremental_info, &query_cache_path(sess)) {
-        LoadResult::Ok{ data: (bytes, start_pos) } => OnDiskCache::new(sess, bytes, start_pos),
-        _ => OnDiskCache::new_empty(sess.codemap())
+    match load_data(
+        sess.opts.debugging_opts.incremental_info,
+        &query_cache_path(sess),
+    ) {
+        LoadResult::Ok {
+            data: (bytes, start_pos),
+        } => OnDiskCache::new(sess, bytes, start_pos),
+        _ => OnDiskCache::new_empty(sess.codemap()),
     }
 }

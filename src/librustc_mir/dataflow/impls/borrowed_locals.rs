@@ -26,8 +26,7 @@ pub struct HaveBeenBorrowedLocals<'a, 'tcx: 'a> {
 }
 
 impl<'a, 'tcx: 'a> HaveBeenBorrowedLocals<'a, 'tcx> {
-    pub fn new(mir: &'a Mir<'tcx>)
-               -> Self {
+    pub fn new(mir: &'a Mir<'tcx>) -> Self {
         HaveBeenBorrowedLocals { mir: mir }
     }
 
@@ -38,7 +37,9 @@ impl<'a, 'tcx: 'a> HaveBeenBorrowedLocals<'a, 'tcx> {
 
 impl<'a, 'tcx> BitDenotation for HaveBeenBorrowedLocals<'a, 'tcx> {
     type Idx = Local;
-    fn name() -> &'static str { "has_been_borrowed_locals" }
+    fn name() -> &'static str {
+        "has_been_borrowed_locals"
+    }
     fn bits_per_block(&self) -> usize {
         self.mir.local_decls.len()
     }
@@ -47,27 +48,29 @@ impl<'a, 'tcx> BitDenotation for HaveBeenBorrowedLocals<'a, 'tcx> {
         // Nothing is borrowed on function entry
     }
 
-    fn statement_effect(&self,
-                        sets: &mut BlockSets<Local>,
-                        loc: Location) {
-        BorrowedLocalsVisitor {
-            sets,
-        }.visit_statement(loc.block, &self.mir[loc.block].statements[loc.statement_index], loc);
+    fn statement_effect(&self, sets: &mut BlockSets<Local>, loc: Location) {
+        BorrowedLocalsVisitor { sets }.visit_statement(
+            loc.block,
+            &self.mir[loc.block].statements[loc.statement_index],
+            loc,
+        );
     }
 
-    fn terminator_effect(&self,
-                         sets: &mut BlockSets<Local>,
-                         loc: Location) {
-        BorrowedLocalsVisitor {
-            sets,
-        }.visit_terminator(loc.block, self.mir[loc.block].terminator(), loc);
+    fn terminator_effect(&self, sets: &mut BlockSets<Local>, loc: Location) {
+        BorrowedLocalsVisitor { sets }.visit_terminator(
+            loc.block,
+            self.mir[loc.block].terminator(),
+            loc,
+        );
     }
 
-    fn propagate_call_return(&self,
-                             _in_out: &mut IdxSet<Local>,
-                             _call_bb: mir::BasicBlock,
-                             _dest_bb: mir::BasicBlock,
-                             _dest_place: &mir::Place) {
+    fn propagate_call_return(
+        &self,
+        _in_out: &mut IdxSet<Local>,
+        _call_bb: mir::BasicBlock,
+        _dest_bb: mir::BasicBlock,
+        _dest_place: &mir::Place,
+    ) {
         // Nothing to do when a call returns successfully
     }
 }
@@ -94,19 +97,15 @@ fn find_local<'tcx>(place: &Place<'tcx>) -> Option<Local> {
     match *place {
         Place::Local(l) => Some(l),
         Place::Static(..) => None,
-        Place::Projection(ref proj) => {
-            match proj.elem {
-                ProjectionElem::Deref => None,
-                _ => find_local(&proj.base)
-            }
-        }
+        Place::Projection(ref proj) => match proj.elem {
+            ProjectionElem::Deref => None,
+            _ => find_local(&proj.base),
+        },
     }
 }
 
 impl<'tcx, 'b, 'c> Visitor<'tcx> for BorrowedLocalsVisitor<'b, 'c> {
-    fn visit_rvalue(&mut self,
-                    rvalue: &Rvalue<'tcx>,
-                    location: Location) {
+    fn visit_rvalue(&mut self, rvalue: &Rvalue<'tcx>, location: Location) {
         if let Rvalue::Ref(_, _, ref place) = *rvalue {
             if let Some(local) = find_local(place) {
                 self.sets.gen(&local);

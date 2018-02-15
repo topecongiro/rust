@@ -13,9 +13,9 @@ use core::cmp::PartialEq;
 use core::fmt::Debug;
 use core::marker::Copy;
 use core::num::TryFromIntError;
-use core::ops::{Add, Sub, Mul, Div, Rem};
+use core::ops::{Add, Div, Mul, Rem, Sub};
 use core::option::Option;
-use core::option::Option::{Some, None};
+use core::option::Option::{None, Some};
 
 #[macro_use]
 mod int_macros;
@@ -37,7 +37,6 @@ mod flt2dec;
 mod dec2flt;
 mod bignum;
 
-
 /// Adds the attribute to all items in the block.
 macro_rules! cfg_block {
     ($(#[$attr:meta]{$($it:item)*})*) => {$($(
@@ -58,25 +57,29 @@ macro_rules! assume_usize_width {
 }
 
 /// Helper function for testing numeric operations
-pub fn test_num<T>(ten: T, two: T) where
+pub fn test_num<T>(ten: T, two: T)
+where
     T: PartialEq
-     + Add<Output=T> + Sub<Output=T>
-     + Mul<Output=T> + Div<Output=T>
-     + Rem<Output=T> + Debug
-     + Copy
+        + Add<Output = T>
+        + Sub<Output = T>
+        + Mul<Output = T>
+        + Div<Output = T>
+        + Rem<Output = T>
+        + Debug
+        + Copy,
 {
-    assert_eq!(ten.add(two),  ten + two);
-    assert_eq!(ten.sub(two),  ten - two);
-    assert_eq!(ten.mul(two),  ten * two);
-    assert_eq!(ten.div(two),  ten / two);
-    assert_eq!(ten.rem(two),  ten % two);
+    assert_eq!(ten.add(two), ten + two);
+    assert_eq!(ten.sub(two), ten - two);
+    assert_eq!(ten.mul(two), ten * two);
+    assert_eq!(ten.div(two), ten / two);
+    assert_eq!(ten.rem(two), ten % two);
 }
 
 #[test]
 fn from_str_issue7588() {
-    let u : Option<u8> = u8::from_str_radix("1000", 10).ok();
+    let u: Option<u8> = u8::from_str_radix("1000", 10).ok();
     assert_eq!(u, None);
-    let s : Option<i16> = i16::from_str_radix("80000", 10).ok();
+    let s: Option<i16> = i16::from_str_radix("80000", 10).ok();
     assert_eq!(s, None);
 }
 
@@ -118,7 +121,10 @@ fn test_int_from_str_overflow() {
 #[test]
 fn test_leading_plus() {
     assert_eq!("+127".parse::<u8>().ok(), Some(127));
-    assert_eq!("+9223372036854775807".parse::<i64>().ok(), Some(9223372036854775807));
+    assert_eq!(
+        "+9223372036854775807".parse::<i64>().ok(),
+        Some(9223372036854775807)
+    );
 }
 
 #[test]
@@ -238,7 +244,6 @@ fn test_f32f64() {
     let nan: f64 = f32::NAN.into();
     assert!(nan.is_nan());
 }
-
 
 /// Conversions where the full width of $source can be represented as $target
 macro_rules! test_impl_try_from_always_ok {
@@ -684,5 +689,17 @@ macro_rules! test_float {
     } }
 }
 
-test_float!(f32, f32, ::core::f32::INFINITY, ::core::f32::NEG_INFINITY, ::core::f32::NAN);
-test_float!(f64, f64, ::core::f64::INFINITY, ::core::f64::NEG_INFINITY, ::core::f64::NAN);
+test_float!(
+    f32,
+    f32,
+    ::core::f32::INFINITY,
+    ::core::f32::NEG_INFINITY,
+    ::core::f32::NAN
+);
+test_float!(
+    f64,
+    f64,
+    ::core::f64::INFINITY,
+    ::core::f64::NEG_INFINITY,
+    ::core::f64::NAN
+);

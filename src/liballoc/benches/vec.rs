@@ -9,7 +9,7 @@
 // except according to those terms.
 
 use test::Bencher;
-use std::iter::{FromIterator, repeat};
+use std::iter::{repeat, FromIterator};
 
 #[bench]
 fn bench_new(b: &mut Bencher) {

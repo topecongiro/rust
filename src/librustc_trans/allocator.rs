@@ -14,7 +14,7 @@ use std::ptr;
 use libc::c_uint;
 use rustc::middle::allocator::AllocatorKind;
 use rustc::ty::TyCtxt;
-use rustc_allocator::{ALLOCATOR_METHODS, AllocatorTy};
+use rustc_allocator::{AllocatorTy, ALLOCATOR_METHODS};
 
 use ModuleLlvm;
 use llvm::{self, False, True};
@@ -45,12 +45,12 @@ pub(crate) unsafe fn trans(tcx: TyCtxt, mods: &ModuleLlvm, kind: AllocatorKind) 
                 AllocatorTy::Ptr => args.push(i8p),
                 AllocatorTy::AllocErr => args.push(i8p),
 
-                AllocatorTy::Bang |
-                AllocatorTy::ResultExcess |
-                AllocatorTy::ResultPtr |
-                AllocatorTy::ResultUnit |
-                AllocatorTy::UsizePair |
-                AllocatorTy::Unit => panic!("invalid allocator arg"),
+                AllocatorTy::Bang
+                | AllocatorTy::ResultExcess
+                | AllocatorTy::ResultPtr
+                | AllocatorTy::ResultUnit
+                | AllocatorTy::UsizePair
+                | AllocatorTy::Unit => panic!("invalid allocator arg"),
             }
         }
         let output = match method.output {
@@ -72,44 +72,43 @@ pub(crate) unsafe fn trans(tcx: TyCtxt, mods: &ModuleLlvm, kind: AllocatorKind) 
             AllocatorTy::ResultUnit => Some(i8),
             AllocatorTy::Unit => None,
 
-            AllocatorTy::AllocErr |
-            AllocatorTy::Layout |
-            AllocatorTy::LayoutRef |
-            AllocatorTy::Ptr => panic!("invalid allocator output"),
+            AllocatorTy::AllocErr
+            | AllocatorTy::Layout
+            | AllocatorTy::LayoutRef
+            | AllocatorTy::Ptr => panic!("invalid allocator output"),
         };
-        let ty = llvm::LLVMFunctionType(output.unwrap_or(void),
-                                        args.as_ptr(),
-                                        args.len() as c_uint,
-                                        False);
+        let ty = llvm::LLVMFunctionType(
+            output.unwrap_or(void),
+            args.as_ptr(),
+            args.len() as c_uint,
+            False,
+        );
         let name = CString::new(format!("__rust_{}", method.name)).unwrap();
-        let llfn = llvm::LLVMRustGetOrInsertFunction(llmod,
-                                                     name.as_ptr(),
-                                                     ty);
+        let llfn = llvm::LLVMRustGetOrInsertFunction(llmod, name.as_ptr(), ty);
 
         if tcx.sess.target.target.options.default_hidden_visibility {
             llvm::LLVMRustSetVisibility(llfn, llvm::Visibility::Hidden);
         }
 
         let callee = CString::new(kind.fn_name(method.name)).unwrap();
-        let callee = llvm::LLVMRustGetOrInsertFunction(llmod,
-                                                       callee.as_ptr(),
-                                                       ty);
+        let callee = llvm::LLVMRustGetOrInsertFunction(llmod, callee.as_ptr(), ty);
 
-        let llbb = llvm::LLVMAppendBasicBlockInContext(llcx,
-                                                       llfn,
-                                                       "entry\0".as_ptr() as *const _);
+        let llbb = llvm::LLVMAppendBasicBlockInContext(llcx, llfn, "entry\0".as_ptr() as *const _);
 
         let llbuilder = llvm::LLVMCreateBuilderInContext(llcx);
         llvm::LLVMPositionBuilderAtEnd(llbuilder, llbb);
-        let args = args.iter().enumerate().map(|(i, _)| {
-            llvm::LLVMGetParam(llfn, i as c_uint)
-        }).collect::<Vec<_>>();
-        let ret = llvm::LLVMRustBuildCall(llbuilder,
-                                          callee,
-                                          args.as_ptr(),
-                                          args.len() as c_uint,
-                                          ptr::null_mut(),
-                                          "\0".as_ptr() as *const _);
+        let args = args.iter()
+            .enumerate()
+            .map(|(i, _)| llvm::LLVMGetParam(llfn, i as c_uint))
+            .collect::<Vec<_>>();
+        let ret = llvm::LLVMRustBuildCall(
+            llbuilder,
+            callee,
+            args.as_ptr(),
+            args.len() as c_uint,
+            ptr::null_mut(),
+            "\0".as_ptr() as *const _,
+        );
         llvm::LLVMSetTailCall(ret, True);
         if output.is_some() {
             llvm::LLVMBuildRet(llbuilder, ret);

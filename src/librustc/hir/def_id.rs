@@ -55,7 +55,12 @@ impl CrateNum {
         self.0
     }
 
-    pub fn as_def_id(&self) -> DefId { DefId { krate: *self, index: CRATE_DEF_INDEX } }
+    pub fn as_def_id(&self) -> DefId {
+        DefId {
+            krate: *self,
+            index: CRATE_DEF_INDEX,
+        }
+    }
 }
 
 impl fmt::Display for CrateNum {
@@ -88,13 +93,14 @@ pub struct DefIndex(u32);
 /// thanks to `NodeCollector::new`.
 pub const CRATE_DEF_INDEX: DefIndex = DefIndex(0);
 
-
 impl fmt::Debug for DefIndex {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,
-               "DefIndex({}:{})",
-               self.address_space().index(),
-               self.as_array_index())
+        write!(
+            f,
+            "DefIndex({}:{})",
+            self.address_space().index(),
+            self.as_array_index()
+        )
     }
 }
 
@@ -104,7 +110,7 @@ impl DefIndex {
         match self.0 & 1 {
             0 => DefIndexAddressSpace::Low,
             1 => DefIndexAddressSpace::High,
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 
@@ -125,8 +131,7 @@ impl DefIndex {
     // index of the macro in the CrateMetadata::proc_macros array) to the
     // corresponding DefIndex.
     pub fn from_proc_macro_index(proc_macro_index: usize) -> DefIndex {
-        let def_index = DefIndex::from_array_index(proc_macro_index,
-                                                   DefIndexAddressSpace::High);
+        let def_index = DefIndex::from_array_index(proc_macro_index, DefIndexAddressSpace::High);
         assert!(def_index != CRATE_DEF_INDEX);
         def_index
     }
@@ -173,10 +178,13 @@ pub struct DefId {
 
 impl fmt::Debug for DefId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "DefId({:?}/{}:{}",
-               self.krate.index(),
-               self.index.address_space().index(),
-               self.index.as_array_index())?;
+        write!(
+            f,
+            "DefId({:?}/{}:{}",
+            self.krate.index(),
+            self.index.address_space().index(),
+            self.index.as_array_index()
+        )?;
 
         ty::tls::with_opt(|opt_tcx| {
             if let Some(tcx) = opt_tcx {
@@ -193,7 +201,10 @@ impl DefId {
     /// Make a local `DefId` with the given index.
     #[inline]
     pub fn local(index: DefIndex) -> DefId {
-        DefId { krate: LOCAL_CRATE, index: index }
+        DefId {
+            krate: LOCAL_CRATE,
+            index: index,
+        }
     }
 
     #[inline]
@@ -220,7 +231,6 @@ impl serialize::UseSpecializedDecodable for DefId {}
 pub struct LocalDefId(DefIndex);
 
 impl LocalDefId {
-
     #[inline]
     pub fn from_def_id(def_id: DefId) -> LocalDefId {
         assert!(def_id.is_local());
@@ -231,7 +241,7 @@ impl LocalDefId {
     pub fn to_def_id(self) -> DefId {
         DefId {
             krate: LOCAL_CRATE,
-            index: self.0
+            index: self.0,
         }
     }
 }

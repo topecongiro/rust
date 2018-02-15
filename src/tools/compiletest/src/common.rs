@@ -74,24 +74,26 @@ impl FromStr for Mode {
 
 impl fmt::Display for Mode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(match *self {
-                              CompileFail => "compile-fail",
-                              ParseFail => "parse-fail",
-                              RunFail => "run-fail",
-                              RunPass => "run-pass",
-                              RunPassValgrind => "run-pass-valgrind",
-                              Pretty => "pretty",
-                              DebugInfoGdb => "debuginfo-gdb",
-                              DebugInfoLldb => "debuginfo-lldb",
-                              Codegen => "codegen",
-                              Rustdoc => "rustdoc",
-                              CodegenUnits => "codegen-units",
-                              Incremental => "incremental",
-                              RunMake => "run-make",
-                              Ui => "ui",
-                              MirOpt => "mir-opt",
-                          },
-                          f)
+        fmt::Display::fmt(
+            match *self {
+                CompileFail => "compile-fail",
+                ParseFail => "parse-fail",
+                RunFail => "run-fail",
+                RunPass => "run-pass",
+                RunPassValgrind => "run-pass-valgrind",
+                Pretty => "pretty",
+                DebugInfoGdb => "debuginfo-gdb",
+                DebugInfoLldb => "debuginfo-lldb",
+                Codegen => "codegen",
+                Rustdoc => "rustdoc",
+                CodegenUnits => "codegen-units",
+                Incremental => "incremental",
+                RunMake => "run-make",
+                Ui => "ui",
+                MirOpt => "mir-opt",
+            },
+            f,
+        )
     }
 }
 

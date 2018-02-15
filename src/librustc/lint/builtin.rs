@@ -14,7 +14,7 @@
 //! compiler code, rather than using their own custom pass. Those
 //! lints are all available in `rustc_lint::builtin`.
 
-use lint::{LintPass, LateLintPass, LintArray};
+use lint::{LateLintPass, LintArray, LintPass};
 
 declare_lint! {
     pub CONST_ERR,
@@ -299,7 +299,6 @@ impl LintPass for HardwiredLints {
             SINGLE_USE_LIFETIME,
             TYVAR_BEHIND_RAW_POINTER,
             ELIDED_LIFETIME_IN_PATH
-
         )
     }
 }

@@ -19,31 +19,28 @@ use rustc_data_structures::indexed_vec::Idx;
 
 impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
     /// Compile `expr`, yielding a place that we can move from etc.
-    pub fn as_place<M>(&mut self,
-                        block: BasicBlock,
-                        expr: M)
-                        -> BlockAnd<Place<'tcx>>
-        where M: Mirror<'tcx, Output=Expr<'tcx>>
+    pub fn as_place<M>(&mut self, block: BasicBlock, expr: M) -> BlockAnd<Place<'tcx>>
+    where
+        M: Mirror<'tcx, Output = Expr<'tcx>>,
     {
         let expr = self.hir.mirror(expr);
         self.expr_as_place(block, expr)
     }
 
-    fn expr_as_place(&mut self,
-                      mut block: BasicBlock,
-                      expr: Expr<'tcx>)
-                      -> BlockAnd<Place<'tcx>> {
+    fn expr_as_place(&mut self, mut block: BasicBlock, expr: Expr<'tcx>) -> BlockAnd<Place<'tcx>> {
         debug!("expr_as_place(block={:?}, expr={:?})", block, expr);
 
         let this = self;
         let expr_span = expr.span;
         let source_info = this.source_info(expr_span);
         match expr.kind {
-            ExprKind::Scope { region_scope, lint_level, value } => {
-                this.in_scope((region_scope, source_info), lint_level, block, |this| {
-                    this.as_place(block, value)
-                })
-            }
+            ExprKind::Scope {
+                region_scope,
+                lint_level,
+                value,
+            } => this.in_scope((region_scope, source_info), lint_level, block, |this| {
+                this.as_place(block, value)
+            }),
             ExprKind::Field { lhs, name } => {
                 let place = unpack!(block = this.as_place(block, lhs));
                 let place = place.field(name, expr.ty);
@@ -64,64 +61,74 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
                 let idx = unpack!(block = this.as_temp(block, None, index));
 
                 // bounds check:
-                let (len, lt) = (this.temp(usize_ty.clone(), expr_span),
-                                 this.temp(bool_ty, expr_span));
-                this.cfg.push_assign(block, source_info, // len = len(slice)
-                                     &len, Rvalue::Len(slice.clone()));
-                this.cfg.push_assign(block, source_info, // lt = idx < len
-                                     &lt, Rvalue::BinaryOp(BinOp::Lt,
-                                                           Operand::Copy(Place::Local(idx)),
-                                                           Operand::Copy(len.clone())));
+                let (len, lt) = (
+                    this.temp(usize_ty.clone(), expr_span),
+                    this.temp(bool_ty, expr_span),
+                );
+                this.cfg.push_assign(
+                    block,
+                    source_info, // len = len(slice)
+                    &len,
+                    Rvalue::Len(slice.clone()),
+                );
+                this.cfg.push_assign(
+                    block,
+                    source_info, // lt = idx < len
+                    &lt,
+                    Rvalue::BinaryOp(
+                        BinOp::Lt,
+                        Operand::Copy(Place::Local(idx)),
+                        Operand::Copy(len.clone()),
+                    ),
+                );
 
                 let msg = AssertMessage::BoundsCheck {
                     len: Operand::Move(len),
-                    index: Operand::Copy(Place::Local(idx))
+                    index: Operand::Copy(Place::Local(idx)),
                 };
-                let success = this.assert(block, Operand::Move(lt), true,
-                                          msg, expr_span);
+                let success = this.assert(block, Operand::Move(lt), true, msg, expr_span);
                 success.and(slice.index(idx))
             }
-            ExprKind::SelfRef => {
-                block.and(Place::Local(Local::new(1)))
-            }
+            ExprKind::SelfRef => block.and(Place::Local(Local::new(1))),
             ExprKind::VarRef { id } => {
                 let index = this.var_indices[&id];
                 block.and(Place::Local(index))
             }
-            ExprKind::StaticRef { id } => {
-                block.and(Place::Static(Box::new(Static { def_id: id, ty: expr.ty })))
-            }
+            ExprKind::StaticRef { id } => block.and(Place::Static(Box::new(Static {
+                def_id: id,
+                ty: expr.ty,
+            }))),
 
-            ExprKind::Array { .. } |
-            ExprKind::Tuple { .. } |
-            ExprKind::Adt { .. } |
-            ExprKind::Closure { .. } |
-            ExprKind::Unary { .. } |
-            ExprKind::Binary { .. } |
-            ExprKind::LogicalOp { .. } |
-            ExprKind::Box { .. } |
-            ExprKind::Cast { .. } |
-            ExprKind::Use { .. } |
-            ExprKind::NeverToAny { .. } |
-            ExprKind::ReifyFnPointer { .. } |
-            ExprKind::ClosureFnPointer { .. } |
-            ExprKind::UnsafeFnPointer { .. } |
-            ExprKind::Unsize { .. } |
-            ExprKind::Repeat { .. } |
-            ExprKind::Borrow { .. } |
-            ExprKind::If { .. } |
-            ExprKind::Match { .. } |
-            ExprKind::Loop { .. } |
-            ExprKind::Block { .. } |
-            ExprKind::Assign { .. } |
-            ExprKind::AssignOp { .. } |
-            ExprKind::Break { .. } |
-            ExprKind::Continue { .. } |
-            ExprKind::Return { .. } |
-            ExprKind::Literal { .. } |
-            ExprKind::InlineAsm { .. } |
-            ExprKind::Yield { .. } |
-            ExprKind::Call { .. } => {
+            ExprKind::Array { .. }
+            | ExprKind::Tuple { .. }
+            | ExprKind::Adt { .. }
+            | ExprKind::Closure { .. }
+            | ExprKind::Unary { .. }
+            | ExprKind::Binary { .. }
+            | ExprKind::LogicalOp { .. }
+            | ExprKind::Box { .. }
+            | ExprKind::Cast { .. }
+            | ExprKind::Use { .. }
+            | ExprKind::NeverToAny { .. }
+            | ExprKind::ReifyFnPointer { .. }
+            | ExprKind::ClosureFnPointer { .. }
+            | ExprKind::UnsafeFnPointer { .. }
+            | ExprKind::Unsize { .. }
+            | ExprKind::Repeat { .. }
+            | ExprKind::Borrow { .. }
+            | ExprKind::If { .. }
+            | ExprKind::Match { .. }
+            | ExprKind::Loop { .. }
+            | ExprKind::Block { .. }
+            | ExprKind::Assign { .. }
+            | ExprKind::AssignOp { .. }
+            | ExprKind::Break { .. }
+            | ExprKind::Continue { .. }
+            | ExprKind::Return { .. }
+            | ExprKind::Literal { .. }
+            | ExprKind::InlineAsm { .. }
+            | ExprKind::Yield { .. }
+            | ExprKind::Call { .. } => {
                 // these are not places, so we need to make a temporary.
                 debug_assert!(match Category::of(&expr.kind) {
                     Some(Category::Place) => false,

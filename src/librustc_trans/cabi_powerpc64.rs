@@ -12,7 +12,7 @@
 // Alignment of 128 bit types is not currently handled, this will
 // need to be fixed when PowerPC vector support is added.
 
-use abi::{FnType, ArgType, LayoutExt, Reg, RegKind, Uniform};
+use abi::{ArgType, FnType, LayoutExt, Reg, RegKind, Uniform};
 use context::CodegenCx;
 use rustc::ty::layout;
 
@@ -23,28 +23,30 @@ enum ABI {
 }
 use self::ABI::*;
 
-fn is_homogeneous_aggregate<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>,
-                                      arg: &mut ArgType<'tcx>,
-                                      abi: ABI)
-                                     -> Option<Uniform> {
+fn is_homogeneous_aggregate<'a, 'tcx>(
+    cx: &CodegenCx<'a, 'tcx>,
+    arg: &mut ArgType<'tcx>,
+    abi: ABI,
+) -> Option<Uniform> {
     arg.layout.homogeneous_aggregate(cx).and_then(|unit| {
         // ELFv1 only passes one-member aggregates transparently.
         // ELFv2 passes up to eight uniquely addressable members.
         if (abi == ELFv1 && arg.layout.size > unit.size)
-                || arg.layout.size > unit.size.checked_mul(8, cx).unwrap() {
+            || arg.layout.size > unit.size.checked_mul(8, cx).unwrap()
+        {
             return None;
         }
 
         let valid_unit = match unit.kind {
             RegKind::Integer => false,
             RegKind::Float => true,
-            RegKind::Vector => arg.layout.size.bits() == 128
+            RegKind::Vector => arg.layout.size.bits() == 128,
         };
 
         if valid_unit {
             Some(Uniform {
                 unit,
-                total: arg.layout.size
+                total: arg.layout.size,
             })
         } else {
             None
@@ -82,10 +84,7 @@ fn classify_ret_ty<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>, ret: &mut ArgType<'tcx>, 
             Reg::i64()
         };
 
-        ret.cast_to(Uniform {
-            unit,
-            total: size
-        });
+        ret.cast_to(Uniform { unit, total: size });
         return;
     }
 
@@ -110,22 +109,25 @@ fn classify_arg_ty<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>, arg: &mut ArgType<'tcx>, 
             // the least-significant bits of the parameter doubleword.  The rest
             // should be padded at their tail to fill out multiple doublewords.
             if size.bits() <= 64 {
-                (Reg { kind: RegKind::Integer, size }, size)
+                (
+                    Reg {
+                        kind: RegKind::Integer,
+                        size,
+                    },
+                    size,
+                )
             } else {
                 let align = layout::Align::from_bits(64, 64).unwrap();
                 (Reg::i64(), size.abi_align(align))
             }
-        },
+        }
         ELFv2 => {
             // In ELFv2, we can just cast directly.
             (Reg::i64(), size)
-        },
+        }
     };
 
-    arg.cast_to(Uniform {
-        unit,
-        total
-    });
+    arg.cast_to(Uniform { unit, total });
 }
 
 pub fn compute_abi_info<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>, fty: &mut FnType<'tcx>) {
@@ -140,7 +142,9 @@ pub fn compute_abi_info<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>, fty: &mut FnType<'tc
     }
 
     for arg in &mut fty.args {
-        if arg.is_ignore() { continue; }
+        if arg.is_ignore() {
+            continue;
+        }
         classify_arg_ty(cx, arg, abi);
     }
 }

@@ -69,9 +69,7 @@ impl RegionValueElements {
 
     /// Iterates over the `RegionElementIndex` for all points in the CFG.
     pub(super) fn all_point_indices<'a>(&'a self) -> impl Iterator<Item = RegionElementIndex> + 'a {
-        (0..self.num_points).map(move |i| {
-            RegionElementIndex::new(i + self.num_universal_regions)
-        })
+        (0..self.num_points).map(move |i| RegionElementIndex::new(i + self.num_universal_regions))
     }
 
     /// Iterates over the `RegionElementIndex` for all points in the CFG.
@@ -153,7 +151,6 @@ pub(super) enum RegionElement {
     /// An in-scope, universally quantified region (e.g., a liftime parameter).
     UniversalRegion(RegionVid),
 }
-
 
 pub(super) trait ToElementIndex {
     fn to_element_index(self, elements: &RegionValueElements) -> RegionElementIndex;
@@ -294,8 +291,7 @@ impl RegionValues {
         // complicate causal tracking though.
         debug!(
             "add_universal_regions_outlived_by(from_region={:?}, to_region={:?})",
-            from_region,
-            to_region
+            from_region, to_region
         );
         let mut changed = false;
         for elem in self.elements.all_universal_region_indices() {
@@ -415,9 +411,7 @@ impl RegionValues {
             assert_eq!(location1.block, location2.block);
             str.push_str(&format!(
                 "{:?}[{}..={}]",
-                location1.block,
-                location1.statement_index,
-                location2.statement_index
+                location1.block, location1.statement_index, location2.statement_index
             ));
         }
     }

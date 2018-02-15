@@ -454,11 +454,8 @@ impl<'a, 'tcx> Visitor<'tcx> for LifetimeContext<'a, 'tcx> {
     fn visit_item(&mut self, item: &'tcx hir::Item) {
         match item.node {
             hir::ItemFn(ref decl, _, _, _, ref generics, _) => {
-                self.visit_early_late(None,
-                                      decl,
-                                      generics,
-                                      |this| {
-                                          intravisit::walk_item(this, item);
+                self.visit_early_late(None, decl, generics, |this| {
+                    intravisit::walk_item(this, item);
                 });
             }
 
@@ -491,7 +488,8 @@ impl<'a, 'tcx> Visitor<'tcx> for LifetimeContext<'a, 'tcx> {
                 } else {
                     0
                 };
-                let lifetimes = generics.lifetimes()
+                let lifetimes = generics
+                    .lifetimes()
                     .map(|def| Region::early(&self.tcx.hir, &mut index, def))
                     .collect();
                 let next_early_index = index + generics.ty_params().count() as u32;
@@ -511,12 +509,9 @@ impl<'a, 'tcx> Visitor<'tcx> for LifetimeContext<'a, 'tcx> {
     fn visit_foreign_item(&mut self, item: &'tcx hir::ForeignItem) {
         match item.node {
             hir::ForeignItemFn(ref decl, _, ref generics) => {
-                self.visit_early_late(None,
-                                      decl,
-                                      generics,
-                                      |this| {
-                                          intravisit::walk_foreign_item(this, item);
-                                      })
+                self.visit_early_late(None, decl, generics, |this| {
+                    intravisit::walk_foreign_item(this, item);
+                })
             }
             hir::ForeignItemStatic(..) => {
                 intravisit::walk_foreign_item(self, item);
@@ -635,10 +630,14 @@ impl<'a, 'tcx> Visitor<'tcx> for LifetimeContext<'a, 'tcx> {
                 if let Some(elision_region) = elision {
                     let scope = Scope::Elision {
                         elide: Elide::Exact(elision_region),
-                        s: self.scope
+                        s: self.scope,
                     };
                     self.with(scope, |_old_scope, this| {
-                        let scope = Scope::Binder { lifetimes, next_early_index, s: this.scope };
+                        let scope = Scope::Binder {
+                            lifetimes,
+                            next_early_index,
+                            s: this.scope,
+                        };
                         this.with(scope, |_old_scope, this| {
                             this.visit_generics(generics);
                             for bound in bounds {
@@ -647,7 +646,11 @@ impl<'a, 'tcx> Visitor<'tcx> for LifetimeContext<'a, 'tcx> {
                         });
                     });
                 } else {
-                    let scope = Scope::Binder { lifetimes, next_early_index, s: self.scope };
+                    let scope = Scope::Binder {
+                        lifetimes,
+                        next_early_index,
+                        s: self.scope,
+                    };
                     self.with(scope, |_old_scope, this| {
                         this.visit_generics(generics);
                         for bound in bounds {
@@ -671,17 +674,22 @@ impl<'a, 'tcx> Visitor<'tcx> for LifetimeContext<'a, 'tcx> {
                     &trait_item.generics,
                     |this| intravisit::walk_trait_item(this, trait_item),
                 );
-            },
+            }
             Type(ref bounds, ref ty) => {
                 let generics = &trait_item.generics;
                 let mut index = self.next_early_index();
                 debug!("visit_ty: index = {}", index);
-                let lifetimes = generics.lifetimes()
+                let lifetimes = generics
+                    .lifetimes()
                     .map(|lt_def| Region::early(&self.tcx.hir, &mut index, lt_def))
                     .collect();
 
                 let next_early_index = index + generics.ty_params().count() as u32;
-                let scope = Scope::Binder { lifetimes, next_early_index, s: self.scope };
+                let scope = Scope::Binder {
+                    lifetimes,
+                    next_early_index,
+                    s: self.scope,
+                };
                 self.with(scope, |_old_scope, this| {
                     this.visit_generics(generics);
                     for bound in bounds {
@@ -691,12 +699,12 @@ impl<'a, 'tcx> Visitor<'tcx> for LifetimeContext<'a, 'tcx> {
                         this.visit_ty(ty);
                     }
                 });
-            },
+            }
             Const(_, _) => {
                 // Only methods and types support generics.
                 assert!(trait_item.generics.params.is_empty());
                 intravisit::walk_trait_item(self, trait_item);
-            },
+            }
         }
     }
 
@@ -711,27 +719,32 @@ impl<'a, 'tcx> Visitor<'tcx> for LifetimeContext<'a, 'tcx> {
                     &impl_item.generics,
                     |this| intravisit::walk_impl_item(this, impl_item),
                 )
-            },
+            }
             Type(ref ty) => {
                 let generics = &impl_item.generics;
                 let mut index = self.next_early_index();
                 debug!("visit_ty: index = {}", index);
-                let lifetimes = generics.lifetimes()
+                let lifetimes = generics
+                    .lifetimes()
                     .map(|lt_def| Region::early(&self.tcx.hir, &mut index, lt_def))
                     .collect();
 
                 let next_early_index = index + generics.ty_params().count() as u32;
-                let scope = Scope::Binder { lifetimes, next_early_index, s: self.scope };
+                let scope = Scope::Binder {
+                    lifetimes,
+                    next_early_index,
+                    s: self.scope,
+                };
                 self.with(scope, |_old_scope, this| {
                     this.visit_generics(generics);
                     this.visit_ty(ty);
                 });
-            },
+            }
             Const(_, _) => {
                 // Only methods and types support generics.
                 assert!(impl_item.generics.params.is_empty());
                 intravisit::walk_impl_item(self, impl_item);
-            },
+            }
         }
     }
 
@@ -767,7 +780,7 @@ impl<'a, 'tcx> Visitor<'tcx> for LifetimeContext<'a, 'tcx> {
     fn visit_generics(&mut self, generics: &'tcx hir::Generics) {
         check_mixed_explicit_and_in_band_defs(
             self.tcx,
-            &generics.lifetimes().cloned().collect::<Vec<_>>()
+            &generics.lifetimes().cloned().collect::<Vec<_>>(),
         );
         for ty_param in generics.ty_params() {
             walk_list!(self, visit_ty_param_bound, &ty_param.bounds);
@@ -787,7 +800,8 @@ impl<'a, 'tcx> Visitor<'tcx> for LifetimeContext<'a, 'tcx> {
                         self.trait_ref_hack = true;
                         let next_early_index = self.next_early_index();
                         let scope = Scope::Binder {
-                            lifetimes: bound_generic_params.lifetimes()
+                            lifetimes: bound_generic_params
+                                .lifetimes()
                                 .map(|def| Region::late(&self.tcx.hir, def))
                                 .collect(),
                             s: self.scope,
@@ -834,8 +848,11 @@ impl<'a, 'tcx> Visitor<'tcx> for LifetimeContext<'a, 'tcx> {
     ) {
         debug!("visit_poly_trait_ref trait_ref={:?}", trait_ref);
 
-        if !self.trait_ref_hack ||
-            trait_ref.bound_generic_params.iter().any(|p| p.is_lifetime_param())
+        if !self.trait_ref_hack
+            || trait_ref
+                .bound_generic_params
+                .iter()
+                .any(|p| p.is_lifetime_param())
         {
             if self.trait_ref_hack {
                 span_err!(
@@ -847,7 +864,8 @@ impl<'a, 'tcx> Visitor<'tcx> for LifetimeContext<'a, 'tcx> {
             }
             let next_early_index = self.next_early_index();
             let scope = Scope::Binder {
-                lifetimes: trait_ref.bound_generic_params
+                lifetimes: trait_ref
+                    .bound_generic_params
                     .lifetimes()
                     .map(|def| Region::late(&self.tcx.hir, def))
                     .collect(),
@@ -1086,7 +1104,8 @@ fn compute_object_lifetime_defaults(
                         .map(|set| match *set {
                             Set1::Empty => "BaseDefault".to_string(),
                             Set1::One(Region::Static) => "'static".to_string(),
-                            Set1::One(Region::EarlyBound(i, _, _)) => generics.lifetimes()
+                            Set1::One(Region::EarlyBound(i, _, _)) => generics
+                                .lifetimes()
                                 .nth(i as usize)
                                 .unwrap()
                                 .lifetime
@@ -1124,7 +1143,8 @@ fn object_lifetime_defaults_for_item(
         }
     }
 
-    generics.ty_params()
+    generics
+        .ty_params()
         .map(|param| {
             let mut set = Set1::Empty;
 
@@ -1220,17 +1240,21 @@ impl<'a, 'tcx> LifetimeContext<'a, 'tcx> {
                     if let hir::map::NodeLifetime(hir_lifetime) = this.tcx.hir.get(node_id) {
                         let span = hir_lifetime.span;
                         let id = hir_lifetime.id;
-                        debug!("id ={:?} span = {:?} hir_lifetime = {:?}",
-                            node_id,
-                            span,
-                            hir_lifetime);
+                        debug!(
+                            "id ={:?} span = {:?} hir_lifetime = {:?}",
+                            node_id, span, hir_lifetime
+                        );
 
                         this.tcx
-                            .struct_span_lint_node(lint::builtin::SINGLE_USE_LIFETIME,
-                                                   id,
-                                                   span,
-                                                   &format!("lifetime name `{}` only used once",
-                                                   hir_lifetime.name.name()))
+                            .struct_span_lint_node(
+                                lint::builtin::SINGLE_USE_LIFETIME,
+                                id,
+                                span,
+                                &format!(
+                                    "lifetime name `{}` only used once",
+                                    hir_lifetime.name.name()
+                                ),
+                            )
                             .emit();
                     }
                 }
@@ -1622,8 +1646,7 @@ impl<'a, 'tcx> LifetimeContext<'a, 'tcx> {
             }
 
             // Foreign functions, `fn(...) -> R` and `Trait(...) -> R` (both types and bounds).
-            hir::map::NodeForeignItem(_) | hir::map::NodeTy(_) | hir::map::NodeTraitRef(_) =>
-                None,
+            hir::map::NodeForeignItem(_) | hir::map::NodeTy(_) | hir::map::NodeTraitRef(_) => None,
             // Everything else (only closures?) doesn't
             // actually enjoy elision in return types.
             _ => {
@@ -1818,7 +1841,8 @@ impl<'a, 'tcx> LifetimeContext<'a, 'tcx> {
                     lint::builtin::ELIDED_LIFETIME_IN_PATH,
                     id,
                     span,
-                    &format!("hidden lifetime parameters are deprecated, try `Foo<'_>`"))
+                    &format!("hidden lifetime parameters are deprecated, try `Foo<'_>`"),
+                )
                 .emit();
         }
         let error = loop {
@@ -2070,9 +2094,11 @@ impl<'a, 'tcx> LifetimeContext<'a, 'tcx> {
         }
     }
 
-    fn check_lifetime_def_for_shadowing(&self,
-                                        mut old_scope: ScopeRef,
-                                        lifetime: &'tcx hir::Lifetime) {
+    fn check_lifetime_def_for_shadowing(
+        &self,
+        mut old_scope: ScopeRef,
+        lifetime: &'tcx hir::Lifetime,
+    ) {
         for &(label, label_span) in &self.labels_in_fn {
             // FIXME (#24278): non-hygienic comparison
             if lifetime.name.name() == label {
@@ -2139,14 +2165,13 @@ impl<'a, 'tcx> LifetimeContext<'a, 'tcx> {
         self.map.defs.insert(lifetime_ref.id, def);
 
         match def {
-            Region::LateBoundAnon(..) |
-            Region::Static => {
+            Region::LateBoundAnon(..) | Region::Static => {
                 // These are anonymous lifetimes or lifetimes that are not declared.
             }
 
-            Region::Free(_, def_id) |
-            Region::LateBound(_, def_id, _) |
-            Region::EarlyBound(_, def_id, _) => {
+            Region::Free(_, def_id)
+            | Region::LateBound(_, def_id, _)
+            | Region::EarlyBound(_, def_id, _) => {
                 // A lifetime declared by the user.
                 if !self.lifetime_uses.contains_key(&def_id) {
                     self.lifetime_uses
@@ -2178,8 +2203,7 @@ fn insert_late_bound_lifetimes(
 ) {
     debug!(
         "insert_late_bound_lifetimes(decl={:?}, generics={:?})",
-        decl,
-        generics
+        decl, generics
     );
 
     let mut constrained_by_input = ConstrainedCollector {
@@ -2258,8 +2282,7 @@ fn insert_late_bound_lifetimes(
         debug!(
             "insert_late_bound_lifetimes: \
              lifetime {:?} with id {:?} is late-bound",
-            lifetime.lifetime.name,
-            lifetime.lifetime.id
+            lifetime.lifetime.name, lifetime.lifetime.id
         );
 
         let inserted = map.late_bound.insert(lifetime.lifetime.id);

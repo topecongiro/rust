@@ -14,14 +14,14 @@ pub use self::DelimToken::*;
 pub use self::Lit::*;
 pub use self::Token::*;
 
-use ast::{self};
+use ast;
 use parse::ParseSess;
 use print::pprust;
 use ptr::P;
 use serialize::{Decodable, Decoder, Encodable, Encoder};
 use symbol::keywords;
 use syntax::parse::parse_stream_from_source_str;
-use syntax_pos::{self, Span, FileName};
+use syntax_pos::{self, FileName, Span};
 use tokenstream::{TokenStream, TokenTree};
 use tokenstream;
 
@@ -58,7 +58,11 @@ pub enum DelimToken {
 
 impl DelimToken {
     pub fn len(self) -> usize {
-        if self == NoDelim { 0 } else { 1 }
+        if self == NoDelim {
+            0
+        } else {
+            1
+        }
     }
 
     pub fn is_empty(self) -> bool {
@@ -86,7 +90,7 @@ impl Lit {
             Integer(_) => "integer",
             Float(_) => "float",
             Str_(_) | StrRaw(..) => "string",
-            ByteStr(_) | ByteStrRaw(..) => "byte string"
+            ByteStr(_) | ByteStrRaw(..) => "byte string",
         }
     }
 }
@@ -94,41 +98,39 @@ impl Lit {
 fn ident_can_begin_expr(ident: ast::Ident) -> bool {
     let ident_token: Token = Ident(ident);
 
-    !ident_token.is_reserved_ident() ||
-    ident_token.is_path_segment_keyword() ||
-    [
-        keywords::Do.name(),
-        keywords::Box.name(),
-        keywords::Break.name(),
-        keywords::Continue.name(),
-        keywords::False.name(),
-        keywords::For.name(),
-        keywords::If.name(),
-        keywords::Loop.name(),
-        keywords::Match.name(),
-        keywords::Move.name(),
-        keywords::Return.name(),
-        keywords::True.name(),
-        keywords::Unsafe.name(),
-        keywords::While.name(),
-        keywords::Yield.name(),
-        keywords::Static.name(),
-    ].contains(&ident.name)
+    !ident_token.is_reserved_ident() || ident_token.is_path_segment_keyword()
+        || [
+            keywords::Do.name(),
+            keywords::Box.name(),
+            keywords::Break.name(),
+            keywords::Continue.name(),
+            keywords::False.name(),
+            keywords::For.name(),
+            keywords::If.name(),
+            keywords::Loop.name(),
+            keywords::Match.name(),
+            keywords::Move.name(),
+            keywords::Return.name(),
+            keywords::True.name(),
+            keywords::Unsafe.name(),
+            keywords::While.name(),
+            keywords::Yield.name(),
+            keywords::Static.name(),
+        ].contains(&ident.name)
 }
 
 fn ident_can_begin_type(ident: ast::Ident) -> bool {
     let ident_token: Token = Ident(ident);
 
-    !ident_token.is_reserved_ident() ||
-    ident_token.is_path_segment_keyword() ||
-    [
-        keywords::For.name(),
-        keywords::Impl.name(),
-        keywords::Fn.name(),
-        keywords::Unsafe.name(),
-        keywords::Extern.name(),
-        keywords::Typeof.name(),
-    ].contains(&ident.name)
+    !ident_token.is_reserved_ident() || ident_token.is_path_segment_keyword()
+        || [
+            keywords::For.name(),
+            keywords::Impl.name(),
+            keywords::Fn.name(),
+            keywords::Unsafe.name(),
+            keywords::Extern.name(),
+            keywords::Typeof.name(),
+        ].contains(&ident.name)
 }
 
 #[derive(Clone, RustcEncodable, RustcDecodable, PartialEq, Eq, Hash, Debug)]
@@ -188,7 +190,6 @@ pub enum Token {
     // Junk. These carry no data because we don't really care about the data
     // they *would* carry, and don't really want to allocate a new ident for
     // them. Instead, users could extract that from the associated span.
-
     /// Whitespace
     Whitespace,
     /// Comment
@@ -261,15 +262,15 @@ impl Token {
 
     /// Returns `true` if the token can appear at the start of a generic bound.
     pub fn can_begin_bound(&self) -> bool {
-        self.is_path_start() || self.is_lifetime() || self.is_keyword(keywords::For) ||
-        self == &Question || self == &OpenDelim(Paren)
+        self.is_path_start() || self.is_lifetime() || self.is_keyword(keywords::For)
+            || self == &Question || self == &OpenDelim(Paren)
     }
 
     /// Returns `true` if the token is any literal
     pub fn is_lit(&self) -> bool {
         match *self {
             Literal(..) => true,
-            _           => false,
+            _ => false,
         }
     }
 
@@ -292,8 +293,8 @@ impl Token {
     /// Returns `true` if the token is a documentation comment.
     pub fn is_doc_comment(&self) -> bool {
         match *self {
-            DocComment(..)   => true,
-            _                => false,
+            DocComment(..) => true,
+            _ => false,
         }
     }
 
@@ -301,7 +302,7 @@ impl Token {
     pub fn is_interpolated(&self) -> bool {
         match *self {
             Interpolated(..) => true,
-            _                => false,
+            _ => false,
         }
     }
 
@@ -320,8 +321,11 @@ impl Token {
     /// the span.
     pub fn lifetime(&self, span: Span) -> Option<ast::Lifetime> {
         match *self {
-            Lifetime(ident) =>
-                Some(ast::Lifetime { ident: ident, span: span, id: ast::DUMMY_NODE_ID }),
+            Lifetime(ident) => Some(ast::Lifetime {
+                ident: ident,
+                span: span,
+                id: ast::DUMMY_NODE_ID,
+            }),
             Interpolated(ref nt) => match nt.0 {
                 NtLifetime(lifetime) => Some(lifetime),
                 _ => None,
@@ -337,8 +341,7 @@ impl Token {
 
     /// Returns `true` if the token is either the `mut` or `const` keyword.
     pub fn is_mutability(&self) -> bool {
-        self.is_keyword(keywords::Mut) ||
-        self.is_keyword(keywords::Const)
+        self.is_keyword(keywords::Mut) || self.is_keyword(keywords::Const)
     }
 
     pub fn is_qpath_start(&self) -> bool {
@@ -346,23 +349,26 @@ impl Token {
     }
 
     pub fn is_path_start(&self) -> bool {
-        self == &ModSep || self.is_qpath_start() || self.is_path() ||
-        self.is_path_segment_keyword() || self.is_ident() && !self.is_reserved_ident()
+        self == &ModSep || self.is_qpath_start() || self.is_path() || self.is_path_segment_keyword()
+            || self.is_ident() && !self.is_reserved_ident()
     }
 
     /// Returns `true` if the token is a given keyword, `kw`.
     pub fn is_keyword(&self, kw: keywords::Keyword) -> bool {
-        self.ident().map(|ident| ident.name == kw.name()).unwrap_or(false)
+        self.ident()
+            .map(|ident| ident.name == kw.name())
+            .unwrap_or(false)
     }
 
     pub fn is_path_segment_keyword(&self) -> bool {
         match self.ident() {
-            Some(id) => id.name == keywords::Super.name() ||
-                        id.name == keywords::SelfValue.name() ||
-                        id.name == keywords::SelfType.name() ||
-                        id.name == keywords::Extern.name() ||
-                        id.name == keywords::Crate.name() ||
-                        id.name == keywords::DollarCrate.name(),
+            Some(id) => {
+                id.name == keywords::Super.name() || id.name == keywords::SelfValue.name()
+                    || id.name == keywords::SelfType.name()
+                    || id.name == keywords::Extern.name()
+                    || id.name == keywords::Crate.name()
+                    || id.name == keywords::DollarCrate.name()
+            }
             None => false,
         }
     }
@@ -439,12 +445,12 @@ impl Token {
                 _ => return None,
             },
 
-            Le | EqEq | Ne | Ge | AndAnd | OrOr | Tilde | BinOpEq(..) | At | DotDotDot | DotEq |
-            DotDotEq | Comma | Semi | ModSep | RArrow | LArrow | FatArrow | Pound | Dollar |
-            Question | OpenDelim(..) | CloseDelim(..) | Underscore => return None,
+            Le | EqEq | Ne | Ge | AndAnd | OrOr | Tilde | BinOpEq(..) | At | DotDotDot | DotEq
+            | DotDotEq | Comma | Semi | ModSep | RArrow | LArrow | FatArrow | Pound | Dollar
+            | Question | OpenDelim(..) | CloseDelim(..) | Underscore => return None,
 
-            Literal(..) | Ident(..) | Lifetime(..) | Interpolated(..) | DocComment(..) |
-            Whitespace | Comment | Shebang(..) | Eof => return None,
+            Literal(..) | Ident(..) | Lifetime(..) | Interpolated(..) | DocComment(..)
+            | Whitespace | Comment | Shebang(..) | Eof => return None,
         })
     }
 
@@ -454,7 +460,7 @@ impl Token {
         match *self {
             Comma => Some(vec![Dot, Lt]),
             Semi => Some(vec![Colon]),
-            _ => None
+            _ => None,
         }
     }
 
@@ -463,9 +469,7 @@ impl Token {
         self.is_special_ident() || self.is_used_keyword() || self.is_unused_keyword()
     }
 
-    pub fn interpolated_to_tokenstream(&self, sess: &ParseSess, span: Span)
-        -> TokenStream
-    {
+    pub fn interpolated_to_tokenstream(&self, sess: &ParseSess, span: Span) -> TokenStream {
         let nt = match *self {
             Token::Interpolated(ref nt) => nt,
             _ => panic!("only works on interpolated tokens"),
@@ -572,9 +576,8 @@ impl fmt::Debug for Nonterminal {
 
 pub fn is_op(tok: &Token) -> bool {
     match *tok {
-        OpenDelim(..) | CloseDelim(..) | Literal(..) | DocComment(..) |
-        Ident(..) | Underscore | Lifetime(..) | Interpolated(..) |
-        Whitespace | Comment | Shebang(..) | Eof => false,
+        OpenDelim(..) | CloseDelim(..) | Literal(..) | DocComment(..) | Ident(..) | Underscore
+        | Lifetime(..) | Interpolated(..) | Whitespace | Comment | Shebang(..) | Eof => false,
         _ => true,
     }
 }
@@ -633,20 +636,23 @@ impl ::std::hash::Hash for LazyTokenStream {
     fn hash<H: ::std::hash::Hasher>(&self, _hasher: &mut H) {}
 }
 
-fn prepend_attrs(sess: &ParseSess,
-                 attrs: &[ast::Attribute],
-                 tokens: Option<&tokenstream::TokenStream>,
-                 span: syntax_pos::Span)
-    -> Option<tokenstream::TokenStream>
-{
+fn prepend_attrs(
+    sess: &ParseSess,
+    attrs: &[ast::Attribute],
+    tokens: Option<&tokenstream::TokenStream>,
+    span: syntax_pos::Span,
+) -> Option<tokenstream::TokenStream> {
     let tokens = tokens?;
     if attrs.len() == 0 {
-        return Some(tokens.clone())
+        return Some(tokens.clone());
     }
     let mut builder = tokenstream::TokenStreamBuilder::new();
     for attr in attrs {
-        assert_eq!(attr.style, ast::AttrStyle::Outer,
-                   "inner attributes should prevent cached tokens from existing");
+        assert_eq!(
+            attr.style,
+            ast::AttrStyle::Outer,
+            "inner attributes should prevent cached tokens from existing"
+        );
         // FIXME: Avoid this pretty-print + reparse hack as bove
         let name = FileName::MacroExpansion;
         let source = pprust::attr_to_string(attr);

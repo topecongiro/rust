@@ -77,7 +77,7 @@ pub enum StringPart {
 impl StringPart {
     pub fn content(&self) -> String {
         match self {
-            &StringPart::Normal(ref s) | & StringPart::Highlighted(ref s) => s.to_owned()
+            &StringPart::Normal(ref s) | &StringPart::Highlighted(ref s) => s.to_owned(),
         }
     }
 }
@@ -119,36 +119,34 @@ impl Diagnostic {
         self
     }
 
-    pub fn note_expected_found(&mut self,
-                               label: &fmt::Display,
-                               expected: DiagnosticStyledString,
-                               found: DiagnosticStyledString)
-                               -> &mut Self
-    {
+    pub fn note_expected_found(
+        &mut self,
+        label: &fmt::Display,
+        expected: DiagnosticStyledString,
+        found: DiagnosticStyledString,
+    ) -> &mut Self {
         self.note_expected_found_extra(label, expected, found, &"", &"")
     }
 
-    pub fn note_expected_found_extra(&mut self,
-                                     label: &fmt::Display,
-                                     expected: DiagnosticStyledString,
-                                     found: DiagnosticStyledString,
-                                     expected_extra: &fmt::Display,
-                                     found_extra: &fmt::Display)
-                                     -> &mut Self
-    {
+    pub fn note_expected_found_extra(
+        &mut self,
+        label: &fmt::Display,
+        expected: DiagnosticStyledString,
+        found: DiagnosticStyledString,
+        expected_extra: &fmt::Display,
+        found_extra: &fmt::Display,
+    ) -> &mut Self {
         let mut msg: Vec<_> = vec![(format!("expected {} `", label), Style::NoStyle)];
-        msg.extend(expected.0.iter()
-                   .map(|x| match *x {
-                       StringPart::Normal(ref s) => (s.to_owned(), Style::NoStyle),
-                       StringPart::Highlighted(ref s) => (s.to_owned(), Style::Highlight),
-                   }));
+        msg.extend(expected.0.iter().map(|x| match *x {
+            StringPart::Normal(ref s) => (s.to_owned(), Style::NoStyle),
+            StringPart::Highlighted(ref s) => (s.to_owned(), Style::Highlight),
+        }));
         msg.push((format!("`{}\n", expected_extra), Style::NoStyle));
         msg.push((format!("   found {} `", label), Style::NoStyle));
-        msg.extend(found.0.iter()
-                   .map(|x| match *x {
-                       StringPart::Normal(ref s) => (s.to_owned(), Style::NoStyle),
-                       StringPart::Highlighted(ref s) => (s.to_owned(), Style::Highlight),
-                   }));
+        msg.extend(found.0.iter().map(|x| match *x {
+            StringPart::Normal(ref s) => (s.to_owned(), Style::NoStyle),
+            StringPart::Highlighted(ref s) => (s.to_owned(), Style::Highlight),
+        }));
         msg.push((format!("`{}", found_extra), Style::NoStyle));
 
         // For now, just attach these as notes
@@ -160,7 +158,8 @@ impl Diagnostic {
         self.highlighted_note(vec![
             (format!("`{}` from trait: `", name), Style::NoStyle),
             (signature, Style::Highlight),
-            ("`".to_string(), Style::NoStyle)]);
+            ("`".to_string(), Style::NoStyle),
+        ]);
         self
     }
 
@@ -174,10 +173,7 @@ impl Diagnostic {
         self
     }
 
-    pub fn span_note<S: Into<MultiSpan>>(&mut self,
-                                         sp: S,
-                                         msg: &str)
-                                         -> &mut Self {
+    pub fn span_note<S: Into<MultiSpan>>(&mut self, sp: S, msg: &str) -> &mut Self {
         self.sub(Level::Note, msg, sp.into(), None);
         self
     }
@@ -187,23 +183,17 @@ impl Diagnostic {
         self
     }
 
-    pub fn span_warn<S: Into<MultiSpan>>(&mut self,
-                                         sp: S,
-                                         msg: &str)
-                                         -> &mut Self {
+    pub fn span_warn<S: Into<MultiSpan>>(&mut self, sp: S, msg: &str) -> &mut Self {
         self.sub(Level::Warning, msg, sp.into(), None);
         self
     }
 
-    pub fn help(&mut self , msg: &str) -> &mut Self {
+    pub fn help(&mut self, msg: &str) -> &mut Self {
         self.sub(Level::Help, msg, MultiSpan::new(), None);
         self
     }
 
-    pub fn span_help<S: Into<MultiSpan>>(&mut self,
-                                         sp: S,
-                                         msg: &str)
-                                         -> &mut Self {
+    pub fn span_help<S: Into<MultiSpan>>(&mut self, sp: S, msg: &str) -> &mut Self {
         self.sub(Level::Help, msg, sp.into(), None);
         self
     }
@@ -214,12 +204,16 @@ impl Diagnostic {
     /// See `CodeSuggestion` for more information.
     pub fn span_suggestion_short(&mut self, sp: Span, msg: &str, suggestion: String) -> &mut Self {
         self.suggestions.push(CodeSuggestion {
-            substitutions: vec![Substitution {
-                parts: vec![SubstitutionPart {
-                    snippet: suggestion,
-                    span: sp,
-                }],
-            }],
+            substitutions: vec![
+                Substitution {
+                    parts: vec![
+                        SubstitutionPart {
+                            snippet: suggestion,
+                            span: sp,
+                        },
+                    ],
+                },
+            ],
             msg: msg.to_owned(),
             show_code_when_inline: false,
             approximate: false,
@@ -245,12 +239,16 @@ impl Diagnostic {
     /// See `CodeSuggestion` for more information.
     pub fn span_suggestion(&mut self, sp: Span, msg: &str, suggestion: String) -> &mut Self {
         self.suggestions.push(CodeSuggestion {
-            substitutions: vec![Substitution {
-                parts: vec![SubstitutionPart {
-                    snippet: suggestion,
-                    span: sp,
-                }],
-            }],
+            substitutions: vec![
+                Substitution {
+                    parts: vec![
+                        SubstitutionPart {
+                            snippet: suggestion,
+                            span: sp,
+                        },
+                    ],
+                },
+            ],
             msg: msg.to_owned(),
             show_code_when_inline: true,
             approximate: false,
@@ -261,12 +259,12 @@ impl Diagnostic {
     /// Prints out a message with multiple suggested edits of the code.
     pub fn span_suggestions(&mut self, sp: Span, msg: &str, suggestions: Vec<String>) -> &mut Self {
         self.suggestions.push(CodeSuggestion {
-            substitutions: suggestions.into_iter().map(|snippet| Substitution {
-                parts: vec![SubstitutionPart {
-                    snippet,
-                    span: sp,
-                }],
-            }).collect(),
+            substitutions: suggestions
+                .into_iter()
+                .map(|snippet| Substitution {
+                    parts: vec![SubstitutionPart { snippet, span: sp }],
+                })
+                .collect(),
             msg: msg.to_owned(),
             show_code_when_inline: true,
             approximate: false,
@@ -276,15 +274,23 @@ impl Diagnostic {
 
     /// This is a suggestion that may contain mistakes or fillers and should
     /// be read and understood by a human.
-    pub fn span_approximate_suggestion(&mut self, sp: Span, msg: &str,
-                                       suggestion: String) -> &mut Self {
+    pub fn span_approximate_suggestion(
+        &mut self,
+        sp: Span,
+        msg: &str,
+        suggestion: String,
+    ) -> &mut Self {
         self.suggestions.push(CodeSuggestion {
-            substitutions: vec![Substitution {
-                parts: vec![SubstitutionPart {
-                    snippet: suggestion,
-                    span: sp,
-                }],
-            }],
+            substitutions: vec![
+                Substitution {
+                    parts: vec![
+                        SubstitutionPart {
+                            snippet: suggestion,
+                            span: sp,
+                        },
+                    ],
+                },
+            ],
             msg: msg.to_owned(),
             show_code_when_inline: true,
             approximate: true,
@@ -292,15 +298,19 @@ impl Diagnostic {
         self
     }
 
-    pub fn span_approximate_suggestions(&mut self, sp: Span, msg: &str,
-                                        suggestions: Vec<String>) -> &mut Self {
+    pub fn span_approximate_suggestions(
+        &mut self,
+        sp: Span,
+        msg: &str,
+        suggestions: Vec<String>,
+    ) -> &mut Self {
         self.suggestions.push(CodeSuggestion {
-            substitutions: suggestions.into_iter().map(|snippet| Substitution {
-                parts: vec![SubstitutionPart {
-                    snippet,
-                    span: sp,
-                }],
-            }).collect(),
+            substitutions: suggestions
+                .into_iter()
+                .map(|snippet| Substitution {
+                    parts: vec![SubstitutionPart { snippet, span: sp }],
+                })
+                .collect(),
             msg: msg.to_owned(),
             show_code_when_inline: true,
             approximate: true,
@@ -323,7 +333,10 @@ impl Diagnostic {
     }
 
     pub fn message(&self) -> String {
-        self.message.iter().map(|i| i.0.to_owned()).collect::<String>()
+        self.message
+            .iter()
+            .map(|i| i.0.to_owned())
+            .collect::<String>()
     }
 
     pub fn styled_message(&self) -> &Vec<(String, Style)> {
@@ -340,11 +353,13 @@ impl Diagnostic {
 
     /// Convenience function for internal use, clients should use one of the
     /// public methods above.
-    pub(crate) fn sub(&mut self,
-           level: Level,
-           message: &str,
-           span: MultiSpan,
-           render_span: Option<MultiSpan>) {
+    pub(crate) fn sub(
+        &mut self,
+        level: Level,
+        message: &str,
+        span: MultiSpan,
+        render_span: Option<MultiSpan>,
+    ) {
         let sub = SubDiagnostic {
             level,
             message: vec![(message.to_owned(), Style::NoStyle)],
@@ -356,11 +371,13 @@ impl Diagnostic {
 
     /// Convenience function for internal use, clients should use one of the
     /// public methods above.
-    fn sub_with_highlights(&mut self,
-                           level: Level,
-                           message: Vec<(String, Style)>,
-                           span: MultiSpan,
-                           render_span: Option<MultiSpan>) {
+    fn sub_with_highlights(
+        &mut self,
+        level: Level,
+        message: Vec<(String, Style)>,
+        span: MultiSpan,
+        render_span: Option<MultiSpan>,
+    ) {
         let sub = SubDiagnostic {
             level,
             message,
@@ -373,7 +390,10 @@ impl Diagnostic {
 
 impl SubDiagnostic {
     pub fn message(&self) -> String {
-        self.message.iter().map(|i| i.0.to_owned()).collect::<String>()
+        self.message
+            .iter()
+            .map(|i| i.0.to_owned())
+            .collect::<String>()
     }
 
     pub fn styled_message(&self) -> &Vec<(String, Style)> {

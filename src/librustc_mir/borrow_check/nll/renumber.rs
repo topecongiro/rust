@@ -90,13 +90,14 @@ impl<'a, 'gcx, 'tcx> MutVisitor<'tcx> for NLLVisitor<'a, 'gcx, 'tcx> {
         *constant = self.renumber_regions(ty_context, &*constant);
     }
 
-    fn visit_generator_interior(&mut self,
-                                interior: &mut GeneratorInterior<'tcx>,
-                                location: Location) {
+    fn visit_generator_interior(
+        &mut self,
+        interior: &mut GeneratorInterior<'tcx>,
+        location: Location,
+    ) {
         debug!(
             "visit_generator_interior(interior={:?}, location={:?})",
-            interior,
-            location,
+            interior, location,
         );
 
         let ty_context = TyContext::Location(location);
@@ -108,8 +109,7 @@ impl<'a, 'gcx, 'tcx> MutVisitor<'tcx> for NLLVisitor<'a, 'gcx, 'tcx> {
     fn visit_closure_substs(&mut self, substs: &mut ClosureSubsts<'tcx>, location: Location) {
         debug!(
             "visit_closure_substs(substs={:?}, location={:?})",
-            substs,
-            location
+            substs, location
         );
 
         let ty_context = TyContext::Location(location);

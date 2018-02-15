@@ -8,15 +8,14 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-
 use hir::map as hir_map;
-use hir::def_id::{CRATE_DEF_INDEX};
+use hir::def_id::CRATE_DEF_INDEX;
 use session::{config, Session};
 use syntax::ast::NodeId;
 use syntax::attr;
 use syntax::entry::EntryPointType;
 use syntax_pos::Span;
-use hir::{Item, ItemFn, ImplItem, TraitItem};
+use hir::{ImplItem, Item, ItemFn, TraitItem};
 use hir::itemlikevisit::ItemLikeVisitor;
 
 struct EntryContext<'a, 'tcx: 'a> {
@@ -35,7 +34,7 @@ struct EntryContext<'a, 'tcx: 'a> {
 
     // The functions that one might think are 'main' but aren't, e.g.
     // main functions not defined at the top level. For diagnostics.
-    non_main_fns: Vec<(NodeId, Span)> ,
+    non_main_fns: Vec<(NodeId, Span)>,
 }
 
 impl<'a, 'tcx> ItemLikeVisitor<'tcx> for EntryContext<'a, 'tcx> {
@@ -56,18 +55,20 @@ impl<'a, 'tcx> ItemLikeVisitor<'tcx> for EntryContext<'a, 'tcx> {
 }
 
 pub fn find_entry_point(session: &Session, hir_map: &hir_map::Map) {
-    let any_exe = session.crate_types.borrow().iter().any(|ty| {
-        *ty == config::CrateTypeExecutable
-    });
+    let any_exe = session
+        .crate_types
+        .borrow()
+        .iter()
+        .any(|ty| *ty == config::CrateTypeExecutable);
     if !any_exe {
         // No need to find a main function
-        return
+        return;
     }
 
     // If the user wants no main function at all, then stop here.
     if attr::contains_name(&hir_map.krate().attrs, "no_main") {
         session.entry_type.set(Some(config::EntryNone));
-        return
+        return;
     }
 
     let mut ctxt = EntryContext {
@@ -108,45 +109,43 @@ fn entry_point_type(item: &Item, at_root: bool) -> EntryPointType {
     }
 }
 
-
 fn find_item(item: &Item, ctxt: &mut EntryContext, at_root: bool) {
     match entry_point_type(item, at_root) {
         EntryPointType::MainNamed => {
             if ctxt.main_fn.is_none() {
                 ctxt.main_fn = Some((item.id, item.span));
             } else {
-                span_err!(ctxt.session, item.span, E0136,
-                          "multiple 'main' functions");
+                span_err!(ctxt.session, item.span, E0136, "multiple 'main' functions");
             }
-        },
+        }
         EntryPointType::OtherMain => {
             ctxt.non_main_fns.push((item.id, item.span));
-        },
+        }
         EntryPointType::MainAttr => {
             if ctxt.attr_main_fn.is_none() {
                 ctxt.attr_main_fn = Some((item.id, item.span));
             } else {
-                struct_span_err!(ctxt.session, item.span, E0137,
-                          "multiple functions with a #[main] attribute")
-                .span_label(item.span, "additional #[main] function")
-                .span_label(ctxt.attr_main_fn.unwrap().1, "first #[main] function")
-                .emit();
+                struct_span_err!(
+                    ctxt.session,
+                    item.span,
+                    E0137,
+                    "multiple functions with a #[main] attribute"
+                ).span_label(item.span, "additional #[main] function")
+                    .span_label(ctxt.attr_main_fn.unwrap().1, "first #[main] function")
+                    .emit();
             }
-        },
+        }
         EntryPointType::Start => {
             if ctxt.start_fn.is_none() {
                 ctxt.start_fn = Some((item.id, item.span));
             } else {
-                struct_span_err!(
-                    ctxt.session, item.span, E0138,
-                    "multiple 'start' functions")
-                    .span_label(ctxt.start_fn.unwrap().1,
-                                "previous `start` function here")
+                struct_span_err!(ctxt.session, item.span, E0138, "multiple 'start' functions")
+                    .span_label(ctxt.start_fn.unwrap().1, "previous `start` function here")
                     .span_label(item.span, "multiple `start` functions")
                     .emit();
             }
-        },
-        EntryPointType::None => ()
+        }
+        EntryPointType::None => (),
     }
 }
 
@@ -165,10 +164,12 @@ fn configure_main(this: &mut EntryContext) {
         let mut err = struct_err!(this.session, E0601, "main function not found");
         if !this.non_main_fns.is_empty() {
             // There were some functions named 'main' though. Try to give the user a hint.
-            err.note("the main function must be defined at the crate level \
-                      but you have one or more functions named 'main' that are not \
-                      defined at the crate level. Either move the definition or \
-                      attach the `#[main]` attribute to override this behavior.");
+            err.note(
+                "the main function must be defined at the crate level \
+                 but you have one or more functions named 'main' that are not \
+                 defined at the crate level. Either move the definition or \
+                 attach the `#[main]` attribute to override this behavior.",
+            );
             for &(_, span) in &this.non_main_fns {
                 err.span_note(span, "here is a function named 'main'");
             }
@@ -176,8 +177,10 @@ fn configure_main(this: &mut EntryContext) {
             this.session.abort_if_errors();
         } else {
             if this.session.teach(&err.get_code().unwrap()) {
-                err.note("If you don't know the basics of Rust, you can go look to the Rust Book \
-                          to get started: https://doc.rust-lang.org/book/");
+                err.note(
+                    "If you don't know the basics of Rust, you can go look to the Rust Book \
+                     to get started: https://doc.rust-lang.org/book/",
+                );
             }
             err.emit();
         }

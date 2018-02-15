@@ -53,8 +53,9 @@ impl Command {
     }
 
     pub fn args<I>(&mut self, args: I) -> &mut Command
-        where I: IntoIterator,
-              I::Item: AsRef<OsStr>,
+    where
+        I: IntoIterator,
+        I::Item: AsRef<OsStr>,
     {
         for arg in args {
             self._arg(arg.as_ref());
@@ -67,17 +68,19 @@ impl Command {
     }
 
     pub fn env<K, V>(&mut self, key: K, value: V) -> &mut Command
-        where K: AsRef<OsStr>,
-              V: AsRef<OsStr>
+    where
+        K: AsRef<OsStr>,
+        V: AsRef<OsStr>,
     {
         self._env(key.as_ref(), value.as_ref());
         self
     }
 
     pub fn envs<I, K, V>(&mut self, envs: I) -> &mut Command
-        where I: IntoIterator<Item=(K, V)>,
-              K: AsRef<OsStr>,
-              V: AsRef<OsStr>
+    where
+        I: IntoIterator<Item = (K, V)>,
+        K: AsRef<OsStr>,
+        V: AsRef<OsStr>,
     {
         for (key, value) in envs {
             self._env(key.as_ref(), value.as_ref());
@@ -104,7 +107,7 @@ impl Command {
         };
         ret.args(&self.args);
         ret.envs(self.env.clone());
-        return ret
+        return ret;
     }
 
     // extensions
@@ -119,7 +122,7 @@ impl Command {
         // We mostly only care about Windows in this method, on Unix the limits
         // can be gargantuan anyway so we're pretty unlikely to hit them
         if cfg!(unix) {
-            return false
+            return false;
         }
 
         // Ok so on Windows to spawn a process is 32,768 characters in its
@@ -145,8 +148,7 @@ impl Command {
         // [1]: https://msdn.microsoft.com/en-us/library/windows/desktop/ms682425(v=vs.85).aspx
         // [2]: https://blogs.msdn.microsoft.com/oldnewthing/20031210-00/?p=41553
 
-        let estimated_command_line_len =
-            self.args.iter().map(|a| a.len()).sum::<usize>();
+        let estimated_command_line_len = self.args.iter().map(|a| a.len()).sum::<usize>();
         estimated_command_line_len > 1024 * 6
     }
 }

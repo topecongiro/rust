@@ -38,12 +38,11 @@ impl<'a> SpanUtils<'a> {
 
     pub fn make_path_string(path: &FileName) -> String {
         match *path {
-            FileName::Real(ref path) if !path.is_absolute() =>
-                env::current_dir()
-                    .unwrap()
-                    .join(&path)
-                    .display()
-                    .to_string(),
+            FileName::Real(ref path) if !path.is_absolute() => env::current_dir()
+                .unwrap()
+                .join(&path)
+                .display()
+                .to_string(),
             _ => path.to_string(),
         }
     }

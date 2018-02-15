@@ -94,7 +94,7 @@ use rustc::ty::{Ty, TyCtxt};
 use rustc::hir;
 use rustc::hir::def_id::LOCAL_CRATE;
 use rustc::mir::*;
-use syntax_pos::{Span};
+use syntax_pos::Span;
 use rustc_data_structures::indexed_vec::Idx;
 use rustc_data_structures::fx::FxHashMap;
 
@@ -145,7 +145,7 @@ struct DropData<'tcx> {
     location: Place<'tcx>,
 
     /// Whether this is a full value Drop, or just a StorageDead.
-    kind: DropKind
+    kind: DropKind,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -167,10 +167,8 @@ struct CachedBlock {
 
 #[derive(Debug)]
 enum DropKind {
-    Value {
-        cached_block: CachedBlock,
-    },
-    Storage
+    Value { cached_block: CachedBlock },
+    Storage,
 }
 
 #[derive(Clone, Debug)]
@@ -214,7 +212,7 @@ impl DropKind {
     fn may_panic(&self) -> bool {
         match *self {
             DropKind::Value { .. } => true,
-            DropKind::Storage => false
+            DropKind::Storage => false,
         }
     }
 }
@@ -244,7 +242,10 @@ impl<'tcx> Scope<'tcx> {
 
         if !storage_only && !this_scope_only {
             for dropdata in &mut self.drops {
-                if let DropKind::Value { ref mut cached_block } = dropdata.kind {
+                if let DropKind::Value {
+                    ref mut cached_block,
+                } = dropdata.kind
+                {
                     cached_block.invalidate();
                 }
             }
@@ -255,7 +256,7 @@ impl<'tcx> Scope<'tcx> {
     fn source_info(&self, span: Span) -> SourceInfo {
         SourceInfo {
             span,
-            scope: self.visibility_scope
+            scope: self.visibility_scope,
         }
     }
 }
@@ -267,12 +268,15 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
     /// should branch to. See module comment for more details.
     ///
     /// Returns the might_break attribute of the BreakableScope used.
-    pub fn in_breakable_scope<F, R>(&mut self,
-                                    loop_block: Option<BasicBlock>,
-                                    break_block: BasicBlock,
-                                    break_destination: Place<'tcx>,
-                                    f: F) -> R
-        where F: FnOnce(&mut Builder<'a, 'gcx, 'tcx>) -> R
+    pub fn in_breakable_scope<F, R>(
+        &mut self,
+        loop_block: Option<BasicBlock>,
+        break_block: BasicBlock,
+        break_destination: Place<'tcx>,
+        f: F,
+    ) -> R
+    where
+        F: FnOnce(&mut Builder<'a, 'gcx, 'tcx>) -> R,
     {
         let region_scope = self.topmost_scope();
         let scope = BreakableScope {
@@ -288,60 +292,71 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
         res
     }
 
-    pub fn in_opt_scope<F, R>(&mut self,
-                              opt_scope: Option<(region::Scope, SourceInfo)>,
-                              mut block: BasicBlock,
-                              f: F)
-                              -> BlockAnd<R>
-        where F: FnOnce(&mut Builder<'a, 'gcx, 'tcx>) -> BlockAnd<R>
+    pub fn in_opt_scope<F, R>(
+        &mut self,
+        opt_scope: Option<(region::Scope, SourceInfo)>,
+        mut block: BasicBlock,
+        f: F,
+    ) -> BlockAnd<R>
+    where
+        F: FnOnce(&mut Builder<'a, 'gcx, 'tcx>) -> BlockAnd<R>,
     {
         debug!("in_opt_scope(opt_scope={:?}, block={:?})", opt_scope, block);
-        if let Some(region_scope) = opt_scope { self.push_scope(region_scope); }
+        if let Some(region_scope) = opt_scope {
+            self.push_scope(region_scope);
+        }
         let rv = unpack!(block = f(self));
         if let Some(region_scope) = opt_scope {
             unpack!(block = self.pop_scope(region_scope, block));
         }
-        debug!("in_scope: exiting opt_scope={:?} block={:?}", opt_scope, block);
+        debug!(
+            "in_scope: exiting opt_scope={:?} block={:?}",
+            opt_scope, block
+        );
         block.and(rv)
     }
 
     /// Convenience wrapper that pushes a scope and then executes `f`
     /// to build its contents, popping the scope afterwards.
-    pub fn in_scope<F, R>(&mut self,
-                          region_scope: (region::Scope, SourceInfo),
-                          lint_level: LintLevel,
-                          mut block: BasicBlock,
-                          f: F)
-                          -> BlockAnd<R>
-        where F: FnOnce(&mut Builder<'a, 'gcx, 'tcx>) -> BlockAnd<R>
+    pub fn in_scope<F, R>(
+        &mut self,
+        region_scope: (region::Scope, SourceInfo),
+        lint_level: LintLevel,
+        mut block: BasicBlock,
+        f: F,
+    ) -> BlockAnd<R>
+    where
+        F: FnOnce(&mut Builder<'a, 'gcx, 'tcx>) -> BlockAnd<R>,
     {
-        debug!("in_scope(region_scope={:?}, block={:?})", region_scope, block);
+        debug!(
+            "in_scope(region_scope={:?}, block={:?})",
+            region_scope, block
+        );
         let visibility_scope = self.visibility_scope;
         let tcx = self.hir.tcx();
         if let LintLevel::Explicit(node_id) = lint_level {
             let same_lint_scopes = tcx.dep_graph.with_ignore(|| {
                 let sets = tcx.lint_levels(LOCAL_CRATE);
-                let parent_hir_id =
-                    tcx.hir.definitions().node_to_hir_id(
-                        self.visibility_scope_info[visibility_scope].lint_root
-                            );
-                let current_hir_id =
-                    tcx.hir.definitions().node_to_hir_id(node_id);
-                sets.lint_level_set(parent_hir_id) ==
-                    sets.lint_level_set(current_hir_id)
+                let parent_hir_id = tcx.hir
+                    .definitions()
+                    .node_to_hir_id(self.visibility_scope_info[visibility_scope].lint_root);
+                let current_hir_id = tcx.hir.definitions().node_to_hir_id(node_id);
+                sets.lint_level_set(parent_hir_id) == sets.lint_level_set(current_hir_id)
             });
 
             if !same_lint_scopes {
                 self.visibility_scope =
-                    self.new_visibility_scope(region_scope.1.span, lint_level,
-                                              None);
+                    self.new_visibility_scope(region_scope.1.span, lint_level, None);
             }
         }
         self.push_scope(region_scope);
         let rv = unpack!(block = f(self));
         unpack!(block = self.pop_scope(region_scope, block));
         self.visibility_scope = visibility_scope;
-        debug!("in_scope: exiting region_scope={:?} block={:?}", region_scope, block);
+        debug!(
+            "in_scope: exiting region_scope={:?} block={:?}",
+            region_scope, block
+        );
         block.and(rv)
     }
 
@@ -367,94 +382,128 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
     /// Pops a scope, which should have region scope `region_scope`,
     /// adding any drops onto the end of `block` that are needed.
     /// This must match 1-to-1 with `push_scope`.
-    pub fn pop_scope(&mut self,
-                     region_scope: (region::Scope, SourceInfo),
-                     mut block: BasicBlock)
-                     -> BlockAnd<()> {
+    pub fn pop_scope(
+        &mut self,
+        region_scope: (region::Scope, SourceInfo),
+        mut block: BasicBlock,
+    ) -> BlockAnd<()> {
         debug!("pop_scope({:?}, {:?})", region_scope, block);
         // If we are emitting a `drop` statement, we need to have the cached
         // diverge cleanup pads ready in case that drop panics.
-        let may_panic =
-            self.scopes.last().unwrap().drops.iter().any(|s| s.kind.may_panic());
+        let may_panic = self.scopes
+            .last()
+            .unwrap()
+            .drops
+            .iter()
+            .any(|s| s.kind.may_panic());
         if may_panic {
             self.diverge_cleanup();
         }
         let scope = self.scopes.pop().unwrap();
         assert_eq!(scope.region_scope, region_scope.0);
 
-        self.cfg.push_end_region(self.hir.tcx(), block, region_scope.1, scope.region_scope);
+        self.cfg
+            .push_end_region(self.hir.tcx(), block, region_scope.1, scope.region_scope);
         let resume_block = self.resume_block();
-        unpack!(block = build_scope_drops(&mut self.cfg,
-                                          resume_block,
-                                          &scope,
-                                          &self.scopes,
-                                          block,
-                                          self.arg_count,
-                                          false));
+        unpack!(
+            block = build_scope_drops(
+                &mut self.cfg,
+                resume_block,
+                &scope,
+                &self.scopes,
+                block,
+                self.arg_count,
+                false
+            )
+        );
 
         block.unit()
     }
-
 
     /// Branch out of `block` to `target`, exiting all scopes up to
     /// and including `region_scope`.  This will insert whatever drops are
     /// needed, as well as tracking this exit for the SEME region. See
     /// module comment for details.
-    pub fn exit_scope(&mut self,
-                      span: Span,
-                      region_scope: (region::Scope, SourceInfo),
-                      mut block: BasicBlock,
-                      target: BasicBlock) {
-        debug!("exit_scope(region_scope={:?}, block={:?}, target={:?})",
-               region_scope, block, target);
-        let scope_count = 1 + self.scopes.iter().rev()
-            .position(|scope| scope.region_scope == region_scope.0)
-            .unwrap_or_else(|| {
-                span_bug!(span, "region_scope {:?} does not enclose", region_scope)
-            });
+    pub fn exit_scope(
+        &mut self,
+        span: Span,
+        region_scope: (region::Scope, SourceInfo),
+        mut block: BasicBlock,
+        target: BasicBlock,
+    ) {
+        debug!(
+            "exit_scope(region_scope={:?}, block={:?}, target={:?})",
+            region_scope, block, target
+        );
+        let scope_count = 1
+            + self.scopes
+                .iter()
+                .rev()
+                .position(|scope| scope.region_scope == region_scope.0)
+                .unwrap_or_else(|| {
+                    span_bug!(span, "region_scope {:?} does not enclose", region_scope)
+                });
         let len = self.scopes.len();
-        assert!(scope_count < len, "should not use `exit_scope` to pop ALL scopes");
+        assert!(
+            scope_count < len,
+            "should not use `exit_scope` to pop ALL scopes"
+        );
 
         // If we are emitting a `drop` statement, we need to have the cached
         // diverge cleanup pads ready in case that drop panics.
-        let may_panic = self.scopes[(len - scope_count)..].iter()
+        let may_panic = self.scopes[(len - scope_count)..]
+            .iter()
             .any(|s| s.drops.iter().any(|s| s.kind.may_panic()));
         if may_panic {
             self.diverge_cleanup();
         }
 
         {
-        let resume_block = self.resume_block();
-        let mut rest = &mut self.scopes[(len - scope_count)..];
-        while let Some((scope, rest_)) = {rest}.split_last_mut() {
-            rest = rest_;
-            block = if let Some(&e) = scope.cached_exits.get(&(target, region_scope.0)) {
-                self.cfg.terminate(block, scope.source_info(span),
-                                   TerminatorKind::Goto { target: e });
-                return;
-            } else {
-                let b = self.cfg.start_new_block();
-                self.cfg.terminate(block, scope.source_info(span),
-                                   TerminatorKind::Goto { target: b });
-                scope.cached_exits.insert((target, region_scope.0), b);
-                b
-            };
+            let resume_block = self.resume_block();
+            let mut rest = &mut self.scopes[(len - scope_count)..];
+            while let Some((scope, rest_)) = { rest }.split_last_mut() {
+                rest = rest_;
+                block = if let Some(&e) = scope.cached_exits.get(&(target, region_scope.0)) {
+                    self.cfg.terminate(
+                        block,
+                        scope.source_info(span),
+                        TerminatorKind::Goto { target: e },
+                    );
+                    return;
+                } else {
+                    let b = self.cfg.start_new_block();
+                    self.cfg.terminate(
+                        block,
+                        scope.source_info(span),
+                        TerminatorKind::Goto { target: b },
+                    );
+                    scope.cached_exits.insert((target, region_scope.0), b);
+                    b
+                };
 
-            // End all regions for scopes out of which we are breaking.
-            self.cfg.push_end_region(self.hir.tcx(), block, region_scope.1, scope.region_scope);
+                // End all regions for scopes out of which we are breaking.
+                self.cfg
+                    .push_end_region(self.hir.tcx(), block, region_scope.1, scope.region_scope);
 
-            unpack!(block = build_scope_drops(&mut self.cfg,
-                                              resume_block,
-                                              scope,
-                                              rest,
-                                              block,
-                                              self.arg_count,
-                                              false));
-        }
+                unpack!(
+                    block = build_scope_drops(
+                        &mut self.cfg,
+                        resume_block,
+                        scope,
+                        rest,
+                        block,
+                        self.arg_count,
+                        false
+                    )
+                );
+            }
         }
         let scope = &self.scopes[len - scope_count];
-        self.cfg.terminate(block, scope.source_info(span),
-                           TerminatorKind::Goto { target: target });
+        self.cfg.terminate(
+            block,
+            scope.source_info(span),
+            TerminatorKind::Goto { target: target },
+        );
     }
 
     /// Creates a path that performs all required cleanup for dropping a generator.
@@ -475,49 +524,62 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
         let resume_block = self.resume_block();
         let mut rest = &mut self.scopes[..];
 
-        while let Some((scope, rest_)) = {rest}.split_last_mut() {
+        while let Some((scope, rest_)) = { rest }.split_last_mut() {
             rest = rest_;
             if !scope.needs_cleanup {
                 continue;
             }
             block = if let Some(b) = scope.cached_generator_drop {
-                self.cfg.terminate(block, src_info,
-                                   TerminatorKind::Goto { target: b });
+                self.cfg
+                    .terminate(block, src_info, TerminatorKind::Goto { target: b });
                 return Some(result);
             } else {
                 let b = self.cfg.start_new_block();
                 scope.cached_generator_drop = Some(b);
-                self.cfg.terminate(block, src_info,
-                                   TerminatorKind::Goto { target: b });
+                self.cfg
+                    .terminate(block, src_info, TerminatorKind::Goto { target: b });
                 b
             };
 
             // End all regions for scopes out of which we are breaking.
-            self.cfg.push_end_region(self.hir.tcx(), block, src_info, scope.region_scope);
+            self.cfg
+                .push_end_region(self.hir.tcx(), block, src_info, scope.region_scope);
 
-            unpack!(block = build_scope_drops(&mut self.cfg,
-                                              resume_block,
-                                              scope,
-                                              rest,
-                                              block,
-                                              self.arg_count,
-                                              true));
+            unpack!(
+                block = build_scope_drops(
+                    &mut self.cfg,
+                    resume_block,
+                    scope,
+                    rest,
+                    block,
+                    self.arg_count,
+                    true
+                )
+            );
         }
 
-        self.cfg.terminate(block, src_info, TerminatorKind::GeneratorDrop);
+        self.cfg
+            .terminate(block, src_info, TerminatorKind::GeneratorDrop);
 
         Some(result)
     }
 
     /// Creates a new visibility scope, nested in the current one.
-    pub fn new_visibility_scope(&mut self,
-                                span: Span,
-                                lint_level: LintLevel,
-                                safety: Option<Safety>) -> VisibilityScope {
+    pub fn new_visibility_scope(
+        &mut self,
+        span: Span,
+        lint_level: LintLevel,
+        safety: Option<Safety>,
+    ) -> VisibilityScope {
         let parent = self.visibility_scope;
-        debug!("new_visibility_scope({:?}, {:?}, {:?}) - parent({:?})={:?}",
-               span, lint_level, safety,
-               parent, self.visibility_scope_info.get(parent));
+        debug!(
+            "new_visibility_scope({:?}, {:?}, {:?}) - parent({:?})={:?}",
+            span,
+            lint_level,
+            safety,
+            parent,
+            self.visibility_scope_info.get(parent)
+        );
         let scope = self.visibility_scopes.push(VisibilityScopeData {
             span,
             parent_scope: Some(parent),
@@ -528,9 +590,7 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
             } else {
                 self.visibility_scope_info[parent].lint_root
             },
-            safety: safety.unwrap_or_else(|| {
-                self.visibility_scope_info[parent].safety
-            })
+            safety: safety.unwrap_or_else(|| self.visibility_scope_info[parent].safety),
         };
         self.visibility_scope_info.push(scope_info);
         scope
@@ -540,12 +600,14 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
     // ==============
     /// Finds the breakable scope for a given label. This is used for
     /// resolving `break` and `continue`.
-    pub fn find_breakable_scope(&mut self,
-                           span: Span,
-                           label: region::Scope)
-                           -> &mut BreakableScope<'tcx> {
+    pub fn find_breakable_scope(
+        &mut self,
+        span: Span,
+        label: region::Scope,
+    ) -> &mut BreakableScope<'tcx> {
         // find the loop-scope with the correct id
-        self.breakable_scopes.iter_mut()
+        self.breakable_scopes
+            .iter_mut()
             .rev()
             .filter(|breakable_scope| breakable_scope.region_scope == label)
             .next()
@@ -556,7 +618,7 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
     pub fn source_info(&self, span: Span) -> SourceInfo {
         SourceInfo {
             span,
-            scope: self.visibility_scope
+            scope: self.visibility_scope,
         }
     }
 
@@ -576,7 +638,10 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
     /// Returns the topmost active scope, which is known to be alive until
     /// the next scope expression.
     pub fn topmost_scope(&self) -> region::Scope {
-        self.scopes.last().expect("topmost_scope: no scopes present").region_scope
+        self.scopes
+            .last()
+            .expect("topmost_scope: no scopes present")
+            .region_scope
     }
 
     /// Returns the scope that we should use as the lifetime of an
@@ -617,7 +682,8 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
         self.scopes[0].needs_cleanup = true;
         let abortblk = self.cfg.start_new_cleanup_block();
         let source_info = self.scopes[0].source_info(self.fn_span);
-        self.cfg.terminate(abortblk, source_info, TerminatorKind::Abort);
+        self.cfg
+            .terminate(abortblk, source_info, TerminatorKind::Abort);
         self.cached_resume_block = Some(abortblk);
         abortblk
     }
@@ -626,19 +692,23 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
     // ================
     /// Indicates that `place` should be dropped on exit from
     /// `region_scope`.
-    pub fn schedule_drop(&mut self,
-                         span: Span,
-                         region_scope: region::Scope,
-                         place: &Place<'tcx>,
-                         place_ty: Ty<'tcx>) {
+    pub fn schedule_drop(
+        &mut self,
+        span: Span,
+        region_scope: region::Scope,
+        place: &Place<'tcx>,
+        place_ty: Ty<'tcx>,
+    ) {
         let needs_drop = self.hir.needs_drop(place_ty);
         let drop_kind = if needs_drop {
-            DropKind::Value { cached_block: CachedBlock::default() }
+            DropKind::Value {
+                cached_block: CachedBlock::default(),
+            }
         } else {
             // Only temps and vars need their storage dead.
             match *place {
                 Place::Local(index) if index.index() > self.arg_count => DropKind::Storage,
-                _ => return
+                _ => return,
             }
         };
 
@@ -696,20 +766,25 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
                     scope.needs_cleanup = true;
                 }
 
-                let region_scope_span = region_scope.span(self.hir.tcx(),
-                                                          &self.hir.region_scope_tree);
+                let region_scope_span =
+                    region_scope.span(self.hir.tcx(), &self.hir.region_scope_tree);
                 // Attribute scope exit drops to scope's closing brace.
                 let scope_end = self.hir.tcx().sess.codemap().end_point(region_scope_span);
 
                 scope.drops.push(DropData {
                     span: scope_end,
                     location: place.clone(),
-                    kind: drop_kind
+                    kind: drop_kind,
                 });
                 return;
             }
         }
-        span_bug!(span, "region scope {:?} not in scope to drop {:?}", region_scope, place);
+        span_bug!(
+            span,
+            "region scope {:?} not in scope to drop {:?}",
+            region_scope,
+            place
+        );
     }
 
     // Other
@@ -728,12 +803,14 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
             target
         } else {
             let resumeblk = self.cfg.start_new_cleanup_block();
-            self.cfg.terminate(resumeblk,
-                               SourceInfo {
-                                   scope: ARGUMENT_VISIBILITY_SCOPE,
-                                   span: self.fn_span
-                               },
-                               TerminatorKind::Resume);
+            self.cfg.terminate(
+                resumeblk,
+                SourceInfo {
+                    scope: ARGUMENT_VISIBILITY_SCOPE,
+                    span: self.fn_span,
+                },
+                TerminatorKind::Resume,
+            );
             self.cached_resume_block = Some(resumeblk);
             resumeblk
         }
@@ -743,7 +820,11 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
         // To start, create the resume terminator.
         let mut target = self.resume_block();
 
-        let Builder { ref mut cfg, ref mut scopes, .. } = *self;
+        let Builder {
+            ref mut cfg,
+            ref mut scopes,
+            ..
+        } = *self;
 
         // Build up the drops in **reverse** order. The end result will
         // look like:
@@ -758,8 +839,14 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
 
         if scopes.iter().any(|scope| scope.needs_cleanup) {
             for scope in scopes.iter_mut() {
-                target = build_diverge_scope(self.hir.tcx(), cfg, scope.region_scope_span,
-                                             scope, target, generator_drop);
+                target = build_diverge_scope(
+                    self.hir.tcx(),
+                    cfg,
+                    scope.region_scope_span,
+                    scope,
+                    target,
+                    generator_drop,
+                );
             }
         }
 
@@ -767,81 +854,97 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
     }
 
     /// Utility function for *non*-scope code to build their own drops
-    pub fn build_drop(&mut self,
-                      block: BasicBlock,
-                      span: Span,
-                      location: Place<'tcx>,
-                      ty: Ty<'tcx>) -> BlockAnd<()> {
+    pub fn build_drop(
+        &mut self,
+        block: BasicBlock,
+        span: Span,
+        location: Place<'tcx>,
+        ty: Ty<'tcx>,
+    ) -> BlockAnd<()> {
         if !self.hir.needs_drop(ty) {
             return block.unit();
         }
         let source_info = self.source_info(span);
         let next_target = self.cfg.start_new_block();
         let diverge_target = self.diverge_cleanup();
-        self.cfg.terminate(block, source_info,
-                           TerminatorKind::Drop {
-                               location,
-                               target: next_target,
-                               unwind: Some(diverge_target),
-                           });
+        self.cfg.terminate(
+            block,
+            source_info,
+            TerminatorKind::Drop {
+                location,
+                target: next_target,
+                unwind: Some(diverge_target),
+            },
+        );
         next_target.unit()
     }
 
     /// Utility function for *non*-scope code to build their own drops
-    pub fn build_drop_and_replace(&mut self,
-                                  block: BasicBlock,
-                                  span: Span,
-                                  location: Place<'tcx>,
-                                  value: Operand<'tcx>) -> BlockAnd<()> {
+    pub fn build_drop_and_replace(
+        &mut self,
+        block: BasicBlock,
+        span: Span,
+        location: Place<'tcx>,
+        value: Operand<'tcx>,
+    ) -> BlockAnd<()> {
         let source_info = self.source_info(span);
         let next_target = self.cfg.start_new_block();
         let diverge_target = self.diverge_cleanup();
-        self.cfg.terminate(block, source_info,
-                           TerminatorKind::DropAndReplace {
-                               location,
-                               value,
-                               target: next_target,
-                               unwind: Some(diverge_target),
-                           });
+        self.cfg.terminate(
+            block,
+            source_info,
+            TerminatorKind::DropAndReplace {
+                location,
+                value,
+                target: next_target,
+                unwind: Some(diverge_target),
+            },
+        );
         next_target.unit()
     }
 
     /// Create an Assert terminator and return the success block.
     /// If the boolean condition operand is not the expected value,
     /// a runtime panic will be caused with the given message.
-    pub fn assert(&mut self, block: BasicBlock,
-                  cond: Operand<'tcx>,
-                  expected: bool,
-                  msg: AssertMessage<'tcx>,
-                  span: Span)
-                  -> BasicBlock {
+    pub fn assert(
+        &mut self,
+        block: BasicBlock,
+        cond: Operand<'tcx>,
+        expected: bool,
+        msg: AssertMessage<'tcx>,
+        span: Span,
+    ) -> BasicBlock {
         let source_info = self.source_info(span);
 
         let success_block = self.cfg.start_new_block();
         let cleanup = self.diverge_cleanup();
 
-        self.cfg.terminate(block, source_info,
-                           TerminatorKind::Assert {
-                               cond,
-                               expected,
-                               msg,
-                               target: success_block,
-                               cleanup: Some(cleanup),
-                           });
+        self.cfg.terminate(
+            block,
+            source_info,
+            TerminatorKind::Assert {
+                cond,
+                expected,
+                msg,
+                target: success_block,
+                cleanup: Some(cleanup),
+            },
+        );
 
         success_block
     }
 }
 
 /// Builds drops for pop_scope and exit_scope.
-fn build_scope_drops<'tcx>(cfg: &mut CFG<'tcx>,
-                           resume_block: BasicBlock,
-                           scope: &Scope<'tcx>,
-                           earlier_scopes: &[Scope<'tcx>],
-                           mut block: BasicBlock,
-                           arg_count: usize,
-                           generator_drop: bool)
-                           -> BlockAnd<()> {
+fn build_scope_drops<'tcx>(
+    cfg: &mut CFG<'tcx>,
+    resume_block: BasicBlock,
+    scope: &Scope<'tcx>,
+    earlier_scopes: &[Scope<'tcx>],
+    mut block: BasicBlock,
+    arg_count: usize,
+    generator_drop: bool,
+) -> BlockAnd<()> {
     debug!("build_scope_drops({:?} -> {:?})", block, scope);
     let mut iter = scope.drops.iter().rev();
     while let Some(drop_data) = iter.next() {
@@ -855,44 +958,49 @@ fn build_scope_drops<'tcx>(cfg: &mut CFG<'tcx>,
                 // If it wasn't for EndRegion, we could just chain all the DropData
                 // together and pick the first DropKind::Value. Please do that
                 // when we replace EndRegion with NLL.
-                let on_diverge = iter.clone().filter_map(|dd| {
-                    match dd.kind {
+                let on_diverge = iter.clone()
+                    .filter_map(|dd| match dd.kind {
                         DropKind::Value { cached_block } => Some(cached_block),
-                        DropKind::Storage => None
-                    }
-                }).next().or_else(|| {
-                    if earlier_scopes.iter().any(|scope| scope.needs_cleanup) {
-                        // If *any* scope requires cleanup code to be run,
-                        // we must use the cached unwind from the *topmost*
-                        // scope, to ensure all EndRegions from surrounding
-                        // scopes are executed before the drop code runs.
-                        Some(earlier_scopes.last().unwrap().cached_unwind)
-                    } else {
-                        // We don't need any further cleanup, so return None
-                        // to avoid creating a landing pad. We can skip
-                        // EndRegions because all local regions end anyway
-                        // when the function unwinds.
-                        //
-                        // This is an important optimization because LLVM is
-                        // terrible at optimizing landing pads. FIXME: I think
-                        // it would be cleaner and better to do this optimization
-                        // in SimplifyCfg instead of here.
-                        None
-                    }
-                });
+                        DropKind::Storage => None,
+                    })
+                    .next()
+                    .or_else(|| {
+                        if earlier_scopes.iter().any(|scope| scope.needs_cleanup) {
+                            // If *any* scope requires cleanup code to be run,
+                            // we must use the cached unwind from the *topmost*
+                            // scope, to ensure all EndRegions from surrounding
+                            // scopes are executed before the drop code runs.
+                            Some(earlier_scopes.last().unwrap().cached_unwind)
+                        } else {
+                            // We don't need any further cleanup, so return None
+                            // to avoid creating a landing pad. We can skip
+                            // EndRegions because all local regions end anyway
+                            // when the function unwinds.
+                            //
+                            // This is an important optimization because LLVM is
+                            // terrible at optimizing landing pads. FIXME: I think
+                            // it would be cleaner and better to do this optimization
+                            // in SimplifyCfg instead of here.
+                            None
+                        }
+                    });
 
                 let on_diverge = on_diverge.map(|cached_block| {
-                    cached_block.get(generator_drop).unwrap_or_else(|| {
-                        span_bug!(drop_data.span, "cached block not present?")
-                    })
+                    cached_block
+                        .get(generator_drop)
+                        .unwrap_or_else(|| span_bug!(drop_data.span, "cached block not present?"))
                 });
 
                 let next = cfg.start_new_block();
-                cfg.terminate(block, source_info, TerminatorKind::Drop {
-                    location: drop_data.location.clone(),
-                    target: next,
-                    unwind: Some(on_diverge.unwrap_or(resume_block))
-                });
+                cfg.terminate(
+                    block,
+                    source_info,
+                    TerminatorKind::Drop {
+                        location: drop_data.location.clone(),
+                        target: next,
+                        unwind: Some(on_diverge.unwrap_or(resume_block)),
+                    },
+                );
                 block = next;
             }
             DropKind::Storage => {}
@@ -900,32 +1008,35 @@ fn build_scope_drops<'tcx>(cfg: &mut CFG<'tcx>,
 
         // We do not need to emit StorageDead for generator drops
         if generator_drop {
-            continue
+            continue;
         }
 
         // Drop the storage for both value and storage drops.
         // Only temps and vars need their storage dead.
         match drop_data.location {
             Place::Local(index) if index.index() > arg_count => {
-                cfg.push(block, Statement {
-                    source_info,
-                    kind: StatementKind::StorageDead(index)
-                });
+                cfg.push(
+                    block,
+                    Statement {
+                        source_info,
+                        kind: StatementKind::StorageDead(index),
+                    },
+                );
             }
-            _ => continue
+            _ => continue,
         }
     }
     block.unit()
 }
 
-fn build_diverge_scope<'a, 'gcx, 'tcx>(tcx: TyCtxt<'a, 'gcx, 'tcx>,
-                                       cfg: &mut CFG<'tcx>,
-                                       span: Span,
-                                       scope: &mut Scope<'tcx>,
-                                       mut target: BasicBlock,
-                                       generator_drop: bool)
-                                       -> BasicBlock
-{
+fn build_diverge_scope<'a, 'gcx, 'tcx>(
+    tcx: TyCtxt<'a, 'gcx, 'tcx>,
+    cfg: &mut CFG<'tcx>,
+    span: Span,
+    scope: &mut Scope<'tcx>,
+    mut target: BasicBlock,
+    generator_drop: bool,
+) -> BasicBlock {
     // Build up the drops in **reverse** order. The end result will
     // look like:
     //
@@ -942,7 +1053,7 @@ fn build_diverge_scope<'a, 'gcx, 'tcx>(tcx: TyCtxt<'a, 'gcx, 'tcx>,
     let visibility_scope = scope.visibility_scope;
     let source_info = |span| SourceInfo {
         span,
-        scope: visibility_scope
+        scope: visibility_scope,
     };
 
     // Next, build up the drops. Here we iterate the vector in
@@ -959,19 +1070,24 @@ fn build_diverge_scope<'a, 'gcx, 'tcx>(tcx: TyCtxt<'a, 'gcx, 'tcx>,
         // match the behavior of clang, but on inspection eddyb says
         // this is not what clang does.
         let cached_block = match drop_data.kind {
-            DropKind::Value { ref mut cached_block } => cached_block.ref_mut(generator_drop),
-            DropKind::Storage => continue
+            DropKind::Value {
+                ref mut cached_block,
+            } => cached_block.ref_mut(generator_drop),
+            DropKind::Storage => continue,
         };
         target = if let Some(cached_block) = *cached_block {
             cached_block
         } else {
             let block = cfg.start_new_cleanup_block();
-            cfg.terminate(block, source_info(drop_data.span),
-                          TerminatorKind::Drop {
-                              location: drop_data.location.clone(),
-                              target,
-                              unwind: None
-                          });
+            cfg.terminate(
+                block,
+                source_info(drop_data.span),
+                TerminatorKind::Drop {
+                    location: drop_data.location.clone(),
+                    target,
+                    unwind: None,
+                },
+            );
             *cached_block = Some(block);
             block
         };
@@ -987,13 +1103,20 @@ fn build_diverge_scope<'a, 'gcx, 'tcx>(tcx: TyCtxt<'a, 'gcx, 'tcx>,
         } else {
             let block = cfg.start_new_cleanup_block();
             cfg.push_end_region(tcx, block, source_info(span), scope.region_scope);
-            cfg.terminate(block, source_info(span), TerminatorKind::Goto { target: target });
+            cfg.terminate(
+                block,
+                source_info(span),
+                TerminatorKind::Goto { target: target },
+            );
             *cached_block = Some(block);
             block
         }
     };
 
-    debug!("build_diverge_scope({:?}, {:?}) = {:?}", scope, span, target);
+    debug!(
+        "build_diverge_scope({:?}, {:?}) = {:?}",
+        scope, span, target
+    );
 
     target
 }

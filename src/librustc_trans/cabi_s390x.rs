@@ -11,7 +11,7 @@
 // FIXME: The assumes we're using the non-vector ABI, i.e. compiling
 // for a pre-z13 machine or using -mno-vx.
 
-use abi::{FnType, ArgType, LayoutExt, Reg};
+use abi::{ArgType, FnType, LayoutExt, Reg};
 use context::CodegenCx;
 
 use rustc::ty::layout::{self, TyLayout};
@@ -24,15 +24,12 @@ fn classify_ret_ty(ret: &mut ArgType) {
     }
 }
 
-fn is_single_fp_element<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>,
-                                  layout: TyLayout<'tcx>) -> bool {
+fn is_single_fp_element<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>, layout: TyLayout<'tcx>) -> bool {
     match layout.abi {
-        layout::Abi::Scalar(ref scalar) => {
-            match scalar.value {
-                layout::F32 | layout::F64 => true,
-                _ => false
-            }
-        }
+        layout::Abi::Scalar(ref scalar) => match scalar.value {
+            layout::F32 | layout::F64 => true,
+            _ => false,
+        },
         layout::Abi::Aggregate { .. } => {
             if layout.fields.count() == 1 && layout.fields.offset(0).bytes() == 0 {
                 is_single_fp_element(cx, layout.field(cx, 0))
@@ -40,7 +37,7 @@ fn is_single_fp_element<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>,
                 false
             }
         }
-        _ => false
+        _ => false,
     }
 }
 
@@ -54,7 +51,7 @@ fn classify_arg_ty<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>, arg: &mut ArgType<'tcx>) 
         match arg.layout.size.bytes() {
             4 => arg.cast_to(Reg::f32()),
             8 => arg.cast_to(Reg::f64()),
-            _ => arg.make_indirect()
+            _ => arg.make_indirect(),
         }
     } else {
         match arg.layout.size.bytes() {
@@ -62,7 +59,7 @@ fn classify_arg_ty<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>, arg: &mut ArgType<'tcx>) 
             2 => arg.cast_to(Reg::i16()),
             4 => arg.cast_to(Reg::i32()),
             8 => arg.cast_to(Reg::i64()),
-            _ => arg.make_indirect()
+            _ => arg.make_indirect(),
         }
     }
 }
@@ -73,7 +70,9 @@ pub fn compute_abi_info<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>, fty: &mut FnType<'tc
     }
 
     for arg in &mut fty.args {
-        if arg.is_ignore() { continue; }
+        if arg.is_ignore() {
+            continue;
+        }
         classify_arg_ty(cx, arg);
     }
 }

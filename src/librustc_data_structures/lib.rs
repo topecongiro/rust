@@ -17,10 +17,9 @@
 //! This API is completely unstable and subject to change.
 
 #![doc(html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
-      html_favicon_url = "https://www.rust-lang.org/favicon.ico",
-      html_root_url = "https://doc.rust-lang.org/nightly/")]
+       html_favicon_url = "https://www.rust-lang.org/favicon.ico",
+       html_root_url = "https://doc.rust-lang.org/nightly/")]
 #![deny(warnings)]
-
 #![feature(collections_range)]
 #![feature(nonzero)]
 #![feature(unboxed_closures)]
@@ -34,19 +33,18 @@
 #![feature(underscore_lifetimes)]
 #![feature(macro_vis_matcher)]
 #![feature(allow_internal_unstable)]
-
 #![cfg_attr(unix, feature(libc))]
 #![cfg_attr(test, feature(test))]
 
-extern crate core;
-#[macro_use]
-extern crate log;
-extern crate serialize as rustc_serialize; // used by deriving
-#[cfg(unix)]
-extern crate libc;
-extern crate parking_lot;
 #[macro_use]
 extern crate cfg_if;
+extern crate core;
+#[cfg(unix)]
+extern crate libc;
+#[macro_use]
+extern crate log;
+extern crate parking_lot;
+extern crate serialize as rustc_serialize; // used by deriving
 extern crate stable_deref_trait;
 
 pub use rustc_serialize::hex::ToHex;

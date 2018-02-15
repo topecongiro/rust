@@ -15,7 +15,6 @@ Rust MIR: a lowered representation of Rust. Also: an experiment!
 */
 
 #![deny(warnings)]
-
 #![feature(box_patterns)]
 #![feature(box_syntax)]
 #![feature(catch_expr)]
@@ -40,23 +39,25 @@ Rust MIR: a lowered representation of Rust. Also: an experiment!
 
 #[macro_use]
 extern crate bitflags;
-#[macro_use] extern crate log;
+extern crate byteorder;
+extern crate core; // for NonZero
 extern crate graphviz as dot;
 #[macro_use]
+extern crate log;
+extern crate log_settings;
+#[macro_use]
 extern crate rustc;
-#[macro_use] extern crate rustc_data_structures;
-extern crate serialize as rustc_serialize;
+extern crate rustc_apfloat;
+extern crate rustc_back;
+extern crate rustc_const_eval;
+extern crate rustc_const_math;
+#[macro_use]
+extern crate rustc_data_structures;
 extern crate rustc_errors;
+extern crate serialize as rustc_serialize;
 #[macro_use]
 extern crate syntax;
 extern crate syntax_pos;
-extern crate rustc_back;
-extern crate rustc_const_math;
-extern crate rustc_const_eval;
-extern crate core; // for NonZero
-extern crate log_settings;
-extern crate rustc_apfloat;
-extern crate byteorder;
 
 mod diagnostics;
 

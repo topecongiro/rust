@@ -11,13 +11,14 @@ mod step;
 mod terminator;
 mod traits;
 
-pub use self::eval_context::{EvalContext, Frame, ResourceLimits, StackPopCleanup,
-                             TyAndPacked, ValTy};
+pub use self::eval_context::{EvalContext, Frame, ResourceLimits, StackPopCleanup, TyAndPacked,
+                             ValTy};
 
 pub use self::place::{Place, PlaceExtra};
 
-pub use self::memory::{Memory, MemoryKind, HasMemory};
+pub use self::memory::{HasMemory, Memory, MemoryKind};
 
-pub use self::const_eval::{eval_body_as_integer, eval_body, CompileTimeEvaluator, const_eval_provider};
+pub use self::const_eval::{const_eval_provider, eval_body, eval_body_as_integer,
+                           CompileTimeEvaluator};
 
 pub use self::machine::Machine;

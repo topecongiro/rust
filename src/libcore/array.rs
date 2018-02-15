@@ -23,7 +23,7 @@ use borrow::{Borrow, BorrowMut};
 use cmp::Ordering;
 use convert::TryFrom;
 use fmt;
-use hash::{Hash, self};
+use hash::{self, Hash};
 use marker::Unsize;
 use slice::{Iter, IterMut};
 
@@ -72,9 +72,9 @@ impl fmt::Display for TryFromSliceError {
 
 impl TryFromSliceError {
     #[unstable(feature = "array_error_internals",
-           reason = "available through Error trait and this method should not \
-                     be exposed publicly",
-           issue = "0")]
+               reason = "available through Error trait and this method should not \
+                         be exposed publicly",
+               issue = "0")]
     #[inline]
     #[doc(hidden)]
     pub fn __description(&self) -> &str {

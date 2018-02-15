@@ -17,7 +17,7 @@
 use ty::TyCtxt;
 
 use hir;
-use hir::intravisit::{self, Visitor, NestedVisitorMap};
+use hir::intravisit::{self, NestedVisitorMap, Visitor};
 
 #[derive(Copy, Clone, PartialEq)]
 enum Target {
@@ -47,7 +47,8 @@ struct CheckAttrVisitor<'a, 'tcx: 'a> {
 impl<'a, 'tcx> CheckAttrVisitor<'a, 'tcx> {
     /// Check any attribute.
     fn check_attributes(&self, item: &hir::Item, target: Target) {
-        self.tcx.target_features_enabled(self.tcx.hir.local_def_id(item.id));
+        self.tcx
+            .target_features_enabled(self.tcx.hir.local_def_id(item.id));
 
         for attr in &item.attrs {
             if let Some(name) = attr.name() {
@@ -63,11 +64,12 @@ impl<'a, 'tcx> CheckAttrVisitor<'a, 'tcx> {
     /// Check if an `#[inline]` is applied to a function.
     fn check_inline(&self, attr: &hir::Attribute, item: &hir::Item, target: Target) {
         if target != Target::Fn {
-            struct_span_err!(self.tcx.sess,
-                             attr.span,
-                             E0518,
-                             "attribute should be applied to function")
-                .span_label(item.span, "not a function")
+            struct_span_err!(
+                self.tcx.sess,
+                attr.span,
+                E0518,
+                "attribute should be applied to function"
+            ).span_label(item.span, "not a function")
                 .emit();
         }
     }
@@ -106,20 +108,18 @@ impl<'a, 'tcx> CheckAttrVisitor<'a, 'tcx> {
             let (article, allowed_targets) = match &*name.as_str() {
                 "C" => {
                     is_c = true;
-                    if target != Target::Struct &&
-                            target != Target::Union &&
-                            target != Target::Enum {
-                                ("a", "struct, enum or union")
+                    if target != Target::Struct && target != Target::Union && target != Target::Enum
+                    {
+                        ("a", "struct, enum or union")
                     } else {
-                        continue
+                        continue;
                     }
                 }
                 "packed" => {
-                    if target != Target::Struct &&
-                            target != Target::Union {
-                                ("a", "struct or union")
+                    if target != Target::Struct && target != Target::Union {
+                        ("a", "struct or union")
                     } else {
-                        continue
+                        continue;
                     }
                 }
                 "simd" => {
@@ -127,15 +127,14 @@ impl<'a, 'tcx> CheckAttrVisitor<'a, 'tcx> {
                     if target != Target::Struct {
                         ("a", "struct")
                     } else {
-                        continue
+                        continue;
                     }
                 }
                 "align" => {
-                    if target != Target::Struct &&
-                            target != Target::Union {
+                    if target != Target::Struct && target != Target::Union {
                         ("a", "struct or union")
                     } else {
-                        continue
+                        continue;
                     }
                 }
                 "transparent" => {
@@ -143,24 +142,26 @@ impl<'a, 'tcx> CheckAttrVisitor<'a, 'tcx> {
                     if target != Target::Struct {
                         ("a", "struct")
                     } else {
-                        continue
+                        continue;
                     }
                 }
-                "i8" | "u8" | "i16" | "u16" |
-                "i32" | "u32" | "i64" | "u64" |
-                "isize" | "usize" => {
+                "i8" | "u8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" | "isize" | "usize" => {
                     int_reprs += 1;
                     if target != Target::Enum {
                         ("an", "enum")
                     } else {
-                        continue
+                        continue;
                     }
                 }
                 _ => continue,
             };
-            struct_span_err!(self.tcx.sess, hint.span, E0517,
-                             "attribute should be applied to {}", allowed_targets)
-                .span_label(item.span, format!("not {} {}", article, allowed_targets))
+            struct_span_err!(
+                self.tcx.sess,
+                hint.span,
+                E0517,
+                "attribute should be applied to {}",
+                allowed_targets
+            ).span_label(item.span, format!("not {} {}", article, allowed_targets))
                 .emit();
         }
 
@@ -171,16 +172,23 @@ impl<'a, 'tcx> CheckAttrVisitor<'a, 'tcx> {
         // Error on repr(transparent, <anything else>).
         if is_transparent && hints.len() > 1 {
             let hint_spans: Vec<_> = hint_spans.clone().collect();
-            span_err!(self.tcx.sess, hint_spans, E0692,
-                      "transparent struct cannot have other repr hints");
+            span_err!(
+                self.tcx.sess,
+                hint_spans,
+                E0692,
+                "transparent struct cannot have other repr hints"
+            );
         }
         // Warn on repr(u8, u16), repr(C, simd), and c-like-enum-repr(C, u8)
-        if (int_reprs > 1)
-           || (is_simd && is_c)
-           || (int_reprs == 1 && is_c && is_c_like_enum(item)) {
+        if (int_reprs > 1) || (is_simd && is_c) || (int_reprs == 1 && is_c && is_c_like_enum(item))
+        {
             let hint_spans: Vec<_> = hint_spans.collect();
-            span_warn!(self.tcx.sess, hint_spans, E0566,
-                       "conflicting representation hints");
+            span_warn!(
+                self.tcx.sess,
+                hint_spans,
+                E0566,
+                "conflicting representation hints"
+            );
         }
     }
 }
@@ -199,7 +207,9 @@ impl<'a, 'tcx> Visitor<'tcx> for CheckAttrVisitor<'a, 'tcx> {
 
 pub fn check_crate<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>) {
     let mut checker = CheckAttrVisitor { tcx };
-    tcx.hir.krate().visit_all_item_likes(&mut checker.as_deep_visitor());
+    tcx.hir
+        .krate()
+        .visit_all_item_likes(&mut checker.as_deep_visitor());
 }
 
 fn is_c_like_enum(item: &hir::Item) -> bool {
@@ -207,7 +217,9 @@ fn is_c_like_enum(item: &hir::Item) -> bool {
         for variant in &def.variants {
             match variant.node.data {
                 hir::VariantData::Unit(_) => { /* continue */ }
-                _ => { return false; }
+                _ => {
+                    return false;
+                }
             }
         }
         true

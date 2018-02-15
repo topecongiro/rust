@@ -45,7 +45,6 @@ impl<'tcx> IsPrefixOf<'tcx> for Place<'tcx> {
     }
 }
 
-
 pub(super) struct Prefixes<'cx, 'gcx: 'tcx, 'tcx: 'cx> {
     mir: &'cx Mir<'tcx>,
     tcx: TyCtxt<'cx, 'gcx, 'tcx>,
@@ -109,14 +108,14 @@ impl<'cx, 'gcx, 'tcx> Iterator for Prefixes<'cx, 'gcx, 'tcx> {
 
             match proj.elem {
                 ProjectionElem::Field(_ /*field*/, _ /*ty*/) => {
-                        // FIXME: add union handling
+                    // FIXME: add union handling
                     self.next = Some(&proj.base);
                     return Some(cursor);
                 }
-                ProjectionElem::Downcast(..) |
-                ProjectionElem::Subslice { .. } |
-                ProjectionElem::ConstantIndex { .. } |
-                ProjectionElem::Index(_) => {
+                ProjectionElem::Downcast(..)
+                | ProjectionElem::Subslice { .. }
+                | ProjectionElem::ConstantIndex { .. }
+                | ProjectionElem::Index(_) => {
                     cursor = &proj.base;
                     continue 'cursor;
                 }
@@ -153,14 +152,14 @@ impl<'cx, 'gcx, 'tcx> Iterator for Prefixes<'cx, 'gcx, 'tcx> {
 
             let ty = proj.base.ty(self.mir, self.tcx).to_ty(self.tcx);
             match ty.sty {
-                ty::TyRawPtr(_) |
-                ty::TyRef(
+                ty::TyRawPtr(_)
+                | ty::TyRef(
                     _, /*rgn*/
                     ty::TypeAndMut {
                         ty: _,
-                            mutbl: hir::MutImmutable,
-                        },
-                    ) => {
+                        mutbl: hir::MutImmutable,
+                    },
+                ) => {
                     // don't continue traversing over derefs of raw pointers or shared borrows.
                     self.next = None;
                     return Some(cursor);
@@ -172,7 +171,7 @@ impl<'cx, 'gcx, 'tcx> Iterator for Prefixes<'cx, 'gcx, 'tcx> {
                         ty: _,
                         mutbl: hir::MutMutable,
                     },
-                    ) => {
+                ) => {
                     self.next = Some(&proj.base);
                     return Some(cursor);
                 }

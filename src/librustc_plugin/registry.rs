@@ -10,10 +10,10 @@
 
 //! Used by plugin crates to tell `rustc` about the plugins they provide.
 
-use rustc::lint::{EarlyLintPassObject, LateLintPassObject, LintId, Lint};
+use rustc::lint::{EarlyLintPassObject, LateLintPassObject, Lint, LintId};
 use rustc::session::Session;
 
-use syntax::ext::base::{SyntaxExtension, NamedSyntaxExtension, NormalTT, IdentTT};
+use syntax::ext::base::{IdentTT, NamedSyntaxExtension, NormalTT, SyntaxExtension};
 use syntax::ext::base::MacroExpanderFn;
 use syntax::symbol::Symbol;
 use syntax::ast;
@@ -101,26 +101,29 @@ impl<'a> Registry<'a> {
         if name == "macro_rules" {
             panic!("user-defined macros may not be named `macro_rules`");
         }
-        self.syntax_exts.push((name, match extension {
-            NormalTT {
-                expander,
-                def_info: _,
-                allow_internal_unstable,
-                allow_internal_unsafe
-            } => {
-                let nid = ast::CRATE_NODE_ID;
+        self.syntax_exts.push((
+            name,
+            match extension {
                 NormalTT {
                     expander,
-                    def_info: Some((nid, self.krate_span)),
+                    def_info: _,
                     allow_internal_unstable,
-                    allow_internal_unsafe
+                    allow_internal_unsafe,
+                } => {
+                    let nid = ast::CRATE_NODE_ID;
+                    NormalTT {
+                        expander,
+                        def_info: Some((nid, self.krate_span)),
+                        allow_internal_unstable,
+                        allow_internal_unsafe,
+                    }
                 }
-            }
-            IdentTT(ext, _, allow_internal_unstable) => {
-                IdentTT(ext, Some(self.krate_span), allow_internal_unstable)
-            }
-            _ => extension,
-        }));
+                IdentTT(ext, _, allow_internal_unstable) => {
+                    IdentTT(ext, Some(self.krate_span), allow_internal_unstable)
+                }
+                _ => extension,
+            },
+        ));
     }
 
     /// This can be used in place of `register_syntax_extension` to register legacy custom derives
@@ -144,12 +147,15 @@ impl<'a> Registry<'a> {
     /// It builds for you a `NormalTT` that calls `expander`,
     /// and also takes care of interning the macro's name.
     pub fn register_macro(&mut self, name: &str, expander: MacroExpanderFn) {
-        self.register_syntax_extension(Symbol::intern(name), NormalTT {
-            expander: Box::new(expander),
-            def_info: None,
-            allow_internal_unstable: false,
-            allow_internal_unsafe: false,
-        });
+        self.register_syntax_extension(
+            Symbol::intern(name),
+            NormalTT {
+                expander: Box::new(expander),
+                def_info: None,
+                allow_internal_unstable: false,
+                allow_internal_unsafe: false,
+            },
+        );
     }
 
     /// Register a compiler lint pass.
@@ -163,7 +169,8 @@ impl<'a> Registry<'a> {
     }
     /// Register a lint group.
     pub fn register_lint_group(&mut self, name: &'static str, to: Vec<&'static Lint>) {
-        self.lint_groups.insert(name, to.into_iter().map(|x| LintId::of(x)).collect());
+        self.lint_groups
+            .insert(name, to.into_iter().map(|x| LintId::of(x)).collect());
     }
 
     /// Register an LLVM pass.

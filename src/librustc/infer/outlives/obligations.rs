@@ -90,8 +90,7 @@ impl<'cx, 'gcx, 'tcx> InferCtxt<'cx, 'gcx, 'tcx> {
     ) {
         debug!(
             "register_region_obligation(body_id={:?}, obligation={:?})",
-            body_id,
-            obligation
+            body_id, obligation
         );
 
         self.region_obligations
@@ -166,15 +165,12 @@ impl<'cx, 'gcx, 'tcx> InferCtxt<'cx, 'gcx, 'tcx> {
         {
             debug!(
                 "process_registered_region_obligations: sup_type={:?} sub_region={:?} cause={:?}",
-                sup_type,
-                sub_region,
-                cause
+                sup_type, sub_region, cause
             );
 
-            let origin = SubregionOrigin::from_obligation_cause(
-                &cause,
-                || infer::RelateParamBound(cause.span, sup_type),
-            );
+            let origin = SubregionOrigin::from_obligation_cause(&cause, || {
+                infer::RelateParamBound(cause.span, sup_type)
+            });
 
             outlives.type_must_outlive(origin, sup_type, sub_region);
         }
@@ -240,9 +236,7 @@ impl<'cx, 'gcx, 'tcx> TypeOutlives<'cx, 'gcx, 'tcx> {
 
         debug!(
             "type_must_outlive(ty={:?}, region={:?}, origin={:?})",
-            ty,
-            region,
-            origin
+            ty, region, origin
         );
 
         assert!(!ty.has_escaping_regions());
@@ -297,9 +291,7 @@ impl<'cx, 'gcx, 'tcx> TypeOutlives<'cx, 'gcx, 'tcx> {
     ) {
         debug!(
             "param_ty_must_outlive(region={:?}, param_ty={:?}, origin={:?})",
-            region,
-            param_ty,
-            origin
+            region, param_ty, origin
         );
 
         let verify_bound = self.param_bound(param_ty);
@@ -316,9 +308,7 @@ impl<'cx, 'gcx, 'tcx> TypeOutlives<'cx, 'gcx, 'tcx> {
     ) {
         debug!(
             "projection_must_outlive(region={:?}, projection_ty={:?}, origin={:?})",
-            region,
-            projection_ty,
-            origin
+            region, projection_ty, origin
         );
 
         // This case is thorny for inference. The fundamental problem is
@@ -459,8 +449,7 @@ impl<'cx, 'gcx, 'tcx> TypeOutlives<'cx, 'gcx, 'tcx> {
     ) -> VerifyBound<'tcx> {
         debug!(
             "projection_bound(declared_bounds={:?}, projection_ty={:?})",
-            declared_bounds,
-            projection_ty
+            declared_bounds, projection_ty
         );
 
         // see the extensive comment in projection_must_outlive

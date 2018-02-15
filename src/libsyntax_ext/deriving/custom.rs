@@ -11,9 +11,9 @@
 use std::panic;
 
 use errors::FatalError;
-use proc_macro::{TokenStream, __internal};
-use syntax::ast::{self, ItemKind, Attribute, Mac};
-use syntax::attr::{mark_used, mark_known};
+use proc_macro::{__internal, TokenStream};
+use syntax::ast::{self, Attribute, ItemKind, Mac};
+use syntax::attr::{mark_known, mark_used};
 use syntax::codemap::Span;
 use syntax::ext::base::*;
 use syntax::visit::Visitor;
@@ -40,33 +40,41 @@ pub struct ProcMacroDerive {
 
 impl ProcMacroDerive {
     pub fn new(inner: fn(TokenStream) -> TokenStream, attrs: Vec<ast::Name>) -> ProcMacroDerive {
-        ProcMacroDerive { inner: inner, attrs: attrs }
+        ProcMacroDerive {
+            inner: inner,
+            attrs: attrs,
+        }
     }
 }
 
 impl MultiItemModifier for ProcMacroDerive {
-    fn expand(&self,
-              ecx: &mut ExtCtxt,
-              span: Span,
-              _meta_item: &ast::MetaItem,
-              item: Annotatable)
-              -> Vec<Annotatable> {
+    fn expand(
+        &self,
+        ecx: &mut ExtCtxt,
+        span: Span,
+        _meta_item: &ast::MetaItem,
+        item: Annotatable,
+    ) -> Vec<Annotatable> {
         let item = match item {
             Annotatable::Item(item) => item,
-            Annotatable::ImplItem(_) |
-            Annotatable::TraitItem(_) => {
-                ecx.span_err(span, "proc-macro derives may only be \
-                                    applied to struct/enum items");
-                return Vec::new()
+            Annotatable::ImplItem(_) | Annotatable::TraitItem(_) => {
+                ecx.span_err(
+                    span,
+                    "proc-macro derives may only be \
+                     applied to struct/enum items",
+                );
+                return Vec::new();
             }
         };
         match item.node {
-            ItemKind::Struct(..) |
-            ItemKind::Enum(..) => {},
+            ItemKind::Struct(..) | ItemKind::Enum(..) => {}
             _ => {
-                ecx.span_err(span, "proc-macro derives may only be \
-                                    applied to struct/enum items");
-                return Vec::new()
+                ecx.span_err(
+                    span,
+                    "proc-macro derives may only be \
+                     applied to struct/enum items",
+                );
+                return Vec::new();
             }
         }
 

@@ -15,7 +15,7 @@
 //! paths etc in all kinds of annoying scenarios.
 
 use rustc::hir;
-use rustc::hir::intravisit::{self, Visitor, NestedVisitorMap};
+use rustc::hir::intravisit::{self, NestedVisitorMap, Visitor};
 use rustc::ty::TyCtxt;
 use syntax::ast;
 
@@ -35,17 +35,18 @@ pub fn report_symbol_names<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>) {
     tcx.dep_graph.with_ignore(|| {
         let mut visitor = SymbolNamesTest { tcx: tcx };
         // FIXME(#37712) could use ItemLikeVisitor if trait items were item-like
-        tcx.hir.krate().visit_all_item_likes(&mut visitor.as_deep_visitor());
+        tcx.hir
+            .krate()
+            .visit_all_item_likes(&mut visitor.as_deep_visitor());
     })
 }
 
-struct SymbolNamesTest<'a, 'tcx:'a> {
+struct SymbolNamesTest<'a, 'tcx: 'a> {
     tcx: TyCtxt<'a, 'tcx, 'tcx>,
 }
 
 impl<'a, 'tcx> SymbolNamesTest<'a, 'tcx> {
-    fn process_attrs(&mut self,
-                     node_id: ast::NodeId) {
+    fn process_attrs(&mut self, node_id: ast::NodeId) {
         let tcx = self.tcx;
         let def_id = tcx.hir.local_def_id(node_id);
         for attr in tcx.get_attrs(def_id).iter() {
@@ -53,10 +54,12 @@ impl<'a, 'tcx> SymbolNamesTest<'a, 'tcx> {
                 // for now, can only use on monomorphic names
                 let instance = Instance::mono(tcx, def_id);
                 let name = self.tcx.symbol_name(instance);
-                tcx.sess.span_err(attr.span, &format!("symbol-name({})", name));
+                tcx.sess
+                    .span_err(attr.span, &format!("symbol-name({})", name));
             } else if attr.check_name(ITEM_PATH) {
                 let path = tcx.item_path_str(def_id);
-                tcx.sess.span_err(attr.span, &format!("item-path({})", path));
+                tcx.sess
+                    .span_err(attr.span, &format!("item-path({})", path));
             }
 
             // (*) The formatting of `tag({})` is chosen so that tests can elect

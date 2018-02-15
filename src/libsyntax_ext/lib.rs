@@ -14,16 +14,15 @@
        html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
        html_root_url = "https://doc.rust-lang.org/nightly/")]
 #![deny(warnings)]
-
 #![feature(proc_macro_internals)]
 #![feature(decl_macro)]
 
 extern crate fmt_macros;
+extern crate proc_macro;
+extern crate rustc_errors as errors;
 #[macro_use]
 extern crate syntax;
 extern crate syntax_pos;
-extern crate proc_macro;
-extern crate rustc_errors as errors;
 
 mod asm;
 mod cfg;
@@ -46,12 +45,14 @@ pub mod proc_macro_impl;
 
 use std::rc::Rc;
 use syntax::ast;
-use syntax::ext::base::{MacroExpanderFn, NormalTT, NamedSyntaxExtension};
+use syntax::ext::base::{MacroExpanderFn, NamedSyntaxExtension, NormalTT};
 use syntax::symbol::Symbol;
 
-pub fn register_builtins(resolver: &mut syntax::ext::base::Resolver,
-                         user_exts: Vec<NamedSyntaxExtension>,
-                         enable_quotes: bool) {
+pub fn register_builtins(
+    resolver: &mut syntax::ext::base::Resolver,
+    user_exts: Vec<NamedSyntaxExtension>,
+    enable_quotes: bool,
+) {
     deriving::register_builtin_derives(resolver);
 
     let mut register = |name, ext| {
@@ -113,13 +114,15 @@ pub fn register_builtins(resolver: &mut syntax::ext::base::Resolver,
     }
 
     // format_args uses `unstable` things internally.
-    register(Symbol::intern("format_args"),
-             NormalTT {
-                expander: Box::new(format::expand_format_args),
-                def_info: None,
-                allow_internal_unstable: true,
-                allow_internal_unsafe: false,
-            });
+    register(
+        Symbol::intern("format_args"),
+        NormalTT {
+            expander: Box::new(format::expand_format_args),
+            def_info: None,
+            allow_internal_unstable: true,
+            allow_internal_unsafe: false,
+        },
+    );
 
     for (name, ext) in user_exts {
         register(name, ext);

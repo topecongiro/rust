@@ -12,7 +12,7 @@ use rustc::util::common;
 use rustc::middle::cstore::MetadataLoader;
 use rustc_back::target::Target;
 use llvm;
-use llvm::{False, ObjectFile, mk_section_iter};
+use llvm::{mk_section_iter, False, ObjectFile};
 use llvm::archive_ro::ArchiveRO;
 
 use rustc_data_structures::owning_ref::{ErasedBoxRef, OwningRef};
@@ -33,27 +33,30 @@ impl MetadataLoader for LlvmMetadataLoader {
             .map(|ar| OwningRef::new(box ar))
             .map_err(|e| {
                 debug!("llvm didn't like `{}`: {}", filename.display(), e);
-                format!("failed to read rlib metadata in '{}': {}", filename.display(), e)
+                format!(
+                    "failed to read rlib metadata in '{}': {}",
+                    filename.display(),
+                    e
+                )
             })?;
-        let buf: OwningRef<_, [u8]> = archive
-            .try_map(|ar| {
-                ar.iter()
-                    .filter_map(|s| s.ok())
-                    .find(|sect| sect.name() == Some(METADATA_FILENAME))
-                    .map(|s| s.data())
-                    .ok_or_else(|| {
-                        debug!("didn't find '{}' in the archive", METADATA_FILENAME);
-                        format!("failed to read rlib metadata: '{}'",
-                                filename.display())
-                    })
-            })?;
+        let buf: OwningRef<_, [u8]> = archive.try_map(|ar| {
+            ar.iter()
+                .filter_map(|s| s.ok())
+                .find(|sect| sect.name() == Some(METADATA_FILENAME))
+                .map(|s| s.data())
+                .ok_or_else(|| {
+                    debug!("didn't find '{}' in the archive", METADATA_FILENAME);
+                    format!("failed to read rlib metadata: '{}'", filename.display())
+                })
+        })?;
         Ok(buf.erase_owner())
     }
 
-    fn get_dylib_metadata(&self,
-                          target: &Target,
-                          filename: &Path)
-                          -> Result<ErasedBoxRef<[u8]>, String> {
+    fn get_dylib_metadata(
+        &self,
+        target: &Target,
+        filename: &Path,
+    ) -> Result<ErasedBoxRef<[u8]>, String> {
         unsafe {
             let buf = common::path2cstr(filename);
             let mb = llvm::LLVMRustCreateMemoryBufferWithContentsOfFile(buf.as_ptr());
@@ -62,18 +65,20 @@ impl MetadataLoader for LlvmMetadataLoader {
             }
             let of = ObjectFile::new(mb)
                 .map(|of| OwningRef::new(box of))
-                .ok_or_else(|| format!("provided path not an object file: '{}'",
-                                        filename.display()))?;
+                .ok_or_else(|| {
+                    format!("provided path not an object file: '{}'", filename.display())
+                })?;
             let buf = of.try_map(|of| search_meta_section(of, target, filename))?;
             Ok(buf.erase_owner())
         }
     }
 }
 
-fn search_meta_section<'a>(of: &'a ObjectFile,
-                           target: &Target,
-                           filename: &Path)
-                           -> Result<&'a [u8], String> {
+fn search_meta_section<'a>(
+    of: &'a ObjectFile,
+    target: &Target,
+    filename: &Path,
+) -> Result<&'a [u8], String> {
     unsafe {
         let si = mk_section_iter(of.llof);
         while llvm::LLVMIsSectionIteratorAtEnd(of.llof, si.llsi) == False {

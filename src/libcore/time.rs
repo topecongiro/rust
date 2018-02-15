@@ -22,7 +22,7 @@
 //! ```
 
 use iter::Sum;
-use ops::{Add, Sub, Mul, Div, AddAssign, SubAssign, MulAssign, DivAssign};
+use ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 const NANOS_PER_SEC: u32 = 1_000_000_000;
 const NANOS_PER_MILLI: u32 = 1_000_000;
@@ -90,7 +90,10 @@ impl Duration {
         let secs = secs.checked_add((nanos / NANOS_PER_SEC) as u64)
             .expect("overflow in Duration::new");
         let nanos = nanos % NANOS_PER_SEC;
-        Duration { secs: secs, nanos: nanos }
+        Duration {
+            secs: secs,
+            nanos: nanos,
+        }
     }
 
     /// Creates a new `Duration` from the specified number of whole seconds.
@@ -108,7 +111,10 @@ impl Duration {
     #[stable(feature = "duration", since = "1.3.0")]
     #[inline]
     pub const fn from_secs(secs: u64) -> Duration {
-        Duration { secs: secs, nanos: 0 }
+        Duration {
+            secs: secs,
+            nanos: 0,
+        }
     }
 
     /// Creates a new `Duration` from the specified number of milliseconds.
@@ -206,7 +212,9 @@ impl Duration {
     /// [`subsec_nanos`]: #method.subsec_nanos
     #[stable(feature = "duration", since = "1.3.0")]
     #[inline]
-    pub fn as_secs(&self) -> u64 { self.secs }
+    pub fn as_secs(&self) -> u64 {
+        self.secs
+    }
 
     /// Returns the fractional part of this `Duration`, in milliseconds.
     ///
@@ -226,7 +234,9 @@ impl Duration {
     /// ```
     #[unstable(feature = "duration_extras", issue = "46507")]
     #[inline]
-    pub fn subsec_millis(&self) -> u32 { self.nanos / NANOS_PER_MILLI }
+    pub fn subsec_millis(&self) -> u32 {
+        self.nanos / NANOS_PER_MILLI
+    }
 
     /// Returns the fractional part of this `Duration`, in microseconds.
     ///
@@ -246,7 +256,9 @@ impl Duration {
     /// ```
     #[unstable(feature = "duration_extras", issue = "46507")]
     #[inline]
-    pub fn subsec_micros(&self) -> u32 { self.nanos / NANOS_PER_MICRO }
+    pub fn subsec_micros(&self) -> u32 {
+        self.nanos / NANOS_PER_MICRO
+    }
 
     /// Returns the fractional part of this `Duration`, in nanoseconds.
     ///
@@ -265,7 +277,9 @@ impl Duration {
     /// ```
     #[stable(feature = "duration", since = "1.3.0")]
     #[inline]
-    pub fn subsec_nanos(&self) -> u32 { self.nanos }
+    pub fn subsec_nanos(&self) -> u32 {
+        self.nanos
+    }
 
     /// Checked `Duration` addition. Computes `self + other`, returning [`None`]
     /// if overflow occurred.
@@ -296,10 +310,7 @@ impl Duration {
                 }
             }
             debug_assert!(nanos < NANOS_PER_SEC);
-            Some(Duration {
-                secs,
-                nanos,
-            })
+            Some(Duration { secs, nanos })
         } else {
             None
         }
@@ -335,7 +346,10 @@ impl Duration {
                 }
             };
             debug_assert!(nanos < NANOS_PER_SEC);
-            Some(Duration { secs: secs, nanos: nanos })
+            Some(Duration {
+                secs: secs,
+                nanos: nanos,
+            })
         } else {
             None
         }
@@ -365,12 +379,10 @@ impl Duration {
         let nanos = (total_nanos % (NANOS_PER_SEC as u64)) as u32;
         if let Some(secs) = self.secs
             .checked_mul(rhs as u64)
-            .and_then(|s| s.checked_add(extra_secs)) {
+            .and_then(|s| s.checked_add(extra_secs))
+        {
             debug_assert!(nanos < NANOS_PER_SEC);
-            Some(Duration {
-                secs,
-                nanos,
-            })
+            Some(Duration { secs, nanos })
         } else {
             None
         }
@@ -401,7 +413,10 @@ impl Duration {
             let extra_nanos = carry * (NANOS_PER_SEC as u64) / (rhs as u64);
             let nanos = self.nanos / rhs + (extra_nanos as u32);
             debug_assert!(nanos < NANOS_PER_SEC);
-            Some(Duration { secs: secs, nanos: nanos })
+            Some(Duration {
+                secs: secs,
+                nanos: nanos,
+            })
         } else {
             None
         }
@@ -413,7 +428,8 @@ impl Add for Duration {
     type Output = Duration;
 
     fn add(self, rhs: Duration) -> Duration {
-        self.checked_add(rhs).expect("overflow when adding durations")
+        self.checked_add(rhs)
+            .expect("overflow when adding durations")
     }
 }
 
@@ -429,7 +445,8 @@ impl Sub for Duration {
     type Output = Duration;
 
     fn sub(self, rhs: Duration) -> Duration {
-        self.checked_sub(rhs).expect("overflow when subtracting durations")
+        self.checked_sub(rhs)
+            .expect("overflow when subtracting durations")
     }
 }
 
@@ -445,7 +462,8 @@ impl Mul<u32> for Duration {
     type Output = Duration;
 
     fn mul(self, rhs: u32) -> Duration {
-        self.checked_mul(rhs).expect("overflow when multiplying duration by scalar")
+        self.checked_mul(rhs)
+            .expect("overflow when multiplying duration by scalar")
     }
 }
 
@@ -461,7 +479,8 @@ impl Div<u32> for Duration {
     type Output = Duration;
 
     fn div(self, rhs: u32) -> Duration {
-        self.checked_div(rhs).expect("divide by zero error when dividing duration by scalar")
+        self.checked_div(rhs)
+            .expect("divide by zero error when dividing duration by scalar")
     }
 }
 
@@ -474,14 +493,14 @@ impl DivAssign<u32> for Duration {
 
 #[stable(feature = "duration_sum", since = "1.16.0")]
 impl Sum for Duration {
-    fn sum<I: Iterator<Item=Duration>>(iter: I) -> Duration {
+    fn sum<I: Iterator<Item = Duration>>(iter: I) -> Duration {
         iter.fold(Duration::new(0, 0), |a, b| a + b)
     }
 }
 
 #[stable(feature = "duration_sum", since = "1.16.0")]
 impl<'a> Sum<&'a Duration> for Duration {
-    fn sum<I: Iterator<Item=&'a Duration>>(iter: I) -> Duration {
+    fn sum<I: Iterator<Item = &'a Duration>>(iter: I) -> Duration {
         iter.fold(Duration::new(0, 0), |a, b| a + *b)
     }
 }
@@ -493,10 +512,14 @@ mod tests {
     #[test]
     fn creation() {
         assert!(Duration::from_secs(1) != Duration::from_secs(0));
-        assert_eq!(Duration::from_secs(1) + Duration::from_secs(2),
-                   Duration::from_secs(3));
-        assert_eq!(Duration::from_millis(10) + Duration::from_secs(4),
-                   Duration::new(4, 10 * 1_000_000));
+        assert_eq!(
+            Duration::from_secs(1) + Duration::from_secs(2),
+            Duration::from_secs(3)
+        );
+        assert_eq!(
+            Duration::from_millis(10) + Duration::from_secs(4),
+            Duration::new(4, 10 * 1_000_000)
+        );
         assert_eq!(Duration::from_millis(4000), Duration::new(4, 0));
     }
 
@@ -520,29 +543,46 @@ mod tests {
 
     #[test]
     fn add() {
-        assert_eq!(Duration::new(0, 0) + Duration::new(0, 1),
-                   Duration::new(0, 1));
-        assert_eq!(Duration::new(0, 500_000_000) + Duration::new(0, 500_000_001),
-                   Duration::new(1, 1));
+        assert_eq!(
+            Duration::new(0, 0) + Duration::new(0, 1),
+            Duration::new(0, 1)
+        );
+        assert_eq!(
+            Duration::new(0, 500_000_000) + Duration::new(0, 500_000_001),
+            Duration::new(1, 1)
+        );
     }
 
     #[test]
     fn checked_add() {
-        assert_eq!(Duration::new(0, 0).checked_add(Duration::new(0, 1)),
-                   Some(Duration::new(0, 1)));
-        assert_eq!(Duration::new(0, 500_000_000).checked_add(Duration::new(0, 500_000_001)),
-                   Some(Duration::new(1, 1)));
-        assert_eq!(Duration::new(1, 0).checked_add(Duration::new(::u64::MAX, 0)), None);
+        assert_eq!(
+            Duration::new(0, 0).checked_add(Duration::new(0, 1)),
+            Some(Duration::new(0, 1))
+        );
+        assert_eq!(
+            Duration::new(0, 500_000_000).checked_add(Duration::new(0, 500_000_001)),
+            Some(Duration::new(1, 1))
+        );
+        assert_eq!(
+            Duration::new(1, 0).checked_add(Duration::new(::u64::MAX, 0)),
+            None
+        );
     }
 
     #[test]
     fn sub() {
-        assert_eq!(Duration::new(0, 1) - Duration::new(0, 0),
-                   Duration::new(0, 1));
-        assert_eq!(Duration::new(0, 500_000_001) - Duration::new(0, 500_000_000),
-                   Duration::new(0, 1));
-        assert_eq!(Duration::new(1, 0) - Duration::new(0, 1),
-                   Duration::new(0, 999_999_999));
+        assert_eq!(
+            Duration::new(0, 1) - Duration::new(0, 0),
+            Duration::new(0, 1)
+        );
+        assert_eq!(
+            Duration::new(0, 500_000_001) - Duration::new(0, 500_000_000),
+            Duration::new(0, 1)
+        );
+        assert_eq!(
+            Duration::new(1, 0) - Duration::new(0, 1),
+            Duration::new(0, 999_999_999)
+        );
     }
 
     #[test]
@@ -551,18 +591,22 @@ mod tests {
         let one_nano = Duration::new(0, 1);
         let one_sec = Duration::new(1, 0);
         assert_eq!(one_nano.checked_sub(zero), Some(Duration::new(0, 1)));
-        assert_eq!(one_sec.checked_sub(one_nano),
-                   Some(Duration::new(0, 999_999_999)));
+        assert_eq!(
+            one_sec.checked_sub(one_nano),
+            Some(Duration::new(0, 999_999_999))
+        );
         assert_eq!(zero.checked_sub(one_nano), None);
         assert_eq!(zero.checked_sub(one_sec), None);
     }
 
-    #[test] #[should_panic]
+    #[test]
+    #[should_panic]
     fn sub_bad1() {
         Duration::new(0, 0) - Duration::new(0, 1);
     }
 
-    #[test] #[should_panic]
+    #[test]
+    #[should_panic]
     fn sub_bad2() {
         Duration::new(0, 0) - Duration::new(1, 0);
     }
@@ -572,17 +616,30 @@ mod tests {
         assert_eq!(Duration::new(0, 1) * 2, Duration::new(0, 2));
         assert_eq!(Duration::new(1, 1) * 3, Duration::new(3, 3));
         assert_eq!(Duration::new(0, 500_000_001) * 4, Duration::new(2, 4));
-        assert_eq!(Duration::new(0, 500_000_001) * 4000,
-                   Duration::new(2000, 4000));
+        assert_eq!(
+            Duration::new(0, 500_000_001) * 4000,
+            Duration::new(2000, 4000)
+        );
     }
 
     #[test]
     fn checked_mul() {
-        assert_eq!(Duration::new(0, 1).checked_mul(2), Some(Duration::new(0, 2)));
-        assert_eq!(Duration::new(1, 1).checked_mul(3), Some(Duration::new(3, 3)));
-        assert_eq!(Duration::new(0, 500_000_001).checked_mul(4), Some(Duration::new(2, 4)));
-        assert_eq!(Duration::new(0, 500_000_001).checked_mul(4000),
-                   Some(Duration::new(2000, 4000)));
+        assert_eq!(
+            Duration::new(0, 1).checked_mul(2),
+            Some(Duration::new(0, 2))
+        );
+        assert_eq!(
+            Duration::new(1, 1).checked_mul(3),
+            Some(Duration::new(3, 3))
+        );
+        assert_eq!(
+            Duration::new(0, 500_000_001).checked_mul(4),
+            Some(Duration::new(2, 4))
+        );
+        assert_eq!(
+            Duration::new(0, 500_000_001).checked_mul(4000),
+            Some(Duration::new(2000, 4000))
+        );
         assert_eq!(Duration::new(::u64::MAX - 1, 0).checked_mul(2), None);
     }
 
@@ -590,14 +647,22 @@ mod tests {
     fn div() {
         assert_eq!(Duration::new(0, 1) / 2, Duration::new(0, 0));
         assert_eq!(Duration::new(1, 1) / 3, Duration::new(0, 333_333_333));
-        assert_eq!(Duration::new(99, 999_999_000) / 100,
-                   Duration::new(0, 999_999_990));
+        assert_eq!(
+            Duration::new(99, 999_999_000) / 100,
+            Duration::new(0, 999_999_990)
+        );
     }
 
     #[test]
     fn checked_div() {
-        assert_eq!(Duration::new(2, 0).checked_div(2), Some(Duration::new(1, 0)));
-        assert_eq!(Duration::new(1, 0).checked_div(2), Some(Duration::new(0, 500_000_000)));
+        assert_eq!(
+            Duration::new(2, 0).checked_div(2),
+            Some(Duration::new(1, 0))
+        );
+        assert_eq!(
+            Duration::new(1, 0).checked_div(2),
+            Some(Duration::new(0, 500_000_000))
+        );
         assert_eq!(Duration::new(2, 0).checked_div(0), None);
     }
 }

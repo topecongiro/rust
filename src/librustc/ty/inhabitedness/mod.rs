@@ -10,7 +10,7 @@
 
 use util::nodemap::{FxHashMap, FxHashSet};
 use ty::context::TyCtxt;
-use ty::{AdtDef, VariantDef, FieldDef, Ty, TyS};
+use ty::{AdtDef, FieldDef, Ty, TyS, VariantDef};
 use ty::{DefId, Substs};
 use ty::{AdtKind, Visibility};
 use ty::TypeVariants::*;
@@ -116,25 +116,30 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
         ty.uninhabited_from(&mut FxHashMap(), self)
     }
 
-    pub fn is_enum_variant_uninhabited_from(self,
-                                            module: DefId,
-                                            variant: &'tcx VariantDef,
-                                            substs: &'tcx Substs<'tcx>)
-                                            -> bool
-    {
-        self.variant_inhabitedness_forest(variant, substs).contains(self, module)
+    pub fn is_enum_variant_uninhabited_from(
+        self,
+        module: DefId,
+        variant: &'tcx VariantDef,
+        substs: &'tcx Substs<'tcx>,
+    ) -> bool {
+        self.variant_inhabitedness_forest(variant, substs)
+            .contains(self, module)
     }
 
-    pub fn is_variant_uninhabited_from_all_modules(self,
-                                                   variant: &'tcx VariantDef,
-                                                   substs: &'tcx Substs<'tcx>)
-                                                   -> bool
-    {
-        !self.variant_inhabitedness_forest(variant, substs).is_empty()
+    pub fn is_variant_uninhabited_from_all_modules(
+        self,
+        variant: &'tcx VariantDef,
+        substs: &'tcx Substs<'tcx>,
+    ) -> bool {
+        !self.variant_inhabitedness_forest(variant, substs)
+            .is_empty()
     }
 
-    fn variant_inhabitedness_forest(self, variant: &'tcx VariantDef, substs: &'tcx Substs<'tcx>)
-                                    -> DefIdForest {
+    fn variant_inhabitedness_forest(
+        self,
+        variant: &'tcx VariantDef,
+        substs: &'tcx Substs<'tcx>,
+    ) -> DefIdForest {
         // Determine the ADT kind:
         let adt_def_id = self.adt_def_id_of_variant(variant);
         let adt_kind = self.adt_def(adt_def_id).adt_kind();
@@ -150,11 +155,14 @@ impl<'a, 'gcx, 'tcx> AdtDef {
         &self,
         visited: &mut FxHashMap<DefId, FxHashSet<&'tcx Substs<'tcx>>>,
         tcx: TyCtxt<'a, 'gcx, 'tcx>,
-        substs: &'tcx Substs<'tcx>) -> DefIdForest
-    {
-        DefIdForest::intersection(tcx, self.variants.iter().map(|v| {
-            v.uninhabited_from(visited, tcx, substs, self.adt_kind())
-        }))
+        substs: &'tcx Substs<'tcx>,
+    ) -> DefIdForest {
+        DefIdForest::intersection(
+            tcx,
+            self.variants
+                .iter()
+                .map(|v| v.uninhabited_from(visited, tcx, substs, self.adt_kind())),
+        )
     }
 }
 
@@ -165,24 +173,27 @@ impl<'a, 'gcx, 'tcx> VariantDef {
         visited: &mut FxHashMap<DefId, FxHashSet<&'tcx Substs<'tcx>>>,
         tcx: TyCtxt<'a, 'gcx, 'tcx>,
         substs: &'tcx Substs<'tcx>,
-        adt_kind: AdtKind) -> DefIdForest
-    {
+        adt_kind: AdtKind,
+    ) -> DefIdForest {
         match adt_kind {
-            AdtKind::Union => {
-                DefIdForest::intersection(tcx, self.fields.iter().map(|f| {
-                    f.uninhabited_from(visited, tcx, substs, false)
-                }))
-            },
-            AdtKind::Struct => {
-                DefIdForest::union(tcx, self.fields.iter().map(|f| {
-                    f.uninhabited_from(visited, tcx, substs, false)
-                }))
-            },
-            AdtKind::Enum => {
-                DefIdForest::union(tcx, self.fields.iter().map(|f| {
-                    f.uninhabited_from(visited, tcx, substs, true)
-                }))
-            },
+            AdtKind::Union => DefIdForest::intersection(
+                tcx,
+                self.fields
+                    .iter()
+                    .map(|f| f.uninhabited_from(visited, tcx, substs, false)),
+            ),
+            AdtKind::Struct => DefIdForest::union(
+                tcx,
+                self.fields
+                    .iter()
+                    .map(|f| f.uninhabited_from(visited, tcx, substs, false)),
+            ),
+            AdtKind::Enum => DefIdForest::union(
+                tcx,
+                self.fields
+                    .iter()
+                    .map(|f| f.uninhabited_from(visited, tcx, substs, true)),
+            ),
         }
     }
 }
@@ -194,11 +205,9 @@ impl<'a, 'gcx, 'tcx> FieldDef {
         visited: &mut FxHashMap<DefId, FxHashSet<&'tcx Substs<'tcx>>>,
         tcx: TyCtxt<'a, 'gcx, 'tcx>,
         substs: &'tcx Substs<'tcx>,
-        is_enum: bool) -> DefIdForest
-    {
-        let mut data_uninhabitedness = move || {
-            self.ty(tcx, substs).uninhabited_from(visited, tcx)
-        };
+        is_enum: bool,
+    ) -> DefIdForest {
+        let mut data_uninhabitedness = move || self.ty(tcx, substs).uninhabited_from(visited, tcx);
         // FIXME(canndrew): Currently enum fields are (incorrectly) stored with
         // Visibility::Invisible so we need to override self.vis if we're
         // dealing with an enum.
@@ -211,7 +220,7 @@ impl<'a, 'gcx, 'tcx> FieldDef {
                     let forest = DefIdForest::from_id(from);
                     let iter = Some(forest).into_iter().chain(Some(data_uninhabitedness()));
                     DefIdForest::intersection(tcx, iter)
-                },
+                }
                 Visibility::Public => data_uninhabitedness(),
             }
         }
@@ -223,8 +232,8 @@ impl<'a, 'gcx, 'tcx> TyS<'tcx> {
     fn uninhabited_from(
         &self,
         visited: &mut FxHashMap<DefId, FxHashSet<&'tcx Substs<'tcx>>>,
-        tcx: TyCtxt<'a, 'gcx, 'tcx>) -> DefIdForest
-    {
+        tcx: TyCtxt<'a, 'gcx, 'tcx>,
+    ) -> DefIdForest {
         match self.sty {
             TyAdt(def, substs) => {
                 {
@@ -244,8 +253,11 @@ impl<'a, 'gcx, 'tcx> TyS<'tcx> {
                         //      which contains a Foo<((T, T), (T, T))>
                         //      which contains a Foo<(((T, T), (T, T)), ((T, T), (T, T)))>
                         //      etc.
-                        let error = format!("reached recursion limit while checking \
-                                             inhabitedness of `{}`", self);
+                        let error = format!(
+                            "reached recursion limit while checking \
+                             inhabitedness of `{}`",
+                            self
+                        );
                         tcx.sess.fatal(&error);
                     }
                 }
@@ -253,28 +265,23 @@ impl<'a, 'gcx, 'tcx> TyS<'tcx> {
                 let substs_set = visited.get_mut(&def.did).unwrap();
                 substs_set.remove(substs);
                 ret
-            },
+            }
 
             TyNever => DefIdForest::full(tcx),
             TyTuple(ref tys, _) => {
-                DefIdForest::union(tcx, tys.iter().map(|ty| {
-                    ty.uninhabited_from(visited, tcx)
-                }))
-            },
+                DefIdForest::union(tcx, tys.iter().map(|ty| ty.uninhabited_from(visited, tcx)))
+            }
             TyArray(ty, len) => {
                 match len.val.to_const_int().and_then(|i| i.to_u64()) {
                     // If the array is definitely non-empty, it's uninhabited if
                     // the type of its elements is uninhabited.
                     Some(n) if n != 0 => ty.uninhabited_from(visited, tcx),
-                    _ => DefIdForest::empty()
+                    _ => DefIdForest::empty(),
                 }
             }
-            TyRef(_, ref tm) => {
-                tm.ty.uninhabited_from(visited, tcx)
-            }
+            TyRef(_, ref tm) => tm.ty.uninhabited_from(visited, tcx),
 
             _ => DefIdForest::empty(),
         }
     }
 }
-

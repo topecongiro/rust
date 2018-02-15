@@ -33,7 +33,6 @@ pub enum ConstInt {
 }
 pub use self::ConstInt::*;
 
-
 macro_rules! bounds {
     ($ct: ty, $($t:ident $min:ident $max:ident)*) => {
         $(
@@ -83,10 +82,11 @@ impl ConstInt {
             UintTy::U16 if val <= ubounds::U16MAX => Some(U16(val as u16)),
             UintTy::U32 if val <= ubounds::U32MAX => Some(U32(val as u32)),
             UintTy::U64 if val <= ubounds::U64MAX => Some(U64(val as u64)),
-            UintTy::Usize if val <= ubounds::U64MAX => ConstUsize::new(val as u64, usize_ty).ok()
-                .map(Usize),
+            UintTy::Usize if val <= ubounds::U64MAX => {
+                ConstUsize::new(val as u64, usize_ty).ok().map(Usize)
+            }
             UintTy::U128 => Some(U128(val)),
-            _ => None
+            _ => None,
         }
     }
 
@@ -98,10 +98,11 @@ impl ConstInt {
             IntTy::I16 if val <= ibounds::I16MAX => Some(I16(val as i16)),
             IntTy::I32 if val <= ibounds::I32MAX => Some(I32(val as i32)),
             IntTy::I64 if val <= ibounds::I64MAX => Some(I64(val as i64)),
-            IntTy::Isize if val <= ibounds::I64MAX => ConstIsize::new(val as i64, isize_ty).ok()
-                .map(Isize),
+            IntTy::Isize if val <= ibounds::I64MAX => {
+                ConstIsize::new(val as i64, isize_ty).ok().map(Isize)
+            }
             IntTy::I128 => Some(I128(val)),
-            _ => None
+            _ => None,
         }
     }
 
@@ -113,7 +114,7 @@ impl ConstInt {
             UintTy::U32 => U32(val as u32),
             UintTy::U64 => U64(val as u64),
             UintTy::Usize => Usize(ConstUsize::new_truncating(val, usize_ty)),
-            UintTy::U128 => U128(val)
+            UintTy::U128 => U128(val),
         }
     }
 
@@ -125,7 +126,7 @@ impl ConstInt {
             IntTy::I32 => I32(val as i32),
             IntTy::I64 => I64(val as i64),
             IntTy::Isize => Isize(ConstIsize::new_truncating(val, isize_ty)),
-            IntTy::I128 => I128(val)
+            IntTy::I128 => I128(val),
         }
     }
 
@@ -172,19 +173,23 @@ impl ConstInt {
 
     /// Converts the value to a `u32` if it's in the range 0...std::u32::MAX
     pub fn to_u32(&self) -> Option<u32> {
-        self.to_u128().and_then(|v| if v <= u32::max_value() as u128 {
-            Some(v as u32)
-        } else {
-            None
+        self.to_u128().and_then(|v| {
+            if v <= u32::max_value() as u128 {
+                Some(v as u32)
+            } else {
+                None
+            }
         })
     }
 
     /// Converts the value to a `u64` if it's in the range 0...std::u64::MAX
     pub fn to_u64(&self) -> Option<u64> {
-        self.to_u128().and_then(|v| if v <= u64::max_value() as u128 {
-            Some(v as u64)
-        } else {
-            None
+        self.to_u128().and_then(|v| {
+            if v <= u64::max_value() as u128 {
+                Some(v as u64)
+            } else {
+                None
+            }
         })
     }
 
@@ -443,23 +448,23 @@ impl ::std::ops::Div for ConstInt {
         let (lhs, rhs) = (self, rhs);
         check_division(lhs, rhs, Op::Div, DivisionByZero)?;
         match (lhs, rhs) {
-            (I8(a), I8(b)) => Ok(I8(a/b)),
-            (I16(a), I16(b)) => Ok(I16(a/b)),
-            (I32(a), I32(b)) => Ok(I32(a/b)),
-            (I64(a), I64(b)) => Ok(I64(a/b)),
-            (I128(a), I128(b)) => Ok(I128(a/b)),
-            (Isize(Is16(a)), Isize(Is16(b))) => Ok(Isize(Is16(a/b))),
-            (Isize(Is32(a)), Isize(Is32(b))) => Ok(Isize(Is32(a/b))),
-            (Isize(Is64(a)), Isize(Is64(b))) => Ok(Isize(Is64(a/b))),
+            (I8(a), I8(b)) => Ok(I8(a / b)),
+            (I16(a), I16(b)) => Ok(I16(a / b)),
+            (I32(a), I32(b)) => Ok(I32(a / b)),
+            (I64(a), I64(b)) => Ok(I64(a / b)),
+            (I128(a), I128(b)) => Ok(I128(a / b)),
+            (Isize(Is16(a)), Isize(Is16(b))) => Ok(Isize(Is16(a / b))),
+            (Isize(Is32(a)), Isize(Is32(b))) => Ok(Isize(Is32(a / b))),
+            (Isize(Is64(a)), Isize(Is64(b))) => Ok(Isize(Is64(a / b))),
 
-            (U8(a), U8(b)) => Ok(U8(a/b)),
-            (U16(a), U16(b)) => Ok(U16(a/b)),
-            (U32(a), U32(b)) => Ok(U32(a/b)),
-            (U64(a), U64(b)) => Ok(U64(a/b)),
-            (U128(a), U128(b)) => Ok(U128(a/b)),
-            (Usize(Us16(a)), Usize(Us16(b))) => Ok(Usize(Us16(a/b))),
-            (Usize(Us32(a)), Usize(Us32(b))) => Ok(Usize(Us32(a/b))),
-            (Usize(Us64(a)), Usize(Us64(b))) => Ok(Usize(Us64(a/b))),
+            (U8(a), U8(b)) => Ok(U8(a / b)),
+            (U16(a), U16(b)) => Ok(U16(a / b)),
+            (U32(a), U32(b)) => Ok(U32(a / b)),
+            (U64(a), U64(b)) => Ok(U64(a / b)),
+            (U128(a), U128(b)) => Ok(U128(a / b)),
+            (Usize(Us16(a)), Usize(Us16(b))) => Ok(Usize(Us16(a / b))),
+            (Usize(Us32(a)), Usize(Us32(b))) => Ok(Usize(Us32(a / b))),
+            (Usize(Us64(a)), Usize(Us64(b))) => Ok(Usize(Us64(a / b))),
 
             _ => Err(UnequalTypes(Op::Div)),
         }
@@ -473,23 +478,23 @@ impl ::std::ops::Rem for ConstInt {
         // should INT_MIN%-1 be zero or an error?
         check_division(lhs, rhs, Op::Rem, RemainderByZero)?;
         match (lhs, rhs) {
-            (I8(a), I8(b)) => Ok(I8(a%b)),
-            (I16(a), I16(b)) => Ok(I16(a%b)),
-            (I32(a), I32(b)) => Ok(I32(a%b)),
-            (I64(a), I64(b)) => Ok(I64(a%b)),
-            (I128(a), I128(b)) => Ok(I128(a%b)),
-            (Isize(Is16(a)), Isize(Is16(b))) => Ok(Isize(Is16(a%b))),
-            (Isize(Is32(a)), Isize(Is32(b))) => Ok(Isize(Is32(a%b))),
-            (Isize(Is64(a)), Isize(Is64(b))) => Ok(Isize(Is64(a%b))),
+            (I8(a), I8(b)) => Ok(I8(a % b)),
+            (I16(a), I16(b)) => Ok(I16(a % b)),
+            (I32(a), I32(b)) => Ok(I32(a % b)),
+            (I64(a), I64(b)) => Ok(I64(a % b)),
+            (I128(a), I128(b)) => Ok(I128(a % b)),
+            (Isize(Is16(a)), Isize(Is16(b))) => Ok(Isize(Is16(a % b))),
+            (Isize(Is32(a)), Isize(Is32(b))) => Ok(Isize(Is32(a % b))),
+            (Isize(Is64(a)), Isize(Is64(b))) => Ok(Isize(Is64(a % b))),
 
-            (U8(a), U8(b)) => Ok(U8(a%b)),
-            (U16(a), U16(b)) => Ok(U16(a%b)),
-            (U32(a), U32(b)) => Ok(U32(a%b)),
-            (U64(a), U64(b)) => Ok(U64(a%b)),
-            (U128(a), U128(b)) => Ok(U128(a%b)),
-            (Usize(Us16(a)), Usize(Us16(b))) => Ok(Usize(Us16(a%b))),
-            (Usize(Us32(a)), Usize(Us32(b))) => Ok(Usize(Us32(a%b))),
-            (Usize(Us64(a)), Usize(Us64(b))) => Ok(Usize(Us64(a%b))),
+            (U8(a), U8(b)) => Ok(U8(a % b)),
+            (U16(a), U16(b)) => Ok(U16(a % b)),
+            (U32(a), U32(b)) => Ok(U32(a % b)),
+            (U64(a), U64(b)) => Ok(U64(a % b)),
+            (U128(a), U128(b)) => Ok(U128(a % b)),
+            (Usize(Us16(a)), Usize(Us16(b))) => Ok(Usize(Us16(a % b))),
+            (Usize(Us32(a)), Usize(Us32(b))) => Ok(Usize(Us32(a % b))),
+            (Usize(Us64(a)), Usize(Us64(b))) => Ok(Usize(Us64(a % b))),
 
             _ => Err(UnequalTypes(Op::Rem)),
         }
@@ -558,8 +563,14 @@ impl ::std::ops::Neg for ConstInt {
             Isize(Is16(a)) => Ok(Isize(Is16(overflowing!(a.overflowing_neg(), Op::Neg)))),
             Isize(Is32(a)) => Ok(Isize(Is32(overflowing!(a.overflowing_neg(), Op::Neg)))),
             Isize(Is64(a)) => Ok(Isize(Is64(overflowing!(a.overflowing_neg(), Op::Neg)))),
-            a@U8(0) | a@U16(0) | a@U32(0) | a@U64(0) | a@U128(0) |
-            a@Usize(Us16(0)) | a@Usize(Us32(0)) | a@Usize(Us64(0)) => Ok(a),
+            a @ U8(0)
+            | a @ U16(0)
+            | a @ U32(0)
+            | a @ U64(0)
+            | a @ U128(0)
+            | a @ Usize(Us16(0))
+            | a @ Usize(Us32(0))
+            | a @ Usize(Us64(0)) => Ok(a),
             U8(_) | U16(_) | U32(_) | U64(_) | U128(_) | Usize(_) => Err(UnsignedNegation),
         }
     }

@@ -49,11 +49,13 @@ thread_local! {
 // One day this may look a little less ad-hoc with the compiler helping out to
 // hook up these functions, but it is not this day!
 #[allow(improper_ctypes)]
-extern {
-    fn __rust_maybe_catch_panic(f: fn(*mut u8),
-                                data: *mut u8,
-                                data_ptr: *mut usize,
-                                vtable_ptr: *mut usize) -> u32;
+extern "C" {
+    fn __rust_maybe_catch_panic(
+        f: fn(*mut u8),
+        data: *mut u8,
+        data_ptr: *mut usize,
+        vtable_ptr: *mut usize,
+    ) -> u32;
     #[unwind]
     fn __rust_start_panic(data: usize, vtable: usize) -> u32;
 }
@@ -360,15 +362,21 @@ fn default_hook(info: &PanicInfo) {
         None => match info.payload.downcast_ref::<String>() {
             Some(s) => &s[..],
             None => "Box<Any>",
-        }
+        },
     };
     let mut err = Stderr::new().ok();
     let thread = thread_info::current_thread();
-    let name = thread.as_ref().and_then(|t| t.name()).unwrap_or("<unnamed>");
+    let name = thread
+        .as_ref()
+        .and_then(|t| t.name())
+        .unwrap_or("<unnamed>");
 
     let write = |err: &mut ::io::Write| {
-        let _ = writeln!(err, "thread '{}' panicked at '{}', {}:{}:{}",
-                         name, msg, file, line, col);
+        let _ = writeln!(
+            err,
+            "thread '{}' panicked at '{}', {}:{}:{}",
+            name, msg, file, line, col
+        );
 
         #[cfg(feature = "backtrace")]
         {
@@ -393,11 +401,10 @@ fn default_hook(info: &PanicInfo) {
                 *slot.borrow_mut() = s.take();
             });
         }
-        (None, Some(ref mut err)) => { write(err) }
+        (None, Some(ref mut err)) => write(err),
         _ => {}
     }
 }
-
 
 #[cfg(not(test))]
 #[doc(hidden)]
@@ -409,7 +416,7 @@ pub fn update_panic_count(amt: isize) -> usize {
     PANIC_COUNT.with(|c| {
         let next = (c.get() as isize + amt) as usize;
         c.set(next);
-        return next
+        return next;
     })
 }
 
@@ -451,14 +458,14 @@ pub unsafe fn try<R, F: FnOnce() -> R>(f: F) -> Result<R, Box<Any + Send>> {
     // method of calling a catch panic whilst juggling ownership.
     let mut any_data = 0;
     let mut any_vtable = 0;
-    let mut data = Data {
-        f,
-    };
+    let mut data = Data { f };
 
-    let r = __rust_maybe_catch_panic(do_call::<F, R>,
-                                     &mut data as *mut _ as *mut u8,
-                                     &mut any_data,
-                                     &mut any_vtable);
+    let r = __rust_maybe_catch_panic(
+        do_call::<F, R>,
+        &mut data as *mut _ as *mut u8,
+        &mut any_data,
+        &mut any_vtable,
+    );
 
     return if r == 0 {
         debug_assert!(update_panic_count(0) == 0);
@@ -490,10 +497,12 @@ pub fn panicking() -> bool {
 #[cfg(not(test))]
 #[lang = "panic_fmt"]
 #[unwind]
-pub extern fn rust_begin_panic(msg: fmt::Arguments,
-                               file: &'static str,
-                               line: u32,
-                               col: u32) -> ! {
+pub extern "C" fn rust_begin_panic(
+    msg: fmt::Arguments,
+    file: &'static str,
+    line: u32,
+    col: u32,
+) -> ! {
     begin_panic_fmt(&msg, &(file, line, col))
 }
 
@@ -503,12 +512,10 @@ pub extern fn rust_begin_panic(msg: fmt::Arguments,
 /// site as much as possible (so that `panic!()` has as low an impact
 /// on (e.g.) the inlining of other functions as possible), by moving
 /// the actual formatting into this shared place.
-#[unstable(feature = "libstd_sys_internals",
-           reason = "used by the panic! macro",
-           issue = "0")]
-#[inline(never)] #[cold]
-pub fn begin_panic_fmt(msg: &fmt::Arguments,
-                       file_line_col: &(&'static str, u32, u32)) -> ! {
+#[unstable(feature = "libstd_sys_internals", reason = "used by the panic! macro", issue = "0")]
+#[inline(never)]
+#[cold]
+pub fn begin_panic_fmt(msg: &fmt::Arguments, file_line_col: &(&'static str, u32, u32)) -> ! {
     use fmt::Write;
 
     // We do two allocations here, unfortunately. But (a) they're
@@ -522,10 +529,9 @@ pub fn begin_panic_fmt(msg: &fmt::Arguments,
 }
 
 /// This is the entry point of panicking for panic!() and assert!().
-#[unstable(feature = "libstd_sys_internals",
-           reason = "used by the panic! macro",
-           issue = "0")]
-#[inline(never)] #[cold] // avoid code bloat at the call sites as much as possible
+#[unstable(feature = "libstd_sys_internals", reason = "used by the panic! macro", issue = "0")]
+#[inline(never)]
+#[cold] // avoid code bloat at the call sites as much as possible
 pub fn begin_panic<M: Any + Send>(msg: M, file_line_col: &(&'static str, u32, u32)) -> ! {
     // Note that this should be the only allocation performed in this code path.
     // Currently this means that panic!() on OOM will invoke this code path,
@@ -545,8 +551,7 @@ pub fn begin_panic<M: Any + Send>(msg: M, file_line_col: &(&'static str, u32, u3
 /// run panic hooks, and then delegate to the actual implementation of panics.
 #[inline(never)]
 #[cold]
-fn rust_panic_with_hook(msg: Box<Any + Send>,
-                        file_line_col: &(&'static str, u32, u32)) -> ! {
+fn rust_panic_with_hook(msg: Box<Any + Send>, file_line_col: &(&'static str, u32, u32)) -> ! {
     let (file, line, col) = *file_line_col;
 
     let panics = update_panic_count(1);
@@ -557,19 +562,17 @@ fn rust_panic_with_hook(msg: Box<Any + Send>,
     // process real quickly as we don't want to try calling it again as it'll
     // probably just panic again.
     if panics > 2 {
-        util::dumb_print(format_args!("thread panicked while processing \
-                                       panic. aborting.\n"));
+        util::dumb_print(format_args!(
+            "thread panicked while processing \
+             panic. aborting.\n"
+        ));
         unsafe { intrinsics::abort() }
     }
 
     unsafe {
         let info = PanicInfo {
             payload: &*msg,
-            location: Location {
-                file,
-                line,
-                col,
-            },
+            location: Location { file, line, col },
         };
         HOOK_LOCK.read();
         match HOOK {
@@ -584,8 +587,10 @@ fn rust_panic_with_hook(msg: Box<Any + Send>,
         // have limited options. Currently our preference is to
         // just abort. In the future we may consider resuming
         // unwinding or otherwise exiting the thread cleanly.
-        util::dumb_print(format_args!("thread panicked while panicking. \
-                                       aborting.\n"));
+        util::dumb_print(format_args!(
+            "thread panicked while panicking. \
+             aborting.\n"
+        ));
         unsafe { intrinsics::abort() }
     }
 

@@ -9,7 +9,7 @@
 // except according to those terms.
 
 use hir::map::definitions::*;
-use hir::def_id::{CRATE_DEF_INDEX, DefIndex, DefIndexAddressSpace};
+use hir::def_id::{DefIndex, DefIndexAddressSpace, CRATE_DEF_INDEX};
 use session::CrateDisambiguator;
 
 use syntax::ast::*;
@@ -45,24 +45,31 @@ impl<'a> DefCollector<'a> {
         }
     }
 
-    pub fn collect_root(&mut self,
-                        crate_name: &str,
-                        crate_disambiguator: CrateDisambiguator) {
-        let root = self.definitions.create_root_def(crate_name,
-                                                    crate_disambiguator);
+    pub fn collect_root(&mut self, crate_name: &str, crate_disambiguator: CrateDisambiguator) {
+        let root = self.definitions
+            .create_root_def(crate_name, crate_disambiguator);
         assert_eq!(root, CRATE_DEF_INDEX);
         self.parent_def = Some(root);
     }
 
-    fn create_def(&mut self,
-                  node_id: NodeId,
-                  data: DefPathData,
-                  address_space: DefIndexAddressSpace)
-                  -> DefIndex {
+    fn create_def(
+        &mut self,
+        node_id: NodeId,
+        data: DefPathData,
+        address_space: DefIndexAddressSpace,
+    ) -> DefIndex {
         let parent_def = self.parent_def.unwrap();
-        debug!("create_def(node_id={:?}, data={:?}, parent_def={:?})", node_id, data, parent_def);
-        self.definitions
-            .create_def_with_parent(parent_def, node_id, data, address_space, self.expansion)
+        debug!(
+            "create_def(node_id={:?}, data={:?}, parent_def={:?})",
+            node_id, data, parent_def
+        );
+        self.definitions.create_def_with_parent(
+            parent_def,
+            node_id,
+            data,
+            address_space,
+            self.expansion,
+        )
     }
 
     pub fn with_parent<F: FnOnce(&mut Self)>(&mut self, parent_def: DefIndex, f: F) {
@@ -105,16 +112,21 @@ impl<'a> visit::Visitor<'a> for DefCollector<'a> {
         // information we encapsulate into
         let def_data = match i.node {
             ItemKind::Impl(..) => DefPathData::Impl,
-            ItemKind::Enum(..) | ItemKind::Struct(..) | ItemKind::Union(..) |
-            ItemKind::Trait(..) | ItemKind::TraitAlias(..) |
-            ItemKind::ExternCrate(..) | ItemKind::ForeignMod(..) | ItemKind::Ty(..) =>
-                DefPathData::TypeNs(i.ident.name.as_str()),
+            ItemKind::Enum(..)
+            | ItemKind::Struct(..)
+            | ItemKind::Union(..)
+            | ItemKind::Trait(..)
+            | ItemKind::TraitAlias(..)
+            | ItemKind::ExternCrate(..)
+            | ItemKind::ForeignMod(..)
+            | ItemKind::Ty(..) => DefPathData::TypeNs(i.ident.name.as_str()),
             ItemKind::Mod(..) if i.ident == keywords::Invalid.ident() => {
                 return visit::walk_item(self, i);
             }
             ItemKind::Mod(..) => DefPathData::Module(i.ident.name.as_str()),
-            ItemKind::Static(..) | ItemKind::Const(..) | ItemKind::Fn(..) =>
-                DefPathData::ValueNs(i.ident.name.as_str()),
+            ItemKind::Static(..) | ItemKind::Const(..) | ItemKind::Fn(..) => {
+                DefPathData::ValueNs(i.ident.name.as_str())
+            }
             ItemKind::MacroDef(..) => DefPathData::MacroDef(i.ident.name.as_str()),
             ItemKind::Mac(..) => return self.visit_macro_invoc(i.id, false),
             ItemKind::GlobalAsm(..) => DefPathData::Misc,
@@ -126,37 +138,40 @@ impl<'a> visit::Visitor<'a> for DefCollector<'a> {
 
         self.with_parent(def, |this| {
             match i.node {
-                ItemKind::Enum(ref enum_definition, _) => {
-                    for v in &enum_definition.variants {
-                        let variant_def_index =
-                            this.create_def(v.node.data.id(),
-                                            DefPathData::EnumVariant(v.node.name.name.as_str()),
-                                            REGULAR_SPACE);
-                        this.with_parent(variant_def_index, |this| {
-                            for (index, field) in v.node.data.fields().iter().enumerate() {
-                                let name = field.ident.map(|ident| ident.name)
-                                    .unwrap_or_else(|| Symbol::intern(&index.to_string()));
-                                this.create_def(field.id,
-                                                DefPathData::Field(name.as_str()),
-                                                REGULAR_SPACE);
-                            }
+                ItemKind::Enum(ref enum_definition, _) => for v in &enum_definition.variants {
+                    let variant_def_index = this.create_def(
+                        v.node.data.id(),
+                        DefPathData::EnumVariant(v.node.name.name.as_str()),
+                        REGULAR_SPACE,
+                    );
+                    this.with_parent(variant_def_index, |this| {
+                        for (index, field) in v.node.data.fields().iter().enumerate() {
+                            let name = field
+                                .ident
+                                .map(|ident| ident.name)
+                                .unwrap_or_else(|| Symbol::intern(&index.to_string()));
+                            this.create_def(
+                                field.id,
+                                DefPathData::Field(name.as_str()),
+                                REGULAR_SPACE,
+                            );
+                        }
 
-                            if let Some(ref expr) = v.node.disr_expr {
-                                this.visit_const_expr(expr);
-                            }
-                        });
-                    }
-                }
+                        if let Some(ref expr) = v.node.disr_expr {
+                            this.visit_const_expr(expr);
+                        }
+                    });
+                },
                 ItemKind::Struct(ref struct_def, _) | ItemKind::Union(ref struct_def, _) => {
                     // If this is a tuple-like struct, register the constructor.
                     if !struct_def.is_struct() {
-                        this.create_def(struct_def.id(),
-                                        DefPathData::StructCtor,
-                                        REGULAR_SPACE);
+                        this.create_def(struct_def.id(), DefPathData::StructCtor, REGULAR_SPACE);
                     }
 
                     for (index, field) in struct_def.fields().iter().enumerate() {
-                        let name = field.ident.map(|ident| ident.name)
+                        let name = field
+                            .ident
+                            .map(|ident| ident.name)
                             .unwrap_or_else(|| Symbol::intern(&index.to_string()));
                         this.create_def(field.id, DefPathData::Field(name.as_str()), REGULAR_SPACE);
                     }
@@ -173,9 +188,11 @@ impl<'a> visit::Visitor<'a> for DefCollector<'a> {
     }
 
     fn visit_foreign_item(&mut self, foreign_item: &'a ForeignItem) {
-        let def = self.create_def(foreign_item.id,
-                                  DefPathData::ValueNs(foreign_item.ident.name.as_str()),
-                                  REGULAR_SPACE);
+        let def = self.create_def(
+            foreign_item.id,
+            DefPathData::ValueNs(foreign_item.ident.name.as_str()),
+            REGULAR_SPACE,
+        );
 
         self.with_parent(def, |this| {
             visit::walk_foreign_item(this, foreign_item);
@@ -188,14 +205,14 @@ impl<'a> visit::Visitor<'a> for DefCollector<'a> {
                 self.create_def(
                     lifetime_def.lifetime.id,
                     DefPathData::LifetimeDef(lifetime_def.lifetime.ident.name.as_str()),
-                    REGULAR_SPACE
+                    REGULAR_SPACE,
                 );
             }
             GenericParam::Type(ref ty_param) => {
                 self.create_def(
                     ty_param.id,
                     DefPathData::TypeParam(ty_param.ident.name.as_str()),
-                    REGULAR_SPACE
+                    REGULAR_SPACE,
                 );
             }
         }
@@ -205,8 +222,9 @@ impl<'a> visit::Visitor<'a> for DefCollector<'a> {
 
     fn visit_trait_item(&mut self, ti: &'a TraitItem) {
         let def_data = match ti.node {
-            TraitItemKind::Method(..) | TraitItemKind::Const(..) =>
-                DefPathData::ValueNs(ti.ident.name.as_str()),
+            TraitItemKind::Method(..) | TraitItemKind::Const(..) => {
+                DefPathData::ValueNs(ti.ident.name.as_str())
+            }
             TraitItemKind::Type(..) => DefPathData::TypeNs(ti.ident.name.as_str()),
             TraitItemKind::Macro(..) => return self.visit_macro_invoc(ti.id, false),
         };
@@ -223,8 +241,9 @@ impl<'a> visit::Visitor<'a> for DefCollector<'a> {
 
     fn visit_impl_item(&mut self, ii: &'a ImplItem) {
         let def_data = match ii.node {
-            ImplItemKind::Method(..) | ImplItemKind::Const(..) =>
-                DefPathData::ValueNs(ii.ident.name.as_str()),
+            ImplItemKind::Method(..) | ImplItemKind::Const(..) => {
+                DefPathData::ValueNs(ii.ident.name.as_str())
+            }
             ImplItemKind::Type(..) => DefPathData::TypeNs(ii.ident.name.as_str()),
             ImplItemKind::Macro(..) => return self.visit_macro_invoc(ii.id, false),
         };
@@ -253,9 +272,7 @@ impl<'a> visit::Visitor<'a> for DefCollector<'a> {
             ExprKind::Mac(..) => return self.visit_macro_invoc(expr.id, false),
             ExprKind::Repeat(_, ref count) => self.visit_const_expr(count),
             ExprKind::Closure(..) => {
-                let def = self.create_def(expr.id,
-                                          DefPathData::ClosureExpr,
-                                          REGULAR_SPACE);
+                let def = self.create_def(expr.id, DefPathData::ClosureExpr, REGULAR_SPACE);
                 self.parent_def = Some(def);
             }
             _ => {}

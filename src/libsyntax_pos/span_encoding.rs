@@ -38,7 +38,11 @@ impl Span {
     pub fn new(lo: BytePos, hi: BytePos, ctxt: SyntaxContext) -> Self {
         encode(&match lo <= hi {
             true => SpanData { lo, hi, ctxt },
-            false => SpanData { lo: hi, hi: lo, ctxt },
+            false => SpanData {
+                lo: hi,
+                hi: lo,
+                ctxt,
+            },
         })
     }
 
@@ -78,11 +82,11 @@ const INTERNED_INDEX_OFFSET: u32 = 1;
 fn encode(sd: &SpanData) -> Span {
     let (base, len, ctxt) = (sd.lo.0, sd.hi.0 - sd.lo.0, sd.ctxt.0);
 
-    let val = if (base >> INLINE_SIZES[BASE_INDEX]) == 0 &&
-                 (len >> INLINE_SIZES[LEN_INDEX]) == 0 &&
-                 (ctxt >> INLINE_SIZES[CTXT_INDEX]) == 0 {
-        (base << INLINE_OFFSETS[BASE_INDEX]) | (len << INLINE_OFFSETS[LEN_INDEX]) |
-        (ctxt << INLINE_OFFSETS[CTXT_INDEX]) | TAG_INLINE
+    let val = if (base >> INLINE_SIZES[BASE_INDEX]) == 0 && (len >> INLINE_SIZES[LEN_INDEX]) == 0
+        && (ctxt >> INLINE_SIZES[CTXT_INDEX]) == 0
+    {
+        (base << INLINE_OFFSETS[BASE_INDEX]) | (len << INLINE_OFFSETS[LEN_INDEX])
+            | (ctxt << INLINE_OFFSETS[CTXT_INDEX]) | TAG_INLINE
     } else {
         let index = with_span_interner(|interner| interner.intern(sd));
         (index << INTERNED_INDEX_OFFSET) | TAG_INTERNED
@@ -100,15 +104,21 @@ fn decode(span: Span) -> SpanData {
         (val >> pos) & mask
     };
 
-    let (base, len, ctxt) = if val & TAG_MASK == TAG_INLINE {(
-        extract(INLINE_OFFSETS[BASE_INDEX], INLINE_SIZES[BASE_INDEX]),
-        extract(INLINE_OFFSETS[LEN_INDEX], INLINE_SIZES[LEN_INDEX]),
-        extract(INLINE_OFFSETS[CTXT_INDEX], INLINE_SIZES[CTXT_INDEX]),
-    )} else {
+    let (base, len, ctxt) = if val & TAG_MASK == TAG_INLINE {
+        (
+            extract(INLINE_OFFSETS[BASE_INDEX], INLINE_SIZES[BASE_INDEX]),
+            extract(INLINE_OFFSETS[LEN_INDEX], INLINE_SIZES[LEN_INDEX]),
+            extract(INLINE_OFFSETS[CTXT_INDEX], INLINE_SIZES[CTXT_INDEX]),
+        )
+    } else {
         let index = extract(INTERNED_INDEX_OFFSET, INTERNED_INDEX_SIZE);
         return with_span_interner(|interner| *interner.get(index));
     };
-    SpanData { lo: BytePos(base), hi: BytePos(base + len), ctxt: SyntaxContext(ctxt) }
+    SpanData {
+        lo: BytePos(base),
+        hi: BytePos(base + len),
+        ctxt: SyntaxContext(ctxt),
+    }
 }
 
 #[derive(Default)]

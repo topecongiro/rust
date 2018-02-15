@@ -12,7 +12,7 @@
 
 extern crate test;
 use self::test::Bencher;
-use unify::{UnifyKey, UnificationTable};
+use unify::{UnificationTable, UnifyKey};
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 struct UnitKey(u32);
@@ -70,7 +70,6 @@ fn big_array_bench(b: &mut Bencher) {
     for _ in 0..MAX {
         keys.push(ut.new_key(()));
     }
-
 
     b.iter(|| {
         for i in 1..MAX {

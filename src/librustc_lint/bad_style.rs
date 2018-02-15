@@ -10,8 +10,8 @@
 
 use rustc::hir::def::Def;
 use rustc::ty;
-use lint::{LateContext, LintContext, LintArray};
-use lint::{LintPass, LateLintPass};
+use lint::{LateContext, LintArray, LintContext};
+use lint::{LateLintPass, LintPass};
 
 use syntax::abi::Abi;
 use syntax::ast;
@@ -33,12 +33,10 @@ pub fn method_context(cx: &LateContext, id: ast::NodeId) -> MethodLateContext {
     let item = cx.tcx.associated_item(def_id);
     match item.container {
         ty::TraitContainer(..) => MethodLateContext::TraitAutoImpl,
-        ty::ImplContainer(cid) => {
-            match cx.tcx.impl_trait_ref(cid) {
-                Some(_) => MethodLateContext::TraitImpl,
-                None => MethodLateContext::PlainImpl,
-            }
-        }
+        ty::ImplContainer(cid) => match cx.tcx.impl_trait_ref(cid) {
+            Some(_) => MethodLateContext::TraitImpl,
+            None => MethodLateContext::PlainImpl,
+        },
     }
 }
 
@@ -66,11 +64,11 @@ impl NonCamelCaseTypes {
 
             // start with a non-lowercase letter rather than non-uppercase
             // ones (some scripts don't have a concept of upper/lowercase)
-            !name.is_empty() && !name.chars().next().unwrap().is_lowercase() &&
-                !name.contains("__") && !name.chars().collect::<Vec<_>>().windows(2).any(|pair| {
+            !name.is_empty() && !name.chars().next().unwrap().is_lowercase() && !name.contains("__")
+                && !name.chars().collect::<Vec<_>>().windows(2).any(|pair| {
                     // contains a capitalisable character followed by, or preceded by, an underscore
-                    char_has_case(pair[0]) && pair[1] == '_' ||
-                    char_has_case(pair[1]) && pair[0] == '_'
+                    char_has_case(pair[0]) && pair[1] == '_'
+                        || char_has_case(pair[1]) && pair[0] == '_'
                 })
         }
 
@@ -78,34 +76,51 @@ impl NonCamelCaseTypes {
             s.trim_matches('_')
                 .split('_')
                 .map(|word| {
-                    word.chars().enumerate().map(|(i, c)| if i == 0 {
-                        c.to_uppercase().collect::<String>()
-                    } else {
-                        c.to_lowercase().collect()
-                    })
-                    .collect::<Vec<_>>()
-                    .concat()
+                    word.chars()
+                        .enumerate()
+                        .map(|(i, c)| {
+                            if i == 0 {
+                                c.to_uppercase().collect::<String>()
+                            } else {
+                                c.to_lowercase().collect()
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                        .concat()
                 })
                 .filter(|x| !x.is_empty())
                 .collect::<Vec<_>>()
-                .iter().fold((String::new(), None), |(acc, prev): (String, Option<&String>), next| {
-                    // separate two components with an underscore if their boundary cannot
-                    // be distinguished using a uppercase/lowercase case distinction
-                    let join = if let Some(prev) = prev {
-                                    let l = prev.chars().last().unwrap();
-                                    let f = next.chars().next().unwrap();
-                                    !char_has_case(l) && !char_has_case(f)
-                                } else { false };
-                    (acc + if join { "_" } else { "" } + next, Some(next))
-                }).0
+                .iter()
+                .fold(
+                    (String::new(), None),
+                    |(acc, prev): (String, Option<&String>), next| {
+                        // separate two components with an underscore if their boundary cannot
+                        // be distinguished using a uppercase/lowercase case distinction
+                        let join = if let Some(prev) = prev {
+                            let l = prev.chars().last().unwrap();
+                            let f = next.chars().next().unwrap();
+                            !char_has_case(l) && !char_has_case(f)
+                        } else {
+                            false
+                        };
+                        (acc + if join { "_" } else { "" } + next, Some(next))
+                    },
+                )
+                .0
         }
 
         if !is_camel_case(name) {
             let c = to_camel_case(&name.as_str());
             let m = if c.is_empty() {
-                format!("{} `{}` should have a camel case name such as `CamelCase`", sort, name)
+                format!(
+                    "{} `{}` should have a camel case name such as `CamelCase`",
+                    sort, name
+                )
             } else {
-                format!("{} `{}` should have a camel case name such as `{}`", sort, name, c)
+                format!(
+                    "{} `{}` should have a camel case name such as `{}`",
+                    sort, name, c
+                )
             };
             cx.span_lint(NON_CAMEL_CASE_TYPES, span, &m);
         }
@@ -120,23 +135,20 @@ impl LintPass for NonCamelCaseTypes {
 
 impl<'a, 'tcx> LateLintPass<'a, 'tcx> for NonCamelCaseTypes {
     fn check_item(&mut self, cx: &LateContext, it: &hir::Item) {
-        let has_repr_c = it.attrs
-            .iter()
-            .any(|attr| {
-                attr::find_repr_attrs(cx.tcx.sess.diagnostic(), attr)
-                    .iter()
-                    .any(|r| r == &attr::ReprC)
-            });
+        let has_repr_c = it.attrs.iter().any(|attr| {
+            attr::find_repr_attrs(cx.tcx.sess.diagnostic(), attr)
+                .iter()
+                .any(|r| r == &attr::ReprC)
+        });
 
         if has_repr_c {
             return;
         }
 
         match it.node {
-            hir::ItemTy(..) |
-            hir::ItemEnum(..) |
-            hir::ItemStruct(..) |
-            hir::ItemUnion(..) => self.check_case(cx, "type", it.name, it.span),
+            hir::ItemTy(..) | hir::ItemEnum(..) | hir::ItemStruct(..) | hir::ItemUnion(..) => {
+                self.check_case(cx, "type", it.name, it.span)
+            }
             hir::ItemTrait(..) => self.check_case(cx, "trait", it.name, it.span),
             _ => (),
         }
@@ -220,10 +232,10 @@ impl NonSnakeCase {
         if !is_snake_case(name) {
             let sc = NonSnakeCase::to_snake_case(name);
             let msg = if sc != name {
-                format!("{} `{}` should have a snake case name such as `{}`",
-                        sort,
-                        name,
-                        sc)
+                format!(
+                    "{} `{}` should have a snake case name such as `{}`",
+                    sort, name, sc
+                )
             } else {
                 format!("{} `{}` should have a snake case name", sort, name)
             };
@@ -258,30 +270,30 @@ impl<'a, 'tcx> LateLintPass<'a, 'tcx> for NonSnakeCase {
                 cx,
                 "lifetime",
                 &ld.lifetime.name.name().as_str(),
-                Some(ld.lifetime.span)
+                Some(ld.lifetime.span),
             );
         }
     }
 
-    fn check_fn(&mut self,
-                cx: &LateContext,
-                fk: FnKind,
-                _: &hir::FnDecl,
-                _: &hir::Body,
-                span: Span,
-                id: ast::NodeId) {
+    fn check_fn(
+        &mut self,
+        cx: &LateContext,
+        fk: FnKind,
+        _: &hir::FnDecl,
+        _: &hir::Body,
+        span: Span,
+        id: ast::NodeId,
+    ) {
         match fk {
-            FnKind::Method(name, ..) => {
-                match method_context(cx, id) {
-                    MethodLateContext::PlainImpl => {
-                        self.check_snake_case(cx, "method", &name.as_str(), Some(span))
-                    }
-                    MethodLateContext::TraitAutoImpl => {
-                        self.check_snake_case(cx, "trait method", &name.as_str(), Some(span))
-                    }
-                    _ => (),
+            FnKind::Method(name, ..) => match method_context(cx, id) {
+                MethodLateContext::PlainImpl => {
+                    self.check_snake_case(cx, "method", &name.as_str(), Some(span))
                 }
-            }
+                MethodLateContext::TraitAutoImpl => {
+                    self.check_snake_case(cx, "trait method", &name.as_str(), Some(span))
+                }
+                _ => (),
+            },
             FnKind::ItemFn(name, _, _, _, abi, _, attrs) => {
                 // Skip foreign-ABI #[no_mangle] functions (Issue #31924)
                 if abi != Abi::Rust && attr::find_by_name(attrs, "no_mangle").is_some() {
@@ -301,10 +313,7 @@ impl<'a, 'tcx> LateLintPass<'a, 'tcx> for NonSnakeCase {
 
     fn check_trait_item(&mut self, cx: &LateContext, item: &hir::TraitItem) {
         if let hir::TraitItemKind::Method(_, hir::TraitMethod::Required(ref names)) = item.node {
-            self.check_snake_case(cx,
-                                  "trait method",
-                                  &item.name.as_str(),
-                                  Some(item.span));
+            self.check_snake_case(cx, "trait method", &item.name.as_str(), Some(item.span));
             for name in names {
                 self.check_snake_case(cx, "variable", &name.node.as_str(), Some(name.span));
             }
@@ -317,12 +326,14 @@ impl<'a, 'tcx> LateLintPass<'a, 'tcx> for NonSnakeCase {
         }
     }
 
-    fn check_struct_def(&mut self,
-                        cx: &LateContext,
-                        s: &hir::VariantData,
-                        _: ast::Name,
-                        _: &hir::Generics,
-                        _: ast::NodeId) {
+    fn check_struct_def(
+        &mut self,
+        cx: &LateContext,
+        s: &hir::VariantData,
+        _: ast::Name,
+        _: &hir::Generics,
+        _: ast::NodeId,
+    ) {
         for sf in s.fields() {
             self.check_snake_case(cx, "structure field", &sf.name.as_str(), Some(sf.span));
         }
@@ -343,16 +354,20 @@ impl NonUpperCaseGlobals {
         if name.as_str().chars().any(|c| c.is_lowercase()) {
             let uc = NonSnakeCase::to_snake_case(&name.as_str()).to_uppercase();
             if name != &*uc {
-                cx.span_lint(NON_UPPER_CASE_GLOBALS,
-                             span,
-                             &format!("{} `{}` should have an upper case name such as `{}`",
-                                      sort,
-                                      name,
-                                      uc));
+                cx.span_lint(
+                    NON_UPPER_CASE_GLOBALS,
+                    span,
+                    &format!(
+                        "{} `{}` should have an upper case name such as `{}`",
+                        sort, name, uc
+                    ),
+                );
             } else {
-                cx.span_lint(NON_UPPER_CASE_GLOBALS,
-                             span,
-                             &format!("{} `{}` should have an upper case name", sort, name));
+                cx.span_lint(
+                    NON_UPPER_CASE_GLOBALS,
+                    span,
+                    &format!("{} `{}` should have an upper case name", sort, name),
+                );
             }
         }
     }
@@ -400,10 +415,12 @@ impl<'a, 'tcx> LateLintPass<'a, 'tcx> for NonUpperCaseGlobals {
         if let PatKind::Path(hir::QPath::Resolved(None, ref path)) = p.node {
             if let Def::Const(..) = path.def {
                 if path.segments.len() == 1 {
-                    NonUpperCaseGlobals::check_upper_case(cx,
-                                                          "constant in pattern",
-                                                          path.segments[0].name,
-                                                          path.span);
+                    NonUpperCaseGlobals::check_upper_case(
+                        cx,
+                        "constant in pattern",
+                        path.segments[0].name,
+                        path.span,
+                    );
                 }
             }
         }

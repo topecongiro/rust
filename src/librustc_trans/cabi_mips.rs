@@ -13,9 +13,7 @@ use context::CodegenCx;
 
 use rustc::ty::layout::Size;
 
-fn classify_ret_ty<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>,
-                             ret: &mut ArgType<'tcx>,
-                             offset: &mut Size) {
+fn classify_ret_ty<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>, ret: &mut ArgType<'tcx>, offset: &mut Size) {
     if !ret.layout.is_aggregate() {
         ret.extend_integer_width_to(32);
     } else {
@@ -32,7 +30,7 @@ fn classify_arg_ty(cx: &CodegenCx, arg: &mut ArgType, offset: &mut Size) {
     if arg.layout.is_aggregate() {
         arg.cast_to(Uniform {
             unit: Reg::i32(),
-            total: size
+            total: size,
         });
         if !offset.is_abi_aligned(align) {
             arg.pad_with(Reg::i32());
@@ -51,7 +49,9 @@ pub fn compute_abi_info<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>, fty: &mut FnType<'tc
     }
 
     for arg in &mut fty.args {
-        if arg.is_ignore() { continue; }
+        if arg.is_ignore() {
+            continue;
+        }
         classify_arg_ty(cx, arg, &mut offset);
     }
 }

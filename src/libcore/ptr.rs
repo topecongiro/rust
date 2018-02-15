@@ -25,7 +25,7 @@ use marker::{PhantomData, Unsize};
 use mem;
 use nonzero::NonZero;
 
-use cmp::Ordering::{self, Less, Equal, Greater};
+use cmp::Ordering::{self, Equal, Greater, Less};
 
 #[stable(feature = "rust1", since = "1.0.0")]
 pub use intrinsics::copy_nonoverlapping;
@@ -74,7 +74,9 @@ pub unsafe fn drop_in_place<T: ?Sized>(to_drop: *mut T) {
 /// ```
 #[inline]
 #[stable(feature = "rust1", since = "1.0.0")]
-pub const fn null<T>() -> *const T { 0 as *const T }
+pub const fn null<T>() -> *const T {
+    0 as *const T
+}
 
 /// Creates a null mutable raw pointer.
 ///
@@ -88,7 +90,9 @@ pub const fn null<T>() -> *const T { 0 as *const T }
 /// ```
 #[inline]
 #[stable(feature = "rust1", since = "1.0.0")]
-pub const fn null_mut<T>() -> *mut T { 0 as *mut T }
+pub const fn null_mut<T>() -> *mut T {
+    0 as *mut T
+}
 
 /// Swaps the values at two mutable locations of the same type, without
 /// deinitializing either.
@@ -198,8 +202,7 @@ unsafe fn swap_nonoverlapping_bytes(x: *mut u8, y: *mut u8, len: usize) {
     //
     // FIXME repr(simd) broken on emscripten and redox
     // It's also broken on big-endian powerpc64 and s390x.  #42778
-    #[cfg_attr(not(any(target_os = "emscripten", target_os = "redox",
-                       target_endian = "big")),
+    #[cfg_attr(not(any(target_os = "emscripten", target_os = "redox", target_endian = "big")),
                repr(simd))]
     struct Block(u64, u64, u64, u64);
     struct UnalignedBlock(u64, u64, u64, u64);
@@ -319,9 +322,11 @@ pub unsafe fn read<T>(src: *const T) -> T {
 #[stable(feature = "ptr_unaligned", since = "1.17.0")]
 pub unsafe fn read_unaligned<T>(src: *const T) -> T {
     let mut tmp: T = mem::uninitialized();
-    copy_nonoverlapping(src as *const u8,
-                        &mut tmp as *mut T as *mut u8,
-                        mem::size_of::<T>());
+    copy_nonoverlapping(
+        src as *const u8,
+        &mut tmp as *mut T as *mut u8,
+        mem::size_of::<T>(),
+    );
     tmp
 }
 
@@ -400,9 +405,11 @@ pub unsafe fn write<T>(dst: *mut T, src: T) {
 #[inline]
 #[stable(feature = "ptr_unaligned", since = "1.17.0")]
 pub unsafe fn write_unaligned<T>(dst: *mut T, src: T) {
-    copy_nonoverlapping(&src as *const T as *const u8,
-                        dst as *mut u8,
-                        mem::size_of::<T>());
+    copy_nonoverlapping(
+        &src as *const T as *const u8,
+        dst as *mut u8,
+        mem::size_of::<T>(),
+    );
     mem::forget(src);
 }
 
@@ -618,7 +625,10 @@ impl<T: ?Sized> *const T {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
-    pub unsafe fn offset(self, count: isize) -> *const T where T: Sized {
+    pub unsafe fn offset(self, count: isize) -> *const T
+    where
+        T: Sized,
+    {
         intrinsics::offset(self, count)
     }
 
@@ -656,10 +666,11 @@ impl<T: ?Sized> *const T {
     /// ```
     #[stable(feature = "ptr_wrapping_offset", since = "1.16.0")]
     #[inline]
-    pub fn wrapping_offset(self, count: isize) -> *const T where T: Sized {
-        unsafe {
-            intrinsics::arith_offset(self, count)
-        }
+    pub fn wrapping_offset(self, count: isize) -> *const T
+    where
+        T: Sized,
+    {
+        unsafe { intrinsics::arith_offset(self, count) }
     }
 
     /// Calculates the distance between two pointers. The returned value is in
@@ -690,7 +701,10 @@ impl<T: ?Sized> *const T {
     /// ```
     #[unstable(feature = "offset_to", issue = "41079")]
     #[inline]
-    pub fn offset_to(self, other: *const T) -> Option<isize> where T: Sized {
+    pub fn offset_to(self, other: *const T) -> Option<isize>
+    where
+        T: Sized,
+    {
         let size = mem::size_of::<T>();
         if size == 0 {
             None
@@ -753,7 +767,8 @@ impl<T: ?Sized> *const T {
     #[unstable(feature = "pointer_methods", issue = "43941")]
     #[inline]
     pub unsafe fn add(self, count: usize) -> Self
-        where T: Sized,
+    where
+        T: Sized,
     {
         self.offset(count as isize)
     }
@@ -812,7 +827,8 @@ impl<T: ?Sized> *const T {
     #[unstable(feature = "pointer_methods", issue = "43941")]
     #[inline]
     pub unsafe fn sub(self, count: usize) -> Self
-        where T: Sized,
+    where
+        T: Sized,
     {
         self.offset((count as isize).wrapping_neg())
     }
@@ -855,7 +871,8 @@ impl<T: ?Sized> *const T {
     #[unstable(feature = "pointer_methods", issue = "43941")]
     #[inline]
     pub fn wrapping_add(self, count: usize) -> Self
-        where T: Sized,
+    where
+        T: Sized,
     {
         self.wrapping_offset(count as isize)
     }
@@ -898,7 +915,8 @@ impl<T: ?Sized> *const T {
     #[unstable(feature = "pointer_methods", issue = "43941")]
     #[inline]
     pub fn wrapping_sub(self, count: usize) -> Self
-        where T: Sized,
+    where
+        T: Sized,
     {
         self.wrapping_offset((count as isize).wrapping_neg())
     }
@@ -934,7 +952,8 @@ impl<T: ?Sized> *const T {
     #[unstable(feature = "pointer_methods", issue = "43941")]
     #[inline]
     pub unsafe fn read(self) -> T
-        where T: Sized,
+    where
+        T: Sized,
     {
         read(self)
     }
@@ -986,7 +1005,8 @@ impl<T: ?Sized> *const T {
     #[unstable(feature = "pointer_methods", issue = "43941")]
     #[inline]
     pub unsafe fn read_volatile(self) -> T
-        where T: Sized,
+    where
+        T: Sized,
     {
         read_volatile(self)
     }
@@ -1022,7 +1042,8 @@ impl<T: ?Sized> *const T {
     #[unstable(feature = "pointer_methods", issue = "43941")]
     #[inline]
     pub unsafe fn read_unaligned(self) -> T
-        where T: Sized,
+    where
+        T: Sized,
     {
         read_unaligned(self)
     }
@@ -1059,7 +1080,8 @@ impl<T: ?Sized> *const T {
     #[unstable(feature = "pointer_methods", issue = "43941")]
     #[inline]
     pub unsafe fn copy_to(self, dest: *mut T, count: usize)
-        where T: Sized,
+    where
+        T: Sized,
     {
         copy(self, dest, count)
     }
@@ -1098,7 +1120,8 @@ impl<T: ?Sized> *const T {
     #[unstable(feature = "pointer_methods", issue = "43941")]
     #[inline]
     pub unsafe fn copy_to_nonoverlapping(self, dest: *mut T, count: usize)
-        where T: Sized,
+    where
+        T: Sized,
     {
         copy_nonoverlapping(self, dest, count)
     }
@@ -1136,9 +1159,7 @@ impl<T: ?Sized> *const T {
     /// ```
     #[unstable(feature = "align_offset", issue = "44488")]
     pub fn align_offset(self, align: usize) -> usize {
-        unsafe {
-            intrinsics::align_offset(self as *const _, align)
-        }
+        unsafe { intrinsics::align_offset(self as *const _, align) }
     }
 }
 
@@ -1254,7 +1275,10 @@ impl<T: ?Sized> *mut T {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
-    pub unsafe fn offset(self, count: isize) -> *mut T where T: Sized {
+    pub unsafe fn offset(self, count: isize) -> *mut T
+    where
+        T: Sized,
+    {
         intrinsics::offset(self, count) as *mut T
     }
 
@@ -1291,10 +1315,11 @@ impl<T: ?Sized> *mut T {
     /// ```
     #[stable(feature = "ptr_wrapping_offset", since = "1.16.0")]
     #[inline]
-    pub fn wrapping_offset(self, count: isize) -> *mut T where T: Sized {
-        unsafe {
-            intrinsics::arith_offset(self, count) as *mut T
-        }
+    pub fn wrapping_offset(self, count: isize) -> *mut T
+    where
+        T: Sized,
+    {
+        unsafe { intrinsics::arith_offset(self, count) as *mut T }
     }
 
     /// Returns `None` if the pointer is null, or else returns a mutable
@@ -1355,7 +1380,10 @@ impl<T: ?Sized> *mut T {
     /// ```
     #[unstable(feature = "offset_to", issue = "41079")]
     #[inline]
-    pub fn offset_to(self, other: *const T) -> Option<isize> where T: Sized {
+    pub fn offset_to(self, other: *const T) -> Option<isize>
+    where
+        T: Sized,
+    {
         let size = mem::size_of::<T>();
         if size == 0 {
             None
@@ -1398,9 +1426,7 @@ impl<T: ?Sized> *mut T {
     /// ```
     #[unstable(feature = "align_offset", issue = "44488")]
     pub fn align_offset(self, align: usize) -> usize {
-        unsafe {
-            intrinsics::align_offset(self as *const _, align)
-        }
+        unsafe { intrinsics::align_offset(self as *const _, align) }
     }
 
     /// Calculates the offset from a pointer (convenience for `.offset(count as isize)`).
@@ -1456,7 +1482,8 @@ impl<T: ?Sized> *mut T {
     #[unstable(feature = "pointer_methods", issue = "43941")]
     #[inline]
     pub unsafe fn add(self, count: usize) -> Self
-        where T: Sized,
+    where
+        T: Sized,
     {
         self.offset(count as isize)
     }
@@ -1515,7 +1542,8 @@ impl<T: ?Sized> *mut T {
     #[unstable(feature = "pointer_methods", issue = "43941")]
     #[inline]
     pub unsafe fn sub(self, count: usize) -> Self
-        where T: Sized,
+    where
+        T: Sized,
     {
         self.offset((count as isize).wrapping_neg())
     }
@@ -1558,7 +1586,8 @@ impl<T: ?Sized> *mut T {
     #[unstable(feature = "pointer_methods", issue = "43941")]
     #[inline]
     pub fn wrapping_add(self, count: usize) -> Self
-        where T: Sized,
+    where
+        T: Sized,
     {
         self.wrapping_offset(count as isize)
     }
@@ -1601,7 +1630,8 @@ impl<T: ?Sized> *mut T {
     #[unstable(feature = "pointer_methods", issue = "43941")]
     #[inline]
     pub fn wrapping_sub(self, count: usize) -> Self
-        where T: Sized,
+    where
+        T: Sized,
     {
         self.wrapping_offset((count as isize).wrapping_neg())
     }
@@ -1637,7 +1667,8 @@ impl<T: ?Sized> *mut T {
     #[unstable(feature = "pointer_methods", issue = "43941")]
     #[inline]
     pub unsafe fn read(self) -> T
-        where T: Sized,
+    where
+        T: Sized,
     {
         read(self)
     }
@@ -1689,7 +1720,8 @@ impl<T: ?Sized> *mut T {
     #[unstable(feature = "pointer_methods", issue = "43941")]
     #[inline]
     pub unsafe fn read_volatile(self) -> T
-        where T: Sized,
+    where
+        T: Sized,
     {
         read_volatile(self)
     }
@@ -1725,7 +1757,8 @@ impl<T: ?Sized> *mut T {
     #[unstable(feature = "pointer_methods", issue = "43941")]
     #[inline]
     pub unsafe fn read_unaligned(self) -> T
-        where T: Sized,
+    where
+        T: Sized,
     {
         read_unaligned(self)
     }
@@ -1762,7 +1795,8 @@ impl<T: ?Sized> *mut T {
     #[unstable(feature = "pointer_methods", issue = "43941")]
     #[inline]
     pub unsafe fn copy_to(self, dest: *mut T, count: usize)
-        where T: Sized,
+    where
+        T: Sized,
     {
         copy(self, dest, count)
     }
@@ -1801,7 +1835,8 @@ impl<T: ?Sized> *mut T {
     #[unstable(feature = "pointer_methods", issue = "43941")]
     #[inline]
     pub unsafe fn copy_to_nonoverlapping(self, dest: *mut T, count: usize)
-        where T: Sized,
+    where
+        T: Sized,
     {
         copy_nonoverlapping(self, dest, count)
     }
@@ -1838,7 +1873,8 @@ impl<T: ?Sized> *mut T {
     #[unstable(feature = "pointer_methods", issue = "43941")]
     #[inline]
     pub unsafe fn copy_from(self, src: *const T, count: usize)
-        where T: Sized,
+    where
+        T: Sized,
     {
         copy(src, self, count)
     }
@@ -1877,7 +1913,8 @@ impl<T: ?Sized> *mut T {
     #[unstable(feature = "pointer_methods", issue = "43941")]
     #[inline]
     pub unsafe fn copy_from_nonoverlapping(self, src: *const T, count: usize)
-        where T: Sized,
+    where
+        T: Sized,
     {
         copy_nonoverlapping(src, self, count)
     }
@@ -1943,7 +1980,8 @@ impl<T: ?Sized> *mut T {
     #[unstable(feature = "pointer_methods", issue = "43941")]
     #[inline]
     pub unsafe fn write(self, val: T)
-        where T: Sized,
+    where
+        T: Sized,
     {
         write(self, val)
     }
@@ -1966,7 +2004,8 @@ impl<T: ?Sized> *mut T {
     #[unstable(feature = "pointer_methods", issue = "43941")]
     #[inline]
     pub unsafe fn write_bytes(self, val: u8, count: usize)
-        where T: Sized,
+    where
+        T: Sized,
     {
         write_bytes(self, val, count)
     }
@@ -2022,7 +2061,8 @@ impl<T: ?Sized> *mut T {
     #[unstable(feature = "pointer_methods", issue = "43941")]
     #[inline]
     pub unsafe fn write_volatile(self, val: T)
-        where T: Sized,
+    where
+        T: Sized,
     {
         write_volatile(self, val)
     }
@@ -2065,7 +2105,8 @@ impl<T: ?Sized> *mut T {
     #[unstable(feature = "pointer_methods", issue = "43941")]
     #[inline]
     pub unsafe fn write_unaligned(self, val: T)
-        where T: Sized,
+    where
+        T: Sized,
     {
         write_unaligned(self, val)
     }
@@ -2080,7 +2121,8 @@ impl<T: ?Sized> *mut T {
     #[unstable(feature = "pointer_methods", issue = "43941")]
     #[inline]
     pub unsafe fn replace(self, src: T) -> T
-        where T: Sized,
+    where
+        T: Sized,
     {
         replace(self, src)
     }
@@ -2098,7 +2140,8 @@ impl<T: ?Sized> *mut T {
     #[unstable(feature = "pointer_methods", issue = "43941")]
     #[inline]
     pub unsafe fn swap(self, with: *mut T)
-        where T: Sized,
+    where
+        T: Sized,
     {
         swap(self, with)
     }
@@ -2108,7 +2151,9 @@ impl<T: ?Sized> *mut T {
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<T: ?Sized> PartialEq for *const T {
     #[inline]
-    fn eq(&self, other: &*const T) -> bool { *self == *other }
+    fn eq(&self, other: &*const T) -> bool {
+        *self == *other
+    }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
@@ -2117,7 +2162,9 @@ impl<T: ?Sized> Eq for *const T {}
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<T: ?Sized> PartialEq for *mut T {
     #[inline]
-    fn eq(&self, other: &*mut T) -> bool { *self == *other }
+    fn eq(&self, other: &*mut T) -> bool {
+        *self == *other
+    }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
@@ -2227,7 +2274,7 @@ macro_rules! fnptr_impls_args {
     };
 }
 
-fnptr_impls_args! { }
+fnptr_impls_args!{}
 fnptr_impls_args! { A }
 fnptr_impls_args! { A, B }
 fnptr_impls_args! { A, B, C }
@@ -2264,16 +2311,24 @@ impl<T: ?Sized> PartialOrd for *const T {
     }
 
     #[inline]
-    fn lt(&self, other: &*const T) -> bool { *self < *other }
+    fn lt(&self, other: &*const T) -> bool {
+        *self < *other
+    }
 
     #[inline]
-    fn le(&self, other: &*const T) -> bool { *self <= *other }
+    fn le(&self, other: &*const T) -> bool {
+        *self <= *other
+    }
 
     #[inline]
-    fn gt(&self, other: &*const T) -> bool { *self > *other }
+    fn gt(&self, other: &*const T) -> bool {
+        *self > *other
+    }
 
     #[inline]
-    fn ge(&self, other: &*const T) -> bool { *self >= *other }
+    fn ge(&self, other: &*const T) -> bool {
+        *self >= *other
+    }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
@@ -2298,16 +2353,24 @@ impl<T: ?Sized> PartialOrd for *mut T {
     }
 
     #[inline]
-    fn lt(&self, other: &*mut T) -> bool { *self < *other }
+    fn lt(&self, other: &*mut T) -> bool {
+        *self < *other
+    }
 
     #[inline]
-    fn le(&self, other: &*mut T) -> bool { *self <= *other }
+    fn le(&self, other: &*mut T) -> bool {
+        *self <= *other
+    }
 
     #[inline]
-    fn gt(&self, other: &*mut T) -> bool { *self > *other }
+    fn gt(&self, other: &*mut T) -> bool {
+        *self > *other
+    }
 
     #[inline]
-    fn ge(&self, other: &*mut T) -> bool { *self >= *other }
+    fn ge(&self, other: &*mut T) -> bool {
+        *self >= *other
+    }
 }
 
 /// A wrapper around a raw non-null `*mut T` that indicates that the possessor
@@ -2355,14 +2418,14 @@ impl<T: ?Sized> fmt::Debug for Unique<T> {
 /// unenforced by the type system; the abstraction using the
 /// `Unique` must enforce it.
 #[unstable(feature = "ptr_internals", issue = "0")]
-unsafe impl<T: Send + ?Sized> Send for Unique<T> { }
+unsafe impl<T: Send + ?Sized> Send for Unique<T> {}
 
 /// `Unique` pointers are `Sync` if `T` is `Sync` because the data they
 /// reference is unaliased. Note that this aliasing invariant is
 /// unenforced by the type system; the abstraction using the
 /// `Unique` must enforce it.
 #[unstable(feature = "ptr_internals", issue = "0")]
-unsafe impl<T: Sync + ?Sized> Sync for Unique<T> { }
+unsafe impl<T: Sync + ?Sized> Sync for Unique<T> {}
 
 #[unstable(feature = "ptr_internals", issue = "0")]
 impl<T: Sized> Unique<T> {
@@ -2387,12 +2450,18 @@ impl<T: ?Sized> Unique<T> {
     ///
     /// `ptr` must be non-null.
     pub const unsafe fn new_unchecked(ptr: *mut T) -> Self {
-        Unique { pointer: NonZero::new_unchecked(ptr), _marker: PhantomData }
+        Unique {
+            pointer: NonZero::new_unchecked(ptr),
+            _marker: PhantomData,
+        }
     }
 
     /// Creates a new `Unique` if `ptr` is non-null.
     pub fn new(ptr: *mut T) -> Option<Self> {
-        NonZero::new(ptr as *const T).map(|nz| Unique { pointer: nz, _marker: PhantomData })
+        NonZero::new(ptr as *const T).map(|nz| Unique {
+            pointer: nz,
+            _marker: PhantomData,
+        })
     }
 
     /// Acquires the underlying `*mut` pointer.
@@ -2427,10 +2496,14 @@ impl<T: ?Sized> Clone for Unique<T> {
 }
 
 #[unstable(feature = "ptr_internals", issue = "0")]
-impl<T: ?Sized> Copy for Unique<T> { }
+impl<T: ?Sized> Copy for Unique<T> {}
 
 #[unstable(feature = "ptr_internals", issue = "0")]
-impl<T: ?Sized, U: ?Sized> CoerceUnsized<Unique<U>> for Unique<T> where T: Unsize<U> { }
+impl<T: ?Sized, U: ?Sized> CoerceUnsized<Unique<U>> for Unique<T>
+where
+    T: Unsize<U>,
+{
+}
 
 #[unstable(feature = "ptr_internals", issue = "0")]
 impl<T: ?Sized> fmt::Pointer for Unique<T> {
@@ -2442,21 +2515,30 @@ impl<T: ?Sized> fmt::Pointer for Unique<T> {
 #[unstable(feature = "ptr_internals", issue = "0")]
 impl<'a, T: ?Sized> From<&'a mut T> for Unique<T> {
     fn from(reference: &'a mut T) -> Self {
-        Unique { pointer: NonZero::from(reference), _marker: PhantomData }
+        Unique {
+            pointer: NonZero::from(reference),
+            _marker: PhantomData,
+        }
     }
 }
 
 #[unstable(feature = "ptr_internals", issue = "0")]
 impl<'a, T: ?Sized> From<&'a T> for Unique<T> {
     fn from(reference: &'a T) -> Self {
-        Unique { pointer: NonZero::from(reference), _marker: PhantomData }
+        Unique {
+            pointer: NonZero::from(reference),
+            _marker: PhantomData,
+        }
     }
 }
 
 #[unstable(feature = "ptr_internals", issue = "0")]
 impl<'a, T: ?Sized> From<NonNull<T>> for Unique<T> {
     fn from(p: NonNull<T>) -> Self {
-        Unique { pointer: p.pointer, _marker: PhantomData }
+        Unique {
+            pointer: p.pointer,
+            _marker: PhantomData,
+        }
     }
 }
 
@@ -2490,12 +2572,12 @@ pub struct NonNull<T: ?Sized> {
 /// `NonNull` pointers are not `Send` because the data they reference may be aliased.
 // NB: This impl is unnecessary, but should provide better error messages.
 #[stable(feature = "nonnull", since = "1.25.0")]
-impl<T: ?Sized> !Send for NonNull<T> { }
+impl<T: ?Sized> !Send for NonNull<T> {}
 
 /// `NonNull` pointers are not `Sync` because the data they reference may be aliased.
 // NB: This impl is unnecessary, but should provide better error messages.
 #[stable(feature = "nonnull", since = "1.25.0")]
-impl<T: ?Sized> !Sync for NonNull<T> { }
+impl<T: ?Sized> !Sync for NonNull<T> {}
 
 impl<T: Sized> NonNull<T> {
     /// Creates a new `NonNull` that is dangling, but well-aligned.
@@ -2519,7 +2601,9 @@ impl<T: ?Sized> NonNull<T> {
     /// `ptr` must be non-null.
     #[stable(feature = "nonnull", since = "1.25.0")]
     pub const unsafe fn new_unchecked(ptr: *mut T) -> Self {
-        NonNull { pointer: NonZero::new_unchecked(ptr) }
+        NonNull {
+            pointer: NonZero::new_unchecked(ptr),
+        }
     }
 
     /// Creates a new `NonNull` if `ptr` is non-null.
@@ -2557,9 +2641,7 @@ impl<T: ?Sized> NonNull<T> {
     /// Cast to a pointer of another type
     #[unstable(feature = "nonnull_cast", issue = "47653")]
     pub fn cast<U>(self) -> NonNull<U> {
-        unsafe {
-            NonNull::new_unchecked(self.as_ptr() as *mut U)
-        }
+        unsafe { NonNull::new_unchecked(self.as_ptr() as *mut U) }
     }
 }
 
@@ -2571,10 +2653,14 @@ impl<T: ?Sized> Clone for NonNull<T> {
 }
 
 #[stable(feature = "nonnull", since = "1.25.0")]
-impl<T: ?Sized> Copy for NonNull<T> { }
+impl<T: ?Sized> Copy for NonNull<T> {}
 
 #[stable(feature = "nonnull", since = "1.25.0")]
-impl<T: ?Sized, U: ?Sized> CoerceUnsized<NonNull<U>> for NonNull<T> where T: Unsize<U> { }
+impl<T: ?Sized, U: ?Sized> CoerceUnsized<NonNull<U>> for NonNull<T>
+where
+    T: Unsize<U>,
+{
+}
 
 #[stable(feature = "nonnull", since = "1.25.0")]
 impl<T: ?Sized> fmt::Debug for NonNull<T> {
@@ -2624,20 +2710,26 @@ impl<T: ?Sized> hash::Hash for NonNull<T> {
 #[stable(feature = "nonnull", since = "1.25.0")]
 impl<T: ?Sized> From<Unique<T>> for NonNull<T> {
     fn from(unique: Unique<T>) -> Self {
-        NonNull { pointer: unique.pointer }
+        NonNull {
+            pointer: unique.pointer,
+        }
     }
 }
 
 #[stable(feature = "nonnull", since = "1.25.0")]
 impl<'a, T: ?Sized> From<&'a mut T> for NonNull<T> {
     fn from(reference: &'a mut T) -> Self {
-        NonNull { pointer: NonZero::from(reference) }
+        NonNull {
+            pointer: NonZero::from(reference),
+        }
     }
 }
 
 #[stable(feature = "nonnull", since = "1.25.0")]
 impl<'a, T: ?Sized> From<&'a T> for NonNull<T> {
     fn from(reference: &'a T) -> Self {
-        NonNull { pointer: NonZero::from(reference) }
+        NonNull {
+            pointer: NonZero::from(reference),
+        }
     }
 }

@@ -297,7 +297,7 @@ impl<T: Copy + Debug> Debug for LockCell<T> {
     }
 }
 
-impl<T:Default> Default for LockCell<T> {
+impl<T: Default> Default for LockCell<T> {
     /// Creates a `LockCell<T>`, with the `Default` value for T.
     #[inline]
     fn default() -> LockCell<T> {
@@ -305,16 +305,16 @@ impl<T:Default> Default for LockCell<T> {
     }
 }
 
-impl<T:PartialEq + Copy> PartialEq for LockCell<T> {
+impl<T: PartialEq + Copy> PartialEq for LockCell<T> {
     #[inline]
     fn eq(&self, other: &LockCell<T>) -> bool {
         self.get() == other.get()
     }
 }
 
-impl<T:Eq + Copy> Eq for LockCell<T> {}
+impl<T: Eq + Copy> Eq for LockCell<T> {}
 
-impl<T:PartialOrd + Copy> PartialOrd for LockCell<T> {
+impl<T: PartialOrd + Copy> PartialOrd for LockCell<T> {
     #[inline]
     fn partial_cmp(&self, other: &LockCell<T>) -> Option<Ordering> {
         self.get().partial_cmp(&other.get())
@@ -341,7 +341,7 @@ impl<T:PartialOrd + Copy> PartialOrd for LockCell<T> {
     }
 }
 
-impl<T:Ord + Copy> Ord for LockCell<T> {
+impl<T: Ord + Copy> Ord for LockCell<T> {
     #[inline]
     fn cmp(&self, other: &LockCell<T>) -> Ordering {
         self.get().cmp(&other.get())

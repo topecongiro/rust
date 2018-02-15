@@ -9,7 +9,6 @@
 // except according to those terms.
 
 #![deny(warnings)]
-
 #![feature(box_syntax)]
 #![feature(core_float)]
 #![feature(core_private_bignum)]

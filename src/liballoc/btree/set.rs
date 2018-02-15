@@ -11,12 +11,12 @@
 // This is pretty much entirely stolen from TreeSet, since BTreeMap has an identical interface
 // to TreeMap
 
-use core::cmp::Ordering::{self, Less, Greater, Equal};
-use core::cmp::{min, max};
+use core::cmp::Ordering::{self, Equal, Greater, Less};
+use core::cmp::{max, min};
 use core::fmt::Debug;
 use core::fmt;
-use core::iter::{Peekable, FromIterator, FusedIterator};
-use core::ops::{BitOr, BitAnd, BitXor, Sub};
+use core::iter::{FromIterator, FusedIterator, Peekable};
+use core::ops::{BitAnd, BitOr, BitXor, Sub};
 
 use borrow::Borrow;
 use btree_map::{BTreeMap, Keys};
@@ -89,9 +89,7 @@ pub struct Iter<'a, T: 'a> {
 #[stable(feature = "collection_debug", since = "1.17.0")]
 impl<'a, T: 'a + fmt::Debug> fmt::Debug for Iter<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("Iter")
-         .field(&self.iter.clone())
-         .finish()
+        f.debug_tuple("Iter").field(&self.iter.clone()).finish()
     }
 }
 
@@ -138,9 +136,9 @@ pub struct Difference<'a, T: 'a> {
 impl<'a, T: 'a + fmt::Debug> fmt::Debug for Difference<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("Difference")
-         .field(&self.a)
-         .field(&self.b)
-         .finish()
+            .field(&self.a)
+            .field(&self.b)
+            .finish()
     }
 }
 
@@ -161,9 +159,9 @@ pub struct SymmetricDifference<'a, T: 'a> {
 impl<'a, T: 'a + fmt::Debug> fmt::Debug for SymmetricDifference<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("SymmetricDifference")
-         .field(&self.a)
-         .field(&self.b)
-         .finish()
+            .field(&self.a)
+            .field(&self.b)
+            .finish()
     }
 }
 
@@ -184,9 +182,9 @@ pub struct Intersection<'a, T: 'a> {
 impl<'a, T: 'a + fmt::Debug> fmt::Debug for Intersection<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("Intersection")
-         .field(&self.a)
-         .field(&self.b)
-         .finish()
+            .field(&self.a)
+            .field(&self.b)
+            .finish()
     }
 }
 
@@ -207,9 +205,9 @@ pub struct Union<'a, T: 'a> {
 impl<'a, T: 'a + fmt::Debug> fmt::Debug for Union<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("Union")
-         .field(&self.a)
-         .field(&self.b)
-         .finish()
+            .field(&self.a)
+            .field(&self.b)
+            .finish()
     }
 }
 
@@ -226,7 +224,9 @@ impl<T: Ord> BTreeSet<T> {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn new() -> BTreeSet<T> {
-        BTreeSet { map: BTreeMap::new() }
+        BTreeSet {
+            map: BTreeMap::new(),
+        }
     }
 
     /// Constructs a double-ended iterator over a sub-range of elements in the set.
@@ -253,9 +253,14 @@ impl<T: Ord> BTreeSet<T> {
     /// ```
     #[stable(feature = "btree_range", since = "1.17.0")]
     pub fn range<K: ?Sized, R>(&self, range: R) -> Range<T>
-        where K: Ord, T: Borrow<K>, R: RangeArgument<K>
+    where
+        K: Ord,
+        T: Borrow<K>,
+        R: RangeArgument<K>,
     {
-        Range { iter: self.map.range(range) }
+        Range {
+            iter: self.map.range(range),
+        }
     }
 
     /// Visits the values representing the difference,
@@ -307,9 +312,10 @@ impl<T: Ord> BTreeSet<T> {
     /// assert_eq!(sym_diff, [1, 3]);
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    pub fn symmetric_difference<'a>(&'a self,
-                                    other: &'a BTreeSet<T>)
-                                    -> SymmetricDifference<'a, T> {
+    pub fn symmetric_difference<'a>(
+        &'a self,
+        other: &'a BTreeSet<T>,
+    ) -> SymmetricDifference<'a, T> {
         SymmetricDifference {
             a: self.iter().peekable(),
             b: other.iter().peekable(),
@@ -404,8 +410,9 @@ impl<T: Ord> BTreeSet<T> {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn contains<Q: ?Sized>(&self, value: &Q) -> bool
-        where T: Borrow<Q>,
-              Q: Ord
+    where
+        T: Borrow<Q>,
+        Q: Ord,
     {
         self.map.contains_key(value)
     }
@@ -427,8 +434,9 @@ impl<T: Ord> BTreeSet<T> {
     /// ```
     #[stable(feature = "set_recovery", since = "1.9.0")]
     pub fn get<Q: ?Sized>(&self, value: &Q) -> Option<&T>
-        where T: Borrow<Q>,
-              Q: Ord
+    where
+        T: Borrow<Q>,
+        Q: Ord,
     {
         Recover::get(&self.map, value)
     }
@@ -588,8 +596,9 @@ impl<T: Ord> BTreeSet<T> {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn remove<Q: ?Sized>(&mut self, value: &Q) -> bool
-        where T: Borrow<Q>,
-              Q: Ord
+    where
+        T: Borrow<Q>,
+        Q: Ord,
     {
         self.map.remove(value).is_some()
     }
@@ -611,8 +620,9 @@ impl<T: Ord> BTreeSet<T> {
     /// ```
     #[stable(feature = "set_recovery", since = "1.9.0")]
     pub fn take<Q: ?Sized>(&mut self, value: &Q) -> Option<T>
-        where T: Borrow<Q>,
-              Q: Ord
+    where
+        T: Borrow<Q>,
+        Q: Ord,
     {
         Recover::take(&mut self.map, value)
     }
@@ -680,8 +690,13 @@ impl<T: Ord> BTreeSet<T> {
     /// assert!(b.contains(&41));
     /// ```
     #[stable(feature = "btree_split_off", since = "1.11.0")]
-    pub fn split_off<Q: ?Sized + Ord>(&mut self, key: &Q) -> Self where T: Borrow<Q> {
-        BTreeSet { map: self.map.split_off(key) }
+    pub fn split_off<Q: ?Sized + Ord>(&mut self, key: &Q) -> Self
+    where
+        T: Borrow<Q>,
+    {
+        BTreeSet {
+            map: self.map.split_off(key),
+        }
     }
 }
 
@@ -715,7 +730,9 @@ impl<T> BTreeSet<T> {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn iter(&self) -> Iter<T> {
-        Iter { iter: self.map.keys() }
+        Iter {
+            iter: self.map.keys(),
+        }
     }
 
     /// Returns the number of elements in the set.
@@ -780,7 +797,9 @@ impl<T> IntoIterator for BTreeSet<T> {
     /// assert_eq!(v, [1, 2, 3, 4]);
     /// ```
     fn into_iter(self) -> IntoIter<T> {
-        IntoIter { iter: self.map.into_iter() }
+        IntoIter {
+            iter: self.map.into_iter(),
+        }
     }
 }
 
@@ -921,7 +940,9 @@ impl<T: Debug> Debug for BTreeSet<T> {
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<'a, T> Clone for Iter<'a, T> {
     fn clone(&self) -> Iter<'a, T> {
-        Iter { iter: self.iter.clone() }
+        Iter {
+            iter: self.iter.clone(),
+        }
     }
 }
 #[stable(feature = "rust1", since = "1.0.0")]
@@ -943,7 +964,9 @@ impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
 }
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<'a, T> ExactSizeIterator for Iter<'a, T> {
-    fn len(&self) -> usize { self.iter.len() }
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
 }
 
 #[unstable(feature = "fused", issue = "35602")]
@@ -968,7 +991,9 @@ impl<T> DoubleEndedIterator for IntoIter<T> {
 }
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<T> ExactSizeIterator for IntoIter<T> {
-    fn len(&self) -> usize { self.iter.len() }
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
 }
 
 #[unstable(feature = "fused", issue = "35602")]
@@ -977,7 +1002,9 @@ impl<T> FusedIterator for IntoIter<T> {}
 #[stable(feature = "btree_range", since = "1.17.0")]
 impl<'a, T> Clone for Range<'a, T> {
     fn clone(&self) -> Range<'a, T> {
-        Range { iter: self.iter.clone() }
+        Range {
+            iter: self.iter.clone(),
+        }
     }
 }
 

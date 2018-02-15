@@ -24,7 +24,7 @@
 
 use core::cmp::Ordering;
 use core::fmt;
-use core::hash::{Hasher, Hash};
+use core::hash::{Hash, Hasher};
 use core::iter::{FromIterator, FusedIterator};
 use core::marker::PhantomData;
 use core::mem;
@@ -74,9 +74,7 @@ pub struct Iter<'a, T: 'a> {
 #[stable(feature = "collection_debug", since = "1.17.0")]
 impl<'a, T: 'a + fmt::Debug> fmt::Debug for Iter<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("Iter")
-         .field(&self.len)
-         .finish()
+        f.debug_tuple("Iter").field(&self.len).finish()
     }
 }
 
@@ -107,9 +105,9 @@ pub struct IterMut<'a, T: 'a> {
 impl<'a, T: 'a + fmt::Debug> fmt::Debug for IterMut<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("IterMut")
-         .field(&self.list)
-         .field(&self.len)
-         .finish()
+            .field(&self.list)
+            .field(&self.len)
+            .finish()
     }
 }
 
@@ -129,9 +127,7 @@ pub struct IntoIter<T> {
 #[stable(feature = "collection_debug", since = "1.17.0")]
 impl<T: fmt::Debug> fmt::Debug for IntoIter<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("IntoIter")
-         .field(&self.list)
-         .finish()
+        f.debug_tuple("IntoIter").field(&self.list).finish()
     }
 }
 
@@ -477,7 +473,8 @@ impl<T> LinkedList<T> {
     /// ```
     #[stable(feature = "linked_list_contains", since = "1.12.0")]
     pub fn contains(&self, x: &T) -> bool
-        where T: PartialEq<T>
+    where
+        T: PartialEq<T>,
     {
         self.iter().any(|e| e == x)
     }
@@ -499,9 +496,7 @@ impl<T> LinkedList<T> {
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn front(&self) -> Option<&T> {
-        unsafe {
-            self.head.as_ref().map(|node| &node.as_ref().element)
-        }
+        unsafe { self.head.as_ref().map(|node| &node.as_ref().element) }
     }
 
     /// Provides a mutable reference to the front element, or `None` if the list
@@ -527,9 +522,7 @@ impl<T> LinkedList<T> {
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn front_mut(&mut self) -> Option<&mut T> {
-        unsafe {
-            self.head.as_mut().map(|node| &mut node.as_mut().element)
-        }
+        unsafe { self.head.as_mut().map(|node| &mut node.as_mut().element) }
     }
 
     /// Provides a reference to the back element, or `None` if the list is
@@ -549,9 +542,7 @@ impl<T> LinkedList<T> {
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn back(&self) -> Option<&T> {
-        unsafe {
-            self.tail.as_ref().map(|node| &node.as_ref().element)
-        }
+        unsafe { self.tail.as_ref().map(|node| &node.as_ref().element) }
     }
 
     /// Provides a mutable reference to the back element, or `None` if the list
@@ -577,9 +568,7 @@ impl<T> LinkedList<T> {
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn back_mut(&mut self) -> Option<&mut T> {
-        unsafe {
-            self.tail.as_mut().map(|node| &mut node.as_mut().element)
-        }
+        unsafe { self.tail.as_mut().map(|node| &mut node.as_mut().element) }
     }
 
     /// Adds an element first in the list.
@@ -772,7 +761,8 @@ impl<T> LinkedList<T> {
     /// ```
     #[unstable(feature = "drain_filter", reason = "recently added", issue = "43244")]
     pub fn drain_filter<F>(&mut self, filter: F) -> DrainFilter<T, F>
-        where F: FnMut(&mut T) -> bool
+    where
+        F: FnMut(&mut T) -> bool,
     {
         // avoid borrow issues.
         let it = self.head;
@@ -1025,9 +1015,7 @@ impl<'a, T> IterMut<'a, T> {
         if self.len == 0 {
             None
         } else {
-            unsafe {
-                self.head.as_mut().map(|node| &mut node.as_mut().element)
-            }
+            unsafe { self.head.as_mut().map(|node| &mut node.as_mut().element) }
         }
     }
 }
@@ -1035,7 +1023,8 @@ impl<'a, T> IterMut<'a, T> {
 /// An iterator produced by calling `drain_filter` on LinkedList.
 #[unstable(feature = "drain_filter", reason = "recently added", issue = "43244")]
 pub struct DrainFilter<'a, T: 'a, F: 'a>
-    where F: FnMut(&mut T) -> bool,
+where
+    F: FnMut(&mut T) -> bool,
 {
     list: &'a mut LinkedList<T>,
     it: Option<NonNull<Node<T>>>,
@@ -1046,7 +1035,8 @@ pub struct DrainFilter<'a, T: 'a, F: 'a>
 
 #[unstable(feature = "drain_filter", reason = "recently added", issue = "43244")]
 impl<'a, T, F> Iterator for DrainFilter<'a, T, F>
-    where F: FnMut(&mut T) -> bool,
+where
+    F: FnMut(&mut T) -> bool,
 {
     type Item = T;
 
@@ -1073,21 +1063,21 @@ impl<'a, T, F> Iterator for DrainFilter<'a, T, F>
 
 #[unstable(feature = "drain_filter", reason = "recently added", issue = "43244")]
 impl<'a, T, F> Drop for DrainFilter<'a, T, F>
-    where F: FnMut(&mut T) -> bool,
+where
+    F: FnMut(&mut T) -> bool,
 {
     fn drop(&mut self) {
-        for _ in self { }
+        for _ in self {}
     }
 }
 
 #[unstable(feature = "drain_filter", reason = "recently added", issue = "43244")]
 impl<'a, T: 'a + fmt::Debug, F> fmt::Debug for DrainFilter<'a, T, F>
-    where F: FnMut(&mut T) -> bool
+where
+    F: FnMut(&mut T) -> bool,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("DrainFilter")
-         .field(&self.list)
-         .finish()
+        f.debug_tuple("DrainFilter").field(&self.list).finish()
     }
 }
 
@@ -1254,26 +1244,21 @@ unsafe fn finalize<T>(node: IntermediateBox<Node<T>>) -> Box<Node<T>> {
 /// See [`LinkedList::front_place`](struct.LinkedList.html#method.front_place) for details.
 #[must_use = "places do nothing unless written to with `<-` syntax"]
 #[unstable(feature = "collection_placement",
-           reason = "struct name and placement protocol are subject to change",
-           issue = "30172")]
+           reason = "struct name and placement protocol are subject to change", issue = "30172")]
 pub struct FrontPlace<'a, T: 'a> {
     list: &'a mut LinkedList<T>,
     node: IntermediateBox<Node<T>>,
 }
 
 #[unstable(feature = "collection_placement",
-           reason = "struct name and placement protocol are subject to change",
-           issue = "30172")]
+           reason = "struct name and placement protocol are subject to change", issue = "30172")]
 impl<'a, T: 'a + fmt::Debug> fmt::Debug for FrontPlace<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("FrontPlace")
-         .field(&self.list)
-         .finish()
+        f.debug_tuple("FrontPlace").field(&self.list).finish()
     }
 }
 
-#[unstable(feature = "collection_placement",
-           reason = "placement protocol is subject to change",
+#[unstable(feature = "collection_placement", reason = "placement protocol is subject to change",
            issue = "30172")]
 impl<'a, T> Placer<T> for FrontPlace<'a, T> {
     type Place = Self;
@@ -1283,8 +1268,7 @@ impl<'a, T> Placer<T> for FrontPlace<'a, T> {
     }
 }
 
-#[unstable(feature = "collection_placement",
-           reason = "placement protocol is subject to change",
+#[unstable(feature = "collection_placement", reason = "placement protocol is subject to change",
            issue = "30172")]
 unsafe impl<'a, T> Place<T> for FrontPlace<'a, T> {
     fn pointer(&mut self) -> *mut T {
@@ -1292,8 +1276,7 @@ unsafe impl<'a, T> Place<T> for FrontPlace<'a, T> {
     }
 }
 
-#[unstable(feature = "collection_placement",
-           reason = "placement protocol is subject to change",
+#[unstable(feature = "collection_placement", reason = "placement protocol is subject to change",
            issue = "30172")]
 impl<'a, T> InPlace<T> for FrontPlace<'a, T> {
     type Owner = ();
@@ -1309,26 +1292,21 @@ impl<'a, T> InPlace<T> for FrontPlace<'a, T> {
 /// See [`LinkedList::back_place`](struct.LinkedList.html#method.back_place) for details.
 #[must_use = "places do nothing unless written to with `<-` syntax"]
 #[unstable(feature = "collection_placement",
-           reason = "struct name and placement protocol are subject to change",
-           issue = "30172")]
+           reason = "struct name and placement protocol are subject to change", issue = "30172")]
 pub struct BackPlace<'a, T: 'a> {
     list: &'a mut LinkedList<T>,
     node: IntermediateBox<Node<T>>,
 }
 
 #[unstable(feature = "collection_placement",
-           reason = "struct name and placement protocol are subject to change",
-           issue = "30172")]
+           reason = "struct name and placement protocol are subject to change", issue = "30172")]
 impl<'a, T: 'a + fmt::Debug> fmt::Debug for BackPlace<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("BackPlace")
-         .field(&self.list)
-         .finish()
+        f.debug_tuple("BackPlace").field(&self.list).finish()
     }
 }
 
-#[unstable(feature = "collection_placement",
-           reason = "placement protocol is subject to change",
+#[unstable(feature = "collection_placement", reason = "placement protocol is subject to change",
            issue = "30172")]
 impl<'a, T> Placer<T> for BackPlace<'a, T> {
     type Place = Self;
@@ -1338,8 +1316,7 @@ impl<'a, T> Placer<T> for BackPlace<'a, T> {
     }
 }
 
-#[unstable(feature = "collection_placement",
-           reason = "placement protocol is subject to change",
+#[unstable(feature = "collection_placement", reason = "placement protocol is subject to change",
            issue = "30172")]
 unsafe impl<'a, T> Place<T> for BackPlace<'a, T> {
     fn pointer(&mut self) -> *mut T {
@@ -1347,8 +1324,7 @@ unsafe impl<'a, T> Place<T> for BackPlace<'a, T> {
     }
 }
 
-#[unstable(feature = "collection_placement",
-           reason = "placement protocol is subject to change",
+#[unstable(feature = "collection_placement", reason = "placement protocol is subject to change",
            issue = "30172")]
 impl<'a, T> InPlace<T> for BackPlace<'a, T> {
     type Owner = ();
@@ -1530,8 +1506,10 @@ mod tests {
         }
         check_links(&m);
         assert_eq!(m.len(), 3 + len * 2);
-        assert_eq!(m.into_iter().collect::<Vec<_>>(),
-                   [-2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1]);
+        assert_eq!(
+            m.into_iter().collect::<Vec<_>>(),
+            [-2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1]
+        );
     }
 
     #[test]
@@ -1539,11 +1517,10 @@ mod tests {
     fn test_send() {
         let n = list_from(&[1, 2, 3]);
         thread::spawn(move || {
-                check_links(&n);
-                let a: &[_] = &[&1, &2, &3];
-                assert_eq!(a, &*n.iter().collect::<Vec<_>>());
-            })
-            .join()
+            check_links(&n);
+            let a: &[_] = &[&1, &2, &3];
+            assert_eq!(a, &*n.iter().collect::<Vec<_>>());
+        }).join()
             .ok()
             .unwrap();
     }

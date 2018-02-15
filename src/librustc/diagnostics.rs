@@ -2089,7 +2089,6 @@ transparent wrapper around a float. This can make a difference for the ABI.
 
 }
 
-
 register_diagnostics! {
 //  E0006 // merged with E0005
 //  E0101, // replaced with E0282

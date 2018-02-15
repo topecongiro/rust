@@ -22,18 +22,18 @@
 //! build speedups.
 
 #![doc(html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
-      html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
-      html_root_url = "https://doc.rust-lang.org/nightly/")]
+       html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
+       html_root_url = "https://doc.rust-lang.org/nightly/")]
 #![deny(warnings)]
-
 #![feature(box_syntax)]
 #![feature(const_fn)]
 #![feature(fs_read_write)]
 
-extern crate syntax;
+#[macro_use]
+extern crate log;
 extern crate rand;
 extern crate serialize;
-#[macro_use] extern crate log;
+extern crate syntax;
 
 extern crate serialize as rustc_serialize; // used by deriving
 

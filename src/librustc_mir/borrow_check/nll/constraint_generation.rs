@@ -9,7 +9,7 @@
 // except according to those terms.
 
 use rustc::hir;
-use rustc::mir::{BasicBlock, BasicBlockData, Location, Place, Mir, Rvalue};
+use rustc::mir::{BasicBlock, BasicBlockData, Location, Mir, Place, Rvalue};
 use rustc::mir::visit::Visitor;
 use rustc::mir::Place::Projection;
 use rustc::mir::{PlaceProjection, ProjectionElem};
@@ -20,7 +20,7 @@ use rustc::ty::subst::Substs;
 use rustc::ty::fold::TypeFoldable;
 
 use super::ToRegionVid;
-use super::region_infer::{RegionInferenceContext, Cause};
+use super::region_infer::{Cause, RegionInferenceContext};
 
 pub(super) fn generate_constraints<'cx, 'gcx, 'tcx>(
     infcx: &InferCtxt<'cx, 'gcx, 'tcx>,
@@ -68,12 +68,14 @@ impl<'cg, 'cx, 'gcx, 'tcx> Visitor<'tcx> for ConstraintGeneration<'cg, 'cx, 'gcx
     /// call. Make them live at the location where they appear.
     fn visit_ty(&mut self, ty: &ty::Ty<'tcx>, ty_context: TyContext) {
         match ty_context {
-            TyContext::ReturnTy(source_info) |
-            TyContext::YieldTy(source_info) |
-            TyContext::LocalDecl { source_info, .. } => {
-                span_bug!(source_info.span,
-                          "should not be visiting outside of the CFG: {:?}",
-                          ty_context);
+            TyContext::ReturnTy(source_info)
+            | TyContext::YieldTy(source_info)
+            | TyContext::LocalDecl { source_info, .. } => {
+                span_bug!(
+                    source_info.span,
+                    "should not be visiting outside of the CFG: {:?}",
+                    ty_context
+                );
             }
             TyContext::Location(location) => {
                 self.add_regular_live_constraint(*ty, location, Cause::LiveOther(location));
@@ -119,8 +121,7 @@ impl<'cx, 'cg, 'gcx, 'tcx> ConstraintGeneration<'cx, 'cg, 'gcx, 'tcx> {
     {
         debug!(
             "add_regular_live_constraint(live_ty={:?}, location={:?})",
-            live_ty,
-            location
+            live_ty, location
         );
 
         self.infcx
@@ -141,8 +142,10 @@ impl<'cx, 'cg, 'gcx, 'tcx> ConstraintGeneration<'cx, 'cg, 'gcx, 'tcx> {
     ) {
         let mut borrowed_place = borrowed_place;
 
-        debug!("add_reborrow_constraint({:?}, {:?}, {:?})",
-               location, borrow_region, borrowed_place);
+        debug!(
+            "add_reborrow_constraint({:?}, {:?}, {:?})",
+            location, borrow_region, borrowed_place
+        );
         while let Projection(box PlaceProjection { base, elem }) = borrowed_place {
             debug!("add_reborrow_constraint - iteration {:?}", borrowed_place);
 
@@ -167,7 +170,7 @@ impl<'cx, 'cg, 'gcx, 'tcx> ConstraintGeneration<'cx, 'cg, 'gcx, 'tcx> {
                                     // Immutable reference. We don't need the base
                                     // to be valid for the entire lifetime of
                                     // the borrow.
-                                    break
+                                    break;
                                 }
                                 hir::Mutability::MutMutable => {
                                     // Mutable reference. We *do* need the base
@@ -196,19 +199,19 @@ impl<'cx, 'cg, 'gcx, 'tcx> ConstraintGeneration<'cx, 'cg, 'gcx, 'tcx> {
                         }
                         ty::TyRawPtr(..) => {
                             // deref of raw pointer, guaranteed to be valid
-                            break
+                            break;
                         }
                         ty::TyAdt(def, _) if def.is_box() => {
                             // deref of `Box`, need the base to be valid - propagate
                         }
-                        _ => bug!("unexpected deref ty {:?} in {:?}", base_ty, borrowed_place)
+                        _ => bug!("unexpected deref ty {:?} in {:?}", base_ty, borrowed_place),
                     }
                 }
-                ProjectionElem::Field(..) |
-                ProjectionElem::Downcast(..) |
-                ProjectionElem::Index(..) |
-                ProjectionElem::ConstantIndex { .. } |
-                ProjectionElem::Subslice { .. } => {
+                ProjectionElem::Field(..)
+                | ProjectionElem::Downcast(..)
+                | ProjectionElem::Index(..)
+                | ProjectionElem::ConstantIndex { .. }
+                | ProjectionElem::Subslice { .. } => {
                     // other field access
                 }
             }

@@ -23,15 +23,15 @@ use ast;
 /// isn't parsed as (if true {...} else {...} | x) | 5
 pub fn expr_requires_semi_to_be_stmt(e: &ast::Expr) -> bool {
     match e.node {
-        ast::ExprKind::If(..) |
-        ast::ExprKind::IfLet(..) |
-        ast::ExprKind::Match(..) |
-        ast::ExprKind::Block(_) |
-        ast::ExprKind::While(..) |
-        ast::ExprKind::WhileLet(..) |
-        ast::ExprKind::Loop(..) |
-        ast::ExprKind::ForLoop(..) |
-        ast::ExprKind::Catch(..) => false,
+        ast::ExprKind::If(..)
+        | ast::ExprKind::IfLet(..)
+        | ast::ExprKind::Match(..)
+        | ast::ExprKind::Block(_)
+        | ast::ExprKind::While(..)
+        | ast::ExprKind::WhileLet(..)
+        | ast::ExprKind::Loop(..)
+        | ast::ExprKind::ForLoop(..)
+        | ast::ExprKind::Catch(..) => false,
         _ => true,
     }
 }
@@ -43,8 +43,6 @@ pub fn stmt_ends_with_semi(stmt: &ast::StmtKind) -> bool {
     match *stmt {
         ast::StmtKind::Local(_) => true,
         ast::StmtKind::Expr(ref e) => expr_requires_semi_to_be_stmt(e),
-        ast::StmtKind::Item(_) |
-        ast::StmtKind::Semi(..) |
-        ast::StmtKind::Mac(..) => false,
+        ast::StmtKind::Item(_) | ast::StmtKind::Semi(..) | ast::StmtKind::Mac(..) => false,
     }
 }

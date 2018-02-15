@@ -9,7 +9,7 @@
 // except according to those terms.
 
 use hir::def_id::DefId;
-use util::nodemap::{NodeMap, DefIdMap};
+use util::nodemap::{DefIdMap, NodeMap};
 use syntax::ast;
 use syntax::ext::base::MacroKind;
 use syntax_pos::Span;
@@ -41,7 +41,10 @@ pub enum Def {
     AssociatedTy(DefId),
     PrimTy(hir::PrimTy),
     TyParam(DefId),
-    SelfTy(Option<DefId> /* trait */, Option<DefId> /* impl */),
+    SelfTy(
+        Option<DefId>, /* trait */
+        Option<DefId>, /* impl */
+    ),
 
     // Value namespace
     Fn(DefId),
@@ -53,9 +56,11 @@ pub enum Def {
     AssociatedConst(DefId),
 
     Local(ast::NodeId),
-    Upvar(ast::NodeId,  // node id of closed over local
-          usize,        // index in the freevars list of the closure
-          ast::NodeId), // expr node that creates the closure
+    Upvar(
+        ast::NodeId, // node id of closed over local
+        usize,       // index in the freevars list of the closure
+        ast::NodeId,
+    ), // expr node that creates the closure
     Label(ast::NodeId),
 
     // Macro namespace
@@ -89,12 +94,20 @@ pub struct PathResolution {
 
 impl PathResolution {
     pub fn new(def: Def) -> Self {
-        PathResolution { base_def: def, unresolved_segments: 0 }
+        PathResolution {
+            base_def: def,
+            unresolved_segments: 0,
+        }
     }
 
     pub fn with_unresolved_segments(def: Def, mut unresolved_segments: usize) -> Self {
-        if def == Def::Err { unresolved_segments = 0 }
-        PathResolution { base_def: def, unresolved_segments: unresolved_segments }
+        if def == Def::Err {
+            unresolved_segments = 0
+        }
+        PathResolution {
+            base_def: def,
+            unresolved_segments: unresolved_segments,
+        }
     }
 
     #[inline]
@@ -159,24 +172,33 @@ impl CtorKind {
 impl Def {
     pub fn def_id(&self) -> DefId {
         match *self {
-            Def::Fn(id) | Def::Mod(id) | Def::Static(id, _) |
-            Def::Variant(id) | Def::VariantCtor(id, ..) | Def::Enum(id) |
-            Def::TyAlias(id) | Def::TraitAlias(id) |
-            Def::AssociatedTy(id) | Def::TyParam(id) | Def::Struct(id) | Def::StructCtor(id, ..) |
-            Def::Union(id) | Def::Trait(id) | Def::Method(id) | Def::Const(id) |
-            Def::AssociatedConst(id) | Def::Macro(id, ..) |
-            Def::GlobalAsm(id) | Def::TyForeign(id) => {
-                id
-            }
+            Def::Fn(id)
+            | Def::Mod(id)
+            | Def::Static(id, _)
+            | Def::Variant(id)
+            | Def::VariantCtor(id, ..)
+            | Def::Enum(id)
+            | Def::TyAlias(id)
+            | Def::TraitAlias(id)
+            | Def::AssociatedTy(id)
+            | Def::TyParam(id)
+            | Def::Struct(id)
+            | Def::StructCtor(id, ..)
+            | Def::Union(id)
+            | Def::Trait(id)
+            | Def::Method(id)
+            | Def::Const(id)
+            | Def::AssociatedConst(id)
+            | Def::Macro(id, ..)
+            | Def::GlobalAsm(id)
+            | Def::TyForeign(id) => id,
 
-            Def::Local(..) |
-            Def::Upvar(..) |
-            Def::Label(..)  |
-            Def::PrimTy(..) |
-            Def::SelfTy(..) |
-            Def::Err => {
-                bug!("attempted .def_id() on invalid def: {:?}", self)
-            }
+            Def::Local(..)
+            | Def::Upvar(..)
+            | Def::Label(..)
+            | Def::PrimTy(..)
+            | Def::SelfTy(..)
+            | Def::Err => bug!("attempted .def_id() on invalid def: {:?}", self),
         }
     }
 

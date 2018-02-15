@@ -53,28 +53,31 @@ pub struct OptimizationDiagnostic {
 }
 
 impl OptimizationDiagnostic {
-    unsafe fn unpack(kind: OptimizationDiagnosticKind,
-                     di: DiagnosticInfoRef)
-                     -> OptimizationDiagnostic {
+    unsafe fn unpack(
+        kind: OptimizationDiagnosticKind,
+        di: DiagnosticInfoRef,
+    ) -> OptimizationDiagnostic {
         let mut function = ptr::null_mut();
         let mut line = 0;
         let mut column = 0;
 
         let mut message = None;
         let mut filename = None;
-        let pass_name = super::build_string(|pass_name|
-            message = super::build_string(|message|
-                filename = super::build_string(|filename|
-                    super::LLVMRustUnpackOptimizationDiagnostic(di,
-                                                                pass_name,
-                                                                &mut function,
-                                                                &mut line,
-                                                                &mut column,
-                                                                filename,
-                                                                message)
-                )
-            )
-        );
+        let pass_name = super::build_string(|pass_name| {
+            message = super::build_string(|message| {
+                filename = super::build_string(|filename| {
+                    super::LLVMRustUnpackOptimizationDiagnostic(
+                        di,
+                        pass_name,
+                        &mut function,
+                        &mut line,
+                        &mut column,
+                        filename,
+                        message,
+                    )
+                })
+            })
+        });
 
         let mut filename = filename.unwrap_or(String::new());
         if filename.is_empty() {
@@ -88,7 +91,7 @@ impl OptimizationDiagnostic {
             line,
             column,
             filename,
-            message: message.expect("got a non-UTF8 OptimizationDiagnostic message from LLVM")
+            message: message.expect("got a non-UTF8 OptimizationDiagnostic message from LLVM"),
         }
     }
 }
@@ -102,17 +105,18 @@ pub struct InlineAsmDiagnostic {
 
 impl InlineAsmDiagnostic {
     unsafe fn unpack(di: DiagnosticInfoRef) -> InlineAsmDiagnostic {
-
         let mut opt = InlineAsmDiagnostic {
             cookie: 0,
             message: ptr::null_mut(),
             instruction: ptr::null_mut(),
         };
 
-        super::LLVMRustUnpackInlineAsmDiagnostic(di,
-                                                 &mut opt.cookie,
-                                                 &mut opt.message,
-                                                 &mut opt.instruction);
+        super::LLVMRustUnpackInlineAsmDiagnostic(
+            di,
+            &mut opt.cookie,
+            &mut opt.message,
+            &mut opt.instruction,
+        );
 
         opt
     }
@@ -148,13 +152,13 @@ impl Diagnostic {
                 Optimization(OptimizationDiagnostic::unpack(OptimizationAnalysis, di))
             }
 
-            Dk::OptimizationRemarkAnalysisFPCommute => {
-                Optimization(OptimizationDiagnostic::unpack(OptimizationAnalysisFPCommute, di))
-            }
+            Dk::OptimizationRemarkAnalysisFPCommute => Optimization(
+                OptimizationDiagnostic::unpack(OptimizationAnalysisFPCommute, di),
+            ),
 
-            Dk::OptimizationRemarkAnalysisAliasing => {
-                Optimization(OptimizationDiagnostic::unpack(OptimizationAnalysisAliasing, di))
-            }
+            Dk::OptimizationRemarkAnalysisAliasing => Optimization(
+                OptimizationDiagnostic::unpack(OptimizationAnalysisAliasing, di),
+            ),
 
             Dk::OptimizationFailure => {
                 Optimization(OptimizationDiagnostic::unpack(OptimizationFailure, di))

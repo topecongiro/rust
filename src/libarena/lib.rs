@@ -23,13 +23,11 @@
        html_root_url = "https://doc.rust-lang.org/nightly/",
        test(no_crate_inject, attr(deny(warnings))))]
 #![deny(warnings)]
-
 #![feature(alloc)]
 #![feature(core_intrinsics)]
 #![feature(dropck_eyepatch)]
 #![feature(generic_param_attrs)]
 #![cfg_attr(test, feature(test))]
-
 #![allow(deprecated)]
 
 extern crate alloc;
@@ -135,8 +133,7 @@ impl<T> TypedArena<T> {
         unsafe {
             if mem::size_of::<T>() == 0 {
                 self.ptr
-                    .set(intrinsics::arith_offset(self.ptr.get() as *mut u8, 1)
-                        as *mut T);
+                    .set(intrinsics::arith_offset(self.ptr.get() as *mut u8, 1) as *mut T);
                 let ptr = mem::align_of::<T>() as *mut T;
                 // Don't drop the object. This `write` is equivalent to `forget`.
                 ptr::write(ptr, object);

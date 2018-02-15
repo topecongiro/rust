@@ -70,14 +70,16 @@ impl<'tcx> RegionInferenceContext<'tcx> {
                     ..p
                 });
             } else {
-                stack.extend(block_data.terminator().successors().iter().map(
-                    |&basic_block| {
-                        Location {
+                stack.extend(
+                    block_data
+                        .terminator()
+                        .successors()
+                        .iter()
+                        .map(|&basic_block| Location {
                             statement_index: 0,
                             block: basic_block,
-                        }
-                    },
-                ));
+                        }),
+                );
             }
 
             if stack.len() == start_stack_len {
@@ -229,9 +231,8 @@ impl<'v, 'tcx> DfsOp for TestTargetOutlivesSource<'v, 'tcx> {
             // `X: ur_in_source`, OK.
             if self.inferred_values
                 .universal_regions_outlived_by(self.target_region)
-                .any(|ur_in_target| {
-                    self.universal_regions.outlives(ur_in_target, ur_in_source)
-                }) {
+                .any(|ur_in_target| self.universal_regions.outlives(ur_in_target, ur_in_source))
+            {
                 continue;
             }
 

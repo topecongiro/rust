@@ -19,14 +19,13 @@ use middle::const_val::ConstVal;
 use traits::{self, Reveal};
 use ty::{self, Ty, TyCtxt, TypeFoldable};
 use ty::fold::TypeVisitor;
-use ty::subst::{Subst, Kind};
+use ty::subst::{Kind, Subst};
 use ty::TypeVariants::*;
 use util::common::ErrorReported;
 use middle::lang_items;
 
 use rustc_const_math::{ConstInt, ConstIsize, ConstUsize};
-use rustc_data_structures::stable_hasher::{StableHasher, StableHasherResult,
-                                           HashStable};
+use rustc_data_structures::stable_hasher::{HashStable, StableHasher, StableHasherResult};
 use rustc_data_structures::fx::FxHashMap;
 use std::cmp;
 use std::hash::Hash;
@@ -39,12 +38,10 @@ type Disr = ConstInt;
 
 pub trait IntTypeExt {
     fn to_ty<'a, 'gcx, 'tcx>(&self, tcx: TyCtxt<'a, 'gcx, 'tcx>) -> Ty<'tcx>;
-    fn disr_incr<'a, 'tcx>(&self, tcx: TyCtxt<'a, 'tcx, 'tcx>, val: Option<Disr>)
-                           -> Option<Disr>;
+    fn disr_incr<'a, 'tcx>(&self, tcx: TyCtxt<'a, 'tcx, 'tcx>, val: Option<Disr>) -> Option<Disr>;
     fn assert_ty_matches(&self, val: Disr);
     fn initial_discriminant<'a, 'tcx>(&self, tcx: TyCtxt<'a, 'tcx, 'tcx>) -> Disr;
 }
-
 
 macro_rules! typed_literal {
     ($tcx:expr, $ty:expr, $lit:expr) => {
@@ -78,17 +75,17 @@ macro_rules! typed_literal {
 impl IntTypeExt for attr::IntType {
     fn to_ty<'a, 'gcx, 'tcx>(&self, tcx: TyCtxt<'a, 'gcx, 'tcx>) -> Ty<'tcx> {
         match *self {
-            SignedInt(ast::IntTy::I8)      => tcx.types.i8,
-            SignedInt(ast::IntTy::I16)     => tcx.types.i16,
-            SignedInt(ast::IntTy::I32)     => tcx.types.i32,
-            SignedInt(ast::IntTy::I64)     => tcx.types.i64,
-            SignedInt(ast::IntTy::I128)     => tcx.types.i128,
-            SignedInt(ast::IntTy::Isize)   => tcx.types.isize,
-            UnsignedInt(ast::UintTy::U8)    => tcx.types.u8,
-            UnsignedInt(ast::UintTy::U16)   => tcx.types.u16,
-            UnsignedInt(ast::UintTy::U32)   => tcx.types.u32,
-            UnsignedInt(ast::UintTy::U64)   => tcx.types.u64,
-            UnsignedInt(ast::UintTy::U128)   => tcx.types.u128,
+            SignedInt(ast::IntTy::I8) => tcx.types.i8,
+            SignedInt(ast::IntTy::I16) => tcx.types.i16,
+            SignedInt(ast::IntTy::I32) => tcx.types.i32,
+            SignedInt(ast::IntTy::I64) => tcx.types.i64,
+            SignedInt(ast::IntTy::I128) => tcx.types.i128,
+            SignedInt(ast::IntTy::Isize) => tcx.types.isize,
+            UnsignedInt(ast::UintTy::U8) => tcx.types.u8,
+            UnsignedInt(ast::UintTy::U16) => tcx.types.u16,
+            UnsignedInt(ast::UintTy::U32) => tcx.types.u32,
+            UnsignedInt(ast::UintTy::U64) => tcx.types.u64,
+            UnsignedInt(ast::UintTy::U128) => tcx.types.u128,
             UnsignedInt(ast::UintTy::Usize) => tcx.types.usize,
         }
     }
@@ -99,24 +96,23 @@ impl IntTypeExt for attr::IntType {
 
     fn assert_ty_matches(&self, val: Disr) {
         match (*self, val) {
-            (SignedInt(ast::IntTy::I8), ConstInt::I8(_)) => {},
-            (SignedInt(ast::IntTy::I16), ConstInt::I16(_)) => {},
-            (SignedInt(ast::IntTy::I32), ConstInt::I32(_)) => {},
-            (SignedInt(ast::IntTy::I64), ConstInt::I64(_)) => {},
-            (SignedInt(ast::IntTy::I128), ConstInt::I128(_)) => {},
-            (SignedInt(ast::IntTy::Isize), ConstInt::Isize(_)) => {},
-            (UnsignedInt(ast::UintTy::U8), ConstInt::U8(_)) => {},
-            (UnsignedInt(ast::UintTy::U16), ConstInt::U16(_)) => {},
-            (UnsignedInt(ast::UintTy::U32), ConstInt::U32(_)) => {},
-            (UnsignedInt(ast::UintTy::U64), ConstInt::U64(_)) => {},
-            (UnsignedInt(ast::UintTy::U128), ConstInt::U128(_)) => {},
-            (UnsignedInt(ast::UintTy::Usize), ConstInt::Usize(_)) => {},
+            (SignedInt(ast::IntTy::I8), ConstInt::I8(_)) => {}
+            (SignedInt(ast::IntTy::I16), ConstInt::I16(_)) => {}
+            (SignedInt(ast::IntTy::I32), ConstInt::I32(_)) => {}
+            (SignedInt(ast::IntTy::I64), ConstInt::I64(_)) => {}
+            (SignedInt(ast::IntTy::I128), ConstInt::I128(_)) => {}
+            (SignedInt(ast::IntTy::Isize), ConstInt::Isize(_)) => {}
+            (UnsignedInt(ast::UintTy::U8), ConstInt::U8(_)) => {}
+            (UnsignedInt(ast::UintTy::U16), ConstInt::U16(_)) => {}
+            (UnsignedInt(ast::UintTy::U32), ConstInt::U32(_)) => {}
+            (UnsignedInt(ast::UintTy::U64), ConstInt::U64(_)) => {}
+            (UnsignedInt(ast::UintTy::U128), ConstInt::U128(_)) => {}
+            (UnsignedInt(ast::UintTy::Usize), ConstInt::Usize(_)) => {}
             _ => bug!("disr type mismatch: {:?} vs {:?}", self, val),
         }
     }
 
-    fn disr_incr<'a, 'tcx>(&self, tcx: TyCtxt<'a, 'tcx, 'tcx>, val: Option<Disr>)
-                           -> Option<Disr> {
+    fn disr_incr<'a, 'tcx>(&self, tcx: TyCtxt<'a, 'tcx, 'tcx>, val: Option<Disr>) -> Option<Disr> {
         if let Some(val) = val {
             self.assert_ty_matches(val);
             (val + typed_literal!(tcx, *self, 1)).ok()
@@ -125,7 +121,6 @@ impl IntTypeExt for attr::IntType {
         }
     }
 }
-
 
 #[derive(Copy, Clone)]
 pub enum CopyImplementationError<'tcx> {
@@ -157,10 +152,11 @@ impl<'tcx> ty::ParamEnv<'tcx> {
     }
 
     /// Construct a trait environment with the given set of predicates.
-    pub fn new(caller_bounds: &'tcx ty::Slice<ty::Predicate<'tcx>>,
-               reveal: Reveal)
-               -> Self {
-        ty::ParamEnv { caller_bounds, reveal }
+    pub fn new(caller_bounds: &'tcx ty::Slice<ty::Predicate<'tcx>>, reveal: Reveal) -> Self {
+        ty::ParamEnv {
+            caller_bounds,
+            reveal,
+        }
     }
 
     /// Returns a new parameter environment with the same clauses, but
@@ -170,13 +166,18 @@ impl<'tcx> ty::ParamEnv<'tcx> {
     /// contexts; normally though we want to use `Reveal::UserFacing`,
     /// which is the default.
     pub fn reveal_all(self) -> Self {
-        ty::ParamEnv { reveal: Reveal::All, ..self }
+        ty::ParamEnv {
+            reveal: Reveal::All,
+            ..self
+        }
     }
 
-    pub fn can_type_implement_copy<'a>(self,
-                                       tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                                       self_type: Ty<'tcx>, span: Span)
-                                       -> Result<(), CopyImplementationError<'tcx>> {
+    pub fn can_type_implement_copy<'a>(
+        self,
+        tcx: TyCtxt<'a, 'tcx, 'tcx>,
+        self_type: Ty<'tcx>,
+        span: Span,
+    ) -> Result<(), CopyImplementationError<'tcx>> {
         // FIXME: (@jroesch) float this code up
         tcx.infer_ctxt().enter(|infcx| {
             let (adt, substs) = match self_type.sty {
@@ -233,14 +234,12 @@ impl<'a, 'tcx> TyCtxt<'a, 'tcx, 'tcx> {
 impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
     pub fn has_error_field(self, ty: Ty<'tcx>) -> bool {
         match ty.sty {
-            ty::TyAdt(def, substs) => {
-                for field in def.all_fields() {
-                    let field_ty = field.ty(self, substs);
-                    if let TyError = field_ty.sty {
-                        return true;
-                    }
+            ty::TyAdt(def, substs) => for field in def.all_fields() {
+                let field_ty = field.ty(self, substs);
+                if let TyError = field_ty.sty {
+                    return true;
                 }
-            }
+            },
             _ => (),
         }
         false
@@ -248,14 +247,17 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
 
     /// Returns the type of element at index `i` in tuple or tuple-like type `t`.
     /// For an enum `t`, `variant` is None only if `t` is a univariant enum.
-    pub fn positional_element_ty(self,
-                                 ty: Ty<'tcx>,
-                                 i: usize,
-                                 variant: Option<DefId>) -> Option<Ty<'tcx>> {
+    pub fn positional_element_ty(
+        self,
+        ty: Ty<'tcx>,
+        i: usize,
+        variant: Option<DefId>,
+    ) -> Option<Ty<'tcx>> {
         match (&ty.sty, variant) {
-            (&TyAdt(adt, substs), Some(vid)) => {
-                adt.variant_with_id(vid).fields.get(i).map(|f| f.ty(self, substs))
-            }
+            (&TyAdt(adt, substs), Some(vid)) => adt.variant_with_id(vid)
+                .fields
+                .get(i)
+                .map(|f| f.ty(self, substs)),
             (&TyAdt(adt, substs), None) => {
                 // Don't use `non_enum_variant`, this may be a univariant enum.
                 adt.variants[0].fields.get(i).map(|f| f.ty(self, substs))
@@ -267,18 +269,20 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
 
     /// Returns the type of element at field `n` in struct or struct-like type `t`.
     /// For an enum `t`, `variant` must be some def id.
-    pub fn named_element_ty(self,
-                            ty: Ty<'tcx>,
-                            n: Name,
-                            variant: Option<DefId>) -> Option<Ty<'tcx>> {
+    pub fn named_element_ty(
+        self,
+        ty: Ty<'tcx>,
+        n: Name,
+        variant: Option<DefId>,
+    ) -> Option<Ty<'tcx>> {
         match (&ty.sty, variant) {
-            (&TyAdt(adt, substs), Some(vid)) => {
-                adt.variant_with_id(vid).find_field_named(n).map(|f| f.ty(self, substs))
-            }
-            (&TyAdt(adt, substs), None) => {
-                adt.non_enum_variant().find_field_named(n).map(|f| f.ty(self, substs))
-            }
-            _ => return None
+            (&TyAdt(adt, substs), Some(vid)) => adt.variant_with_id(vid)
+                .find_field_named(n)
+                .map(|f| f.ty(self, substs)),
+            (&TyAdt(adt, substs), None) => adt.non_enum_variant()
+                .find_field_named(n)
+                .map(|f| f.ty(self, substs)),
+            _ => return None,
         }
     }
 
@@ -319,31 +323,28 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
     /// structure definitions.
     /// For `(Foo<Foo<T>>, Foo<Trait>)`, the result will be `(Foo<T>, Trait)`,
     /// whereas struct_tail produces `T`, and `Trait`, respectively.
-    pub fn struct_lockstep_tails(self,
-                                 source: Ty<'tcx>,
-                                 target: Ty<'tcx>)
-                                 -> (Ty<'tcx>, Ty<'tcx>) {
+    pub fn struct_lockstep_tails(self, source: Ty<'tcx>, target: Ty<'tcx>) -> (Ty<'tcx>, Ty<'tcx>) {
         let (mut a, mut b) = (source, target);
         loop {
             match (&a.sty, &b.sty) {
                 (&TyAdt(a_def, a_substs), &TyAdt(b_def, b_substs))
-                        if a_def == b_def && a_def.is_struct() => {
+                    if a_def == b_def && a_def.is_struct() =>
+                {
                     if let Some(f) = a_def.non_enum_variant().fields.last() {
                         a = f.ty(self, a_substs);
                         b = f.ty(self, b_substs);
                     } else {
                         break;
                     }
-                },
-                (&TyTuple(a_tys, _), &TyTuple(b_tys, _))
-                        if a_tys.len() == b_tys.len() => {
+                }
+                (&TyTuple(a_tys, _), &TyTuple(b_tys, _)) if a_tys.len() == b_tys.len() => {
                     if let Some(a_last) = a_tys.last() {
                         a = a_last;
                         b = b_tys.last().unwrap();
                     } else {
                         break;
                     }
-                },
+                }
                 _ => break,
             }
         }
@@ -369,30 +370,30 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
     ///
     /// FIXME callers may only have a &[Predicate], not a Vec, so that's
     /// what this code should accept.
-    pub fn required_region_bounds(self,
-                                  erased_self_ty: Ty<'tcx>,
-                                  predicates: Vec<ty::Predicate<'tcx>>)
-                                  -> Vec<ty::Region<'tcx>>    {
-        debug!("required_region_bounds(erased_self_ty={:?}, predicates={:?})",
-               erased_self_ty,
-               predicates);
+    pub fn required_region_bounds(
+        self,
+        erased_self_ty: Ty<'tcx>,
+        predicates: Vec<ty::Predicate<'tcx>>,
+    ) -> Vec<ty::Region<'tcx>> {
+        debug!(
+            "required_region_bounds(erased_self_ty={:?}, predicates={:?})",
+            erased_self_ty, predicates
+        );
 
         assert!(!erased_self_ty.has_escaping_regions());
 
         traits::elaborate_predicates(self, predicates)
             .filter_map(|predicate| {
                 match predicate {
-                    ty::Predicate::Projection(..) |
-                    ty::Predicate::Trait(..) |
-                    ty::Predicate::Equate(..) |
-                    ty::Predicate::Subtype(..) |
-                    ty::Predicate::WellFormed(..) |
-                    ty::Predicate::ObjectSafe(..) |
-                    ty::Predicate::ClosureKind(..) |
-                    ty::Predicate::RegionOutlives(..) |
-                    ty::Predicate::ConstEvaluatable(..) => {
-                        None
-                    }
+                    ty::Predicate::Projection(..)
+                    | ty::Predicate::Trait(..)
+                    | ty::Predicate::Equate(..)
+                    | ty::Predicate::Subtype(..)
+                    | ty::Predicate::WellFormed(..)
+                    | ty::Predicate::ObjectSafe(..)
+                    | ty::Predicate::ClosureKind(..)
+                    | ty::Predicate::RegionOutlives(..)
+                    | ty::Predicate::ConstEvaluatable(..) => None,
                     ty::Predicate::TypeOutlives(ty::Binder(ty::OutlivesPredicate(t, r))) => {
                         // Search for a bound of the form `erased_self_ty
                         // : 'a`, but be wary of something like `for<'a>
@@ -418,7 +419,7 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
     pub fn calculate_dtor(
         self,
         adt_did: DefId,
-        validate: &mut FnMut(Self, DefId) -> Result<(), ErrorReported>
+        validate: &mut FnMut(Self, DefId) -> Result<(), ErrorReported>,
     ) -> Option<ty::Destructor> {
         let drop_trait = if let Some(def_id) = self.lang_items().drop_trait() {
             def_id
@@ -448,15 +449,13 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
     /// Note that this returns only the constraints for the
     /// destructor of `def` itself. For the destructors of the
     /// contents, you need `adt_dtorck_constraint`.
-    pub fn destructor_constraints(self, def: &'tcx ty::AdtDef)
-                                  -> Vec<ty::subst::Kind<'tcx>>
-    {
+    pub fn destructor_constraints(self, def: &'tcx ty::AdtDef) -> Vec<ty::subst::Kind<'tcx>> {
         let dtor = match def.destructor(self) {
             None => {
                 debug!("destructor_constraints({:?}) - no dtor", def.did);
-                return vec![]
+                return vec![];
             }
-            Some(dtor) => dtor.did
+            Some(dtor) => dtor.did,
         };
 
         // RFC 1238: if the destructor method is tagged with the
@@ -499,97 +498,117 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
 
         let impl_substs = match self.type_of(impl_def_id).sty {
             ty::TyAdt(def_, substs) if def_ == def => substs,
-            _ => bug!()
+            _ => bug!(),
         };
 
         let item_substs = match self.type_of(def.did).sty {
             ty::TyAdt(def_, substs) if def_ == def => substs,
-            _ => bug!()
+            _ => bug!(),
         };
 
-        let result = item_substs.iter().zip(impl_substs.iter())
+        let result = item_substs
+            .iter()
+            .zip(impl_substs.iter())
             .filter(|&(_, &k)| {
                 if let Some(&ty::RegionKind::ReEarlyBound(ref ebr)) = k.as_region() {
                     !impl_generics.region_param(ebr, self).pure_wrt_drop
                 } else if let Some(&ty::TyS {
-                    sty: ty::TypeVariants::TyParam(ref pt), ..
-                }) = k.as_type() {
+                    sty: ty::TypeVariants::TyParam(ref pt),
+                    ..
+                }) = k.as_type()
+                {
                     !impl_generics.type_param(pt, self).pure_wrt_drop
                 } else {
                     // not a type or region param - this should be reported
                     // as an error.
                     false
                 }
-            }).map(|(&item_param, _)| item_param).collect();
+            })
+            .map(|(&item_param, _)| item_param)
+            .collect();
         debug!("destructor_constraint({:?}) = {:?}", def.did, result);
         result
     }
 
     /// Return a set of constraints that needs to be satisfied in
     /// order for `ty` to be valid for destruction.
-    pub fn dtorck_constraint_for_ty(self,
-                                    span: Span,
-                                    for_ty: Ty<'tcx>,
-                                    depth: usize,
-                                    ty: Ty<'tcx>)
-                                    -> Result<ty::DtorckConstraint<'tcx>, ErrorReported>
-    {
-        debug!("dtorck_constraint_for_ty({:?}, {:?}, {:?}, {:?})",
-               span, for_ty, depth, ty);
+    pub fn dtorck_constraint_for_ty(
+        self,
+        span: Span,
+        for_ty: Ty<'tcx>,
+        depth: usize,
+        ty: Ty<'tcx>,
+    ) -> Result<ty::DtorckConstraint<'tcx>, ErrorReported> {
+        debug!(
+            "dtorck_constraint_for_ty({:?}, {:?}, {:?}, {:?})",
+            span, for_ty, depth, ty
+        );
 
         if depth >= self.sess.recursion_limit.get() {
             let mut err = struct_span_err!(
-                self.sess, span, E0320,
-                "overflow while adding drop-check rules for {}", for_ty);
+                self.sess,
+                span,
+                E0320,
+                "overflow while adding drop-check rules for {}",
+                for_ty
+            );
             err.note(&format!("overflowed on {}", ty));
             err.emit();
             return Err(ErrorReported);
         }
 
         let result = match ty.sty {
-            ty::TyBool | ty::TyChar | ty::TyInt(_) | ty::TyUint(_) |
-            ty::TyFloat(_) | ty::TyStr | ty::TyNever | ty::TyForeign(..) |
-            ty::TyRawPtr(..) | ty::TyRef(..) | ty::TyFnDef(..) | ty::TyFnPtr(_) |
-            ty::TyGeneratorWitness(..) => {
+            ty::TyBool
+            | ty::TyChar
+            | ty::TyInt(_)
+            | ty::TyUint(_)
+            | ty::TyFloat(_)
+            | ty::TyStr
+            | ty::TyNever
+            | ty::TyForeign(..)
+            | ty::TyRawPtr(..)
+            | ty::TyRef(..)
+            | ty::TyFnDef(..)
+            | ty::TyFnPtr(_)
+            | ty::TyGeneratorWitness(..) => {
                 // these types never have a destructor
                 Ok(ty::DtorckConstraint::empty())
             }
 
             ty::TyArray(ety, _) | ty::TySlice(ety) => {
                 // single-element containers, behave like their element
-                self.dtorck_constraint_for_ty(span, for_ty, depth+1, ety)
+                self.dtorck_constraint_for_ty(span, for_ty, depth + 1, ety)
             }
 
-            ty::TyTuple(tys, _) => {
-                tys.iter().map(|ty| {
-                    self.dtorck_constraint_for_ty(span, for_ty, depth+1, ty)
-                }).collect()
-            }
+            ty::TyTuple(tys, _) => tys.iter()
+                .map(|ty| self.dtorck_constraint_for_ty(span, for_ty, depth + 1, ty))
+                .collect(),
 
-            ty::TyClosure(def_id, substs) => {
-                substs.upvar_tys(def_id, self).map(|ty| {
-                    self.dtorck_constraint_for_ty(span, for_ty, depth+1, ty)
-                }).collect()
-            }
+            ty::TyClosure(def_id, substs) => substs
+                .upvar_tys(def_id, self)
+                .map(|ty| self.dtorck_constraint_for_ty(span, for_ty, depth + 1, ty))
+                .collect(),
 
             ty::TyGenerator(def_id, substs, _) => {
                 // Note that the interior types are ignored here.
                 // Any type reachable inside the interior must also be reachable
                 // through the upvars.
-                substs.upvar_tys(def_id, self).map(|ty| {
-                    self.dtorck_constraint_for_ty(span, for_ty, depth+1, ty)
-                }).collect()
+                substs
+                    .upvar_tys(def_id, self)
+                    .map(|ty| self.dtorck_constraint_for_ty(span, for_ty, depth + 1, ty))
+                    .collect()
             }
 
             ty::TyAdt(def, substs) => {
                 let ty::DtorckConstraint {
-                    dtorck_types, outlives
+                    dtorck_types,
+                    outlives,
                 } = self.at(span).adt_dtorck_constraint(def.did);
                 Ok(ty::DtorckConstraint {
                     // FIXME: we can try to recursively `dtorck_constraint_on_ty`
                     // there, but that needs some way to handle cycles.
                     dtorck_types: dtorck_types.subst(self, substs),
-                    outlives: outlives.subst(self, substs)
+                    outlives: outlives.subst(self, substs),
                 })
             }
 
@@ -601,12 +620,10 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
             }),
 
             // Types that can't be resolved. Pass them forward.
-            ty::TyProjection(..) | ty::TyAnon(..) | ty::TyParam(..) => {
-                Ok(ty::DtorckConstraint {
-                    outlives: vec![],
-                    dtorck_types: vec![ty],
-                })
-            }
+            ty::TyProjection(..) | ty::TyAnon(..) | ty::TyParam(..) => Ok(ty::DtorckConstraint {
+                outlives: vec![],
+                dtorck_types: vec![ty],
+            }),
 
             ty::TyInfer(..) | ty::TyError => {
                 self.sess.delay_span_bug(span, "unresolved type in dtorck");
@@ -649,11 +666,11 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
     ///
     /// Note that the return value is a late-bound region and hence
     /// wrapped in a binder.
-    pub fn closure_env_ty(self,
-                          closure_def_id: DefId,
-                          closure_substs: ty::ClosureSubsts<'tcx>)
-                          -> Option<ty::Binder<Ty<'tcx>>>
-    {
+    pub fn closure_env_ty(
+        self,
+        closure_def_id: DefId,
+        closure_substs: ty::ClosureSubsts<'tcx>,
+    ) -> Option<ty::Binder<Ty<'tcx>>> {
         let closure_ty = self.mk_closure(closure_def_id, closure_substs);
         let env_region = ty::ReLateBound(ty::DebruijnIndex::new(1), ty::BrEnv);
         let closure_kind_ty = closure_substs.closure_kind_ty(closure_def_id, self);
@@ -669,11 +686,17 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
     /// Given the def-id of some item that has no type parameters, make
     /// a suitable "empty substs" for it.
     pub fn empty_substs_for_def_id(self, item_def_id: DefId) -> &'tcx ty::Substs<'tcx> {
-        ty::Substs::for_item(self, item_def_id,
-                             |_, _| self.types.re_erased,
-                             |_, _| {
-            bug!("empty_substs_for_def_id: {:?} has type parameters", item_def_id)
-        })
+        ty::Substs::for_item(
+            self,
+            item_def_id,
+            |_, _| self.types.re_erased,
+            |_, _| {
+                bug!(
+                    "empty_substs_for_def_id: {:?} has type parameters",
+                    item_def_id
+                )
+            },
+        )
     }
 
     pub fn const_usize(&self, val: u16) -> ConstInt {
@@ -690,32 +713,38 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
         if let Some(node) = self.hir.get_if_local(def_id) {
             match node {
                 Node::NodeItem(&hir::Item {
-                    node: hir::ItemStatic(_, hir::MutMutable, _), ..
+                    node: hir::ItemStatic(_, hir::MutMutable, _),
+                    ..
                 }) => true,
                 Node::NodeForeignItem(&hir::ForeignItem {
-                    node: hir::ForeignItemStatic(_, mutbl), ..
+                    node: hir::ForeignItemStatic(_, mutbl),
+                    ..
                 }) => mutbl,
-                _ => false
+                _ => false,
             }
         } else {
             match self.describe_def(def_id) {
                 Some(Def::Static(_, mutbl)) => mutbl,
-                _ => false
+                _ => false,
             }
         }
     }
 }
 
-pub struct TypeIdHasher<'a, 'gcx: 'a+'tcx, 'tcx: 'a, W> {
+pub struct TypeIdHasher<'a, 'gcx: 'a + 'tcx, 'tcx: 'a, W> {
     tcx: TyCtxt<'a, 'gcx, 'tcx>,
     state: StableHasher<W>,
 }
 
 impl<'a, 'gcx, 'tcx, W> TypeIdHasher<'a, 'gcx, 'tcx, W>
-    where W: StableHasherResult
+where
+    W: StableHasherResult,
 {
     pub fn new(tcx: TyCtxt<'a, 'gcx, 'tcx>) -> Self {
-        TypeIdHasher { tcx: tcx, state: StableHasher::new() }
+        TypeIdHasher {
+            tcx: tcx,
+            state: StableHasher::new(),
+        }
     }
 
     pub fn finish(self) -> W {
@@ -727,9 +756,7 @@ impl<'a, 'gcx, 'tcx, W> TypeIdHasher<'a, 'gcx, 'tcx, W>
     }
 
     fn hash_discriminant_u8<T>(&mut self, x: &T) {
-        let v = unsafe {
-            intrinsics::discriminant_value(x)
-        };
+        let v = unsafe { intrinsics::discriminant_value(x) };
         let b = v as u8;
         assert_eq!(v, b as u64);
         self.hash(b)
@@ -746,7 +773,8 @@ impl<'a, 'gcx, 'tcx, W> TypeIdHasher<'a, 'gcx, 'tcx, W>
 }
 
 impl<'a, 'gcx, 'tcx, W> TypeVisitor<'tcx> for TypeIdHasher<'a, 'gcx, 'tcx, W>
-    where W: StableHasherResult
+where
+    W: StableHasherResult,
 {
     fn visit_ty(&mut self, ty: Ty<'tcx>) -> bool {
         // Distinguish between the Ty variants uniformly.
@@ -761,15 +789,14 @@ impl<'a, 'gcx, 'tcx, W> TypeVisitor<'tcx> for TypeIdHasher<'a, 'gcx, 'tcx, W>
                 match n.val {
                     ConstVal::Integral(x) => self.hash(x.to_u64().unwrap()),
                     ConstVal::Unevaluated(def_id, _) => self.def_id(def_id),
-                    _ => bug!("arrays should not have {:?} as length", n)
+                    _ => bug!("arrays should not have {:?} as length", n),
                 }
             }
-            TyRawPtr(m) |
-            TyRef(_, m) => self.hash(m.mutbl),
-            TyClosure(def_id, _) |
-            TyGenerator(def_id, _, _) |
-            TyAnon(def_id, _) |
-            TyFnDef(def_id, _) => self.def_id(def_id),
+            TyRawPtr(m) | TyRef(_, m) => self.hash(m.mutbl),
+            TyClosure(def_id, _)
+            | TyGenerator(def_id, _, _)
+            | TyAnon(def_id, _)
+            | TyFnDef(def_id, _) => self.def_id(def_id),
             TyAdt(d, _) => self.def_id(d.did),
             TyForeign(def_id) => self.def_id(def_id),
             TyFnPtr(f) => {
@@ -800,14 +827,9 @@ impl<'a, 'gcx, 'tcx, W> TypeVisitor<'tcx> for TypeIdHasher<'a, 'gcx, 'tcx, W>
             TyProjection(ref data) => {
                 self.def_id(data.item_def_id);
             }
-            TyNever |
-            TyBool |
-            TyChar |
-            TyStr |
-            TySlice(_) => {}
+            TyNever | TyBool | TyChar | TyStr | TySlice(_) => {}
 
-            TyError |
-            TyInfer(_) => bug!("TypeIdHasher: unexpected type {}", ty)
+            TyError | TyInfer(_) => bug!("TypeIdHasher: unexpected type {}", ty),
         }
 
         ty.super_visit_with(self)
@@ -816,9 +838,7 @@ impl<'a, 'gcx, 'tcx, W> TypeVisitor<'tcx> for TypeIdHasher<'a, 'gcx, 'tcx, W>
     fn visit_region(&mut self, r: ty::Region<'tcx>) -> bool {
         self.hash_discriminant_u8(r);
         match *r {
-            ty::ReErased |
-            ty::ReStatic |
-            ty::ReEmpty => {
+            ty::ReErased | ty::ReStatic | ty::ReEmpty => {
                 // No variant fields to hash for these ...
             }
             ty::ReLateBound(db, ty::BrAnon(i)) => {
@@ -829,14 +849,12 @@ impl<'a, 'gcx, 'tcx, W> TypeVisitor<'tcx> for TypeIdHasher<'a, 'gcx, 'tcx, W>
                 self.def_id(def_id);
             }
 
-            ty::ReClosureBound(..) |
-            ty::ReLateBound(..) |
-            ty::ReFree(..) |
-            ty::ReScope(..) |
-            ty::ReVar(..) |
-            ty::ReSkolemized(..) => {
-                bug!("TypeIdHasher: unexpected region {:?}", r)
-            }
+            ty::ReClosureBound(..)
+            | ty::ReLateBound(..)
+            | ty::ReFree(..)
+            | ty::ReScope(..)
+            | ty::ReVar(..)
+            | ty::ReSkolemized(..) => bug!("TypeIdHasher: unexpected region {:?}", r),
         }
         false
     }
@@ -845,32 +863,37 @@ impl<'a, 'gcx, 'tcx, W> TypeVisitor<'tcx> for TypeIdHasher<'a, 'gcx, 'tcx, W>
         // Anonymize late-bound regions so that, for example:
         // `for<'a, b> fn(&'a &'b T)` and `for<'a, b> fn(&'b &'a T)`
         // result in the same TypeId (the two types are equivalent).
-        self.tcx.anonymize_late_bound_regions(x).super_visit_with(self)
+        self.tcx
+            .anonymize_late_bound_regions(x)
+            .super_visit_with(self)
     }
 }
 
 impl<'a, 'tcx> ty::TyS<'tcx> {
-    pub fn moves_by_default(&'tcx self,
-                            tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                            param_env: ty::ParamEnv<'tcx>,
-                            span: Span)
-                            -> bool {
+    pub fn moves_by_default(
+        &'tcx self,
+        tcx: TyCtxt<'a, 'tcx, 'tcx>,
+        param_env: ty::ParamEnv<'tcx>,
+        span: Span,
+    ) -> bool {
         !tcx.at(span).is_copy_raw(param_env.and(self))
     }
 
-    pub fn is_sized(&'tcx self,
-                    tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                    param_env: ty::ParamEnv<'tcx>,
-                    span: Span)-> bool
-    {
+    pub fn is_sized(
+        &'tcx self,
+        tcx: TyCtxt<'a, 'tcx, 'tcx>,
+        param_env: ty::ParamEnv<'tcx>,
+        span: Span,
+    ) -> bool {
         tcx.at(span).is_sized_raw(param_env.and(self))
     }
 
-    pub fn is_freeze(&'tcx self,
-                     tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                     param_env: ty::ParamEnv<'tcx>,
-                     span: Span)-> bool
-    {
+    pub fn is_freeze(
+        &'tcx self,
+        tcx: TyCtxt<'a, 'tcx, 'tcx>,
+        param_env: ty::ParamEnv<'tcx>,
+        span: Span,
+    ) -> bool {
         tcx.at(span).is_freeze_raw(param_env.and(self))
     }
 
@@ -881,40 +904,34 @@ impl<'a, 'tcx> ty::TyS<'tcx> {
     /// (Note that this implies that if `ty` has a destructor attached,
     /// then `needs_drop` will definitely return `true` for `ty`.)
     #[inline]
-    pub fn needs_drop(&'tcx self,
-                      tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                      param_env: ty::ParamEnv<'tcx>)
-                      -> bool {
+    pub fn needs_drop(
+        &'tcx self,
+        tcx: TyCtxt<'a, 'tcx, 'tcx>,
+        param_env: ty::ParamEnv<'tcx>,
+    ) -> bool {
         tcx.needs_drop_raw(param_env.and(self))
     }
 
     /// Check whether a type is representable. This means it cannot contain unboxed
     /// structural recursion. This check is needed for structs and enums.
-    pub fn is_representable(&'tcx self,
-                            tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                            sp: Span)
-                            -> Representability {
-
+    pub fn is_representable(&'tcx self, tcx: TyCtxt<'a, 'tcx, 'tcx>, sp: Span) -> Representability {
         // Iterate until something non-representable is found
-        fn fold_repr<It: Iterator<Item=Representability>>(iter: It) -> Representability {
-            iter.fold(Representability::Representable, |r1, r2| {
-                match (r1, r2) {
-                    (Representability::SelfRecursive(v1),
-                     Representability::SelfRecursive(v2)) => {
-                        Representability::SelfRecursive(v1.iter().map(|s| *s).chain(v2).collect())
-                    }
-                    (r1, r2) => cmp::max(r1, r2)
+        fn fold_repr<It: Iterator<Item = Representability>>(iter: It) -> Representability {
+            iter.fold(Representability::Representable, |r1, r2| match (r1, r2) {
+                (Representability::SelfRecursive(v1), Representability::SelfRecursive(v2)) => {
+                    Representability::SelfRecursive(v1.iter().map(|s| *s).chain(v2).collect())
                 }
+                (r1, r2) => cmp::max(r1, r2),
             })
         }
 
         fn are_inner_types_recursive<'a, 'tcx>(
-            tcx: TyCtxt<'a, 'tcx, 'tcx>, sp: Span,
+            tcx: TyCtxt<'a, 'tcx, 'tcx>,
+            sp: Span,
             seen: &mut Vec<Ty<'tcx>>,
             representable_cache: &mut FxHashMap<Ty<'tcx>, Representability>,
-            ty: Ty<'tcx>)
-            -> Representability
-        {
+            ty: Ty<'tcx>,
+        ) -> Representability {
             match ty.sty {
                 TyTuple(ref ts, _) => {
                     // Find non representable
@@ -932,9 +949,13 @@ impl<'a, 'tcx> ty::TyS<'tcx> {
                     fold_repr(def.all_fields().map(|field| {
                         let ty = field.ty(tcx, substs);
                         let span = tcx.hir.span_if_local(field.did).unwrap_or(sp);
-                        match is_type_structurally_recursive(tcx, span, seen,
-                                                             representable_cache, ty)
-                        {
+                        match is_type_structurally_recursive(
+                            tcx,
+                            span,
+                            seen,
+                            representable_cache,
+                            ty,
+                        ) {
                             Representability::SelfRecursive(_) => {
                                 Representability::SelfRecursive(vec![span])
                             }
@@ -953,10 +974,8 @@ impl<'a, 'tcx> ty::TyS<'tcx> {
 
         fn same_struct_or_enum<'tcx>(ty: Ty<'tcx>, def: &'tcx ty::AdtDef) -> bool {
             match ty.sty {
-                TyAdt(ty_def, _) => {
-                     ty_def == def
-                }
-                _ => false
+                TyAdt(ty_def, _) => ty_def == def,
+                _ => false,
             }
         }
 
@@ -967,7 +986,10 @@ impl<'a, 'tcx> ty::TyS<'tcx> {
                         return false;
                     }
 
-                    substs_a.types().zip(substs_b.types()).all(|(a, b)| same_type(a, b))
+                    substs_a
+                        .types()
+                        .zip(substs_b.types())
+                        .all(|(a, b)| same_type(a, b))
                 }
                 _ => a == b,
             }
@@ -980,17 +1002,19 @@ impl<'a, 'tcx> ty::TyS<'tcx> {
             sp: Span,
             seen: &mut Vec<Ty<'tcx>>,
             representable_cache: &mut FxHashMap<Ty<'tcx>, Representability>,
-            ty: Ty<'tcx>) -> Representability
-        {
+            ty: Ty<'tcx>,
+        ) -> Representability {
             debug!("is_type_structurally_recursive: {:?} {:?}", ty, sp);
             if let Some(representability) = representable_cache.get(ty) {
-                debug!("is_type_structurally_recursive: {:?} {:?} - (cached) {:?}",
-                       ty, sp, representability);
+                debug!(
+                    "is_type_structurally_recursive: {:?} {:?} - (cached) {:?}",
+                    ty, sp, representability
+                );
                 return representability.clone();
             }
 
-            let representability = is_type_structurally_recursive_inner(
-                tcx, sp, seen, representable_cache, ty);
+            let representability =
+                is_type_structurally_recursive_inner(tcx, sp, seen, representable_cache, ty);
 
             representable_cache.insert(ty, representability.clone());
             representability
@@ -1001,8 +1025,8 @@ impl<'a, 'tcx> ty::TyS<'tcx> {
             sp: Span,
             seen: &mut Vec<Ty<'tcx>>,
             representable_cache: &mut FxHashMap<Ty<'tcx>, Representability>,
-            ty: Ty<'tcx>) -> Representability
-        {
+            ty: Ty<'tcx>,
+        ) -> Representability {
             match ty.sty {
                 TyAdt(def, _) => {
                     {
@@ -1019,9 +1043,7 @@ impl<'a, 'tcx> ty::TyS<'tcx> {
 
                         if let Some(&seen_type) = iter.next() {
                             if same_struct_or_enum(seen_type, def) {
-                                debug!("SelfRecursive: {:?} contains {:?}",
-                                       seen_type,
-                                       ty);
+                                debug!("SelfRecursive: {:?} contains {:?}", seen_type, ty);
                                 return Representability::SelfRecursive(vec![sp]);
                             }
                         }
@@ -1038,9 +1060,7 @@ impl<'a, 'tcx> ty::TyS<'tcx> {
 
                         for &seen_type in iter {
                             if same_type(ty, seen_type) {
-                                debug!("ContainsRecursive: {:?} contains {:?}",
-                                       seen_type,
-                                       ty);
+                                debug!("ContainsRecursive: {:?} contains {:?}", seen_type, ty);
                                 return Representability::ContainsRecursive;
                             }
                         }
@@ -1067,59 +1087,49 @@ impl<'a, 'tcx> ty::TyS<'tcx> {
         // of seen types and check recursion for each of them (issues #3008, #3779).
         let mut seen: Vec<Ty> = Vec::new();
         let mut representable_cache = FxHashMap();
-        let r = is_type_structurally_recursive(
-            tcx, sp, &mut seen, &mut representable_cache, self);
+        let r = is_type_structurally_recursive(tcx, sp, &mut seen, &mut representable_cache, self);
         debug!("is_type_representable: {:?} is {:?}", self, r);
         r
     }
 }
 
-fn is_copy_raw<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                         query: ty::ParamEnvAnd<'tcx, Ty<'tcx>>)
-                         -> bool
-{
+fn is_copy_raw<'a, 'tcx>(
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    query: ty::ParamEnvAnd<'tcx, Ty<'tcx>>,
+) -> bool {
     let (param_env, ty) = query.into_parts();
     let trait_def_id = tcx.require_lang_item(lang_items::CopyTraitLangItem);
-    tcx.infer_ctxt()
-       .enter(|infcx| traits::type_known_to_meet_bound(&infcx,
-                                                       param_env,
-                                                       ty,
-                                                       trait_def_id,
-                                                       DUMMY_SP))
+    tcx.infer_ctxt().enter(|infcx| {
+        traits::type_known_to_meet_bound(&infcx, param_env, ty, trait_def_id, DUMMY_SP)
+    })
 }
 
-fn is_sized_raw<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                          query: ty::ParamEnvAnd<'tcx, Ty<'tcx>>)
-                          -> bool
-{
+fn is_sized_raw<'a, 'tcx>(
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    query: ty::ParamEnvAnd<'tcx, Ty<'tcx>>,
+) -> bool {
     let (param_env, ty) = query.into_parts();
     let trait_def_id = tcx.require_lang_item(lang_items::SizedTraitLangItem);
-    tcx.infer_ctxt()
-       .enter(|infcx| traits::type_known_to_meet_bound(&infcx,
-                                                       param_env,
-                                                       ty,
-                                                       trait_def_id,
-                                                       DUMMY_SP))
+    tcx.infer_ctxt().enter(|infcx| {
+        traits::type_known_to_meet_bound(&infcx, param_env, ty, trait_def_id, DUMMY_SP)
+    })
 }
 
-fn is_freeze_raw<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                           query: ty::ParamEnvAnd<'tcx, Ty<'tcx>>)
-                           -> bool
-{
+fn is_freeze_raw<'a, 'tcx>(
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    query: ty::ParamEnvAnd<'tcx, Ty<'tcx>>,
+) -> bool {
     let (param_env, ty) = query.into_parts();
     let trait_def_id = tcx.require_lang_item(lang_items::FreezeTraitLangItem);
-    tcx.infer_ctxt()
-       .enter(|infcx| traits::type_known_to_meet_bound(&infcx,
-                                                       param_env,
-                                                       ty,
-                                                       trait_def_id,
-                                                       DUMMY_SP))
+    tcx.infer_ctxt().enter(|infcx| {
+        traits::type_known_to_meet_bound(&infcx, param_env, ty, trait_def_id, DUMMY_SP)
+    })
 }
 
-fn needs_drop_raw<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                            query: ty::ParamEnvAnd<'tcx, Ty<'tcx>>)
-                            -> bool
-{
+fn needs_drop_raw<'a, 'tcx>(
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    query: ty::ParamEnvAnd<'tcx, Ty<'tcx>>,
+) -> bool {
     let (param_env, ty) = query.into_parts();
 
     let needs_drop = |ty: Ty<'tcx>| -> bool {
@@ -1143,10 +1153,20 @@ fn needs_drop_raw<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
 
     match ty.sty {
         // Fast-path for primitive types
-        ty::TyInfer(ty::FreshIntTy(_)) | ty::TyInfer(ty::FreshFloatTy(_)) |
-        ty::TyBool | ty::TyInt(_) | ty::TyUint(_) | ty::TyFloat(_) | ty::TyNever |
-        ty::TyFnDef(..) | ty::TyFnPtr(_) | ty::TyChar | ty::TyGeneratorWitness(..) |
-        ty::TyRawPtr(_) | ty::TyRef(..) | ty::TyStr => false,
+        ty::TyInfer(ty::FreshIntTy(_))
+        | ty::TyInfer(ty::FreshFloatTy(_))
+        | ty::TyBool
+        | ty::TyInt(_)
+        | ty::TyUint(_)
+        | ty::TyFloat(_)
+        | ty::TyNever
+        | ty::TyFnDef(..)
+        | ty::TyFnPtr(_)
+        | ty::TyChar
+        | ty::TyGeneratorWitness(..)
+        | ty::TyRawPtr(_)
+        | ty::TyRef(..)
+        | ty::TyStr => false,
 
         // Foreign types can never have destructors
         ty::TyForeign(..) => false,
@@ -1171,8 +1191,12 @@ fn needs_drop_raw<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
 
         // Can refer to a type which may drop.
         // FIXME(eddyb) check this against a ParamEnv.
-        ty::TyDynamic(..) | ty::TyProjection(..) | ty::TyParam(_) |
-        ty::TyAnon(..) | ty::TyInfer(_) | ty::TyError => true,
+        ty::TyDynamic(..)
+        | ty::TyProjection(..)
+        | ty::TyParam(_)
+        | ty::TyAnon(..)
+        | ty::TyInfer(_)
+        | ty::TyError => true,
 
         // Structural recursion.
         ty::TyArray(ty, _) | ty::TySlice(ty) => needs_drop(ty),
@@ -1189,10 +1213,12 @@ fn needs_drop_raw<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
         // unions don't have destructors regardless of the child types
         ty::TyAdt(def, _) if def.is_union() => false,
 
-        ty::TyAdt(def, substs) =>
-            def.variants.iter().any(
-                |variant| variant.fields.iter().any(
-                    |field| needs_drop(field.ty(tcx, substs)))),
+        ty::TyAdt(def, substs) => def.variants.iter().any(|variant| {
+            variant
+                .fields
+                .iter()
+                .any(|field| needs_drop(field.ty(tcx, substs)))
+        }),
     }
 }
 
@@ -1201,7 +1227,7 @@ pub enum ExplicitSelf<'tcx> {
     ByReference(ty::Region<'tcx>, hir::Mutability),
     ByRawPointer(hir::Mutability),
     ByBox,
-    Other
+    Other,
 }
 
 impl<'tcx> ExplicitSelf<'tcx> {
@@ -1229,12 +1255,9 @@ impl<'tcx> ExplicitSelf<'tcx> {
     /// }
     /// ```
     ///
-    pub fn determine<P>(
-        self_arg_ty: Ty<'tcx>,
-        is_self_ty: P
-    ) -> ExplicitSelf<'tcx>
+    pub fn determine<P>(self_arg_ty: Ty<'tcx>, is_self_ty: P) -> ExplicitSelf<'tcx>
     where
-        P: Fn(Ty<'tcx>) -> bool
+        P: Fn(Ty<'tcx>) -> bool,
     {
         use self::ExplicitSelf::*;
 
@@ -1243,13 +1266,9 @@ impl<'tcx> ExplicitSelf<'tcx> {
             ty::TyRef(region, ty::TypeAndMut { ty, mutbl }) if is_self_ty(ty) => {
                 ByReference(region, mutbl)
             }
-            ty::TyRawPtr(ty::TypeAndMut { ty, mutbl }) if is_self_ty(ty) => {
-                ByRawPointer(mutbl)
-            }
-            ty::TyAdt(def, _) if def.is_box() && is_self_ty(self_arg_ty.boxed_ty()) => {
-                ByBox
-            }
-            _ => Other
+            ty::TyRawPtr(ty::TypeAndMut { ty, mutbl }) if is_self_ty(ty) => ByRawPointer(mutbl),
+            ty::TyAdt(def, _) if def.is_box() && is_self_ty(self_arg_ty.boxed_ty()) => ByBox,
+            _ => Other,
         }
     }
 }

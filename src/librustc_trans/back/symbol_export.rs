@@ -24,37 +24,38 @@ use rustc_allocator::ALLOCATOR_METHODS;
 use rustc_back::LinkerFlavor;
 use syntax::attr;
 
-pub type ExportedSymbols = FxHashMap<
-    CrateNum,
-    Arc<Vec<(String, Option<DefId>, SymbolExportLevel)>>,
->;
+pub type ExportedSymbols =
+    FxHashMap<CrateNum, Arc<Vec<(String, Option<DefId>, SymbolExportLevel)>>>;
 
 pub fn threshold(tcx: TyCtxt) -> SymbolExportLevel {
     crates_export_threshold(&tcx.sess.crate_types.borrow())
 }
 
 pub fn metadata_symbol_name(tcx: TyCtxt) -> String {
-    format!("rust_metadata_{}_{}",
-            tcx.crate_name(LOCAL_CRATE),
-            tcx.crate_disambiguator(LOCAL_CRATE).to_fingerprint().to_hex())
+    format!(
+        "rust_metadata_{}_{}",
+        tcx.crate_name(LOCAL_CRATE),
+        tcx.crate_disambiguator(LOCAL_CRATE)
+            .to_fingerprint()
+            .to_hex()
+    )
 }
 
 fn crate_export_threshold(crate_type: config::CrateType) -> SymbolExportLevel {
     match crate_type {
-        config::CrateTypeExecutable |
-        config::CrateTypeStaticlib  |
-        config::CrateTypeProcMacro  |
-        config::CrateTypeCdylib     => SymbolExportLevel::C,
-        config::CrateTypeRlib       |
-        config::CrateTypeDylib      => SymbolExportLevel::Rust,
+        config::CrateTypeExecutable
+        | config::CrateTypeStaticlib
+        | config::CrateTypeProcMacro
+        | config::CrateTypeCdylib => SymbolExportLevel::C,
+        config::CrateTypeRlib | config::CrateTypeDylib => SymbolExportLevel::Rust,
     }
 }
 
-pub fn crates_export_threshold(crate_types: &[config::CrateType])
-                                      -> SymbolExportLevel {
-    if crate_types.iter().any(|&crate_type| {
-        crate_export_threshold(crate_type) == SymbolExportLevel::Rust
-    }) {
+pub fn crates_export_threshold(crate_types: &[config::CrateType]) -> SymbolExportLevel {
+    if crate_types
+        .iter()
+        .any(|&crate_type| crate_export_threshold(crate_type) == SymbolExportLevel::Rust)
+    {
         SymbolExportLevel::Rust
     } else {
         SymbolExportLevel::C
@@ -64,23 +65,23 @@ pub fn crates_export_threshold(crate_types: &[config::CrateType])
 pub fn provide(providers: &mut Providers) {
     providers.exported_symbol_ids = |tcx, cnum| {
         let export_threshold = threshold(tcx);
-        Rc::new(tcx.exported_symbols(cnum)
-            .iter()
-            .filter_map(|&(_, id, level)| {
-                id.and_then(|id| {
-                    if level.is_below_threshold(export_threshold) {
-                        Some(id)
-                    } else {
-                        None
-                    }
+        Rc::new(
+            tcx.exported_symbols(cnum)
+                .iter()
+                .filter_map(|&(_, id, level)| {
+                    id.and_then(|id| {
+                        if level.is_below_threshold(export_threshold) {
+                            Some(id)
+                        } else {
+                            None
+                        }
+                    })
                 })
-            })
-            .collect())
+                .collect(),
+        )
     };
 
-    providers.is_exported_symbol = |tcx, id| {
-        tcx.exported_symbol_ids(id.krate).contains(&id)
-    };
+    providers.is_exported_symbol = |tcx, id| tcx.exported_symbol_ids(id.krate).contains(&id);
 
     providers.exported_symbols = |tcx, cnum| {
         assert_eq!(cnum, LOCAL_CRATE);
@@ -88,9 +89,7 @@ pub fn provide(providers: &mut Providers) {
 
         let mut local_crate: Vec<_> = local_exported_symbols
             .iter()
-            .map(|&node_id| {
-                tcx.hir.local_def_id(node_id)
-            })
+            .map(|&node_id| tcx.hir.local_def_id(node_id))
             .map(|def_id| {
                 let name = tcx.symbol_name(Instance::mono(tcx, def_id));
                 let export_level = export_level(tcx, def_id);
@@ -100,16 +99,16 @@ pub fn provide(providers: &mut Providers) {
             .collect();
 
         if let Some(_) = *tcx.sess.entry_fn.borrow() {
-            local_crate.push(("main".to_string(),
-                              None,
-                              SymbolExportLevel::C));
+            local_crate.push(("main".to_string(), None, SymbolExportLevel::C));
         }
 
         if tcx.sess.allocator_kind.get().is_some() {
             for method in ALLOCATOR_METHODS {
-                local_crate.push((format!("__rust_{}", method.name),
-                                  None,
-                                  SymbolExportLevel::Rust));
+                local_crate.push((
+                    format!("__rust_{}", method.name),
+                    None,
+                    SymbolExportLevel::Rust,
+                ));
             }
         }
 
@@ -120,16 +119,16 @@ pub fn provide(providers: &mut Providers) {
             local_crate.push((registrar, Some(def_id), SymbolExportLevel::C));
         }
 
-        if tcx.sess.crate_types.borrow().contains(&config::CrateTypeDylib) {
-            local_crate.push((metadata_symbol_name(tcx),
-                              None,
-                              SymbolExportLevel::Rust));
+        if tcx.sess
+            .crate_types
+            .borrow()
+            .contains(&config::CrateTypeDylib)
+        {
+            local_crate.push((metadata_symbol_name(tcx), None, SymbolExportLevel::Rust));
         }
 
         // Sort so we get a stable incr. comp. hash.
-        local_crate.sort_unstable_by(|&(ref name1, ..), &(ref name2, ..)| {
-            name1.cmp(name2)
-        });
+        local_crate.sort_unstable_by(|&(ref name1, ..), &(ref name2, ..)| name1.cmp(name2));
 
         Arc::new(local_crate)
     };
@@ -141,9 +140,8 @@ pub fn provide_extern(providers: &mut Providers) {
     providers.exported_symbols = |tcx, cnum| {
         // If this crate is a plugin and/or a custom derive crate, then
         // we're not even going to link those in so we skip those crates.
-        if tcx.plugin_registrar_fn(cnum).is_some() ||
-           tcx.derive_registrar_fn(cnum).is_some() {
-            return Arc::new(Vec::new())
+        if tcx.plugin_registrar_fn(cnum).is_some() || tcx.derive_registrar_fn(cnum).is_some() {
+            return Arc::new(Vec::new());
         }
 
         // Check to see if this crate is a "special runtime crate". These
@@ -153,8 +151,7 @@ pub fn provide_extern(providers: &mut Providers) {
         // export level, however, as they're just implementation details.
         // Down below we'll hardwire all of the symbols to the `Rust` export
         // level instead.
-        let special_runtime_crate =
-            tcx.is_panic_runtime(cnum) || tcx.is_compiler_builtins(cnum);
+        let special_runtime_crate = tcx.is_panic_runtime(cnum) || tcx.is_compiler_builtins(cnum);
 
         // Dealing with compiler-builtins and wasm right now is super janky.
         // There's no linker! As a result we need all of the compiler-builtins
@@ -164,44 +161,40 @@ pub fn provide_extern(providers: &mut Providers) {
         // artifact. For now just force them to always get exported at the C
         // layer, and we'll worry about gc'ing them later.
         let compiler_builtins_and_binaryen =
-            tcx.is_compiler_builtins(cnum) &&
-            tcx.sess.linker_flavor() == LinkerFlavor::Binaryen;
+            tcx.is_compiler_builtins(cnum) && tcx.sess.linker_flavor() == LinkerFlavor::Binaryen;
 
-        let mut crate_exports: Vec<_> = tcx
-            .exported_symbol_ids(cnum)
+        let mut crate_exports: Vec<_> = tcx.exported_symbol_ids(cnum)
             .iter()
             .map(|&def_id| {
                 let name = tcx.symbol_name(Instance::mono(tcx, def_id));
-                let export_level = if compiler_builtins_and_binaryen &&
-                                      tcx.contains_extern_indicator(def_id) {
-                    SymbolExportLevel::C
-                } else if special_runtime_crate {
-                    // We can probably do better here by just ensuring that
-                    // it has hidden visibility rather than public
-                    // visibility, as this is primarily here to ensure it's
-                    // not stripped during LTO.
-                    //
-                    // In general though we won't link right if these
-                    // symbols are stripped, and LTO currently strips them.
-                    if &*name == "rust_eh_personality" ||
-                       &*name == "rust_eh_register_frames" ||
-                       &*name == "rust_eh_unregister_frames" {
+                let export_level =
+                    if compiler_builtins_and_binaryen && tcx.contains_extern_indicator(def_id) {
                         SymbolExportLevel::C
+                    } else if special_runtime_crate {
+                        // We can probably do better here by just ensuring that
+                        // it has hidden visibility rather than public
+                        // visibility, as this is primarily here to ensure it's
+                        // not stripped during LTO.
+                        //
+                        // In general though we won't link right if these
+                        // symbols are stripped, and LTO currently strips them.
+                        if &*name == "rust_eh_personality" || &*name == "rust_eh_register_frames"
+                            || &*name == "rust_eh_unregister_frames"
+                        {
+                            SymbolExportLevel::C
+                        } else {
+                            SymbolExportLevel::Rust
+                        }
                     } else {
-                        SymbolExportLevel::Rust
-                    }
-                } else {
-                    export_level(tcx, def_id)
-                };
+                        export_level(tcx, def_id)
+                    };
                 debug!("EXPORTED SYMBOL (re-export): {} ({:?})", name, export_level);
                 (str::to_owned(&name), Some(def_id), export_level)
             })
             .collect();
 
         // Sort so we get a stable incr. comp. hash.
-        crate_exports.sort_unstable_by(|&(ref name1, ..), &(ref name2, ..)| {
-            name1.cmp(name2)
-        });
+        crate_exports.sort_unstable_by(|&(ref name1, ..), &(ref name2, ..)| name1.cmp(name2));
 
         Arc::new(crate_exports)
     };
@@ -215,8 +208,7 @@ fn export_level(tcx: TyCtxt, sym_def_id: DefId) -> SymbolExportLevel {
     // core/std/allocators/etc. For example symbols used to hook up allocation
     // are not considered for export
     let is_extern = tcx.contains_extern_indicator(sym_def_id);
-    let std_internal = attr::contains_name(&tcx.get_attrs(sym_def_id),
-                                           "rustc_std_internal_symbol");
+    let std_internal = attr::contains_name(&tcx.get_attrs(sym_def_id), "rustc_std_internal_symbol");
     if is_extern && !std_internal {
         SymbolExportLevel::C
     } else {

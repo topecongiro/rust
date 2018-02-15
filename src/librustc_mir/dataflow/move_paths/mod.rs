@@ -8,12 +8,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-
 use rustc::ty::{self, TyCtxt};
 use rustc::mir::*;
 use rustc::util::nodemap::FxHashMap;
-use rustc_data_structures::indexed_vec::{IndexVec};
-use syntax_pos::{Span};
+use rustc_data_structures::indexed_vec::IndexVec;
+use syntax_pos::Span;
 
 use std::fmt;
 use std::ops::{Index, IndexMut};
@@ -164,12 +163,16 @@ impl<T> IndexMut<Location> for LocationMap<T> {
     }
 }
 
-impl<T> LocationMap<T> where T: Default + Clone {
+impl<T> LocationMap<T>
+where
+    T: Default + Clone,
+{
     fn new(mir: &Mir) -> Self {
         LocationMap {
-            map: mir.basic_blocks().iter().map(|block| {
-                vec![T::default(); block.statements.len()+1]
-            }).collect()
+            map: mir.basic_blocks()
+                .iter()
+                .map(|block| vec![T::default(); block.statements.len() + 1])
+                .collect(),
         }
     }
 }
@@ -233,7 +236,7 @@ pub struct MovePathLookup<'tcx> {
     /// subsequent search so that it is solely relative to that
     /// base-place). For the remaining lookup, we map the projection
     /// elem to the associated MovePathIndex.
-    projections: FxHashMap<(MovePathIndex, AbstractElem<'tcx>), MovePathIndex>
+    projections: FxHashMap<(MovePathIndex, AbstractElem<'tcx>), MovePathIndex>,
 }
 
 mod builder;
@@ -241,7 +244,7 @@ mod builder;
 #[derive(Copy, Clone, Debug)]
 pub enum LookupResult {
     Exact(MovePathIndex),
-    Parent(Option<MovePathIndex>)
+    Parent(Option<MovePathIndex>),
 }
 
 impl<'tcx> MovePathLookup<'tcx> {
@@ -253,17 +256,15 @@ impl<'tcx> MovePathLookup<'tcx> {
         match *place {
             Place::Local(local) => LookupResult::Exact(self.locals[local]),
             Place::Static(..) => LookupResult::Parent(None),
-            Place::Projection(ref proj) => {
-                match self.find(&proj.base) {
-                    LookupResult::Exact(base_path) => {
-                        match self.projections.get(&(base_path, proj.elem.lift())) {
-                            Some(&subpath) => LookupResult::Exact(subpath),
-                            None => LookupResult::Parent(Some(base_path))
-                        }
+            Place::Projection(ref proj) => match self.find(&proj.base) {
+                LookupResult::Exact(base_path) => {
+                    match self.projections.get(&(base_path, proj.elem.lift())) {
+                        Some(&subpath) => LookupResult::Exact(subpath),
+                        None => LookupResult::Parent(Some(base_path)),
                     }
-                    inexact => inexact
                 }
-            }
+                inexact => inexact,
+            },
         }
     }
 
@@ -283,25 +284,33 @@ pub(crate) enum IllegalMoveOriginKind<'tcx> {
     Static,
     BorrowedContent,
     InteriorOfTypeWithDestructor { container_ty: ty::Ty<'tcx> },
-    InteriorOfSliceOrArray { ty: ty::Ty<'tcx>, is_index: bool, },
+    InteriorOfSliceOrArray { ty: ty::Ty<'tcx>, is_index: bool },
 }
 
 #[derive(Debug)]
 pub enum MoveError<'tcx> {
-    IllegalMove { cannot_move_out_of: IllegalMoveOrigin<'tcx> },
-    UnionMove { path: MovePathIndex },
+    IllegalMove {
+        cannot_move_out_of: IllegalMoveOrigin<'tcx>,
+    },
+    UnionMove {
+        path: MovePathIndex,
+    },
 }
 
 impl<'tcx> MoveError<'tcx> {
     fn cannot_move_out_of(span: Span, kind: IllegalMoveOriginKind<'tcx>) -> Self {
         let origin = IllegalMoveOrigin { span, kind };
-        MoveError::IllegalMove { cannot_move_out_of: origin }
+        MoveError::IllegalMove {
+            cannot_move_out_of: origin,
+        }
     }
 }
 
 impl<'a, 'gcx, 'tcx> MoveData<'tcx> {
-    pub fn gather_moves(mir: &Mir<'tcx>, tcx: TyCtxt<'a, 'gcx, 'tcx>)
-                        -> Result<Self, (Self, Vec<MoveError<'tcx>>)> {
+    pub fn gather_moves(
+        mir: &Mir<'tcx>,
+        tcx: TyCtxt<'a, 'gcx, 'tcx>,
+    ) -> Result<Self, (Self, Vec<MoveError<'tcx>>)> {
         builder::gather_moves(mir, tcx)
     }
 }

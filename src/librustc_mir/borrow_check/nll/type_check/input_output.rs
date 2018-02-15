@@ -61,9 +61,9 @@ impl<'a, 'gcx, 'tcx> TypeChecker<'a, 'gcx, 'tcx> {
         }
 
         assert!(
-            mir.yield_ty.is_some() && universal_regions.yield_ty.is_some() ||
-            mir.yield_ty.is_none() && universal_regions.yield_ty.is_none()
-            );
+            mir.yield_ty.is_some() && universal_regions.yield_ty.is_some()
+                || mir.yield_ty.is_none() && universal_regions.yield_ty.is_none()
+        );
         if let Some(mir_yield_ty) = mir.yield_ty {
             let ur_yield_ty = universal_regions.yield_ty.unwrap();
             self.equate_normalized_input_or_output(start_position, ur_yield_ty, mir_yield_ty);
@@ -132,16 +132,16 @@ impl<'a, 'gcx, 'tcx> TypeChecker<'a, 'gcx, 'tcx> {
                 obligations: obligations.into_vec(),
             })
         }).unwrap_or_else(|terr| {
-                span_mirbug!(
-                    self,
-                    start_position,
-                    "equate_inputs_and_outputs: `{:?}=={:?}` failed with `{:?}`",
-                    output_ty,
-                    mir_output_ty,
-                    terr
-                );
-                None
-            });
+            span_mirbug!(
+                self,
+                start_position,
+                "equate_inputs_and_outputs: `{:?}=={:?}` failed with `{:?}`",
+                output_ty,
+                mir_output_ty,
+                terr
+            );
+            None
+        });
 
         // Finally, if we instantiated the anon types successfully, we
         // have to solve any bounds (e.g., `-> impl Iterator` needs to

@@ -19,7 +19,7 @@ use alloc::boxed::Box;
 use core::any::Any;
 use core::intrinsics;
 use core::ptr;
-use dwarf::eh::{EHContext, EHAction, find_eh_action};
+use dwarf::eh::{find_eh_action, EHAction, EHContext};
 use windows as c;
 
 // Define our exception codes:
@@ -43,10 +43,12 @@ struct PanicData {
 pub unsafe fn panic(data: Box<Any + Send>) -> u32 {
     let panic_ctx = Box::new(PanicData { data: data });
     let params = [Box::into_raw(panic_ctx) as c::ULONG_PTR];
-    c::RaiseException(RUST_PANIC,
-                      c::EXCEPTION_NONCONTINUABLE,
-                      params.len() as c::DWORD,
-                      &params as *const c::ULONG_PTR);
+    c::RaiseException(
+        RUST_PANIC,
+        c::EXCEPTION_NONCONTINUABLE,
+        params.len() as c::DWORD,
+        &params as *const c::ULONG_PTR,
+    );
     u32::max_value()
 }
 
@@ -83,11 +85,12 @@ pub unsafe fn cleanup(ptr: *mut u8) -> Box<Any + Send> {
 
 #[lang = "eh_personality"]
 #[cfg(not(test))]
-unsafe extern "C" fn rust_eh_personality(exceptionRecord: *mut c::EXCEPTION_RECORD,
-                                         establisherFrame: c::LPVOID,
-                                         contextRecord: *mut c::CONTEXT,
-                                         dispatcherContext: *mut c::DISPATCHER_CONTEXT)
-                                         -> c::EXCEPTION_DISPOSITION {
+unsafe extern "C" fn rust_eh_personality(
+    exceptionRecord: *mut c::EXCEPTION_RECORD,
+    establisherFrame: c::LPVOID,
+    contextRecord: *mut c::CONTEXT,
+    dispatcherContext: *mut c::DISPATCHER_CONTEXT,
+) -> c::EXCEPTION_DISPOSITION {
     let er = &*exceptionRecord;
     let dc = &*dispatcherContext;
 
@@ -95,12 +98,14 @@ unsafe extern "C" fn rust_eh_personality(exceptionRecord: *mut c::EXCEPTION_RECO
         // we are in the dispatch phase
         if er.ExceptionCode == RUST_PANIC {
             if let Some(lpad) = find_landing_pad(dc) {
-                c::RtlUnwindEx(establisherFrame,
-                               lpad as c::LPVOID,
-                               exceptionRecord,
-                               er.ExceptionInformation[0] as c::LPVOID, // pointer to PanicData
-                               contextRecord,
-                               dc.HistoryTable);
+                c::RtlUnwindEx(
+                    establisherFrame,
+                    lpad as c::LPVOID,
+                    exceptionRecord,
+                    er.ExceptionInformation[0] as c::LPVOID, // pointer to PanicData
+                    contextRecord,
+                    dc.HistoryTable,
+                );
             }
         }
     }
@@ -111,10 +116,12 @@ unsafe extern "C" fn rust_eh_personality(exceptionRecord: *mut c::EXCEPTION_RECO
 #[unwind]
 unsafe extern "C" fn rust_eh_unwind_resume(panic_ctx: c::LPVOID) -> ! {
     let params = [panic_ctx as c::ULONG_PTR];
-    c::RaiseException(RUST_PANIC,
-                      c::EXCEPTION_NONCONTINUABLE,
-                      params.len() as c::DWORD,
-                      &params as *const c::ULONG_PTR);
+    c::RaiseException(
+        RUST_PANIC,
+        c::EXCEPTION_NONCONTINUABLE,
+        params.len() as c::DWORD,
+        &params as *const c::ULONG_PTR,
+    );
     intrinsics::abort();
 }
 
@@ -128,10 +135,8 @@ unsafe fn find_landing_pad(dc: &c::DISPATCHER_CONTEXT) -> Option<usize> {
         get_data_start: &|| unimplemented!(),
     };
     match find_eh_action(dc.HandlerData, &eh_ctx) {
-        Err(_) |
-        Ok(EHAction::None) => None,
-        Ok(EHAction::Cleanup(lpad)) |
-        Ok(EHAction::Catch(lpad)) => Some(lpad),
+        Err(_) | Ok(EHAction::None) => None,
+        Ok(EHAction::Cleanup(lpad)) | Ok(EHAction::Catch(lpad)) => Some(lpad),
         Ok(EHAction::Terminate) => intrinsics::abort(),
     }
 }

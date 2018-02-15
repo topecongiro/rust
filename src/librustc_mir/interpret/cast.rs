@@ -3,8 +3,8 @@ use syntax::ast::{FloatTy, IntTy, UintTy};
 
 use rustc_const_math::ConstFloat;
 use super::{EvalContext, Machine};
-use rustc::mir::interpret::{PrimVal, EvalResult, MemoryPointer, PointerArithmetic};
-use rustc_apfloat::ieee::{Single, Double};
+use rustc::mir::interpret::{EvalResult, MemoryPointer, PointerArithmetic, PrimVal};
+use rustc_apfloat::ieee::{Double, Single};
 use rustc_apfloat::Float;
 
 impl<'a, 'tcx, M: Machine<'tcx>> EvalContext<'a, 'tcx, M> {
@@ -69,12 +69,7 @@ impl<'a, 'tcx, M: Machine<'tcx>> EvalContext<'a, 'tcx, M> {
         }
     }
 
-    fn cast_from_int(
-        &self,
-        v: u128,
-        ty: Ty<'tcx>,
-        negative: bool,
-    ) -> EvalResult<'tcx, PrimVal> {
+    fn cast_from_int(&self, v: u128, ty: Ty<'tcx>, negative: bool) -> EvalResult<'tcx, PrimVal> {
         trace!("cast_from_int: {}, {}, {}", v, ty, negative);
         use rustc::ty::TypeVariants::*;
         match ty.sty {
@@ -82,7 +77,9 @@ impl<'a, 'tcx, M: Machine<'tcx>> EvalContext<'a, 'tcx, M> {
             TyInt(ty) => Ok(PrimVal::Bytes(self.int_to_int(v as i128, ty))),
             TyUint(ty) => Ok(PrimVal::Bytes(self.int_to_uint(v, ty))),
 
-            TyFloat(fty) if negative => Ok(PrimVal::Bytes(ConstFloat::from_i128(v as i128, fty).bits)),
+            TyFloat(fty) if negative => {
+                Ok(PrimVal::Bytes(ConstFloat::from_i128(v as i128, fty).bits))
+            }
             TyFloat(fty) => Ok(PrimVal::Bytes(ConstFloat::from_u128(v, fty).bits)),
 
             TyChar if v as u8 as u128 == v => Ok(PrimVal::Bytes(v)),
@@ -99,20 +96,30 @@ impl<'a, 'tcx, M: Machine<'tcx>> EvalContext<'a, 'tcx, M> {
         use rustc::ty::TypeVariants::*;
         match ty.sty {
             TyUint(t) => {
-                let width = t.bit_width().unwrap_or(self.memory.pointer_size() as usize * 8);
+                let width = t.bit_width()
+                    .unwrap_or(self.memory.pointer_size() as usize * 8);
                 match val.ty {
-                    FloatTy::F32 => Ok(PrimVal::Bytes(Single::from_bits(val.bits).to_u128(width).value)),
-                    FloatTy::F64 => Ok(PrimVal::Bytes(Double::from_bits(val.bits).to_u128(width).value)),
+                    FloatTy::F32 => Ok(PrimVal::Bytes(
+                        Single::from_bits(val.bits).to_u128(width).value,
+                    )),
+                    FloatTy::F64 => Ok(PrimVal::Bytes(
+                        Double::from_bits(val.bits).to_u128(width).value,
+                    )),
                 }
-            },
+            }
 
             TyInt(t) => {
-                let width = t.bit_width().unwrap_or(self.memory.pointer_size() as usize * 8);
+                let width = t.bit_width()
+                    .unwrap_or(self.memory.pointer_size() as usize * 8);
                 match val.ty {
-                    FloatTy::F32 => Ok(PrimVal::from_i128(Single::from_bits(val.bits).to_i128(width).value)),
-                    FloatTy::F64 => Ok(PrimVal::from_i128(Double::from_bits(val.bits).to_i128(width).value)),
+                    FloatTy::F32 => Ok(PrimVal::from_i128(
+                        Single::from_bits(val.bits).to_i128(width).value,
+                    )),
+                    FloatTy::F64 => Ok(PrimVal::from_i128(
+                        Double::from_bits(val.bits).to_i128(width).value,
+                    )),
                 }
-            },
+            }
 
             TyFloat(fty) => Ok(PrimVal::from_float(val.convert(fty))),
             _ => err!(Unimplemented(format!("float to {:?} cast", ty))),
@@ -123,9 +130,7 @@ impl<'a, 'tcx, M: Machine<'tcx>> EvalContext<'a, 'tcx, M> {
         use rustc::ty::TypeVariants::*;
         match ty.sty {
             // Casting to a reference or fn pointer is not permitted by rustc, no need to support it here.
-            TyRawPtr(_) |
-            TyInt(IntTy::Isize) |
-            TyUint(UintTy::Usize) => Ok(PrimVal::Ptr(ptr)),
+            TyRawPtr(_) | TyInt(IntTy::Isize) | TyUint(UintTy::Usize) => Ok(PrimVal::Ptr(ptr)),
             TyInt(_) | TyUint(_) => err!(ReadPointerAsBytes),
             _ => err!(Unimplemented(format!("ptr to {:?} cast", ty))),
         }

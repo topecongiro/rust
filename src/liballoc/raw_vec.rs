@@ -13,7 +13,7 @@ use core::mem;
 use core::ops::Drop;
 use core::ptr::{self, Unique};
 use core::slice;
-use heap::{Alloc, Layout, Heap};
+use heap::{Alloc, Heap, Layout};
 use super::boxed::Box;
 
 /// A low-level utility for more ergonomically allocating, reallocating, and deallocating
@@ -309,9 +309,8 @@ impl<T, A: Alloc> RawVec<T, A> {
                     let new_size = new_cap * elem_size;
                     let new_layout = Layout::from_size_align_unchecked(new_size, cur.align());
                     alloc_guard(new_size);
-                    let ptr_res = self.a.realloc(self.ptr.as_ptr() as *mut u8,
-                                                 cur,
-                                                 new_layout);
+                    let ptr_res = self.a
+                        .realloc(self.ptr.as_ptr() as *mut u8, cur, new_layout);
                     match ptr_res {
                         Ok(ptr) => (new_cap, Unique::new_unchecked(ptr as *mut T)),
                         Err(e) => self.a.oom(e),
@@ -376,9 +375,7 @@ impl<T, A: Alloc> RawVec<T, A> {
                     self.cap = new_cap;
                     true
                 }
-                Err(_) => {
-                    false
-                }
+                Err(_) => false,
             }
         }
     }
@@ -417,7 +414,9 @@ impl<T, A: Alloc> RawVec<T, A> {
             }
 
             // Nothing we can really do about these checks :(
-            let new_cap = used_cap.checked_add(needed_extra_cap).expect("capacity overflow");
+            let new_cap = used_cap
+                .checked_add(needed_extra_cap)
+                .expect("capacity overflow");
             let new_layout = match Layout::array::<T>(new_cap) {
                 Some(layout) => layout,
                 None => panic!("capacity overflow"),
@@ -444,7 +443,8 @@ impl<T, A: Alloc> RawVec<T, A> {
     /// Returns `(new_capacity, new_alloc_size)`.
     fn amortized_new_size(&self, used_cap: usize, needed_extra_cap: usize) -> usize {
         // Nothing we can really do about these checks :(
-        let required_cap = used_cap.checked_add(needed_extra_cap)
+        let required_cap = used_cap
+            .checked_add(needed_extra_cap)
             .expect("capacity overflow");
         // Cannot overflow, because `cap <= isize::MAX`, and type of `cap` is `usize`.
         let double_cap = self.cap * 2;
@@ -591,9 +591,7 @@ impl<T, A: Alloc> RawVec<T, A> {
                     self.cap = new_cap;
                     true
                 }
-                Err(_) => {
-                    false
-                }
+                Err(_) => false,
             }
         }
     }
@@ -647,9 +645,9 @@ impl<T, A: Alloc> RawVec<T, A> {
                 let align = mem::align_of::<T>();
                 let old_layout = Layout::from_size_align_unchecked(old_size, align);
                 let new_layout = Layout::from_size_align_unchecked(new_size, align);
-                match self.a.realloc(self.ptr.as_ptr() as *mut u8,
-                                     old_layout,
-                                     new_layout) {
+                match self.a
+                    .realloc(self.ptr.as_ptr() as *mut u8, old_layout, new_layout)
+                {
                     Ok(p) => self.ptr = Unique::new_unchecked(p as *mut T),
                     Err(err) => self.a.oom(err),
                 }
@@ -693,11 +691,11 @@ impl<T, A: Alloc> RawVec<T, A> {
 unsafe impl<#[may_dangle] T, A: Alloc> Drop for RawVec<T, A> {
     /// Frees the memory owned by the RawVec *without* trying to Drop its contents.
     fn drop(&mut self) {
-        unsafe { self.dealloc_buffer(); }
+        unsafe {
+            self.dealloc_buffer();
+        }
     }
 }
-
-
 
 // We need to guarantee the following:
 // * We don't ever allocate `> isize::MAX` byte-size objects
@@ -711,11 +709,12 @@ unsafe impl<#[may_dangle] T, A: Alloc> Drop for RawVec<T, A> {
 #[inline]
 fn alloc_guard(alloc_size: usize) {
     if mem::size_of::<usize>() < 8 {
-        assert!(alloc_size <= ::core::isize::MAX as usize,
-                "capacity overflow");
+        assert!(
+            alloc_size <= ::core::isize::MAX as usize,
+            "capacity overflow"
+        );
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -737,15 +736,22 @@ mod tests {
 
         // A dumb allocator that consumes a fixed amount of fuel
         // before allocation attempts start failing.
-        struct BoundedAlloc { fuel: usize }
+        struct BoundedAlloc {
+            fuel: usize,
+        }
         unsafe impl Alloc for BoundedAlloc {
             unsafe fn alloc(&mut self, layout: Layout) -> Result<*mut u8, AllocErr> {
                 let size = layout.size();
                 if size > self.fuel {
-                    return Err(AllocErr::Unsupported { details: "fuel exhausted" });
+                    return Err(AllocErr::Unsupported {
+                        details: "fuel exhausted",
+                    });
                 }
                 match Heap.alloc(layout) {
-                    ok @ Ok(_) => { self.fuel -= size; ok }
+                    ok @ Ok(_) => {
+                        self.fuel -= size;
+                        ok
+                    }
                     err @ Err(_) => err,
                 }
             }
@@ -792,6 +798,5 @@ mod tests {
             assert!(v.cap() >= 12 + 12 / 2);
         }
     }
-
 
 }

@@ -40,14 +40,14 @@ use hash::Hasher;
 /// [ub]: ../../reference/behavior-considered-undefined.html
 #[stable(feature = "rust1", since = "1.0.0")]
 #[rustc_on_unimplemented = "`{Self}` cannot be sent between threads safely"]
-pub unsafe auto trait Send {
+pub unsafe trait Send {
     // empty.
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<T: ?Sized> !Send for *const T { }
+impl<T: ?Sized> !Send for *const T {}
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<T: ?Sized> !Send for *mut T { }
+impl<T: ?Sized> !Send for *mut T {}
 
 /// Types with a constant size known at compile time.
 ///
@@ -265,7 +265,7 @@ pub trait Unsize<T: ?Sized> {
 /// [`i32`]: ../../std/primitive.i32.html
 #[stable(feature = "rust1", since = "1.0.0")]
 #[lang = "copy"]
-pub trait Copy : Clone {
+pub trait Copy: Clone {
     // Empty.
 }
 
@@ -340,14 +340,14 @@ pub trait Copy : Clone {
 #[stable(feature = "rust1", since = "1.0.0")]
 #[lang = "sync"]
 #[rustc_on_unimplemented = "`{Self}` cannot be shared between threads safely"]
-pub unsafe auto trait Sync {
+pub unsafe trait Sync {
     // Empty
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<T: ?Sized> !Sync for *const T { }
+impl<T: ?Sized> !Sync for *const T {}
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<T: ?Sized> !Sync for *mut T { }
+impl<T: ?Sized> !Sync for *mut T {}
 
 macro_rules! impls{
     ($t: ident) => (
@@ -537,7 +537,7 @@ macro_rules! impls{
 /// [drop check]: ../../nomicon/dropck.html
 #[lang = "phantom_data"]
 #[stable(feature = "rust1", since = "1.0.0")]
-pub struct PhantomData<T:?Sized>;
+pub struct PhantomData<T: ?Sized>;
 
 impls! { PhantomData }
 
@@ -553,7 +553,7 @@ mod impls {
 /// This affects, for example, whether a `static` of that type is
 /// placed in read-only static memory or writable static memory.
 #[lang = "freeze"]
-unsafe auto trait Freeze {}
+unsafe trait Freeze {}
 
 impl<T: ?Sized> !Freeze for UnsafeCell<T> {}
 unsafe impl<T: ?Sized> Freeze for PhantomData<T> {}

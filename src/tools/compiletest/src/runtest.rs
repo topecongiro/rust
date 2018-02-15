@@ -381,8 +381,7 @@ impl<'test> TestCx<'test> {
                 self.config,
                 format!(
                     "pretty-printing round {} revision {:?}",
-                    round,
-                    self.revision
+                    round, self.revision
                 ),
             );
             let proc_res = self.print_source(srcs[round].to_owned(), &self.props.pretty_mode);
@@ -391,8 +390,7 @@ impl<'test> TestCx<'test> {
                 self.fatal_proc_rec(
                     &format!(
                         "pretty-printing failed in round {} revision {:?}",
-                        round,
-                        self.revision
+                        round, self.revision
                     ),
                     &proc_res,
                 );
@@ -496,8 +494,7 @@ impl<'test> TestCx<'test> {
                  {}\n\
                  ------------------------------------------\n\
                  \n",
-                expected,
-                actual
+                expected, actual
             );
             panic!();
         }
@@ -603,8 +600,7 @@ impl<'test> TestCx<'test> {
                 script_str.push_str(&format!(
                     "set solib-search-path \
                      ./{}/stage2/lib/rustlib/{}/lib/\n",
-                    self.config.host,
-                    self.config.target
+                    self.config.host, self.config.target
                 ));
                 for line in &breakpoint_lines {
                     script_str.push_str(
@@ -823,7 +819,6 @@ impl<'test> TestCx<'test> {
             ..self.config.clone()
         };
 
-
         let test_cx = TestCx {
             config: &config,
             ..*self
@@ -894,8 +889,7 @@ impl<'test> TestCx<'test> {
         for line in &breakpoint_lines {
             script_str.push_str(&format!(
                 "breakpoint set --file '{}' --line {}\n",
-                source_file_name,
-                line
+                source_file_name, line
             ));
         }
 
@@ -970,9 +964,7 @@ impl<'test> TestCx<'test> {
     fn parse_debugger_commands(&self, debugger_prefixes: &[&str]) -> DebuggerCommands {
         let directives = debugger_prefixes
             .iter()
-            .map(|prefix| {
-                (format!("{}-command", prefix), format!("{}-check", prefix))
-            })
+            .map(|prefix| (format!("{}-command", prefix), format!("{}-check", prefix)))
             .collect::<Vec<_>>();
 
         let mut breakpoint_lines = vec![];
@@ -983,12 +975,11 @@ impl<'test> TestCx<'test> {
         for line in reader.lines() {
             match line {
                 Ok(line) => {
-                    let line =
-                        if line.starts_with("//") {
-                            line[2..].trim_left()
-                        } else {
-                            line.as_str()
-                        };
+                    let line = if line.starts_with("//") {
+                        line[2..].trim_left()
+                    } else {
+                        line.as_str()
+                    };
 
                     if line.contains("#break") {
                         breakpoint_lines.push(counter);
@@ -1602,10 +1593,7 @@ impl<'test> TestCx<'test> {
         }
 
         if let Some(ref incremental_dir) = self.props.incremental_dir {
-            rustc.args(&[
-                "-C",
-                &format!("incremental={}", incremental_dir.display()),
-            ]);
+            rustc.args(&["-C", &format!("incremental={}", incremental_dir.display())]);
             rustc.args(&["-Z", "incremental-verify-ich"]);
             rustc.args(&["-Z", "incremental-queries"]);
         }
@@ -1646,20 +1634,11 @@ impl<'test> TestCx<'test> {
 
                 rustc.arg(dir_opt);
             }
-            RunPass |
-            RunFail |
-            RunPassValgrind |
-            Pretty |
-            DebugInfoGdb |
-            DebugInfoLldb |
-            Codegen |
-            Rustdoc |
-            RunMake |
-            CodegenUnits => {
+            RunPass | RunFail | RunPassValgrind | Pretty | DebugInfoGdb | DebugInfoLldb
+            | Codegen | Rustdoc | RunMake | CodegenUnits => {
                 // do not use JSON output
             }
         }
-
 
         if self.config.target == "wasm32-unknown-unknown" {
             // rustc.arg("-g"); // get any backtrace at all on errors
@@ -2331,8 +2310,7 @@ impl<'test> TestCx<'test> {
         if self.config.verbose {
             print!(
                 "revision={:?} revision_props={:#?}",
-                revision,
-                revision_props
+                revision, revision_props
             );
         }
 
@@ -2613,8 +2591,7 @@ impl<'test> TestCx<'test> {
         if source_time > output_time {
             debug!(
                 "source file time: {:?} output file time: {:?}",
-                source_time,
-                output_time
+                source_time, output_time
             );
             panic!(
                 "test source file `{}` is newer than potentially stale output file `{}`.",
@@ -2685,10 +2662,7 @@ impl<'test> TestCx<'test> {
                  Expected Line: {:?}\n\
                  Expected:\n{}\n\
                  Actual:\n{}",
-                extra_msg,
-                expected_line,
-                expected_content,
-                normalize_all
+                extra_msg, expected_line, expected_content, normalize_all
             );
         };
 
@@ -2822,14 +2796,14 @@ impl<'test> TestCx<'test> {
                         DiffLine::Expected(e) => {
                             println!("-\t{}", e);
                             line_number += 1;
-                        },
+                        }
                         DiffLine::Context(c) => {
                             println!("{}\t{}", line_number, c);
                             line_number += 1;
-                        },
+                        }
                         DiffLine::Resulting(r) => {
                             println!("+\t{}", r);
-                        },
+                        }
                     }
                 }
                 println!("");
@@ -2883,10 +2857,7 @@ impl ProcRes {
              {}\n\
              ------------------------------------------\n\
              \n",
-            self.status,
-            self.cmdline,
-            self.stdout,
-            self.stderr
+            self.status, self.cmdline, self.stdout, self.stderr
         );
         panic!();
     }

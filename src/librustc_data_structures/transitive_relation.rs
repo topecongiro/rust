@@ -10,13 +10,12 @@
 
 use bitvec::BitMatrix;
 use fx::FxHashMap;
-use rustc_serialize::{Encodable, Encoder, Decodable, Decoder};
+use rustc_serialize::{Decodable, Decoder, Encodable, Encoder};
 use stable_hasher::{HashStable, StableHasher, StableHasherResult};
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::mem;
-
 
 #[derive(Clone, Debug)]
 pub struct TransitiveRelation<T: Clone + Debug + Eq + Hash + Clone> {
@@ -78,30 +77,29 @@ impl<T: Clone + Debug + Eq + Hash + Clone> TransitiveRelation<T> {
         } = self;
 
         map.entry(a.clone())
-           .or_insert_with(|| {
-               elements.push(a);
+            .or_insert_with(|| {
+                elements.push(a);
 
-               // if we changed the dimensions, clear the cache
-               *closure.borrow_mut() = None;
+                // if we changed the dimensions, clear the cache
+                *closure.borrow_mut() = None;
 
-               Index(elements.len() - 1)
-           })
-           .clone()
+                Index(elements.len() - 1)
+            })
+            .clone()
     }
 
     /// Applies the (partial) function to each edge and returns a new
     /// relation.  If `f` returns `None` for any end-point, returns
     /// `None`.
     pub fn maybe_map<F, U>(&self, mut f: F) -> Option<TransitiveRelation<U>>
-        where F: FnMut(&T) -> Option<U>,
-              U: Clone + Debug + Eq + Hash + Clone,
+    where
+        F: FnMut(&T) -> Option<U>,
+        U: Clone + Debug + Eq + Hash + Clone,
     {
         let mut result = TransitiveRelation::new();
         for edge in &self.edges {
             let r = f(&self.elements[edge.source.0]).and_then(|source| {
-                f(&self.elements[edge.target.0]).and_then(|target| {
-                    Some(result.add(source, target))
-                })
+                f(&self.elements[edge.target.0]).and_then(|target| Some(result.add(source, target)))
             });
             if r.is_none() {
                 return None;
@@ -142,9 +140,9 @@ impl<T: Clone + Debug + Eq + Hash + Clone> TransitiveRelation<T> {
     /// strategy -- it'd be a touch tricky anyhow.
     pub fn reachable_from(&self, a: &T) -> Vec<&T> {
         match self.index(a) {
-            Some(a) => self.with_closure(|closure| {
-                closure.iter(a.0).map(|i| &self.elements[i]).collect()
-            }),
+            Some(a) => {
+                self.with_closure(|closure| closure.iter(a.0).map(|i| &self.elements[i]).collect())
+            }
             None => vec![],
         }
     }
@@ -322,7 +320,7 @@ impl<T: Clone + Debug + Eq + Hash + Clone> TransitiveRelation<T> {
     pub fn parents(&self, a: &T) -> Vec<&T> {
         let a = match self.index(a) {
             Some(a) => a,
-            None => return vec![]
+            None => return vec![],
         };
 
         // Steal the algorithm for `minimal_upper_bounds` above, but
@@ -354,7 +352,8 @@ impl<T: Clone + Debug + Eq + Hash + Clone> TransitiveRelation<T> {
     }
 
     fn with_closure<OP, R>(&self, op: OP) -> R
-        where OP: FnOnce(&BitMatrix) -> R
+    where
+        OP: FnOnce(&BitMatrix) -> R,
     {
         let mut closure_cell = self.closure.borrow_mut();
         let mut closure = closure_cell.take();
@@ -367,8 +366,7 @@ impl<T: Clone + Debug + Eq + Hash + Clone> TransitiveRelation<T> {
     }
 
     fn compute_closure(&self) -> BitMatrix {
-        let mut matrix = BitMatrix::new(self.elements.len(),
-                                        self.elements.len());
+        let mut matrix = BitMatrix::new(self.elements.len(), self.elements.len());
         let mut changed = true;
         while changed {
             changed = false;
@@ -421,7 +419,8 @@ fn pare_down(candidates: &mut Vec<usize>, closure: &BitMatrix) {
 }
 
 impl<T> Encodable for TransitiveRelation<T>
-    where T: Clone + Encodable + Debug + Eq + Hash + Clone
+where
+    T: Clone + Encodable + Debug + Eq + Hash + Clone,
 {
     fn encode<E: Encoder>(&self, s: &mut E) -> Result<(), E::Error> {
         s.emit_struct("TransitiveRelation", 2, |s| {
@@ -433,27 +432,33 @@ impl<T> Encodable for TransitiveRelation<T>
 }
 
 impl<T> Decodable for TransitiveRelation<T>
-    where T: Clone + Decodable + Debug + Eq + Hash + Clone
+where
+    T: Clone + Decodable + Debug + Eq + Hash + Clone,
 {
     fn decode<D: Decoder>(d: &mut D) -> Result<Self, D::Error> {
         d.read_struct("TransitiveRelation", 2, |d| {
             let elements: Vec<T> = d.read_struct_field("elements", 0, |d| Decodable::decode(d))?;
             let edges = d.read_struct_field("edges", 1, |d| Decodable::decode(d))?;
-            let map = elements.iter()
-                              .enumerate()
-                              .map(|(index, elem)| (elem.clone(), Index(index)))
-                              .collect();
-            Ok(TransitiveRelation { elements, edges, map, closure: RefCell::new(None) })
+            let map = elements
+                .iter()
+                .enumerate()
+                .map(|(index, elem)| (elem.clone(), Index(index)))
+                .collect();
+            Ok(TransitiveRelation {
+                elements,
+                edges,
+                map,
+                closure: RefCell::new(None),
+            })
         })
     }
 }
 
 impl<CTX, T> HashStable<CTX> for TransitiveRelation<T>
-    where T: HashStable<CTX> + Eq + Debug + Clone + Hash
+where
+    T: HashStable<CTX> + Eq + Debug + Clone + Hash,
 {
-    fn hash_stable<W: StableHasherResult>(&self,
-                                          hcx: &mut CTX,
-                                          hasher: &mut StableHasher<W>) {
+    fn hash_stable<W: StableHasherResult>(&self, hcx: &mut CTX, hasher: &mut StableHasher<W>) {
         // We are assuming here that the relation graph has been built in a
         // deterministic way and we can just hash it the way it is.
         let TransitiveRelation {
@@ -462,7 +467,7 @@ impl<CTX, T> HashStable<CTX> for TransitiveRelation<T>
             // "map" is just a copy of elements vec
             map: _,
             // "closure" is just a copy of the data above
-            closure: _
+            closure: _,
         } = *self;
 
         elements.hash_stable(hcx, hasher);
@@ -471,9 +476,7 @@ impl<CTX, T> HashStable<CTX> for TransitiveRelation<T>
 }
 
 impl<CTX> HashStable<CTX> for Edge {
-    fn hash_stable<W: StableHasherResult>(&self,
-                                          hcx: &mut CTX,
-                                          hasher: &mut StableHasher<W>) {
+    fn hash_stable<W: StableHasherResult>(&self, hcx: &mut CTX, hasher: &mut StableHasher<W>) {
         let Edge {
             ref source,
             ref target,
@@ -485,9 +488,7 @@ impl<CTX> HashStable<CTX> for Edge {
 }
 
 impl<CTX> HashStable<CTX> for Index {
-    fn hash_stable<W: StableHasherResult>(&self,
-                                          hcx: &mut CTX,
-                                          hasher: &mut StableHasher<W>) {
+    fn hash_stable<W: StableHasherResult>(&self, hcx: &mut CTX, hasher: &mut StableHasher<W>) {
         let Index(idx) = *self;
         idx.hash_stable(hcx, hasher);
     }
@@ -650,8 +651,10 @@ fn pdub_crisscross() {
     relation.add("a1", "x");
     relation.add("b1", "x");
 
-    assert_eq!(relation.minimal_upper_bounds(&"a", &"b"),
-               vec![&"a1", &"b1"]);
+    assert_eq!(
+        relation.minimal_upper_bounds(&"a", &"b"),
+        vec![&"a1", &"b1"]
+    );
     assert_eq!(relation.postdom_upper_bound(&"a", &"b"), Some(&"x"));
     assert_eq!(relation.postdom_parent(&"a"), Some(&"x"));
     assert_eq!(relation.postdom_parent(&"b"), Some(&"x"));
@@ -681,10 +684,14 @@ fn pdub_crisscross_more() {
     relation.add("a3", "x");
     relation.add("b2", "x");
 
-    assert_eq!(relation.minimal_upper_bounds(&"a", &"b"),
-               vec![&"a1", &"b1"]);
-    assert_eq!(relation.minimal_upper_bounds(&"a1", &"b1"),
-               vec![&"a2", &"b2"]);
+    assert_eq!(
+        relation.minimal_upper_bounds(&"a", &"b"),
+        vec![&"a1", &"b1"]
+    );
+    assert_eq!(
+        relation.minimal_upper_bounds(&"a1", &"b1"),
+        vec![&"a2", &"b2"]
+    );
     assert_eq!(relation.postdom_upper_bound(&"a", &"b"), Some(&"x"));
 
     assert_eq!(relation.postdom_parent(&"a"), Some(&"x"));

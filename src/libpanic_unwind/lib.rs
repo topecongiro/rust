@@ -29,7 +29,6 @@
        html_root_url = "https://doc.rust-lang.org/nightly/",
        issue_tracker_base_url = "https://github.com/rust-lang/rust/issues/")]
 #![deny(warnings)]
-
 #![feature(alloc)]
 #![feature(core_intrinsics)]
 #![feature(lang_items)]
@@ -39,7 +38,6 @@
 #![feature(staged_api)]
 #![feature(unwind_attributes)]
 #![cfg_attr(target_env = "msvc", feature(raw))]
-
 #![panic_runtime]
 #![feature(panic_runtime)]
 
@@ -53,7 +51,7 @@ use core::mem;
 use core::raw;
 
 // Rust runtime's startup objects depend on these symbols, so make them public.
-#[cfg(all(target_os="windows", target_arch = "x86", target_env="gnu"))]
+#[cfg(all(target_os = "windows", target_arch = "x86", target_env = "gnu"))]
 pub use imp::eh_frame_registry::*;
 
 // *-pc-windows-msvc
@@ -67,9 +65,7 @@ mod imp;
 mod imp;
 
 // i686-pc-windows-gnu and all others
-#[cfg(any(all(unix, not(target_os = "emscripten")),
-          target_os = "cloudabi",
-          target_os = "redox",
+#[cfg(any(all(unix, not(target_os = "emscripten")), target_os = "cloudabi", target_os = "redox",
           all(windows, target_arch = "x86", target_env = "gnu")))]
 #[path = "gcc.rs"]
 mod imp;
@@ -93,11 +89,12 @@ mod windows;
 // hairy and tightly coupled, for more information see the compiler's
 // implementation of this.
 #[no_mangle]
-pub unsafe extern "C" fn __rust_maybe_catch_panic(f: fn(*mut u8),
-                                                  data: *mut u8,
-                                                  data_ptr: *mut usize,
-                                                  vtable_ptr: *mut usize)
-                                                  -> u32 {
+pub unsafe extern "C" fn __rust_maybe_catch_panic(
+    f: fn(*mut u8),
+    data: *mut u8,
+    data_ptr: *mut usize,
+    vtable_ptr: *mut usize,
+) -> u32 {
     let mut payload = imp::payload();
     if intrinsics::try(f, data, &mut payload as *mut _ as *mut _) == 0 {
         0

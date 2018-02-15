@@ -70,15 +70,11 @@ impl<'a, 'gcx, 'tcx> NiceRegionError<'a, 'gcx, 'tcx> {
 
         debug!(
             "try_report_anon_anon_conflict: found_arg1={:?} sup={:?} br1={:?}",
-            ty_sub,
-            sup,
-            bregion_sup
+            ty_sub, sup, bregion_sup
         );
         debug!(
             "try_report_anon_anon_conflict: found_arg2={:?} sub={:?} br2={:?}",
-            ty_sup,
-            sub,
-            bregion_sub
+            ty_sup, sub, bregion_sub
         );
 
         let (ty_sup, ty_fndecl_sup) = ty_sup;
@@ -108,7 +104,6 @@ impl<'a, 'gcx, 'tcx> NiceRegionError<'a, 'gcx, 'tcx> {
             format!("")
         };
 
-
         let (span_1, span_2, main_label, span_label) = match (sup_is_ret_type, sub_is_ret_type) {
             (None, None) => {
                 let (main_label_1, span_label_1) = if ty_sup == ty_sub {
@@ -125,8 +120,7 @@ impl<'a, 'gcx, 'tcx> NiceRegionError<'a, 'gcx, 'tcx> {
                         format!("these two types are declared with different lifetimes..."),
                         format!(
                             "...but data{} flows{} here",
-                            span_label_var1,
-                            span_label_var2
+                            span_label_var1, span_label_var2
                         ),
                     )
                 };
@@ -152,7 +146,6 @@ impl<'a, 'gcx, 'tcx> NiceRegionError<'a, 'gcx, 'tcx> {
                 format!("...but data{} is returned here", span_label_var1),
             ),
         };
-
 
         struct_span_err!(self.tcx.sess, span, E0623, "lifetime mismatch")
             .span_label(span_1, main_label)

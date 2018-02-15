@@ -17,7 +17,7 @@ use rustc_back::PanicStrategy;
 use syntax::ast;
 use syntax::symbol::Symbol;
 use syntax_pos::Span;
-use hir::intravisit::{Visitor, NestedVisitorMap};
+use hir::intravisit::{NestedVisitorMap, Visitor};
 use hir::intravisit;
 use hir;
 use ty::TyCtxt;

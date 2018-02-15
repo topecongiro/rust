@@ -18,10 +18,10 @@ use std::path::{Path, PathBuf};
 use back::archive;
 use back::command::Command;
 use back::symbol_export;
-use rustc::hir::def_id::{LOCAL_CRATE, CrateNum};
+use rustc::hir::def_id::{CrateNum, LOCAL_CRATE};
 use rustc::middle::dependency_format::Linkage;
 use rustc::session::Session;
-use rustc::session::config::{self, CrateType, OptLevel, DebugInfoLevel};
+use rustc::session::config::{self, CrateType, DebugInfoLevel, OptLevel};
 use rustc::ty::TyCtxt;
 use rustc_back::LinkerFlavor;
 use serialize::{json, Encoder};
@@ -35,51 +35,42 @@ pub struct LinkerInfo {
 impl LinkerInfo {
     pub fn new(tcx: TyCtxt) -> LinkerInfo {
         LinkerInfo {
-            exports: tcx.sess.crate_types.borrow().iter().map(|&c| {
-                (c, exported_symbols(tcx, c))
-            }).collect(),
+            exports: tcx.sess
+                .crate_types
+                .borrow()
+                .iter()
+                .map(|&c| (c, exported_symbols(tcx, c)))
+                .collect(),
         }
     }
 
-    pub fn to_linker<'a>(&'a self,
-                         cmd: Command,
-                         sess: &'a Session) -> Box<Linker+'a> {
+    pub fn to_linker<'a>(&'a self, cmd: Command, sess: &'a Session) -> Box<Linker + 'a> {
         match sess.linker_flavor() {
-            LinkerFlavor::Msvc => {
-                Box::new(MsvcLinker {
-                    cmd,
-                    sess,
-                    info: self
-                }) as Box<Linker>
-            }
-            LinkerFlavor::Em =>  {
-                Box::new(EmLinker {
-                    cmd,
-                    sess,
-                    info: self
-                }) as Box<Linker>
-            }
-            LinkerFlavor::Gcc =>  {
-                Box::new(GccLinker {
-                    cmd,
-                    sess,
-                    info: self,
-                    hinted_static: false,
-                    is_ld: false,
-                }) as Box<Linker>
-            }
-            LinkerFlavor::Ld => {
-                Box::new(GccLinker {
-                    cmd,
-                    sess,
-                    info: self,
-                    hinted_static: false,
-                    is_ld: true,
-                }) as Box<Linker>
-            }
-            LinkerFlavor::Binaryen => {
-                panic!("can't instantiate binaryen linker")
-            }
+            LinkerFlavor::Msvc => Box::new(MsvcLinker {
+                cmd,
+                sess,
+                info: self,
+            }) as Box<Linker>,
+            LinkerFlavor::Em => Box::new(EmLinker {
+                cmd,
+                sess,
+                info: self,
+            }) as Box<Linker>,
+            LinkerFlavor::Gcc => Box::new(GccLinker {
+                cmd,
+                sess,
+                info: self,
+                hinted_static: false,
+                is_ld: false,
+            }) as Box<Linker>,
+            LinkerFlavor::Ld => Box::new(GccLinker {
+                cmd,
+                sess,
+                info: self,
+                hinted_static: false,
+                is_ld: true,
+            }) as Box<Linker>,
+            LinkerFlavor::Binaryen => panic!("can't instantiate binaryen linker"),
         }
     }
 }
@@ -133,7 +124,8 @@ impl<'a> GccLinker<'a> {
     ///
     /// These arguments need to be prepended with '-Wl,' when a gcc-style linker is used
     fn linker_arg<S>(&mut self, arg: S) -> &mut Self
-        where S: AsRef<OsStr>
+    where
+        S: AsRef<OsStr>,
     {
         if !self.is_ld {
             let mut os = OsString::from("-Wl,");
@@ -154,7 +146,9 @@ impl<'a> GccLinker<'a> {
     // was flagged "static" (most defaults are dynamic) to ensure that if
     // libfoo.a and libfoo.so both exist that the right one is chosen.
     fn hint_static(&mut self) {
-        if !self.takes_hints() { return }
+        if !self.takes_hints() {
+            return;
+        }
         if !self.hinted_static {
             self.linker_arg("-Bstatic");
             self.hinted_static = true;
@@ -162,7 +156,9 @@ impl<'a> GccLinker<'a> {
     }
 
     fn hint_dynamic(&mut self) {
-        if !self.takes_hints() { return }
+        if !self.takes_hints() {
+            return;
+        }
         if self.hinted_static {
             self.linker_arg("-Bdynamic");
             self.hinted_static = false;
@@ -171,18 +167,45 @@ impl<'a> GccLinker<'a> {
 }
 
 impl<'a> Linker for GccLinker<'a> {
-    fn link_dylib(&mut self, lib: &str) { self.hint_dynamic(); self.cmd.arg("-l").arg(lib); }
-    fn link_staticlib(&mut self, lib: &str) { self.hint_static(); self.cmd.arg("-l").arg(lib); }
-    fn link_rlib(&mut self, lib: &Path) { self.hint_static(); self.cmd.arg(lib); }
-    fn include_path(&mut self, path: &Path) { self.cmd.arg("-L").arg(path); }
-    fn framework_path(&mut self, path: &Path) { self.cmd.arg("-F").arg(path); }
-    fn output_filename(&mut self, path: &Path) { self.cmd.arg("-o").arg(path); }
-    fn add_object(&mut self, path: &Path) { self.cmd.arg(path); }
-    fn position_independent_executable(&mut self) { self.cmd.arg("-pie"); }
-    fn partial_relro(&mut self) { self.linker_arg("-z,relro"); }
-    fn full_relro(&mut self) { self.linker_arg("-z,relro,-z,now"); }
-    fn build_static_executable(&mut self) { self.cmd.arg("-static"); }
-    fn args(&mut self, args: &[String]) { self.cmd.args(args); }
+    fn link_dylib(&mut self, lib: &str) {
+        self.hint_dynamic();
+        self.cmd.arg("-l").arg(lib);
+    }
+    fn link_staticlib(&mut self, lib: &str) {
+        self.hint_static();
+        self.cmd.arg("-l").arg(lib);
+    }
+    fn link_rlib(&mut self, lib: &Path) {
+        self.hint_static();
+        self.cmd.arg(lib);
+    }
+    fn include_path(&mut self, path: &Path) {
+        self.cmd.arg("-L").arg(path);
+    }
+    fn framework_path(&mut self, path: &Path) {
+        self.cmd.arg("-F").arg(path);
+    }
+    fn output_filename(&mut self, path: &Path) {
+        self.cmd.arg("-o").arg(path);
+    }
+    fn add_object(&mut self, path: &Path) {
+        self.cmd.arg(path);
+    }
+    fn position_independent_executable(&mut self) {
+        self.cmd.arg("-pie");
+    }
+    fn partial_relro(&mut self) {
+        self.linker_arg("-z,relro");
+    }
+    fn full_relro(&mut self) {
+        self.linker_arg("-z,relro,-z,now");
+    }
+    fn build_static_executable(&mut self) {
+        self.cmd.arg("-static");
+    }
+    fn args(&mut self, args: &[String]) {
+        self.cmd.args(args);
+    }
 
     fn link_rust_dylib(&mut self, lib: &str, _path: &Path) {
         self.hint_dynamic();
@@ -259,12 +282,15 @@ impl<'a> Linker for GccLinker<'a> {
     }
 
     fn optimize(&mut self) {
-        if !self.sess.target.target.options.linker_is_gnu { return }
+        if !self.sess.target.target.options.linker_is_gnu {
+            return;
+        }
 
         // GNU-style linkers support optimization with -O. GNU ld doesn't
         // need a numeric argument, but other linkers do.
-        if self.sess.opts.optimize == config::OptLevel::Default ||
-           self.sess.opts.optimize == config::OptLevel::Aggressive {
+        if self.sess.opts.optimize == config::OptLevel::Default
+            || self.sess.opts.optimize == config::OptLevel::Aggressive
+        {
             self.linker_arg("-O1");
         }
     }
@@ -289,8 +315,7 @@ impl<'a> Linker for GccLinker<'a> {
             // purely to support rustbuild right now, we should get a more
             // principled solution at some point to force the compiler to pass
             // the right `-Wl,-install_name` with an `@rpath` in it.
-            if self.sess.opts.cg.rpath ||
-               self.sess.opts.debugging_opts.osx_rpath_install_name {
+            if self.sess.opts.cg.rpath || self.sess.opts.debugging_opts.osx_rpath_install_name {
                 let mut v = OsString::from("-install_name,@rpath/");
                 v.push(out_filename.file_name().unwrap());
                 self.linker_arg(&v);
@@ -308,9 +333,8 @@ impl<'a> Linker for GccLinker<'a> {
         // exported symbols to ensure we don't expose any more. The object files
         // have far more public symbols than we actually want to export, so we
         // hide them all here.
-        if crate_type == CrateType::CrateTypeDylib ||
-           crate_type == CrateType::CrateTypeProcMacro {
-            return
+        if crate_type == CrateType::CrateTypeDylib || crate_type == CrateType::CrateTypeProcMacro {
+            return;
         }
 
         let mut arg = OsString::new();
@@ -329,7 +353,8 @@ impl<'a> Linker for GccLinker<'a> {
                 Ok(())
             })();
             if let Err(e) = res {
-                self.sess.fatal(&format!("failed to write lib.def file: {}", e));
+                self.sess
+                    .fatal(&format!("failed to write lib.def file: {}", e));
             }
         } else {
             // Write an LD version script
@@ -344,7 +369,8 @@ impl<'a> Linker for GccLinker<'a> {
                 Ok(())
             })();
             if let Err(e) = res {
-                self.sess.fatal(&format!("failed to write version script: {}", e));
+                self.sess
+                    .fatal(&format!("failed to write version script: {}", e));
             }
         }
 
@@ -384,13 +410,19 @@ impl<'a> Linker for GccLinker<'a> {
 pub struct MsvcLinker<'a> {
     cmd: Command,
     sess: &'a Session,
-    info: &'a LinkerInfo
+    info: &'a LinkerInfo,
 }
 
 impl<'a> Linker for MsvcLinker<'a> {
-    fn link_rlib(&mut self, lib: &Path) { self.cmd.arg(lib); }
-    fn add_object(&mut self, path: &Path) { self.cmd.arg(path); }
-    fn args(&mut self, args: &[String]) { self.cmd.args(args); }
+    fn link_rlib(&mut self, lib: &Path) {
+        self.cmd.arg(lib);
+    }
+    fn add_object(&mut self, path: &Path) {
+        self.cmd.arg(path);
+    }
+    fn args(&mut self, args: &[String]) {
+        self.cmd.args(args);
+    }
 
     fn build_dylib(&mut self, out_filename: &Path) {
         self.cmd.arg("/DLL");
@@ -506,7 +538,8 @@ impl<'a> Linker for MsvcLinker<'a> {
             if let Some(ref linker_path) = self.sess.opts.cg.linker {
                 if let Some(linker_name) = Path::new(&linker_path).file_stem() {
                     if linker_name.to_str().unwrap().to_lowercase() == "lld-link" {
-                        self.sess.warn("not embedding natvis: lld-link may not support the flag");
+                        self.sess
+                            .warn("not embedding natvis: lld-link may not support the flag");
                         return;
                     }
                 }
@@ -520,10 +553,11 @@ impl<'a> Linker for MsvcLinker<'a> {
                             arg.push(path);
                             self.cmd.arg(arg);
                         }
-                    },
+                    }
                     Err(err) => {
-                        self.sess.warn(&format!("error enumerating natvis directory: {}", err));
-                    },
+                        self.sess
+                            .warn(&format!("error enumerating natvis directory: {}", err));
+                    }
                 }
             }
         }
@@ -541,9 +575,7 @@ impl<'a> Linker for MsvcLinker<'a> {
     // crates. Upstream rlibs may be linked statically to this dynamic library,
     // in which case they may continue to transitively be used and hence need
     // their symbols exported.
-    fn export_symbols(&mut self,
-                      tmpdir: &Path,
-                      crate_type: CrateType) {
+    fn export_symbols(&mut self, tmpdir: &Path, crate_type: CrateType) {
         let path = tmpdir.join("lib.def");
         let res = (|| -> io::Result<()> {
             let mut f = BufWriter::new(File::create(&path)?);
@@ -559,7 +591,8 @@ impl<'a> Linker for MsvcLinker<'a> {
             Ok(())
         })();
         if let Err(e) = res {
-            self.sess.fatal(&format!("failed to write lib.def file: {}", e));
+            self.sess
+                .fatal(&format!("failed to write lib.def file: {}", e));
         }
         let mut arg = OsString::from("/DEF:");
         arg.push(path);
@@ -600,7 +633,7 @@ impl<'a> Linker for MsvcLinker<'a> {
 pub struct EmLinker<'a> {
     cmd: Command,
     sess: &'a Session,
-    info: &'a LinkerInfo
+    info: &'a LinkerInfo,
 }
 
 impl<'a> Linker for EmLinker<'a> {
@@ -679,7 +712,7 @@ impl<'a> Linker for EmLinker<'a> {
             OptLevel::Default => "-O2",
             OptLevel::Aggressive => "-O3",
             OptLevel::Size => "-Os",
-            OptLevel::SizeMin => "-Oz"
+            OptLevel::SizeMin => "-Oz",
         });
         // Unusable until https://github.com/rust-lang/rust/issues/38454 is resolved
         self.cmd.args(&["--memory-init-file", "0"]);
@@ -690,12 +723,13 @@ impl<'a> Linker for EmLinker<'a> {
         self.cmd.arg(match self.sess.opts.debuginfo {
             DebugInfoLevel::NoDebugInfo => "-g0",
             DebugInfoLevel::LimitedDebugInfo => "-g3",
-            DebugInfoLevel::FullDebugInfo => "-g4"
+            DebugInfoLevel::FullDebugInfo => "-g4",
         });
     }
 
     fn no_default_libraries(&mut self) {
-        self.cmd.args(&["-s", "DEFAULT_LIBRARY_FUNCS_TO_INCLUDE=[]"]);
+        self.cmd
+            .args(&["-s", "DEFAULT_LIBRARY_FUNCS_TO_INCLUDE=[]"]);
     }
 
     fn build_dylib(&mut self, _out_filename: &Path) {
@@ -720,14 +754,13 @@ impl<'a> Linker for EmLinker<'a> {
             let mut encoder = json::Encoder::new(&mut encoded);
             let res = encoder.emit_seq(symbols.len(), |encoder| {
                 for (i, sym) in symbols.iter().enumerate() {
-                    encoder.emit_seq_elt(i, |encoder| {
-                        encoder.emit_str(&("_".to_string() + sym))
-                    })?;
+                    encoder.emit_seq_elt(i, |encoder| encoder.emit_str(&("_".to_string() + sym)))?;
                 }
                 Ok(())
             });
             if let Err(e) = res {
-                self.sess.fatal(&format!("failed to encode exported symbols: {}", e));
+                self.sess
+                    .fatal(&format!("failed to encode exported symbols: {}", e));
             }
         }
         debug!("{}", encoded);

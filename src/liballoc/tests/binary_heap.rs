@@ -289,8 +289,12 @@ fn test_placement() {
 #[test]
 fn test_placement_panic() {
     let mut heap = BinaryHeap::from(vec![1, 2, 3]);
-    fn mkpanic() -> usize { panic!() }
-    let _ = panic::catch_unwind(panic::AssertUnwindSafe(|| { &mut heap <- mkpanic(); }));
+    fn mkpanic() -> usize {
+        panic!()
+    }
+    let _ = panic::catch_unwind(panic::AssertUnwindSafe(|| {
+        &mut heap <- mkpanic();
+    }));
     assert_eq!(heap.len(), 3);
 }
 

@@ -31,8 +31,7 @@ mod exit {
 /// a successful execution. In case of a failure, `libc::EXIT_FAILURE` is returned.
 #[cfg_attr(not(test), lang = "termination")]
 #[unstable(feature = "termination_trait", issue = "43301")]
-#[rustc_on_unimplemented =
-  "`main` can only return types that implement {Termination}, not `{Self}`"]
+#[rustc_on_unimplemented = "`main` can only return types that implement {Termination}, not `{Self}`"]
 pub trait Termination {
     /// Is called to get the representation of the value as status code.
     /// This status code is returned to the operating system.
@@ -41,7 +40,9 @@ pub trait Termination {
 
 #[unstable(feature = "termination_trait", issue = "43301")]
 impl Termination for () {
-    fn report(self) -> i32 { exit::SUCCESS }
+    fn report(self) -> i32 {
+        exit::SUCCESS
+    }
 }
 
 #[unstable(feature = "termination_trait", issue = "43301")]
@@ -68,13 +69,19 @@ fn print_error<E: Error>(err: E) {
 
 #[unstable(feature = "termination_trait", issue = "43301")]
 impl Termination for ! {
-    fn report(self) -> i32 { unreachable!(); }
+    fn report(self) -> i32 {
+        unreachable!();
+    }
 }
 
 #[unstable(feature = "termination_trait", issue = "43301")]
 impl Termination for bool {
     fn report(self) -> i32 {
-        if self { exit::SUCCESS } else { exit::FAILURE }
+        if self {
+            exit::SUCCESS
+        } else {
+            exit::FAILURE
+        }
     }
 }
 

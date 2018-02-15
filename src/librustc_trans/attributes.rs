@@ -31,14 +31,14 @@ use context::CodegenCx;
 pub fn inline(val: ValueRef, inline: InlineAttr) {
     use self::InlineAttr::*;
     match inline {
-        Hint   => Attribute::InlineHint.apply_llfn(Function, val),
+        Hint => Attribute::InlineHint.apply_llfn(Function, val),
         Always => Attribute::AlwaysInline.apply_llfn(Function, val),
-        Never  => Attribute::NoInline.apply_llfn(Function, val),
-        None   => {
+        Never => Attribute::NoInline.apply_llfn(Function, val),
+        None => {
             Attribute::InlineHint.unapply_llfn(Function, val);
             Attribute::AlwaysInline.unapply_llfn(Function, val);
             Attribute::NoInline.unapply_llfn(Function, val);
-        },
+        }
     };
 }
 
@@ -72,8 +72,11 @@ pub fn set_frame_pointer_elimination(cx: &CodegenCx, llfn: ValueRef) {
     // parameter.
     if cx.sess().must_not_eliminate_frame_pointers() {
         llvm::AddFunctionAttrStringValue(
-            llfn, llvm::AttributePlace::Function,
-            cstr("no-frame-pointer-elim\0"), cstr("true\0"));
+            llfn,
+            llvm::AttributePlace::Function,
+            cstr("no-frame-pointer-elim\0"),
+            cstr("true\0"),
+        );
     }
 }
 
@@ -81,7 +84,7 @@ pub fn set_probestack(cx: &CodegenCx, llfn: ValueRef) {
     // Only use stack probes if the target specification indicates that we
     // should be using stack probes
     if !cx.sess().target.target.options.stack_probes {
-        return
+        return;
     }
 
     // Currently stack probes seem somewhat incompatible with the address
@@ -95,8 +98,11 @@ pub fn set_probestack(cx: &CodegenCx, llfn: ValueRef) {
     // Flag our internal `__rust_probestack` function as the stack probe symbol.
     // This is defined in the `compiler-builtins` crate for each architecture.
     llvm::AddFunctionAttrStringValue(
-        llfn, llvm::AttributePlace::Function,
-        cstr("probe-stack\0"), cstr("__rust_probestack\0"));
+        llfn,
+        llvm::AttributePlace::Function,
+        cstr("probe-stack\0"),
+        cstr("__rust_probestack\0"),
+    );
 }
 
 /// Composite function which sets LLVM attributes for function depending on its AST (#[attribute])
@@ -115,8 +121,7 @@ pub fn from_fn_attrs(cx: &CodegenCx, llfn: ValueRef, id: DefId) {
         } else if attr.check_name("naked") {
             naked(llfn, true);
         } else if attr.check_name("allocator") {
-            Attribute::NoAlias.apply_llfn(
-                llvm::AttributePlace::ReturnValue, llfn);
+            Attribute::NoAlias.apply_llfn(llvm::AttributePlace::ReturnValue, llfn);
         } else if attr.check_name("unwind") {
             unwind(llfn, true);
         } else if attr.check_name("rustc_allocator_nounwind") {
@@ -128,8 +133,11 @@ pub fn from_fn_attrs(cx: &CodegenCx, llfn: ValueRef, id: DefId) {
     if !target_features.is_empty() {
         let val = CString::new(target_features.join(",")).unwrap();
         llvm::AddFunctionAttrStringValue(
-            llfn, llvm::AttributePlace::Function,
-            cstr("target-features\0"), &val);
+            llfn,
+            llvm::AttributePlace::Function,
+            cstr("target-features\0"),
+            &val,
+        );
     }
 }
 
@@ -140,10 +148,12 @@ fn cstr(s: &'static str) -> &CStr {
 pub fn provide(providers: &mut Providers) {
     providers.target_features_whitelist = |tcx, cnum| {
         assert_eq!(cnum, LOCAL_CRATE);
-        Rc::new(llvm_util::target_feature_whitelist(tcx.sess)
-            .iter()
-            .map(|c| c.to_str().unwrap().to_string())
-            .collect())
+        Rc::new(
+            llvm_util::target_feature_whitelist(tcx.sess)
+                .iter()
+                .map(|c| c.to_str().unwrap().to_string())
+                .collect(),
+        )
     };
 
     providers.target_features_enabled = |tcx, id| {
@@ -151,7 +161,7 @@ pub fn provide(providers: &mut Providers) {
         let mut target_features = Vec::new();
         for attr in tcx.get_attrs(id).iter() {
             if !attr.check_name("target_feature") {
-                continue
+                continue;
             }
             if let Some(val) = attr.value_str() {
                 for feat in val.as_str().split(",").map(|f| f.trim()) {
@@ -163,7 +173,7 @@ pub fn provide(providers: &mut Providers) {
                            eventually be removed, use \
                            #[target_feature(enable = \"..\")] instead";
                 tcx.sess.span_warn(attr.span, &msg);
-                continue
+                continue;
             }
 
             if tcx.fn_sig(id).unsafety() == Unsafety::Normal {
@@ -189,7 +199,7 @@ fn from_target_feature(
             let msg = "#[target_feature] attribute must be of the form \
                        #[target_feature(..)]";
             tcx.sess.span_err(attr.span, &msg);
-            return
+            return;
         }
     };
 
@@ -198,7 +208,7 @@ fn from_target_feature(
             let msg = "#[target_feature(..)] only accepts sub-keys of `enable` \
                        currently";
             tcx.sess.span_err(item.span, &msg);
-            continue
+            continue;
         }
         let value = match item.value_str() {
             Some(list) => list,
@@ -206,18 +216,21 @@ fn from_target_feature(
                 let msg = "#[target_feature] attribute must be of the form \
                            #[target_feature(enable = \"..\")]";
                 tcx.sess.span_err(item.span, &msg);
-                continue
+                continue;
             }
         };
         let value = value.as_str();
         for feature in value.split(',') {
             if whitelist.contains(feature) {
                 target_features.push(format!("+{}", feature));
-                continue
+                continue;
             }
 
-            let msg = format!("the feature named `{}` is not valid for \
-                               this target", feature);
+            let msg = format!(
+                "the feature named `{}` is not valid for \
+                 this target",
+                feature
+            );
             let mut err = tcx.sess.struct_span_err(item.span, &msg);
 
             if feature.starts_with("+") {

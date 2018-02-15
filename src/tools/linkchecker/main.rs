@@ -27,7 +27,7 @@
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
-use std::path::{Path, PathBuf, Component};
+use std::path::{Component, Path, PathBuf};
 use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry;
 
@@ -71,17 +71,17 @@ type Cache = HashMap<PathBuf, FileEntry>;
 
 fn small_url_encode(s: &str) -> String {
     s.replace("<", "%3C")
-     .replace(">", "%3E")
-     .replace(" ", "%20")
-     .replace("?", "%3F")
-     .replace("'", "%27")
-     .replace("&", "%26")
-     .replace(",", "%2C")
-     .replace(":", "%3A")
-     .replace(";", "%3B")
-     .replace("[", "%5B")
-     .replace("]", "%5D")
-     .replace("\"", "%22")
+        .replace(">", "%3E")
+        .replace(" ", "%20")
+        .replace("?", "%3F")
+        .replace("'", "%27")
+        .replace("&", "%26")
+        .replace(",", "%2C")
+        .replace(":", "%3A")
+        .replace(";", "%3B")
+        .replace("[", "%5B")
+        .replace("]", "%5D")
+        .replace("\"", "%22")
 }
 
 impl FileEntry {
@@ -119,11 +119,7 @@ fn walk(cache: &mut Cache, root: &Path, dir: &Path, errors: &mut bool) {
     }
 }
 
-fn check(cache: &mut Cache,
-         root: &Path,
-         file: &Path,
-         errors: &mut bool)
-         -> Option<PathBuf> {
+fn check(cache: &mut Cache, root: &Path, file: &Path, errors: &mut bool) -> Option<PathBuf> {
     // Ignore none HTML files.
     if file.extension().and_then(|s| s.to_str()) != Some("html") {
         return None;
@@ -132,16 +128,17 @@ fn check(cache: &mut Cache,
     // Unfortunately we're not 100% full of valid links today to we need a few
     // whitelists to get this past `make check` today.
     // FIXME(#32129)
-    if file.ends_with("std/string/struct.String.html") ||
-       file.ends_with("interpret/struct.ValTy.html") ||
-       file.ends_with("symbol/struct.InternedString.html") ||
-       file.ends_with("ast/struct.ThinVec.html") ||
-       file.ends_with("util/struct.ThinVec.html") ||
-       file.ends_with("util/struct.RcSlice.html") ||
-       file.ends_with("layout/struct.TyLayout.html") ||
-       file.ends_with("ty/struct.Slice.html") ||
-       file.ends_with("ty/enum.Attributes.html") ||
-       file.ends_with("ty/struct.SymbolName.html") {
+    if file.ends_with("std/string/struct.String.html")
+        || file.ends_with("interpret/struct.ValTy.html")
+        || file.ends_with("symbol/struct.InternedString.html")
+        || file.ends_with("ast/struct.ThinVec.html")
+        || file.ends_with("util/struct.ThinVec.html")
+        || file.ends_with("util/struct.RcSlice.html")
+        || file.ends_with("layout/struct.TyLayout.html")
+        || file.ends_with("ty/struct.Slice.html")
+        || file.ends_with("ty/enum.Attributes.html")
+        || file.ends_with("ty/struct.SymbolName.html")
+    {
         return None;
     }
     // FIXME(#32553)
@@ -149,13 +146,13 @@ fn check(cache: &mut Cache,
         return None;
     }
     // FIXME(#32130)
-    if file.ends_with("btree_set/struct.BTreeSet.html") ||
-       file.ends_with("struct.BTreeSet.html") ||
-       file.ends_with("btree_map/struct.BTreeMap.html") ||
-       file.ends_with("hash_map/struct.HashMap.html") ||
-       file.ends_with("hash_set/struct.HashSet.html") ||
-       file.ends_with("sync/struct.Lrc.html") ||
-       file.ends_with("sync/struct.RwLock.html") {
+    if file.ends_with("btree_set/struct.BTreeSet.html") || file.ends_with("struct.BTreeSet.html")
+        || file.ends_with("btree_map/struct.BTreeMap.html")
+        || file.ends_with("hash_map/struct.HashMap.html")
+        || file.ends_with("hash_set/struct.HashSet.html")
+        || file.ends_with("sync/struct.Lrc.html")
+        || file.ends_with("sync/struct.RwLock.html")
+    {
         return None;
     }
 
@@ -165,17 +162,19 @@ fn check(cache: &mut Cache,
         Err(_) => return None,
     };
     {
-        cache.get_mut(&pretty_file)
-             .unwrap()
-             .parse_ids(&pretty_file, &contents, errors);
+        cache
+            .get_mut(&pretty_file)
+            .unwrap()
+            .parse_ids(&pretty_file, &contents, errors);
     }
 
     // Search for anything that's the regex 'href[ ]*=[ ]*".*?"'
     with_attrs_in_source(&contents, " href", |url, i, base| {
         // Ignore external URLs
-        if url.starts_with("http:") || url.starts_with("https:") ||
-           url.starts_with("javascript:") || url.starts_with("ftp:") ||
-           url.starts_with("irc:") || url.starts_with("data:") {
+        if url.starts_with("http:") || url.starts_with("https:") || url.starts_with("javascript:")
+            || url.starts_with("ftp:") || url.starts_with("irc:")
+            || url.starts_with("data:")
+        {
             return;
         }
         let mut parts = url.splitn(2, "#");
@@ -191,21 +190,26 @@ fn check(cache: &mut Cache,
             path.pop();
             for part in Path::new(base).join(url).components() {
                 match part {
-                    Component::Prefix(_) |
-                    Component::RootDir => {
+                    Component::Prefix(_) | Component::RootDir => {
                         // Avoid absolute paths as they make the docs not
                         // relocatable by making assumptions on where the docs
                         // are hosted relative to the site root.
                         *errors = true;
-                        println!("{}:{}: absolute path - {}",
-                                 pretty_file.display(),
-                                 i + 1,
-                                 Path::new(base).join(url).display());
+                        println!(
+                            "{}:{}: absolute path - {}",
+                            pretty_file.display(),
+                            i + 1,
+                            Path::new(base).join(url).display()
+                        );
                         return;
                     }
                     Component::CurDir => {}
-                    Component::ParentDir => { path.pop(); }
-                    Component::Normal(s) => { path.push(s); }
+                    Component::ParentDir => {
+                        path.pop();
+                    }
+                    Component::Normal(s) => {
+                        path.push(s);
+                    }
                 }
             }
         }
@@ -218,10 +222,12 @@ fn check(cache: &mut Cache,
                 // the docs offline so it's best to avoid them.
                 *errors = true;
                 let pretty_path = path.strip_prefix(root).unwrap_or(&path);
-                println!("{}:{}: directory link - {}",
-                         pretty_file.display(),
-                         i + 1,
-                         pretty_path.display());
+                println!(
+                    "{}:{}: directory link - {}",
+                    pretty_file.display(),
+                    i + 1,
+                    pretty_path.display()
+                );
                 return;
             }
             if let Some(extension) = path.extension() {
@@ -238,10 +244,12 @@ fn check(cache: &mut Cache,
                 }
                 Err(LoadError::BrokenRedirect(target, _)) => {
                     *errors = true;
-                    println!("{}:{}: broken redirect to {}",
-                             pretty_file.display(),
-                             i + 1,
-                             target.display());
+                    println!(
+                        "{}:{}: broken redirect to {}",
+                        pretty_file.display(),
+                        i + 1,
+                        target.display()
+                    );
                     return;
                 }
                 Err(LoadError::IsRedirect) => unreachable!(),
@@ -250,8 +258,10 @@ fn check(cache: &mut Cache,
             if let Some(ref fragment) = fragment {
                 // Fragments like `#1-6` are most likely line numbers to be
                 // interpreted by javascript, so we're ignoring these
-                if fragment.splitn(2, '-')
-                           .all(|f| f.chars().all(|c| c.is_numeric())) {
+                if fragment
+                    .splitn(2, '-')
+                    .all(|f| f.chars().all(|c| c.is_numeric()))
+                {
                     return;
                 }
 
@@ -260,9 +270,7 @@ fn check(cache: &mut Cache,
 
                 if !entry.ids.contains(*fragment) {
                     *errors = true;
-                    print!("{}:{}: broken link fragment ",
-                           pretty_file.display(),
-                           i + 1);
+                    print!("{}:{}: broken link fragment ", pretty_file.display(), i + 1);
                     println!("`#{}` pointing to `{}`", fragment, pretty_path.display());
                 };
             }
@@ -276,11 +284,12 @@ fn check(cache: &mut Cache,
     Some(pretty_file)
 }
 
-fn load_file(cache: &mut Cache,
-             root: &Path,
-             file: &Path,
-             redirect: Redirect)
-             -> Result<(PathBuf, String), LoadError> {
+fn load_file(
+    cache: &mut Cache,
+    root: &Path,
+    file: &Path,
+    redirect: Redirect,
+) -> Result<(PathBuf, String), LoadError> {
     let mut contents = String::new();
     let pretty_file = PathBuf::from(file.strip_prefix(root).unwrap_or(&file));
 
@@ -297,7 +306,8 @@ fn load_file(cache: &mut Cache,
                     LoadError::IOError(err)
                 }
             })?;
-            fp.read_to_string(&mut contents).map_err(|err| LoadError::IOError(err))?;
+            fp.read_to_string(&mut contents)
+                .map_err(|err| LoadError::IOError(err))?;
 
             let maybe = maybe_redirect(&contents);
             if maybe.is_some() {
@@ -314,9 +324,7 @@ fn load_file(cache: &mut Cache,
         }
     };
     match maybe_redirect.map(|url| file.parent().unwrap().join(url)) {
-        Some(redirect_file) => {
-            load_file(cache, root, &redirect_file, FromRedirect(true))
-        }
+        Some(redirect_file) => load_file(cache, root, &redirect_file, FromRedirect(true)),
         None => Ok((pretty_file, contents)),
     }
 }

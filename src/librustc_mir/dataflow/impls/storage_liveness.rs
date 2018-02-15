@@ -19,8 +19,7 @@ pub struct MaybeStorageLive<'a, 'tcx: 'a> {
 }
 
 impl<'a, 'tcx: 'a> MaybeStorageLive<'a, 'tcx> {
-    pub fn new(mir: &'a Mir<'tcx>)
-               -> Self {
+    pub fn new(mir: &'a Mir<'tcx>) -> Self {
         MaybeStorageLive { mir: mir }
     }
 
@@ -31,7 +30,9 @@ impl<'a, 'tcx: 'a> MaybeStorageLive<'a, 'tcx> {
 
 impl<'a, 'tcx> BitDenotation for MaybeStorageLive<'a, 'tcx> {
     type Idx = Local;
-    fn name() -> &'static str { "maybe_storage_live" }
+    fn name() -> &'static str {
+        "maybe_storage_live"
+    }
     fn bits_per_block(&self) -> usize {
         self.mir.local_decls.len()
     }
@@ -40,9 +41,7 @@ impl<'a, 'tcx> BitDenotation for MaybeStorageLive<'a, 'tcx> {
         // Nothing is live on function entry
     }
 
-    fn statement_effect(&self,
-                        sets: &mut BlockSets<Local>,
-                        loc: Location) {
+    fn statement_effect(&self, sets: &mut BlockSets<Local>, loc: Location) {
         let stmt = &self.mir[loc.block].statements[loc.statement_index];
 
         match stmt.kind {
@@ -52,17 +51,17 @@ impl<'a, 'tcx> BitDenotation for MaybeStorageLive<'a, 'tcx> {
         }
     }
 
-    fn terminator_effect(&self,
-                         _sets: &mut BlockSets<Local>,
-                         _loc: Location) {
+    fn terminator_effect(&self, _sets: &mut BlockSets<Local>, _loc: Location) {
         // Terminators have no effect
     }
 
-    fn propagate_call_return(&self,
-                             _in_out: &mut IdxSet<Local>,
-                             _call_bb: mir::BasicBlock,
-                             _dest_bb: mir::BasicBlock,
-                             _dest_place: &mir::Place) {
+    fn propagate_call_return(
+        &self,
+        _in_out: &mut IdxSet<Local>,
+        _call_bb: mir::BasicBlock,
+        _dest_bb: mir::BasicBlock,
+        _dest_place: &mir::Place,
+    ) {
         // Nothing to do when a call returns successfully
     }
 }

@@ -12,7 +12,7 @@ use std::cmp::Ordering::{Equal, Greater, Less};
 use std::mem;
 use std::rc::Rc;
 
-use rand::{Rng, thread_rng};
+use rand::{thread_rng, Rng};
 
 fn square(n: usize) -> usize {
     n * n
@@ -235,7 +235,6 @@ fn test_slice_to() {
     let b: &[_] = &[];
     assert_eq!(&vec[..0], b);
 }
-
 
 #[test]
 fn test_pop() {
@@ -524,7 +523,7 @@ fn test_rotate_left() {
 
     // non-small prime rotation, has a few rounds of swapping
     v = (389..1000).chain(0..389).collect();
-    v.rotate_left(1000-389);
+    v.rotate_left(1000 - 389);
     assert_eq!(v, expected);
 }
 
@@ -686,7 +685,6 @@ fn test_total_ord_u8() {
     assert_order!(Greater, &[2u8, 2][..], &c[..]);
 }
 
-
 #[test]
 fn test_total_ord_i32() {
     let c = &[1, 2, 3];
@@ -776,7 +774,6 @@ fn test_mut_iterator() {
 
 #[test]
 fn test_rev_iterator() {
-
     let xs = [1, 2, 5, 10, 11];
     let ys = [11, 10, 5, 2, 1];
     let mut i = 0;
@@ -799,15 +796,21 @@ fn test_mut_rev_iterator() {
 #[test]
 fn test_move_iterator() {
     let xs = vec![1, 2, 3, 4, 5];
-    assert_eq!(xs.into_iter().fold(0, |a: usize, b: usize| 10 * a + b),
-               12345);
+    assert_eq!(
+        xs.into_iter().fold(0, |a: usize, b: usize| 10 * a + b),
+        12345
+    );
 }
 
 #[test]
 fn test_move_rev_iterator() {
     let xs = vec![1, 2, 3, 4, 5];
-    assert_eq!(xs.into_iter().rev().fold(0, |a: usize, b: usize| 10 * a + b),
-               54321);
+    assert_eq!(
+        xs.into_iter()
+            .rev()
+            .fold(0, |a: usize, b: usize| 10 * a + b),
+        54321
+    );
 }
 
 #[test]
@@ -851,11 +854,15 @@ fn test_splitnator_mut() {
     let xs = &mut [1, 2, 3, 4, 5];
 
     let splits: &[&mut [_]] = &[&mut [1, 2, 3, 4, 5]];
-    assert_eq!(xs.splitn_mut(1, |x| *x % 2 == 0).collect::<Vec<_>>(),
-               splits);
+    assert_eq!(
+        xs.splitn_mut(1, |x| *x % 2 == 0).collect::<Vec<_>>(),
+        splits
+    );
     let splits: &[&mut [_]] = &[&mut [1], &mut [3, 4, 5]];
-    assert_eq!(xs.splitn_mut(2, |x| *x % 2 == 0).collect::<Vec<_>>(),
-               splits);
+    assert_eq!(
+        xs.splitn_mut(2, |x| *x % 2 == 0).collect::<Vec<_>>(),
+        splits
+    );
     let splits: &[&mut [_]] = &[&mut [], &mut [], &mut [], &mut [4, 5]];
     assert_eq!(xs.splitn_mut(4, |_| true).collect::<Vec<_>>(), splits);
 
@@ -1304,14 +1311,18 @@ fn test_box_slice_clone_panics() {
     };
 
     spawn(move || {
-            // When xs is dropped, +5.
-            let xs = vec![canary.clone(), canary.clone(), canary.clone(), panic, canary]
-                .into_boxed_slice();
+        // When xs is dropped, +5.
+        let xs = vec![
+            canary.clone(),
+            canary.clone(),
+            canary.clone(),
+            panic,
+            canary,
+        ].into_boxed_slice();
 
-            // When panic is cloned, +3.
-            xs.clone();
-        })
-        .join()
+        // When panic is cloned, +3.
+        xs.clone();
+    }).join()
         .unwrap_err();
 
     // Total = 8

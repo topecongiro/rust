@@ -11,7 +11,7 @@
 use std::env::args;
 use std::fs::read_dir;
 use std::path::Path;
-use std::process::{Command, exit};
+use std::process::{exit, Command};
 
 const FILES_TO_IGNORE: &[&str] = &["main.css"];
 
@@ -23,11 +23,11 @@ fn get_folders<P: AsRef<Path>>(folder_path: P) -> Vec<String> {
         let path = entry.path();
 
         if !path.is_file() {
-            continue
+            continue;
         }
         let filename = path.file_name().expect("file_name failed");
         if FILES_TO_IGNORE.iter().any(|x| x == &filename) {
-            continue
+            continue;
         }
         ret.push(format!("{}", path.display()));
     }
@@ -49,10 +49,10 @@ fn main() {
         exit(1);
     }
     let status = Command::new(rustdoc_bin)
-                        .args(&["-Z", "unstable-options", "--theme-checker"])
-                        .args(&themes)
-                        .status()
-                        .expect("failed to execute child");
+        .args(&["-Z", "unstable-options", "--theme-checker"])
+        .args(&themes)
+        .status()
+        .expect("failed to execute child");
     if !status.success() {
         exit(1);
     }

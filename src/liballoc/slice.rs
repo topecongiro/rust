@@ -112,9 +112,9 @@ pub use core::slice::{Chunks, Windows};
 #[stable(feature = "rust1", since = "1.0.0")]
 pub use core::slice::{Iter, IterMut};
 #[stable(feature = "rust1", since = "1.0.0")]
-pub use core::slice::{SplitMut, ChunksMut, Split};
+pub use core::slice::{ChunksMut, Split, SplitMut};
 #[stable(feature = "rust1", since = "1.0.0")]
-pub use core::slice::{SplitN, RSplitN, SplitNMut, RSplitNMut};
+pub use core::slice::{RSplitN, RSplitNMut, SplitN, SplitNMut};
 #[unstable(feature = "slice_rsplit", issue = "41020")]
 pub use core::slice::{RSplit, RSplitMut};
 #[stable(feature = "rust1", since = "1.0.0")]
@@ -162,7 +162,8 @@ mod hack {
 
     #[inline]
     pub fn to_vec<T>(s: &[T]) -> Vec<T>
-        where T: Clone
+    where
+        T: Clone,
     {
         let mut vector = Vec::with_capacity(s.len());
         vector.extend_from_slice(s);
@@ -290,7 +291,6 @@ impl<T> [T] {
     #[inline]
     pub fn split_last(&self) -> Option<(&T, &[T])> {
         core_slice::SliceExt::split_last(self)
-
     }
 
     /// Returns the last and all the rest of the elements of the slice, or `None` if it is empty.
@@ -368,7 +368,8 @@ impl<T> [T] {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
     pub fn get<I>(&self, index: I) -> Option<&I::Output>
-        where I: SliceIndex<Self>
+    where
+        I: SliceIndex<Self>,
     {
         core_slice::SliceExt::get(self, index)
     }
@@ -391,7 +392,8 @@ impl<T> [T] {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
     pub fn get_mut<I>(&mut self, index: I) -> Option<&mut I::Output>
-        where I: SliceIndex<Self>
+    where
+        I: SliceIndex<Self>,
     {
         core_slice::SliceExt::get_mut(self, index)
     }
@@ -416,7 +418,8 @@ impl<T> [T] {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
     pub unsafe fn get_unchecked<I>(&self, index: I) -> &I::Output
-        where I: SliceIndex<Self>
+    where
+        I: SliceIndex<Self>,
     {
         core_slice::SliceExt::get_unchecked(self, index)
     }
@@ -443,7 +446,8 @@ impl<T> [T] {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
     pub unsafe fn get_unchecked_mut<I>(&mut self, index: I) -> &mut I::Output
-        where I: SliceIndex<Self>
+    where
+        I: SliceIndex<Self>,
     {
         core_slice::SliceExt::get_unchecked_mut(self, index)
     }
@@ -854,7 +858,8 @@ impl<T> [T] {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
     pub fn split<F>(&self, pred: F) -> Split<T, F>
-        where F: FnMut(&T) -> bool
+    where
+        F: FnMut(&T) -> bool,
     {
         core_slice::SliceExt::split(self, pred)
     }
@@ -875,7 +880,8 @@ impl<T> [T] {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
     pub fn split_mut<F>(&mut self, pred: F) -> SplitMut<T, F>
-        where F: FnMut(&T) -> bool
+    where
+        F: FnMut(&T) -> bool,
     {
         core_slice::SliceExt::split_mut(self, pred)
     }
@@ -914,7 +920,8 @@ impl<T> [T] {
     #[unstable(feature = "slice_rsplit", issue = "41020")]
     #[inline]
     pub fn rsplit<F>(&self, pred: F) -> RSplit<T, F>
-        where F: FnMut(&T) -> bool
+    where
+        F: FnMut(&T) -> bool,
     {
         core_slice::SliceExt::rsplit(self, pred)
     }
@@ -941,7 +948,8 @@ impl<T> [T] {
     #[unstable(feature = "slice_rsplit", issue = "41020")]
     #[inline]
     pub fn rsplit_mut<F>(&mut self, pred: F) -> RSplitMut<T, F>
-        where F: FnMut(&T) -> bool
+    where
+        F: FnMut(&T) -> bool,
     {
         core_slice::SliceExt::rsplit_mut(self, pred)
     }
@@ -968,7 +976,8 @@ impl<T> [T] {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
     pub fn splitn<F>(&self, n: usize, pred: F) -> SplitN<T, F>
-        where F: FnMut(&T) -> bool
+    where
+        F: FnMut(&T) -> bool,
     {
         core_slice::SliceExt::splitn(self, n, pred)
     }
@@ -993,7 +1002,8 @@ impl<T> [T] {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
     pub fn splitn_mut<F>(&mut self, n: usize, pred: F) -> SplitNMut<T, F>
-        where F: FnMut(&T) -> bool
+    where
+        F: FnMut(&T) -> bool,
     {
         core_slice::SliceExt::splitn_mut(self, n, pred)
     }
@@ -1021,7 +1031,8 @@ impl<T> [T] {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
     pub fn rsplitn<F>(&self, n: usize, pred: F) -> RSplitN<T, F>
-        where F: FnMut(&T) -> bool
+    where
+        F: FnMut(&T) -> bool,
     {
         core_slice::SliceExt::rsplitn(self, n, pred)
     }
@@ -1047,7 +1058,8 @@ impl<T> [T] {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
     pub fn rsplitn_mut<F>(&mut self, n: usize, pred: F) -> RSplitNMut<T, F>
-        where F: FnMut(&T) -> bool
+    where
+        F: FnMut(&T) -> bool,
     {
         core_slice::SliceExt::rsplitn_mut(self, n, pred)
     }
@@ -1063,7 +1075,8 @@ impl<T> [T] {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn contains(&self, x: &T) -> bool
-        where T: PartialEq
+    where
+        T: PartialEq,
     {
         core_slice::SliceExt::contains(self, x)
     }
@@ -1090,7 +1103,8 @@ impl<T> [T] {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn starts_with(&self, needle: &[T]) -> bool
-        where T: PartialEq
+    where
+        T: PartialEq,
     {
         core_slice::SliceExt::starts_with(self, needle)
     }
@@ -1117,7 +1131,8 @@ impl<T> [T] {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn ends_with(&self, needle: &[T]) -> bool
-        where T: PartialEq
+    where
+        T: PartialEq,
     {
         core_slice::SliceExt::ends_with(self, needle)
     }
@@ -1146,7 +1161,8 @@ impl<T> [T] {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn binary_search(&self, x: &T) -> Result<usize, usize>
-        where T: Ord
+    where
+        T: Ord,
     {
         core_slice::SliceExt::binary_search(self, x)
     }
@@ -1185,7 +1201,8 @@ impl<T> [T] {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
     pub fn binary_search_by<'a, F>(&'a self, f: F) -> Result<usize, usize>
-        where F: FnMut(&'a T) -> Ordering
+    where
+        F: FnMut(&'a T) -> Ordering,
     {
         core_slice::SliceExt::binary_search_by(self, f)
     }
@@ -1223,8 +1240,9 @@ impl<T> [T] {
     #[stable(feature = "slice_binary_search_by_key", since = "1.10.0")]
     #[inline]
     pub fn binary_search_by_key<'a, B, F>(&'a self, b: &B, f: F) -> Result<usize, usize>
-        where F: FnMut(&'a T) -> B,
-              B: Ord
+    where
+        F: FnMut(&'a T) -> B,
+        B: Ord,
     {
         core_slice::SliceExt::binary_search_by_key(self, b, f)
     }
@@ -1258,7 +1276,8 @@ impl<T> [T] {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
     pub fn sort(&mut self)
-        where T: Ord
+    where
+        T: Ord,
     {
         merge_sort(self, |a, b| a.lt(b));
     }
@@ -1295,7 +1314,8 @@ impl<T> [T] {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
     pub fn sort_by<F>(&mut self, mut compare: F)
-        where F: FnMut(&T, &T) -> Ordering
+    where
+        F: FnMut(&T, &T) -> Ordering,
     {
         merge_sort(self, |a, b| compare(a, b) == Less);
     }
@@ -1329,7 +1349,9 @@ impl<T> [T] {
     #[stable(feature = "slice_sort_by_key", since = "1.7.0")]
     #[inline]
     pub fn sort_by_key<B, F>(&mut self, mut f: F)
-        where F: FnMut(&T) -> B, B: Ord
+    where
+        F: FnMut(&T) -> B,
+        B: Ord,
     {
         merge_sort(self, |a, b| f(a).lt(&f(b)));
     }
@@ -1363,7 +1385,8 @@ impl<T> [T] {
     #[stable(feature = "sort_unstable", since = "1.20.0")]
     #[inline]
     pub fn sort_unstable(&mut self)
-        where T: Ord
+    where
+        T: Ord,
     {
         core_slice::SliceExt::sort_unstable(self);
     }
@@ -1401,7 +1424,8 @@ impl<T> [T] {
     #[stable(feature = "sort_unstable", since = "1.20.0")]
     #[inline]
     pub fn sort_unstable_by<F>(&mut self, compare: F)
-        where F: FnMut(&T, &T) -> Ordering
+    where
+        F: FnMut(&T, &T) -> Ordering,
     {
         core_slice::SliceExt::sort_unstable_by(self, compare);
     }
@@ -1436,8 +1460,9 @@ impl<T> [T] {
     #[stable(feature = "sort_unstable", since = "1.20.0")]
     #[inline]
     pub fn sort_unstable_by_key<B, F>(&mut self, f: F)
-        where F: FnMut(&T) -> B,
-              B: Ord
+    where
+        F: FnMut(&T) -> B,
+        B: Ord,
     {
         core_slice::SliceExt::sort_unstable_by_key(self, f);
     }
@@ -1579,7 +1604,10 @@ impl<T> [T] {
     /// [`copy_from_slice`]: #method.copy_from_slice
     /// [`split_at_mut`]: #method.split_at_mut
     #[stable(feature = "clone_from_slice", since = "1.7.0")]
-    pub fn clone_from_slice(&mut self, src: &[T]) where T: Clone {
+    pub fn clone_from_slice(&mut self, src: &[T])
+    where
+        T: Clone,
+    {
         core_slice::SliceExt::clone_from_slice(self, src)
     }
 
@@ -1635,7 +1663,10 @@ impl<T> [T] {
     /// [`clone_from_slice`]: #method.clone_from_slice
     /// [`split_at_mut`]: #method.split_at_mut
     #[stable(feature = "copy_from_slice", since = "1.9.0")]
-    pub fn copy_from_slice(&mut self, src: &[T]) where T: Copy {
+    pub fn copy_from_slice(&mut self, src: &[T])
+    where
+        T: Copy,
+    {
         core_slice::SliceExt::copy_from_slice(self, src)
     }
 
@@ -1710,7 +1741,8 @@ impl<T> [T] {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
     pub fn to_vec(&self) -> Vec<T>
-        where T: Clone
+    where
+        T: Clone,
     {
         // NB see hack module in this file
         hack::to_vec(self)
@@ -1789,10 +1821,10 @@ impl [u8] {
     #[stable(feature = "ascii_methods_on_intrinsics", since = "1.23.0")]
     #[inline]
     pub fn eq_ignore_ascii_case(&self, other: &[u8]) -> bool {
-        self.len() == other.len() &&
-            self.iter().zip(other).all(|(a, b)| {
-                a.eq_ignore_ascii_case(b)
-            })
+        self.len() == other.len()
+            && self.iter()
+                .zip(other)
+                .all(|(a, b)| a.eq_ignore_ascii_case(b))
     }
 
     /// Converts this slice to its ASCII upper case equivalent in-place.
@@ -1833,8 +1865,7 @@ impl [u8] {
 ////////////////////////////////////////////////////////////////////////////////
 // Extension traits for slices over specific kinds of data
 ////////////////////////////////////////////////////////////////////////////////
-#[unstable(feature = "slice_concat_ext",
-           reason = "trait should not have to exist",
+#[unstable(feature = "slice_concat_ext", reason = "trait should not have to exist",
            issue = "27747")]
 /// An extension trait for concatenating slices
 ///
@@ -1846,8 +1877,7 @@ impl [u8] {
 /// [`join()`]: #tymethod.join
 /// [`concat()`]: #tymethod.concat
 pub trait SliceConcatExt<T: ?Sized> {
-    #[unstable(feature = "slice_concat_ext",
-               reason = "trait should not have to exist",
+    #[unstable(feature = "slice_concat_ext", reason = "trait should not have to exist",
                issue = "27747")]
     /// The resulting type after concatenation
     type Output;
@@ -1880,8 +1910,7 @@ pub trait SliceConcatExt<T: ?Sized> {
     fn connect(&self, sep: &T) -> Self::Output;
 }
 
-#[unstable(feature = "slice_concat_ext",
-           reason = "trait should not have to exist",
+#[unstable(feature = "slice_concat_ext", reason = "trait should not have to exist",
            issue = "27747")]
 impl<T: Clone, V: Borrow<[T]>> SliceConcatExt<T> for [V] {
     type Output = Vec<T>;
@@ -1968,7 +1997,8 @@ impl<T: Clone> ToOwned for [T] {
 ///
 /// This is the integral subroutine of insertion sort.
 fn insert_head<T, F>(v: &mut [T], is_less: &mut F)
-    where F: FnMut(&T, &T) -> bool
+where
+    F: FnMut(&T, &T) -> bool,
 {
     if v.len() >= 2 && is_less(&v[1], &v[0]) {
         unsafe {
@@ -2026,7 +2056,9 @@ fn insert_head<T, F>(v: &mut [T], is_less: &mut F)
 
     impl<T> Drop for InsertionHole<T> {
         fn drop(&mut self) {
-            unsafe { ptr::copy_nonoverlapping(self.src, self.dest, 1); }
+            unsafe {
+                ptr::copy_nonoverlapping(self.src, self.dest, 1);
+            }
         }
     }
 }
@@ -2039,7 +2071,8 @@ fn insert_head<T, F>(v: &mut [T], is_less: &mut F)
 /// The two slices must be non-empty and `mid` must be in bounds. Buffer `buf` must be long enough
 /// to hold a copy of the shorter slice. Also, `T` must not be a zero-sized type.
 unsafe fn merge<T, F>(v: &mut [T], mid: usize, buf: *mut T, is_less: &mut F)
-    where F: FnMut(&T, &T) -> bool
+where
+    F: FnMut(&T, &T) -> bool,
 {
     let len = v.len();
     let v = v.as_mut_ptr();
@@ -2139,7 +2172,9 @@ unsafe fn merge<T, F>(v: &mut [T], mid: usize, buf: *mut T, is_less: &mut F)
         fn drop(&mut self) {
             // `T` is not a zero-sized type, so it's okay to divide by its size.
             let len = (self.end as usize - self.start as usize) / mem::size_of::<T>();
-            unsafe { ptr::copy_nonoverlapping(self.start, self.dest, len); }
+            unsafe {
+                ptr::copy_nonoverlapping(self.start, self.dest, len);
+            }
         }
     }
 }
@@ -2157,7 +2192,8 @@ unsafe fn merge<T, F>(v: &mut [T], mid: usize, buf: *mut T, is_less: &mut F)
 ///
 /// The invariants ensure that the total running time is `O(n log n)` worst-case.
 fn merge_sort<T, F>(v: &mut [T], mut is_less: F)
-    where F: FnMut(&T, &T) -> bool
+where
+    F: FnMut(&T, &T) -> bool,
 {
     // Slices of up to this length get sorted using insertion sort.
     const MAX_INSERTION: usize = 20;
@@ -2174,7 +2210,7 @@ fn merge_sort<T, F>(v: &mut [T], mut is_less: F)
     // Short arrays get sorted in-place via insertion sort to avoid allocations.
     if len <= MAX_INSERTION {
         if len >= 2 {
-            for i in (0..len-1).rev() {
+            for i in (0..len - 1).rev() {
                 insert_head(&mut v[i..], &mut is_less);
             }
         }
@@ -2200,14 +2236,13 @@ fn merge_sort<T, F>(v: &mut [T], mut is_less: F)
             start -= 1;
             unsafe {
                 if is_less(v.get_unchecked(start + 1), v.get_unchecked(start)) {
-                    while start > 0 && is_less(v.get_unchecked(start),
-                                               v.get_unchecked(start - 1)) {
+                    while start > 0 && is_less(v.get_unchecked(start), v.get_unchecked(start - 1)) {
                         start -= 1;
                     }
                     v[start..end].reverse();
                 } else {
-                    while start > 0 && !is_less(v.get_unchecked(start),
-                                                v.get_unchecked(start - 1)) {
+                    while start > 0 && !is_less(v.get_unchecked(start), v.get_unchecked(start - 1))
+                    {
                         start -= 1;
                     }
                 }
@@ -2233,8 +2268,12 @@ fn merge_sort<T, F>(v: &mut [T], mut is_less: F)
             let left = runs[r + 1];
             let right = runs[r];
             unsafe {
-                merge(&mut v[left.start .. right.start + right.len], left.len, buf.as_mut_ptr(),
-                      &mut is_less);
+                merge(
+                    &mut v[left.start..right.start + right.len],
+                    left.len,
+                    buf.as_mut_ptr(),
+                    &mut is_less,
+                );
             }
             runs[r] = Run {
                 start: left.start,
@@ -2264,10 +2303,11 @@ fn merge_sort<T, F>(v: &mut [T], mut is_less: F)
     #[inline]
     fn collapse(runs: &[Run]) -> Option<usize> {
         let n = runs.len();
-        if n >= 2 && (runs[n - 1].start == 0 ||
-                      runs[n - 2].len <= runs[n - 1].len ||
-                      (n >= 3 && runs[n - 3].len <= runs[n - 2].len + runs[n - 1].len) ||
-                      (n >= 4 && runs[n - 4].len <= runs[n - 3].len + runs[n - 2].len)) {
+        if n >= 2
+            && (runs[n - 1].start == 0 || runs[n - 2].len <= runs[n - 1].len
+                || (n >= 3 && runs[n - 3].len <= runs[n - 2].len + runs[n - 1].len)
+                || (n >= 4 && runs[n - 4].len <= runs[n - 3].len + runs[n - 2].len))
+        {
             if n >= 3 && runs[n - 3].len < runs[n - 1].len {
                 Some(n - 3)
             } else {

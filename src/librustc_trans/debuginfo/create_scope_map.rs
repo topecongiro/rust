@@ -10,7 +10,7 @@
 
 use super::{FunctionDebugContext, FunctionDebugContextData};
 use super::metadata::file_metadata;
-use super::utils::{DIB, span_start};
+use super::utils::{span_start, DIB};
 
 use llvm;
 use llvm::debuginfo::DIScope;
@@ -44,19 +44,22 @@ impl MirDebugScope {
 
 /// Produce DIScope DIEs for each MIR Scope which has variables defined in it.
 /// If debuginfo is disabled, the returned vector is empty.
-pub fn create_mir_scopes(cx: &CodegenCx, mir: &Mir, debug_context: &FunctionDebugContext)
-    -> IndexVec<VisibilityScope, MirDebugScope> {
+pub fn create_mir_scopes(
+    cx: &CodegenCx,
+    mir: &Mir,
+    debug_context: &FunctionDebugContext,
+) -> IndexVec<VisibilityScope, MirDebugScope> {
     let null_scope = MirDebugScope {
         scope_metadata: ptr::null_mut(),
         file_start_pos: BytePos(0),
-        file_end_pos: BytePos(0)
+        file_end_pos: BytePos(0),
     };
     let mut scopes = IndexVec::from_elem(null_scope, &mir.visibility_scopes);
 
     let debug_context = match *debug_context {
         FunctionDebugContext::RegularContext(ref data) => data,
-        FunctionDebugContext::DebugInfoDisabled |
-        FunctionDebugContext::FunctionWithoutDebugInfo => {
+        FunctionDebugContext::DebugInfoDisabled
+        | FunctionDebugContext::FunctionWithoutDebugInfo => {
             return scopes;
         }
     };
@@ -77,12 +80,14 @@ pub fn create_mir_scopes(cx: &CodegenCx, mir: &Mir, debug_context: &FunctionDebu
     scopes
 }
 
-fn make_mir_scope(cx: &CodegenCx,
-                  mir: &Mir,
-                  has_variables: &BitVector,
-                  debug_context: &FunctionDebugContextData,
-                  scope: VisibilityScope,
-                  scopes: &mut IndexVec<VisibilityScope, MirDebugScope>) {
+fn make_mir_scope(
+    cx: &CodegenCx,
+    mir: &Mir,
+    has_variables: &BitVector,
+    debug_context: &FunctionDebugContextData,
+    scope: VisibilityScope,
+    scopes: &mut IndexVec<VisibilityScope, MirDebugScope>,
+) {
     if scopes[scope].is_valid() {
         return;
     }
@@ -116,9 +121,7 @@ fn make_mir_scope(cx: &CodegenCx,
     }
 
     let loc = span_start(cx, scope_data.span);
-    let file_metadata = file_metadata(cx,
-                                      &loc.file.name,
-                                      debug_context.defining_crate);
+    let file_metadata = file_metadata(cx, &loc.file.name, debug_context.defining_crate);
 
     let scope_metadata = unsafe {
         llvm::LLVMRustDIBuilderCreateLexicalBlock(
@@ -126,7 +129,8 @@ fn make_mir_scope(cx: &CodegenCx,
             parent_scope.scope_metadata,
             file_metadata,
             loc.line as c_uint,
-            loc.col.to_usize() as c_uint)
+            loc.col.to_usize() as c_uint,
+        )
     };
     scopes[scope] = MirDebugScope {
         scope_metadata,

@@ -9,7 +9,6 @@
 // except according to those terms.
 
 #![deny(warnings)]
-
 #![feature(slice_patterns)]
 #![feature(test)]
 

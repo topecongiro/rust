@@ -24,9 +24,8 @@ use Attr;
 use color;
 use Terminal;
 use self::searcher::get_dbpath_for_term;
-use self::parser::compiled::{parse, msys_terminfo};
-use self::parm::{expand, Variables, Param};
-
+use self::parser::compiled::{msys_terminfo, parse};
+use self::parm::{expand, Param, Variables};
 
 /// A parsed terminfo database entry.
 #[derive(Debug)]
@@ -86,7 +85,11 @@ impl TermInfo {
             Err(..) => return Err(Error::TermUnset),
         };
 
-        if term.is_err() && env::var("MSYSCON").ok().map_or(false, |s| "mintty.exe" == s) {
+        if term.is_err()
+            && env::var("MSYSCON")
+                .ok()
+                .map_or(false, |s| "mintty.exe" == s)
+        {
             // msys terminal
             Ok(msys_terminfo())
         } else {
@@ -98,7 +101,10 @@ impl TermInfo {
     pub fn from_name(name: &str) -> Result<TermInfo, Error> {
         get_dbpath_for_term(name)
             .ok_or_else(|| {
-                Error::IoError(io::Error::new(io::ErrorKind::NotFound, "terminfo file not found"))
+                Error::IoError(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    "terminfo file not found",
+                ))
             })
             .and_then(|p| TermInfo::from_path(&(*p)))
     }
@@ -123,7 +129,6 @@ pub mod parser {
     pub mod compiled;
 }
 pub mod parm;
-
 
 fn cap_for_attr(attr: Attr) -> &'static str {
     match attr {
@@ -191,15 +196,14 @@ impl<T: Write + Send> Terminal for TerminfoTerminal<T> {
         // are there any terminals that have color/attrs and not sgr0?
         // Try falling back to sgr, then op
         let cmd = match ["sgr0", "sgr", "op"]
-                            .iter()
-                            .filter_map(|cap| self.ti.strings.get(*cap))
-                            .next() {
-            Some(op) => {
-                match expand(&op, &[], &mut Variables::new()) {
-                    Ok(cmd) => cmd,
-                    Err(e) => return Err(io::Error::new(io::ErrorKind::InvalidData, e)),
-                }
-            }
+            .iter()
+            .filter_map(|cap| self.ti.strings.get(*cap))
+            .next()
+        {
+            Some(op) => match expand(&op, &[], &mut Variables::new()) {
+                Ok(cmd) => cmd,
+                Err(e) => return Err(io::Error::new(io::ErrorKind::InvalidData, e)),
+            },
             None => return Ok(false),
         };
         self.out.write_all(&cmd).and(Ok(true))
@@ -214,7 +218,8 @@ impl<T: Write + Send> Terminal for TerminfoTerminal<T> {
     }
 
     fn into_inner(self) -> T
-        where Self: Sized
+    where
+        Self: Sized,
     {
         self.out
     }
@@ -223,8 +228,8 @@ impl<T: Write + Send> Terminal for TerminfoTerminal<T> {
 impl<T: Write + Send> TerminfoTerminal<T> {
     /// Create a new TerminfoTerminal with the given TermInfo and Write.
     pub fn new_with_terminfo(out: T, terminfo: TermInfo) -> TerminfoTerminal<T> {
-        let nc = if terminfo.strings.contains_key("setaf") &&
-                    terminfo.strings.contains_key("setab") {
+        let nc = if terminfo.strings.contains_key("setaf") && terminfo.strings.contains_key("setab")
+        {
             terminfo.numbers.get("colors").map_or(0, |&n| n)
         } else {
             0
@@ -241,7 +246,9 @@ impl<T: Write + Send> TerminfoTerminal<T> {
     ///
     /// Returns `None` when the terminfo cannot be found or parsed.
     pub fn new(out: T) -> Option<TerminfoTerminal<T>> {
-        TermInfo::from_env().map(move |ti| TerminfoTerminal::new_with_terminfo(out, ti)).ok()
+        TermInfo::from_env()
+            .map(move |ti| TerminfoTerminal::new_with_terminfo(out, ti))
+            .ok()
     }
 
     fn dim_if_necessary(&self, color: color::Color) -> color::Color {
@@ -254,17 +261,14 @@ impl<T: Write + Send> TerminfoTerminal<T> {
 
     fn apply_cap(&mut self, cmd: &str, params: &[Param]) -> io::Result<bool> {
         match self.ti.strings.get(cmd) {
-            Some(cmd) => {
-                match expand(&cmd, params, &mut Variables::new()) {
-                    Ok(s) => self.out.write_all(&s).and(Ok(true)),
-                    Err(e) => Err(io::Error::new(io::ErrorKind::InvalidData, e)),
-                }
-            }
+            Some(cmd) => match expand(&cmd, params, &mut Variables::new()) {
+                Ok(s) => self.out.write_all(&s).and(Ok(true)),
+                Err(e) => Err(io::Error::new(io::ErrorKind::InvalidData, e)),
+            },
             None => Ok(false),
         }
     }
 }
-
 
 impl<T: Write> Write for TerminfoTerminal<T> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {

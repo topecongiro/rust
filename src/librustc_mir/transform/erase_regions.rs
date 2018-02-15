@@ -54,16 +54,16 @@ impl<'a, 'tcx> MutVisitor<'tcx> for EraseRegionsVisitor<'a, 'tcx> {
         *substs = self.tcx.erase_regions(substs);
     }
 
-    fn visit_closure_substs(&mut self,
-                            substs: &mut ty::ClosureSubsts<'tcx>,
-                            _: Location) {
+    fn visit_closure_substs(&mut self, substs: &mut ty::ClosureSubsts<'tcx>, _: Location) {
         *substs = self.tcx.erase_regions(substs);
     }
 
-    fn visit_statement(&mut self,
-                       block: BasicBlock,
-                       statement: &mut Statement<'tcx>,
-                       location: Location) {
+    fn visit_statement(
+        &mut self,
+        block: BasicBlock,
+        statement: &mut Statement<'tcx>,
+        location: Location,
+    ) {
         // Do NOT delete EndRegion if validation statements are emitted.
         // Validation needs EndRegion.
         if self.tcx.sess.opts.debugging_opts.mir_emit_validate == 0 {
@@ -84,10 +84,7 @@ impl<'a, 'tcx> MutVisitor<'tcx> for EraseRegionsVisitor<'a, 'tcx> {
 pub struct EraseRegions;
 
 impl MirPass for EraseRegions {
-    fn run_pass<'a, 'tcx>(&self,
-                          tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                          _: MirSource,
-                          mir: &mut Mir<'tcx>) {
+    fn run_pass<'a, 'tcx>(&self, tcx: TyCtxt<'a, 'tcx, 'tcx>, _: MirSource, mir: &mut Mir<'tcx>) {
         EraseRegionsVisitor::new(tcx).visit_mir(mir);
     }
 }

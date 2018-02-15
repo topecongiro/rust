@@ -217,23 +217,17 @@
        issue_tracker_base_url = "https://github.com/rust-lang/rust/issues/",
        test(no_crate_inject, attr(deny(warnings))),
        test(attr(allow(dead_code, deprecated, unused_variables, unused_mut))))]
-
 // Don't link to std. We are std.
 #![no_std]
-
 #![deny(missing_docs)]
 #![deny(missing_debug_implementations)]
-
 // Tell the compiler to link to either panic_abort or panic_unwind
 #![needs_panic_runtime]
-
 // Turn warnings into errors, but only after stage0, where it can be useful for
 // code to emit warnings during language transitions
 #![cfg_attr(not(stage0), deny(warnings))]
-
 // std may use features in a platform-specific way
 #![allow(unused_features)]
-
 // std is implemented with unstable features, many of which are internal
 // compiler details that will never be stable
 #![feature(alloc)]
@@ -324,20 +318,16 @@
 #![cfg_attr(test, feature(update_panic_count))]
 #![cfg_attr(windows, feature(used))]
 #![cfg_attr(stage0, feature(repr_align))]
-
 #![default_lib_allocator]
-
 // Always use alloc_system during stage0 since we don't know if the alloc_*
 // crate the stage0 compiler will pick by default is enabled (e.g.
 // if the user has disabled jemalloc in `./configure`).
 // `force_alloc_system` is *only* intended as a workaround for local rebuilds
 // with a rustc without jemalloc.
 // FIXME(#44236) shouldn't need MSVC logic
-#![cfg_attr(all(not(target_env = "msvc"),
-                any(stage0, feature = "force_alloc_system")),
+#![cfg_attr(all(not(target_env = "msvc"), any(stage0, feature = "force_alloc_system")),
             feature(global_allocator))]
-#[cfg(all(not(target_env = "msvc"),
-          any(stage0, feature = "force_alloc_system")))]
+#[cfg(all(not(target_env = "msvc"), any(stage0, feature = "force_alloc_system")))]
 #[global_allocator]
 static ALLOC: alloc_system::System = alloc_system::System;
 
@@ -348,23 +338,25 @@ static ALLOC: alloc_system::System = alloc_system::System;
 use prelude::v1::*;
 
 // Access to Bencher, etc.
-#[cfg(test)] extern crate test;
-#[cfg(test)] extern crate rand;
+#[cfg(test)]
+extern crate rand;
+#[cfg(test)]
+extern crate test;
 
 // We want to re-export a few macros from core but libcore has already been
 // imported by the compiler (via our #[no_std] attribute) In this case we just
 // add a new crate name so we can attach the re-exports to it.
-#[macro_reexport(assert, assert_eq, assert_ne, debug_assert, debug_assert_eq,
-                 debug_assert_ne, unreachable, unimplemented, write, writeln, try)]
+#[macro_reexport(assert, assert_eq, assert_ne, debug_assert, debug_assert_eq, debug_assert_ne,
+                 unreachable, unimplemented, write, writeln, try)]
 extern crate core as __core;
 
 #[macro_use]
 #[macro_reexport(vec, format)]
 extern crate alloc;
 extern crate alloc_system;
-extern crate std_unicode;
 #[doc(masked)]
 extern crate libc;
+extern crate std_unicode;
 
 // We always need an unwinder currently for backtraces
 #[doc(masked)]
@@ -381,7 +373,8 @@ extern crate compiler_builtins;
 // wolud generate duplicate lang item errors), and any globals it defines are
 // _not_ the globals used by "real" std. So this import, defined only during
 // testing gives test-std access to real-std lang items and globals. See #2912
-#[cfg(test)] extern crate std as realstd;
+#[cfg(test)]
+extern crate std as realstd;
 
 // The standard macros that are not built-in to the compiler.
 #[macro_use]

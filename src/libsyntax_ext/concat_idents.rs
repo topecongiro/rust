@@ -19,16 +19,19 @@ use syntax_pos::symbol::Symbol;
 use syntax_pos::hygiene::SyntaxContext;
 use syntax::tokenstream::TokenTree;
 
-pub fn expand_syntax_ext<'cx>(cx: &'cx mut ExtCtxt,
-                              sp: Span,
-                              tts: &[TokenTree])
-                              -> Box<base::MacResult + 'cx> {
+pub fn expand_syntax_ext<'cx>(
+    cx: &'cx mut ExtCtxt,
+    sp: Span,
+    tts: &[TokenTree],
+) -> Box<base::MacResult + 'cx> {
     if !cx.ecfg.enable_concat_idents() {
-        feature_gate::emit_feature_err(&cx.parse_sess,
-                                       "concat_idents",
-                                       sp,
-                                       feature_gate::GateIssue::Language,
-                                       feature_gate::EXPLAIN_CONCAT_IDENTS);
+        feature_gate::emit_feature_err(
+            &cx.parse_sess,
+            "concat_idents",
+            sp,
+            feature_gate::GateIssue::Language,
+            feature_gate::EXPLAIN_CONCAT_IDENTS,
+        );
         return base::DummyResult::expr(sp);
     }
 

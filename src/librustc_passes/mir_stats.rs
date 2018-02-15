@@ -12,16 +12,16 @@
 // pieces of MIR. The resulting numbers are good approximations but not
 // completely accurate (some things might be counted twice, others missed).
 
-use rustc_const_math::{ConstUsize};
+use rustc_const_math::ConstUsize;
 use rustc::mir::{AggregateKind, AssertMessage, BasicBlock, BasicBlockData};
-use rustc::mir::{Constant, Literal, Location, Local, LocalDecl};
+use rustc::mir::{Constant, Literal, Local, LocalDecl, Location};
 use rustc::mir::{Place, PlaceElem, PlaceProjection};
 use rustc::mir::{Mir, Operand, ProjectionElem};
 use rustc::mir::{Rvalue, SourceInfo, Statement, StatementKind};
 use rustc::mir::{Terminator, TerminatorKind, VisibilityScope, VisibilityScopeData};
 use rustc::mir::visit as mir_visit;
 use rustc::ty::{self, ClosureSubsts, TyCtxt};
-use rustc::util::nodemap::{FxHashMap};
+use rustc::util::nodemap::FxHashMap;
 
 struct NodeData {
     count: usize,
@@ -34,12 +34,10 @@ struct StatCollector<'a, 'tcx: 'a> {
 }
 
 impl<'a, 'tcx> StatCollector<'a, 'tcx> {
-
     fn record_with_size(&mut self, label: &'static str, node_size: usize) {
-        let entry = self.data.entry(label).or_insert(NodeData {
-            count: 0,
-            size: 0,
-        });
+        let entry = self.data
+            .entry(label)
+            .or_insert(NodeData { count: 0, size: 0 });
 
         entry.count += 1;
         entry.size = node_size;
@@ -65,89 +63,97 @@ impl<'a, 'tcx> mir_visit::Visitor<'tcx> for StatCollector<'a, 'tcx> {
         self.super_mir(mir);
     }
 
-    fn visit_basic_block_data(&mut self,
-                              block: BasicBlock,
-                              data: &BasicBlockData<'tcx>) {
+    fn visit_basic_block_data(&mut self, block: BasicBlock, data: &BasicBlockData<'tcx>) {
         self.record("BasicBlockData", data);
         self.super_basic_block_data(block, data);
     }
 
-    fn visit_visibility_scope_data(&mut self,
-                                   scope_data: &VisibilityScopeData) {
+    fn visit_visibility_scope_data(&mut self, scope_data: &VisibilityScopeData) {
         self.record("VisibilityScopeData", scope_data);
         self.super_visibility_scope_data(scope_data);
     }
 
-    fn visit_statement(&mut self,
-                       block: BasicBlock,
-                       statement: &Statement<'tcx>,
-                       location: Location) {
+    fn visit_statement(
+        &mut self,
+        block: BasicBlock,
+        statement: &Statement<'tcx>,
+        location: Location,
+    ) {
         self.record("Statement", statement);
-        self.record(match statement.kind {
-            StatementKind::Assign(..) => "StatementKind::Assign",
-            StatementKind::EndRegion(..) => "StatementKind::EndRegion",
-            StatementKind::Validate(..) => "StatementKind::Validate",
-            StatementKind::SetDiscriminant { .. } => "StatementKind::SetDiscriminant",
-            StatementKind::StorageLive(..) => "StatementKind::StorageLive",
-            StatementKind::StorageDead(..) => "StatementKind::StorageDead",
-            StatementKind::InlineAsm { .. } => "StatementKind::InlineAsm",
-            StatementKind::Nop => "StatementKind::Nop",
-        }, &statement.kind);
+        self.record(
+            match statement.kind {
+                StatementKind::Assign(..) => "StatementKind::Assign",
+                StatementKind::EndRegion(..) => "StatementKind::EndRegion",
+                StatementKind::Validate(..) => "StatementKind::Validate",
+                StatementKind::SetDiscriminant { .. } => "StatementKind::SetDiscriminant",
+                StatementKind::StorageLive(..) => "StatementKind::StorageLive",
+                StatementKind::StorageDead(..) => "StatementKind::StorageDead",
+                StatementKind::InlineAsm { .. } => "StatementKind::InlineAsm",
+                StatementKind::Nop => "StatementKind::Nop",
+            },
+            &statement.kind,
+        );
         self.super_statement(block, statement, location);
     }
 
-    fn visit_terminator(&mut self,
-                        block: BasicBlock,
-                        terminator: &Terminator<'tcx>,
-                        location: Location) {
+    fn visit_terminator(
+        &mut self,
+        block: BasicBlock,
+        terminator: &Terminator<'tcx>,
+        location: Location,
+    ) {
         self.record("Terminator", terminator);
         self.super_terminator(block, terminator, location);
     }
 
-    fn visit_terminator_kind(&mut self,
-                             block: BasicBlock,
-                             kind: &TerminatorKind<'tcx>,
-                             location: Location) {
+    fn visit_terminator_kind(
+        &mut self,
+        block: BasicBlock,
+        kind: &TerminatorKind<'tcx>,
+        location: Location,
+    ) {
         self.record("TerminatorKind", kind);
-        self.record(match *kind {
-            TerminatorKind::Goto { .. } => "TerminatorKind::Goto",
-            TerminatorKind::SwitchInt { .. } => "TerminatorKind::SwitchInt",
-            TerminatorKind::Resume => "TerminatorKind::Resume",
-            TerminatorKind::Abort => "TerminatorKind::Abort",
-            TerminatorKind::Return => "TerminatorKind::Return",
-            TerminatorKind::Unreachable => "TerminatorKind::Unreachable",
-            TerminatorKind::Drop { .. } => "TerminatorKind::Drop",
-            TerminatorKind::DropAndReplace { .. } => "TerminatorKind::DropAndReplace",
-            TerminatorKind::Call { .. } => "TerminatorKind::Call",
-            TerminatorKind::Assert { .. } => "TerminatorKind::Assert",
-            TerminatorKind::GeneratorDrop => "TerminatorKind::GeneratorDrop",
-            TerminatorKind::Yield { .. } => "TerminatorKind::Yield",
-            TerminatorKind::FalseEdges { .. } => "TerminatorKind::FalseEdges",
-            TerminatorKind::FalseUnwind { .. } => "TerminatorKind::FalseUnwind",
-        }, kind);
+        self.record(
+            match *kind {
+                TerminatorKind::Goto { .. } => "TerminatorKind::Goto",
+                TerminatorKind::SwitchInt { .. } => "TerminatorKind::SwitchInt",
+                TerminatorKind::Resume => "TerminatorKind::Resume",
+                TerminatorKind::Abort => "TerminatorKind::Abort",
+                TerminatorKind::Return => "TerminatorKind::Return",
+                TerminatorKind::Unreachable => "TerminatorKind::Unreachable",
+                TerminatorKind::Drop { .. } => "TerminatorKind::Drop",
+                TerminatorKind::DropAndReplace { .. } => "TerminatorKind::DropAndReplace",
+                TerminatorKind::Call { .. } => "TerminatorKind::Call",
+                TerminatorKind::Assert { .. } => "TerminatorKind::Assert",
+                TerminatorKind::GeneratorDrop => "TerminatorKind::GeneratorDrop",
+                TerminatorKind::Yield { .. } => "TerminatorKind::Yield",
+                TerminatorKind::FalseEdges { .. } => "TerminatorKind::FalseEdges",
+                TerminatorKind::FalseUnwind { .. } => "TerminatorKind::FalseUnwind",
+            },
+            kind,
+        );
         self.super_terminator_kind(block, kind, location);
     }
 
-    fn visit_assert_message(&mut self,
-                            msg: &AssertMessage<'tcx>,
-                            location: Location) {
+    fn visit_assert_message(&mut self, msg: &AssertMessage<'tcx>, location: Location) {
         self.record("AssertMessage", msg);
-        self.record(match *msg {
-            AssertMessage::BoundsCheck { .. } => "AssertMessage::BoundsCheck",
-            AssertMessage::Math(..) => "AssertMessage::Math",
-            AssertMessage::GeneratorResumedAfterReturn => {
-                "AssertMessage::GeneratorResumedAfterReturn"
-            }
-            AssertMessage::GeneratorResumedAfterPanic => {
-                "AssertMessage::GeneratorResumedAfterPanic"
-            }
-        }, msg);
+        self.record(
+            match *msg {
+                AssertMessage::BoundsCheck { .. } => "AssertMessage::BoundsCheck",
+                AssertMessage::Math(..) => "AssertMessage::Math",
+                AssertMessage::GeneratorResumedAfterReturn => {
+                    "AssertMessage::GeneratorResumedAfterReturn"
+                }
+                AssertMessage::GeneratorResumedAfterPanic => {
+                    "AssertMessage::GeneratorResumedAfterPanic"
+                }
+            },
+            msg,
+        );
         self.super_assert_message(msg, location);
     }
 
-    fn visit_rvalue(&mut self,
-                    rvalue: &Rvalue<'tcx>,
-                    location: Location) {
+    fn visit_rvalue(&mut self, rvalue: &Rvalue<'tcx>, location: Location) {
         self.record("Rvalue", rvalue);
         let rvalue_kind = match *rvalue {
             Rvalue::Use(..) => "Rvalue::Use",
@@ -163,13 +169,16 @@ impl<'a, 'tcx> mir_visit::Visitor<'tcx> for StatCollector<'a, 'tcx> {
             Rvalue::Aggregate(ref kind, ref _operands) => {
                 // AggregateKind is not distinguished by visit API, so
                 // record it. (`super_rvalue` handles `_operands`.)
-                self.record(match **kind {
-                    AggregateKind::Array(_) => "AggregateKind::Array",
-                    AggregateKind::Tuple => "AggregateKind::Tuple",
-                    AggregateKind::Adt(..) => "AggregateKind::Adt",
-                    AggregateKind::Closure(..) => "AggregateKind::Closure",
-                    AggregateKind::Generator(..) => "AggregateKind::Generator",
-                }, kind);
+                self.record(
+                    match **kind {
+                        AggregateKind::Array(_) => "AggregateKind::Array",
+                        AggregateKind::Tuple => "AggregateKind::Tuple",
+                        AggregateKind::Adt(..) => "AggregateKind::Adt",
+                        AggregateKind::Closure(..) => "AggregateKind::Closure",
+                        AggregateKind::Generator(..) => "AggregateKind::Generator",
+                    },
+                    kind,
+                );
 
                 "Rvalue::Aggregate"
             }
@@ -178,109 +187,111 @@ impl<'a, 'tcx> mir_visit::Visitor<'tcx> for StatCollector<'a, 'tcx> {
         self.super_rvalue(rvalue, location);
     }
 
-    fn visit_operand(&mut self,
-                     operand: &Operand<'tcx>,
-                     location: Location) {
+    fn visit_operand(&mut self, operand: &Operand<'tcx>, location: Location) {
         self.record("Operand", operand);
-        self.record(match *operand {
-            Operand::Copy(..) => "Operand::Copy",
-            Operand::Move(..) => "Operand::Move",
-            Operand::Constant(..) => "Operand::Constant",
-        }, operand);
+        self.record(
+            match *operand {
+                Operand::Copy(..) => "Operand::Copy",
+                Operand::Move(..) => "Operand::Move",
+                Operand::Constant(..) => "Operand::Constant",
+            },
+            operand,
+        );
         self.super_operand(operand, location);
     }
 
-    fn visit_place(&mut self,
-                    place: &Place<'tcx>,
-                    context: mir_visit::PlaceContext<'tcx>,
-                    location: Location) {
+    fn visit_place(
+        &mut self,
+        place: &Place<'tcx>,
+        context: mir_visit::PlaceContext<'tcx>,
+        location: Location,
+    ) {
         self.record("Place", place);
-        self.record(match *place {
-            Place::Local(..) => "Place::Local",
-            Place::Static(..) => "Place::Static",
-            Place::Projection(..) => "Place::Projection",
-        }, place);
+        self.record(
+            match *place {
+                Place::Local(..) => "Place::Local",
+                Place::Static(..) => "Place::Static",
+                Place::Projection(..) => "Place::Projection",
+            },
+            place,
+        );
         self.super_place(place, context, location);
     }
 
-    fn visit_projection(&mut self,
-                        place: &PlaceProjection<'tcx>,
-                        context: mir_visit::PlaceContext<'tcx>,
-                        location: Location) {
+    fn visit_projection(
+        &mut self,
+        place: &PlaceProjection<'tcx>,
+        context: mir_visit::PlaceContext<'tcx>,
+        location: Location,
+    ) {
         self.record("PlaceProjection", place);
         self.super_projection(place, context, location);
     }
 
-    fn visit_projection_elem(&mut self,
-                             place: &PlaceElem<'tcx>,
-                             context: mir_visit::PlaceContext<'tcx>,
-                             location: Location) {
+    fn visit_projection_elem(
+        &mut self,
+        place: &PlaceElem<'tcx>,
+        context: mir_visit::PlaceContext<'tcx>,
+        location: Location,
+    ) {
         self.record("PlaceElem", place);
-        self.record(match *place {
-            ProjectionElem::Deref => "PlaceElem::Deref",
-            ProjectionElem::Subslice { .. } => "PlaceElem::Subslice",
-            ProjectionElem::Field(..) => "PlaceElem::Field",
-            ProjectionElem::Index(..) => "PlaceElem::Index",
-            ProjectionElem::ConstantIndex { .. } => "PlaceElem::ConstantIndex",
-            ProjectionElem::Downcast(..) => "PlaceElem::Downcast",
-        }, place);
+        self.record(
+            match *place {
+                ProjectionElem::Deref => "PlaceElem::Deref",
+                ProjectionElem::Subslice { .. } => "PlaceElem::Subslice",
+                ProjectionElem::Field(..) => "PlaceElem::Field",
+                ProjectionElem::Index(..) => "PlaceElem::Index",
+                ProjectionElem::ConstantIndex { .. } => "PlaceElem::ConstantIndex",
+                ProjectionElem::Downcast(..) => "PlaceElem::Downcast",
+            },
+            place,
+        );
         self.super_projection_elem(place, context, location);
     }
 
-    fn visit_constant(&mut self,
-                      constant: &Constant<'tcx>,
-                      location: Location) {
+    fn visit_constant(&mut self, constant: &Constant<'tcx>, location: Location) {
         self.record("Constant", constant);
         self.super_constant(constant, location);
     }
 
-    fn visit_literal(&mut self,
-                     literal: &Literal<'tcx>,
-                     location: Location) {
+    fn visit_literal(&mut self, literal: &Literal<'tcx>, location: Location) {
         self.record("Literal", literal);
-        self.record(match *literal {
-            Literal::Value { .. } => "Literal::Value",
-            Literal::Promoted { .. } => "Literal::Promoted",
-        }, literal);
+        self.record(
+            match *literal {
+                Literal::Value { .. } => "Literal::Value",
+                Literal::Promoted { .. } => "Literal::Promoted",
+            },
+            literal,
+        );
         self.super_literal(literal, location);
     }
 
-    fn visit_source_info(&mut self,
-                         source_info: &SourceInfo) {
+    fn visit_source_info(&mut self, source_info: &SourceInfo) {
         self.record("SourceInfo", source_info);
         self.super_source_info(source_info);
     }
 
-    fn visit_closure_substs(&mut self,
-                            substs: &ClosureSubsts<'tcx>,
-                            _: Location) {
+    fn visit_closure_substs(&mut self, substs: &ClosureSubsts<'tcx>, _: Location) {
         self.record("ClosureSubsts", substs);
         self.super_closure_substs(substs);
     }
 
-    fn visit_const(&mut self,
-                   constant: &&'tcx ty::Const<'tcx>,
-                   _: Location) {
+    fn visit_const(&mut self, constant: &&'tcx ty::Const<'tcx>, _: Location) {
         self.record("Const", constant);
         self.super_const(constant);
     }
 
-    fn visit_const_usize(&mut self,
-                         const_usize: &ConstUsize,
-                         _: Location) {
+    fn visit_const_usize(&mut self, const_usize: &ConstUsize, _: Location) {
         self.record("ConstUsize", const_usize);
         self.super_const_usize(const_usize);
     }
 
-    fn visit_local_decl(&mut self,
-                        local: Local,
-                        local_decl: &LocalDecl<'tcx>) {
+    fn visit_local_decl(&mut self, local: Local, local_decl: &LocalDecl<'tcx>) {
         self.record("LocalDecl", local_decl);
         self.super_local_decl(local, local_decl);
     }
 
-    fn visit_visibility_scope(&mut self,
-                              scope: &VisibilityScope) {
+    fn visit_visibility_scope(&mut self, scope: &VisibilityScope) {
         self.record("VisiblityScope", scope);
         self.super_visibility_scope(scope);
     }

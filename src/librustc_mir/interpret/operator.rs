@@ -4,7 +4,7 @@ use rustc_const_math::ConstFloat;
 use syntax::ast::FloatTy;
 use std::cmp::Ordering;
 
-use super::{EvalContext, Place, Machine, ValTy};
+use super::{EvalContext, Machine, Place, ValTy};
 
 use rustc::mir::interpret::{EvalResult, PrimVal, PrimValKind, Value, bytes_to_f32, bytes_to_f64};
 
@@ -145,24 +145,14 @@ impl<'a, 'tcx, M: Machine<'tcx>> EvalContext<'a, 'tcx, M> {
         if left_kind != right_kind {
             let msg = format!(
                 "unimplemented binary op {:?}: {:?} ({:?}), {:?} ({:?})",
-                bin_op,
-                left,
-                left_kind,
-                right,
-                right_kind
+                bin_op, left, left_kind, right, right_kind
             );
             return err!(Unimplemented(msg));
         }
 
         let float_op = |op, l, r, ty| {
-            let l = ConstFloat {
-                bits: l,
-                ty,
-            };
-            let r = ConstFloat {
-                bits: r,
-                ty,
-            };
+            let l = ConstFloat { bits: l, ty };
+            let r = ConstFloat { bits: r, ty };
             match op {
                 Eq => PrimVal::from_bool(l.try_cmp(r).unwrap() == Ordering::Equal),
                 Ne => PrimVal::from_bool(l.try_cmp(r).unwrap() != Ordering::Equal),
@@ -182,7 +172,6 @@ impl<'a, 'tcx, M: Machine<'tcx>> EvalContext<'a, 'tcx, M> {
         let val = match (bin_op, left_kind) {
             (_, F32) => float_op(bin_op, l, r, FloatTy::F32),
             (_, F64) => float_op(bin_op, l, r, FloatTy::F64),
-
 
             (Eq, _) => PrimVal::from_bool(l == r),
             (Ne, _) => PrimVal::from_bool(l != r),
@@ -209,11 +198,7 @@ impl<'a, 'tcx, M: Machine<'tcx>> EvalContext<'a, 'tcx, M> {
             _ => {
                 let msg = format!(
                     "unimplemented binary op {:?}: {:?} ({:?}), {:?} ({:?})",
-                    bin_op,
-                    left,
-                    left_kind,
-                    right,
-                    right_kind
+                    bin_op, left, left_kind, right, right_kind
                 );
                 return err!(Unimplemented(msg));
             }

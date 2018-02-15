@@ -3,7 +3,7 @@ use rustc::ty::{self, Ty};
 use rustc::ty::layout::{self, Align, LayoutOf, TyLayout};
 use rustc_data_structures::indexed_vec::Idx;
 
-use rustc::mir::interpret::{GlobalId, Value, PrimVal, EvalResult, Pointer, MemoryPointer};
+use rustc::mir::interpret::{EvalResult, GlobalId, MemoryPointer, Pointer, PrimVal, Value};
 use super::{EvalContext, Machine, ValTy};
 use interpret::memory::HasMemory;
 
@@ -54,7 +54,6 @@ impl<'tcx> Place {
         match self {
             Place::Ptr { ptr, align, extra } => (ptr, align, extra),
             _ => bug!("to_ptr_and_extra: expected Place::Ptr, got {:?}", self),
-
         }
     }
 
@@ -73,17 +72,16 @@ impl<'tcx> Place {
         match ty.sty {
             ty::TyArray(elem, n) => (elem, n.val.to_const_int().unwrap().to_u64().unwrap() as u64),
 
-            ty::TySlice(elem) => {
-                match self {
-                    Place::Ptr { extra: PlaceExtra::Length(len), .. } => (elem, len),
-                    _ => {
-                        bug!(
-                            "elem_ty_and_len of a TySlice given non-slice place: {:?}",
-                            self
-                        )
-                    }
-                }
-            }
+            ty::TySlice(elem) => match self {
+                Place::Ptr {
+                    extra: PlaceExtra::Length(len),
+                    ..
+                } => (elem, len),
+                _ => bug!(
+                    "elem_ty_and_len of a TySlice given non-slice place: {:?}",
+                    self
+                ),
+            },
 
             _ => bug!("elem_ty_and_len expected array or slice, got {:?}", ty),
         }
@@ -93,10 +91,7 @@ impl<'tcx> Place {
 impl<'a, 'tcx, M: Machine<'tcx>> EvalContext<'a, 'tcx, M> {
     /// Reads a value from the place without going through the intermediate step of obtaining
     /// a `miri::Place`
-    pub fn try_read_place(
-        &mut self,
-        place: &mir::Place<'tcx>,
-    ) -> EvalResult<'tcx, Option<Value>> {
+    pub fn try_read_place(&mut self, place: &mir::Place<'tcx>) -> EvalResult<'tcx, Option<Value>> {
         use rustc::mir::Place::*;
         match *place {
             // Might allow this in the future, right now there's no way to do this from Rust code anyway
@@ -106,10 +101,13 @@ impl<'a, 'tcx, M: Machine<'tcx>> EvalContext<'a, 'tcx, M> {
             // Directly reading a static will always succeed
             Static(ref static_) => {
                 let instance = ty::Instance::mono(self.tcx, static_.def_id);
-                Ok(Some(self.read_global_as_value(GlobalId {
-                    instance,
-                    promoted: None,
-                }, self.layout_of(self.place_ty(place))?)))
+                Ok(Some(self.read_global_as_value(
+                    GlobalId {
+                        instance,
+                        promoted: None,
+                    },
+                    self.layout_of(self.place_ty(place))?,
+                )))
             }
             Projection(ref proj) => self.try_read_place_projection(proj),
         }
@@ -194,7 +192,11 @@ impl<'a, 'tcx, M: Machine<'tcx>> EvalContext<'a, 'tcx, M> {
                     promoted: None,
                 };
                 let layout = self.layout_of(self.place_ty(mir_place))?;
-                let alloc = self.tcx.interpret_interner.borrow().get_cached(gid).expect("uncached global");
+                let alloc = self.tcx
+                    .interpret_interner
+                    .borrow()
+                    .get_cached(gid)
+                    .expect("uncached global");
                 Place::Ptr {
                     ptr: MemoryPointer::new(alloc, 0).into(),
                     align: layout.align,
@@ -223,7 +225,10 @@ impl<'a, 'tcx, M: Machine<'tcx>> EvalContext<'a, 'tcx, M> {
         mut base_layout: TyLayout<'tcx>,
     ) -> EvalResult<'tcx, (Place, TyLayout<'tcx>)> {
         match base {
-            Place::Ptr { extra: PlaceExtra::DowncastVariant(variant_index), .. } => {
+            Place::Ptr {
+                extra: PlaceExtra::DowncastVariant(variant_index),
+                ..
+            } => {
                 base_layout = base_layout.for_variant(&self, variant_index);
             }
             _ => {}
@@ -238,8 +243,8 @@ impl<'a, 'tcx, M: Machine<'tcx>> EvalContext<'a, 'tcx, M> {
             Place::Local { frame, local } => {
                 match (&self.stack[frame].get_local(local)?, &base_layout.abi) {
                     // in case the field covers the entire type, just return the value
-                    (&Value::ByVal(_), &layout::Abi::Scalar(_)) |
-                    (&Value::ByValPair(..), &layout::Abi::ScalarPair(..))
+                    (&Value::ByVal(_), &layout::Abi::Scalar(_))
+                    | (&Value::ByValPair(..), &layout::Abi::ScalarPair(..))
                         if offset.bytes() == 0 && field.size == base_layout.size =>
                     {
                         return Ok((base, field));
@@ -251,10 +256,8 @@ impl<'a, 'tcx, M: Machine<'tcx>> EvalContext<'a, 'tcx, M> {
 
         let offset = match base_extra {
             PlaceExtra::Vtable(tab) => {
-                let (_, align) = self.size_and_align_of_dst(
-                    base_layout.ty,
-                    base_ptr.to_value_with_vtable(tab),
-                )?;
+                let (_, align) =
+                    self.size_and_align_of_dst(base_layout.ty, base_ptr.to_value_with_vtable(tab))?;
                 offset.abi_align(align).bytes()
             }
             _ => offset.bytes(),
@@ -270,8 +273,7 @@ impl<'a, 'tcx, M: Machine<'tcx>> EvalContext<'a, 'tcx, M> {
                 PlaceExtra::DowncastVariant(..) => {
                     bug!("Rust doesn't support unsized fields in enum variants")
                 }
-                PlaceExtra::Vtable(_) |
-                PlaceExtra::Length(_) => {}
+                PlaceExtra::Vtable(_) | PlaceExtra::Length(_) => {}
             }
             base_extra
         };
@@ -353,16 +355,13 @@ impl<'a, 'tcx, M: Machine<'tcx>> EvalContext<'a, 'tcx, M> {
                 Ok(self.place_field(base, field, layout)?.0)
             }
 
-            Downcast(_, variant) => {
-                self.place_downcast(base, variant)
-            }
+            Downcast(_, variant) => self.place_downcast(base, variant),
 
             Deref => {
                 let val = self.read_place(base)?;
 
                 let pointee_type = match base_ty.sty {
-                    ty::TyRawPtr(ref tam) |
-                    ty::TyRef(_, ref tam) => tam.ty,
+                    ty::TyRawPtr(ref tam) | ty::TyRef(_, ref tam) => tam.ty,
                     ty::TyAdt(def, _) if def.is_box() => base_ty.boxed_ty(),
                     _ => bug!("can only deref pointer types"),
                 };
@@ -399,7 +398,11 @@ impl<'a, 'tcx, M: Machine<'tcx>> EvalContext<'a, 'tcx, M> {
                 };
 
                 let ptr = base_ptr.offset(index * elem_size, &self)?;
-                Ok(Place::Ptr { ptr, align, extra: PlaceExtra::None })
+                Ok(Place::Ptr {
+                    ptr,
+                    align,
+                    extra: PlaceExtra::None,
+                })
             }
 
             Subslice { from, to } => {

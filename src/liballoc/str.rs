@@ -41,7 +41,7 @@
 use core::fmt;
 use core::str as core_str;
 use core::str::pattern::Pattern;
-use core::str::pattern::{Searcher, ReverseSearcher, DoubleEndedSearcher};
+use core::str::pattern::{DoubleEndedSearcher, ReverseSearcher, Searcher};
 use core::mem;
 use core::iter::FusedIterator;
 use std_unicode::str::{UnicodeStr, Utf16Encoder};
@@ -60,27 +60,25 @@ pub use core::str::{FromStr, Utf8Error};
 #[stable(feature = "rust1", since = "1.0.0")]
 pub use core::str::{Lines, LinesAny};
 #[stable(feature = "rust1", since = "1.0.0")]
-pub use core::str::{Split, RSplit};
+pub use core::str::{RSplit, Split};
 #[stable(feature = "rust1", since = "1.0.0")]
-pub use core::str::{SplitN, RSplitN};
+pub use core::str::{RSplitN, SplitN};
 #[stable(feature = "rust1", since = "1.0.0")]
-pub use core::str::{SplitTerminator, RSplitTerminator};
+pub use core::str::{RSplitTerminator, SplitTerminator};
 #[stable(feature = "rust1", since = "1.0.0")]
 pub use core::str::{Matches, RMatches};
 #[stable(feature = "rust1", since = "1.0.0")]
 pub use core::str::{MatchIndices, RMatchIndices};
 #[stable(feature = "rust1", since = "1.0.0")]
-pub use core::str::{from_utf8, from_utf8_mut, Chars, CharIndices, Bytes};
+pub use core::str::{Bytes, CharIndices, Chars, from_utf8, from_utf8_mut};
 #[stable(feature = "rust1", since = "1.0.0")]
-pub use core::str::{from_utf8_unchecked, from_utf8_unchecked_mut, ParseBoolError};
+pub use core::str::{ParseBoolError, from_utf8_unchecked, from_utf8_unchecked_mut};
 #[stable(feature = "rust1", since = "1.0.0")]
 pub use std_unicode::str::SplitWhitespace;
 #[stable(feature = "rust1", since = "1.0.0")]
 pub use core::str::pattern;
 
-
-#[unstable(feature = "slice_concat_ext",
-           reason = "trait should not have to exist",
+#[unstable(feature = "slice_concat_ext", reason = "trait should not have to exist",
            issue = "27747")]
 impl<S: Borrow<str>> SliceConcatExt<str> for [S] {
     type Output = String;
@@ -113,8 +111,8 @@ impl<S: Borrow<str>> SliceConcatExt<str> for [S] {
 
         // this is wrong without the guarantee that `self` is non-empty
         // `len` calculation may overflow but push_str but will check boundaries
-        let len = sep.len() * (self.len() - 1) +
-                  self.iter().map(|s| s.borrow().len()).sum::<usize>();
+        let len =
+            sep.len() * (self.len() - 1) + self.iter().map(|s| s.borrow().len()).sum::<usize>();
         let mut result = String::with_capacity(len);
         let mut first = true;
 
@@ -870,7 +868,9 @@ impl str {
     /// ```
     #[stable(feature = "encode_utf16", since = "1.8.0")]
     pub fn encode_utf16(&self) -> EncodeUtf16 {
-        EncodeUtf16 { encoder: Utf16Encoder::new(self[..].chars()) }
+        EncodeUtf16 {
+            encoder: Utf16Encoder::new(self[..].chars()),
+        }
     }
 
     /// Returns `true` if the given pattern matches a sub-slice of
@@ -931,7 +931,8 @@ impl str {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn ends_with<'a, P: Pattern<'a>>(&'a self, pat: P) -> bool
-        where P::Searcher: ReverseSearcher<'a>
+    where
+        P::Searcher: ReverseSearcher<'a>,
     {
         core_str::StrExt::ends_with(self, pat)
     }
@@ -1026,7 +1027,8 @@ impl str {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
     pub fn rfind<'a, P: Pattern<'a>>(&'a self, pat: P) -> Option<usize>
-        where P::Searcher: ReverseSearcher<'a>
+    where
+        P::Searcher: ReverseSearcher<'a>,
     {
         core_str::StrExt::rfind(self, pat)
     }
@@ -1190,7 +1192,8 @@ impl str {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
     pub fn rsplit<'a, P: Pattern<'a>>(&'a self, pat: P) -> RSplit<'a, P>
-        where P::Searcher: ReverseSearcher<'a>
+    where
+        P::Searcher: ReverseSearcher<'a>,
     {
         core_str::StrExt::rsplit(self, pat)
     }
@@ -1281,7 +1284,8 @@ impl str {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
     pub fn rsplit_terminator<'a, P: Pattern<'a>>(&'a self, pat: P) -> RSplitTerminator<'a, P>
-        where P::Searcher: ReverseSearcher<'a>
+    where
+        P::Searcher: ReverseSearcher<'a>,
     {
         core_str::StrExt::rsplit_terminator(self, pat)
     }
@@ -1382,7 +1386,8 @@ impl str {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
     pub fn rsplitn<'a, P: Pattern<'a>>(&'a self, n: usize, pat: P) -> RSplitN<'a, P>
-        where P::Searcher: ReverseSearcher<'a>
+    where
+        P::Searcher: ReverseSearcher<'a>,
     {
         core_str::StrExt::rsplitn(self, n, pat)
     }
@@ -1460,7 +1465,8 @@ impl str {
     #[stable(feature = "str_matches", since = "1.2.0")]
     #[inline]
     pub fn rmatches<'a, P: Pattern<'a>>(&'a self, pat: P) -> RMatches<'a, P>
-        where P::Searcher: ReverseSearcher<'a>
+    where
+        P::Searcher: ReverseSearcher<'a>,
     {
         core_str::StrExt::rmatches(self, pat)
     }
@@ -1549,7 +1555,8 @@ impl str {
     #[stable(feature = "str_match_indices", since = "1.5.0")]
     #[inline]
     pub fn rmatch_indices<'a, P: Pattern<'a>>(&'a self, pat: P) -> RMatchIndices<'a, P>
-        where P::Searcher: ReverseSearcher<'a>
+    where
+        P::Searcher: ReverseSearcher<'a>,
     {
         core_str::StrExt::rmatch_indices(self, pat)
     }
@@ -1672,7 +1679,8 @@ impl str {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn trim_matches<'a, P: Pattern<'a>>(&'a self, pat: P) -> &'a str
-        where P::Searcher: DoubleEndedSearcher<'a>
+    where
+        P::Searcher: DoubleEndedSearcher<'a>,
     {
         core_str::StrExt::trim_matches(self, pat)
     }
@@ -1742,7 +1750,8 @@ impl str {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn trim_right_matches<'a, P: Pattern<'a>>(&'a self, pat: P) -> &'a str
-        where P::Searcher: ReverseSearcher<'a>
+    where
+        P::Searcher: ReverseSearcher<'a>,
     {
         core_str::StrExt::trim_right_matches(self, pat)
     }
@@ -1953,13 +1962,13 @@ impl str {
             // See http://www.unicode.org/versions/Unicode7.0.0/ch03.pdf#G33992
             // for the definition of `Final_Sigma`.
             debug_assert!('Σ'.len_utf8() == 2);
-            let is_word_final = case_ignoreable_then_cased(from[..i].chars().rev()) &&
-                                !case_ignoreable_then_cased(from[i + 2..].chars());
+            let is_word_final = case_ignoreable_then_cased(from[..i].chars().rev())
+                && !case_ignoreable_then_cased(from[i + 2..].chars());
             to.push_str(if is_word_final { "ς" } else { "σ" });
         }
 
         fn case_ignoreable_then_cased<I: Iterator<Item = char>>(iter: I) -> bool {
-            use std_unicode::derived_property::{Cased, Case_Ignorable};
+            use std_unicode::derived_property::{Case_Ignorable, Cased};
             match iter.skip_while(|&c| Case_Ignorable(c)).next() {
                 Some(c) => Cased(c),
                 None => false,
@@ -2005,8 +2014,7 @@ impl str {
     /// Escapes each char in `s` with [`char::escape_debug`].
     ///
     /// [`char::escape_debug`]: primitive.char.html#method.escape_debug
-    #[unstable(feature = "str_escape",
-               reason = "return type may change to be an iterator",
+    #[unstable(feature = "str_escape", reason = "return type may change to be an iterator",
                issue = "27791")]
     pub fn escape_debug(&self) -> String {
         self.chars().flat_map(|c| c.escape_debug()).collect()
@@ -2015,8 +2023,7 @@ impl str {
     /// Escapes each char in `s` with [`char::escape_default`].
     ///
     /// [`char::escape_default`]: primitive.char.html#method.escape_default
-    #[unstable(feature = "str_escape",
-               reason = "return type may change to be an iterator",
+    #[unstable(feature = "str_escape", reason = "return type may change to be an iterator",
                issue = "27791")]
     pub fn escape_default(&self) -> String {
         self.chars().flat_map(|c| c.escape_default()).collect()
@@ -2025,8 +2032,7 @@ impl str {
     /// Escapes each char in `s` with [`char::escape_unicode`].
     ///
     /// [`char::escape_unicode`]: primitive.char.html#method.escape_unicode
-    #[unstable(feature = "str_escape",
-               reason = "return type may change to be an iterator",
+    #[unstable(feature = "str_escape", reason = "return type may change to be an iterator",
                issue = "27791")]
     pub fn escape_unicode(&self) -> String {
         self.chars().flat_map(|c| c.escape_unicode()).collect()

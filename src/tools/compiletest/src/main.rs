@@ -21,8 +21,8 @@ extern crate getopts;
 extern crate libc;
 #[macro_use]
 extern crate log;
-extern crate rustc_serialize;
 extern crate regex;
+extern crate rustc_serialize;
 extern crate test;
 
 use std::env;
@@ -485,7 +485,11 @@ pub fn test_opts(config: &Config) -> test::TestOpts {
         filter: config.filter.clone(),
         filter_exact: config.filter_exact,
         run_ignored: config.run_ignored,
-        format: if config.quiet { test::OutputFormat::Terse } else { test::OutputFormat::Pretty },
+        format: if config.quiet {
+            test::OutputFormat::Terse
+        } else {
+            test::OutputFormat::Pretty
+        },
         logfile: config.logfile.clone(),
         run_tests: true,
         bench_benchmarks: true,
@@ -667,8 +671,7 @@ fn up_to_date(config: &Config, testpaths: &TestPaths, props: &EarlyProps) -> boo
     for pretty_printer_file in &pretty_printer_files {
         inputs.push(mtime(&rust_src_dir.join(pretty_printer_file)));
     }
-    let mut entries = config.run_lib_path.read_dir().unwrap()
-        .collect::<Vec<_>>();
+    let mut entries = config.run_lib_path.read_dir().unwrap().collect::<Vec<_>>();
     while let Some(entry) = entries.pop() {
         let entry = entry.unwrap();
         let path = entry.path();

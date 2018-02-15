@@ -17,10 +17,11 @@ use super::FunctionCx;
 use super::LocalRef;
 
 impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
-    pub fn trans_statement(&mut self,
-                           bx: Builder<'a, 'tcx>,
-                           statement: &mir::Statement<'tcx>)
-                           -> Builder<'a, 'tcx> {
+    pub fn trans_statement(
+        &mut self,
+        bx: Builder<'a, 'tcx>,
+        statement: &mir::Statement<'tcx>,
+    ) -> Builder<'a, 'tcx> {
         debug!("trans_statement(statement={:?})", statement);
 
         self.set_debug_loc(&bx, statement.source_info);
@@ -28,9 +29,7 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
             mir::StatementKind::Assign(ref place, ref rvalue) => {
                 if let mir::Place::Local(index) = *place {
                     match self.locals[index] {
-                        LocalRef::Place(tr_dest) => {
-                            self.trans_rvalue(bx, tr_dest, rvalue)
-                        }
+                        LocalRef::Place(tr_dest) => self.trans_rvalue(bx, tr_dest, rvalue),
                         LocalRef::Operand(None) => {
                             let (bx, operand) = self.trans_rvalue_operand(bx, rvalue);
                             self.locals[index] = LocalRef::Operand(Some(operand));
@@ -38,9 +37,11 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                         }
                         LocalRef::Operand(Some(op)) => {
                             if !op.layout.is_zst() {
-                                span_bug!(statement.source_info.span,
-                                          "operand {:?} already assigned",
-                                          rvalue);
+                                span_bug!(
+                                    statement.source_info.span,
+                                    "operand {:?} already assigned",
+                                    rvalue
+                                );
                             }
 
                             // If the type is zero-sized, it's already been set here,
@@ -53,7 +54,10 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                     self.trans_rvalue(bx, tr_dest, rvalue)
                 }
             }
-            mir::StatementKind::SetDiscriminant{ref place, variant_index} => {
+            mir::StatementKind::SetDiscriminant {
+                ref place,
+                variant_index,
+            } => {
                 self.trans_place(&bx, place)
                     .trans_set_discr(&bx, variant_index);
                 bx
@@ -70,21 +74,27 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                 }
                 bx
             }
-            mir::StatementKind::InlineAsm { ref asm, ref outputs, ref inputs } => {
-                let outputs = outputs.iter().map(|output| {
-                    self.trans_place(&bx, output)
-                }).collect();
+            mir::StatementKind::InlineAsm {
+                ref asm,
+                ref outputs,
+                ref inputs,
+            } => {
+                let outputs = outputs
+                    .iter()
+                    .map(|output| self.trans_place(&bx, output))
+                    .collect();
 
-                let input_vals = inputs.iter().map(|input| {
-                    self.trans_operand(&bx, input).immediate()
-                }).collect();
+                let input_vals = inputs
+                    .iter()
+                    .map(|input| self.trans_operand(&bx, input).immediate())
+                    .collect();
 
                 asm::trans_inline_asm(&bx, asm, outputs, input_vals);
                 bx
             }
-            mir::StatementKind::EndRegion(_) |
-            mir::StatementKind::Validate(..) |
-            mir::StatementKind::Nop => bx,
+            mir::StatementKind::EndRegion(_)
+            | mir::StatementKind::Validate(..)
+            | mir::StatementKind::Nop => bx,
         }
     }
 }

@@ -20,10 +20,9 @@
 //! This API is completely unstable and subject to change.
 
 #![doc(html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
-      html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
-      html_root_url = "https://doc.rust-lang.org/nightly/")]
+       html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
+       html_root_url = "https://doc.rust-lang.org/nightly/")]
 #![deny(warnings)]
-
 #![cfg_attr(test, feature(test))]
 #![feature(box_patterns)]
 #![feature(box_syntax)]
@@ -34,12 +33,12 @@
 #![feature(slice_patterns)]
 
 #[macro_use]
-extern crate syntax;
+extern crate log;
 #[macro_use]
 extern crate rustc;
-#[macro_use]
-extern crate log;
 extern crate rustc_const_eval;
+#[macro_use]
+extern crate syntax;
 extern crate syntax_pos;
 
 use rustc::lint;
@@ -103,74 +102,74 @@ pub fn register_builtins(store: &mut lint::LintStore, sess: Option<&Session>) {
             )
     }
 
-    add_early_builtin!(sess,
-                       UnusedParens,
-                       UnusedImportBraces,
-                       AnonymousParameters,
-                       IllegalFloatLiteralPattern,
-                       UnusedDocComment,
-                       );
+    add_early_builtin!(
+        sess,
+        UnusedParens,
+        UnusedImportBraces,
+        AnonymousParameters,
+        IllegalFloatLiteralPattern,
+        UnusedDocComment,
+    );
 
-    add_early_builtin_with_new!(sess,
-                                DeprecatedAttr,
-                                );
+    add_early_builtin_with_new!(sess, DeprecatedAttr,);
 
-    add_builtin!(sess,
-                 HardwiredLints,
-                 WhileTrue,
-                 ImproperCTypes,
-                 VariantSizeDifferences,
-                 BoxPointers,
-                 UnusedAttributes,
-                 PathStatements,
-                 UnusedResults,
-                 NonCamelCaseTypes,
-                 NonSnakeCase,
-                 NonUpperCaseGlobals,
-                 NonShorthandFieldPatterns,
-                 UnsafeCode,
-                 UnusedAllocation,
-                 MissingCopyImplementations,
-                 UnstableFeatures,
-                 UnconditionalRecursion,
-                 InvalidNoMangleItems,
-                 PluginAsLibrary,
-                 MutableTransmutes,
-                 UnionsWithDropFields,
-                 UnreachablePub,
-                 );
+    add_builtin!(
+        sess,
+        HardwiredLints,
+        WhileTrue,
+        ImproperCTypes,
+        VariantSizeDifferences,
+        BoxPointers,
+        UnusedAttributes,
+        PathStatements,
+        UnusedResults,
+        NonCamelCaseTypes,
+        NonSnakeCase,
+        NonUpperCaseGlobals,
+        NonShorthandFieldPatterns,
+        UnsafeCode,
+        UnusedAllocation,
+        MissingCopyImplementations,
+        UnstableFeatures,
+        UnconditionalRecursion,
+        InvalidNoMangleItems,
+        PluginAsLibrary,
+        MutableTransmutes,
+        UnionsWithDropFields,
+        UnreachablePub,
+    );
 
-    add_builtin_with_new!(sess,
-                          TypeLimits,
-                          MissingDoc,
-                          MissingDebugImplementations,
-                          );
+    add_builtin_with_new!(sess, TypeLimits, MissingDoc, MissingDebugImplementations,);
 
-    add_lint_group!(sess,
-                    "bad_style",
-                    NON_CAMEL_CASE_TYPES,
-                    NON_SNAKE_CASE,
-                    NON_UPPER_CASE_GLOBALS);
+    add_lint_group!(
+        sess,
+        "bad_style",
+        NON_CAMEL_CASE_TYPES,
+        NON_SNAKE_CASE,
+        NON_UPPER_CASE_GLOBALS
+    );
 
-    add_lint_group!(sess,
-                    "unused",
-                    UNUSED_IMPORTS,
-                    UNUSED_VARIABLES,
-                    UNUSED_ASSIGNMENTS,
-                    DEAD_CODE,
-                    UNUSED_MUT,
-                    UNREACHABLE_CODE,
-                    UNREACHABLE_PATTERNS,
-                    UNUSED_MUST_USE,
-                    UNUSED_UNSAFE,
-                    PATH_STATEMENTS,
-                    UNUSED_ATTRIBUTES,
-                    UNUSED_MACROS,
-                    UNUSED_ALLOCATION,
-                    UNUSED_DOC_COMMENT,
-                    UNUSED_EXTERN_CRATES,
-                    UNUSED_FEATURES,
-                    UNUSED_PARENS);
+    add_lint_group!(
+        sess,
+        "unused",
+        UNUSED_IMPORTS,
+        UNUSED_VARIABLES,
+        UNUSED_ASSIGNMENTS,
+        DEAD_CODE,
+        UNUSED_MUT,
+        UNREACHABLE_CODE,
+        UNREACHABLE_PATTERNS,
+        UNUSED_MUST_USE,
+        UNUSED_UNSAFE,
+        PATH_STATEMENTS,
+        UNUSED_ATTRIBUTES,
+        UNUSED_MACROS,
+        UNUSED_ALLOCATION,
+        UNUSED_DOC_COMMENT,
+        UNUSED_EXTERN_CRATES,
+        UNUSED_FEATURES,
+        UNUSED_PARENS
+    );
 
     // Guidelines for creating a future incompatibility lint:
     //
@@ -180,109 +179,138 @@ pub fn register_builtins(store: &mut lint::LintStore, sess: Option<&Session>) {
     //   and include the full URL, sort items in ascending order of issue numbers.
     // - Later, change lint to error
     // - Eventually, remove lint
-    store.register_future_incompatible(sess,
-                                       vec![
-        FutureIncompatibleInfo {
-            id: LintId::of(PRIVATE_IN_PUBLIC),
-            reference: "issue #34537 <https://github.com/rust-lang/rust/issues/34537>",
-        },
-        FutureIncompatibleInfo {
-            id: LintId::of(PUB_USE_OF_PRIVATE_EXTERN_CRATE),
-            reference: "issue #34537 <https://github.com/rust-lang/rust/issues/34537>",
-        },
-        FutureIncompatibleInfo {
-            id: LintId::of(PATTERNS_IN_FNS_WITHOUT_BODY),
-            reference: "issue #35203 <https://github.com/rust-lang/rust/issues/35203>",
-        },
-        FutureIncompatibleInfo {
-            id: LintId::of(SAFE_EXTERN_STATICS),
-            reference: "issue #36247 <https://github.com/rust-lang/rust/issues/36247>",
-        },
-        FutureIncompatibleInfo {
-            id: LintId::of(INVALID_TYPE_PARAM_DEFAULT),
-            reference: "issue #36887 <https://github.com/rust-lang/rust/issues/36887>",
-        },
-        FutureIncompatibleInfo {
-            id: LintId::of(LEGACY_DIRECTORY_OWNERSHIP),
-            reference: "issue #37872 <https://github.com/rust-lang/rust/issues/37872>",
-        },
-        FutureIncompatibleInfo {
-            id: LintId::of(LEGACY_IMPORTS),
-            reference: "issue #38260 <https://github.com/rust-lang/rust/issues/38260>",
-        },
-        FutureIncompatibleInfo {
-            id: LintId::of(LEGACY_CONSTRUCTOR_VISIBILITY),
-            reference: "issue #39207 <https://github.com/rust-lang/rust/issues/39207>",
-        },
-        FutureIncompatibleInfo {
-            id: LintId::of(RESOLVE_TRAIT_ON_DEFAULTED_UNIT),
-            reference: "issue #39216 <https://github.com/rust-lang/rust/issues/39216>",
-        },
-        FutureIncompatibleInfo {
-            id: LintId::of(MISSING_FRAGMENT_SPECIFIER),
-            reference: "issue #40107 <https://github.com/rust-lang/rust/issues/40107>",
-        },
-        FutureIncompatibleInfo {
-            id: LintId::of(ILLEGAL_FLOATING_POINT_LITERAL_PATTERN),
-            reference: "issue #41620 <https://github.com/rust-lang/rust/issues/41620>",
-        },
-        FutureIncompatibleInfo {
-            id: LintId::of(ANONYMOUS_PARAMETERS),
-            reference: "issue #41686 <https://github.com/rust-lang/rust/issues/41686>",
-        },
-        FutureIncompatibleInfo {
-            id: LintId::of(PARENTHESIZED_PARAMS_IN_TYPES_AND_MODULES),
-            reference: "issue #42238 <https://github.com/rust-lang/rust/issues/42238>",
-        },
-        FutureIncompatibleInfo {
-            id: LintId::of(LATE_BOUND_LIFETIME_ARGUMENTS),
-            reference: "issue #42868 <https://github.com/rust-lang/rust/issues/42868>",
-        },
-        FutureIncompatibleInfo {
-            id: LintId::of(SAFE_PACKED_BORROWS),
-            reference: "issue #46043 <https://github.com/rust-lang/rust/issues/46043>",
-        },
-        FutureIncompatibleInfo {
-            id: LintId::of(INCOHERENT_FUNDAMENTAL_IMPLS),
-            reference: "issue #46205 <https://github.com/rust-lang/rust/issues/46205>",
-        },
-        FutureIncompatibleInfo {
-            id: LintId::of(COERCE_NEVER),
-            reference: "issue #46325 <https://github.com/rust-lang/rust/issues/46325>",
-        },
-        FutureIncompatibleInfo {
-            id: LintId::of(TYVAR_BEHIND_RAW_POINTER),
-            reference: "issue #46906 <https://github.com/rust-lang/rust/issues/46906>",
-        },
-        ]);
+    store.register_future_incompatible(
+        sess,
+        vec![
+            FutureIncompatibleInfo {
+                id: LintId::of(PRIVATE_IN_PUBLIC),
+                reference: "issue #34537 <https://github.com/rust-lang/rust/issues/34537>",
+            },
+            FutureIncompatibleInfo {
+                id: LintId::of(PUB_USE_OF_PRIVATE_EXTERN_CRATE),
+                reference: "issue #34537 <https://github.com/rust-lang/rust/issues/34537>",
+            },
+            FutureIncompatibleInfo {
+                id: LintId::of(PATTERNS_IN_FNS_WITHOUT_BODY),
+                reference: "issue #35203 <https://github.com/rust-lang/rust/issues/35203>",
+            },
+            FutureIncompatibleInfo {
+                id: LintId::of(SAFE_EXTERN_STATICS),
+                reference: "issue #36247 <https://github.com/rust-lang/rust/issues/36247>",
+            },
+            FutureIncompatibleInfo {
+                id: LintId::of(INVALID_TYPE_PARAM_DEFAULT),
+                reference: "issue #36887 <https://github.com/rust-lang/rust/issues/36887>",
+            },
+            FutureIncompatibleInfo {
+                id: LintId::of(LEGACY_DIRECTORY_OWNERSHIP),
+                reference: "issue #37872 <https://github.com/rust-lang/rust/issues/37872>",
+            },
+            FutureIncompatibleInfo {
+                id: LintId::of(LEGACY_IMPORTS),
+                reference: "issue #38260 <https://github.com/rust-lang/rust/issues/38260>",
+            },
+            FutureIncompatibleInfo {
+                id: LintId::of(LEGACY_CONSTRUCTOR_VISIBILITY),
+                reference: "issue #39207 <https://github.com/rust-lang/rust/issues/39207>",
+            },
+            FutureIncompatibleInfo {
+                id: LintId::of(RESOLVE_TRAIT_ON_DEFAULTED_UNIT),
+                reference: "issue #39216 <https://github.com/rust-lang/rust/issues/39216>",
+            },
+            FutureIncompatibleInfo {
+                id: LintId::of(MISSING_FRAGMENT_SPECIFIER),
+                reference: "issue #40107 <https://github.com/rust-lang/rust/issues/40107>",
+            },
+            FutureIncompatibleInfo {
+                id: LintId::of(ILLEGAL_FLOATING_POINT_LITERAL_PATTERN),
+                reference: "issue #41620 <https://github.com/rust-lang/rust/issues/41620>",
+            },
+            FutureIncompatibleInfo {
+                id: LintId::of(ANONYMOUS_PARAMETERS),
+                reference: "issue #41686 <https://github.com/rust-lang/rust/issues/41686>",
+            },
+            FutureIncompatibleInfo {
+                id: LintId::of(PARENTHESIZED_PARAMS_IN_TYPES_AND_MODULES),
+                reference: "issue #42238 <https://github.com/rust-lang/rust/issues/42238>",
+            },
+            FutureIncompatibleInfo {
+                id: LintId::of(LATE_BOUND_LIFETIME_ARGUMENTS),
+                reference: "issue #42868 <https://github.com/rust-lang/rust/issues/42868>",
+            },
+            FutureIncompatibleInfo {
+                id: LintId::of(SAFE_PACKED_BORROWS),
+                reference: "issue #46043 <https://github.com/rust-lang/rust/issues/46043>",
+            },
+            FutureIncompatibleInfo {
+                id: LintId::of(INCOHERENT_FUNDAMENTAL_IMPLS),
+                reference: "issue #46205 <https://github.com/rust-lang/rust/issues/46205>",
+            },
+            FutureIncompatibleInfo {
+                id: LintId::of(COERCE_NEVER),
+                reference: "issue #46325 <https://github.com/rust-lang/rust/issues/46325>",
+            },
+            FutureIncompatibleInfo {
+                id: LintId::of(TYVAR_BEHIND_RAW_POINTER),
+                reference: "issue #46906 <https://github.com/rust-lang/rust/issues/46906>",
+            },
+        ],
+    );
 
     // Register renamed and removed lints
     store.register_renamed("unknown_features", "unused_features");
-    store.register_removed("unsigned_negation", "replaced by negate_unsigned feature gate");
+    store.register_removed(
+        "unsigned_negation",
+        "replaced by negate_unsigned feature gate",
+    );
     store.register_removed("negate_unsigned", "cast a signed value instead");
     store.register_removed("raw_pointer_derive", "using derive with raw pointers is ok");
     // This was renamed to raw_pointer_derive, which was then removed,
     // so it is also considered removed
-    store.register_removed("raw_pointer_deriving", "using derive with raw pointers is ok");
+    store.register_removed(
+        "raw_pointer_deriving",
+        "using derive with raw pointers is ok",
+    );
     store.register_removed("drop_with_repr_extern", "drop flags have been removed");
-    store.register_removed("fat_ptr_transmutes", "was accidentally removed back in 2014");
+    store.register_removed(
+        "fat_ptr_transmutes",
+        "was accidentally removed back in 2014",
+    );
     store.register_removed("deprecated_attr", "use `deprecated` instead");
-    store.register_removed("transmute_from_fn_item_types",
-        "always cast functions before transmuting them");
-    store.register_removed("hr_lifetime_in_assoc_type",
-        "converted into hard error, see https://github.com/rust-lang/rust/issues/33685");
-    store.register_removed("inaccessible_extern_crate",
-        "converted into hard error, see https://github.com/rust-lang/rust/issues/36886");
-    store.register_removed("super_or_self_in_global_path",
-        "converted into hard error, see https://github.com/rust-lang/rust/issues/36888");
-    store.register_removed("overlapping_inherent_impls",
-        "converted into hard error, see https://github.com/rust-lang/rust/issues/36889");
-    store.register_removed("illegal_floating_point_constant_pattern",
-        "converted into hard error, see https://github.com/rust-lang/rust/issues/36890");
-    store.register_removed("illegal_struct_or_enum_constant_pattern",
-        "converted into hard error, see https://github.com/rust-lang/rust/issues/36891");
-    store.register_removed("lifetime_underscore",
-        "converted into hard error, see https://github.com/rust-lang/rust/issues/36892");
-    store.register_removed("extra_requirement_in_impl",
-        "converted into hard error, see https://github.com/rust-lang/rust/issues/37166");
+    store.register_removed(
+        "transmute_from_fn_item_types",
+        "always cast functions before transmuting them",
+    );
+    store.register_removed(
+        "hr_lifetime_in_assoc_type",
+        "converted into hard error, see https://github.com/rust-lang/rust/issues/33685",
+    );
+    store.register_removed(
+        "inaccessible_extern_crate",
+        "converted into hard error, see https://github.com/rust-lang/rust/issues/36886",
+    );
+    store.register_removed(
+        "super_or_self_in_global_path",
+        "converted into hard error, see https://github.com/rust-lang/rust/issues/36888",
+    );
+    store.register_removed(
+        "overlapping_inherent_impls",
+        "converted into hard error, see https://github.com/rust-lang/rust/issues/36889",
+    );
+    store.register_removed(
+        "illegal_floating_point_constant_pattern",
+        "converted into hard error, see https://github.com/rust-lang/rust/issues/36890",
+    );
+    store.register_removed(
+        "illegal_struct_or_enum_constant_pattern",
+        "converted into hard error, see https://github.com/rust-lang/rust/issues/36891",
+    );
+    store.register_removed(
+        "lifetime_underscore",
+        "converted into hard error, see https://github.com/rust-lang/rust/issues/36892",
+    );
+    store.register_removed(
+        "extra_requirement_in_impl",
+        "converted into hard error, see https://github.com/rust-lang/rust/issues/37166",
+    );
 }

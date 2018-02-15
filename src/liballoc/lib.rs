@@ -74,7 +74,6 @@
 #![needs_allocator]
 #![deny(warnings)]
 #![deny(missing_debug_implementations)]
-
 #![cfg_attr(test, allow(deprecated))] // rand
 #![cfg_attr(test, feature(placement_in))]
 #![cfg_attr(not(test), feature(core_float))]
@@ -125,19 +124,18 @@
 #![feature(allocator_internals)]
 #![feature(on_unimplemented)]
 #![feature(exact_chunks)]
-
 #![cfg_attr(not(test), feature(fused, fn_traits, placement_new_protocol, swap_with_slice, i128))]
 #![cfg_attr(test, feature(test, box_heap))]
 
 // Allow testing this library
 
 #[cfg(test)]
+extern crate rand;
+#[cfg(test)]
 #[macro_use]
 extern crate std;
 #[cfg(test)]
 extern crate test;
-#[cfg(test)]
-extern crate rand;
 
 extern crate std_unicode;
 
@@ -201,7 +199,7 @@ pub mod btree_set {
 
 #[cfg(not(test))]
 mod std {
-    pub use core::ops;      // RangeFull
+    pub use core::ops; // RangeFull
 }
 
 /// An endpoint of a range of keys.

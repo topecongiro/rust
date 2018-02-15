@@ -493,18 +493,15 @@ impl<'cx, 'gcx, 'tcx> UniversalRegionsBuilder<'cx, 'gcx, 'tcx> {
 
         debug!(
             "build: global regions = {}..{}",
-            FIRST_GLOBAL_INDEX,
-            first_extern_index
+            FIRST_GLOBAL_INDEX, first_extern_index
         );
         debug!(
             "build: extern regions = {}..{}",
-            first_extern_index,
-            first_local_index
+            first_extern_index, first_local_index
         );
         debug!(
             "build: local regions  = {}..{}",
-            first_local_index,
-            num_universals
+            first_local_index, num_universals
         );
 
         let yield_ty = match defining_ty {
@@ -548,7 +545,7 @@ impl<'cx, 'gcx, 'tcx> UniversalRegionsBuilder<'cx, 'gcx, 'tcx> {
                 let defining_ty = self.infcx
                     .replace_free_regions_with_nll_infer_vars(FR, &defining_ty);
 
-                match defining_ty.sty  {
+                match defining_ty.sty {
                     ty::TyClosure(def_id, substs) => DefiningTy::Closure(def_id, substs),
                     ty::TyGenerator(def_id, substs, interior) => {
                         DefiningTy::Generator(def_id, substs, interior)
@@ -596,7 +593,10 @@ impl<'cx, 'gcx, 'tcx> UniversalRegionsBuilder<'cx, 'gcx, 'tcx> {
                 // that correspond to early-bound regions declared on
                 // the `closure_base_def_id`.
                 assert!(substs.substs.len() >= identity_substs.len());
-                assert_eq!(substs.substs.regions().count(), identity_substs.regions().count());
+                assert_eq!(
+                    substs.substs.regions().count(),
+                    identity_substs.regions().count()
+                );
                 substs.substs
             }
 
@@ -725,8 +725,7 @@ impl UniversalRegionRelations {
     fn relate_universal_regions(&mut self, fr_a: RegionVid, fr_b: RegionVid) {
         debug!(
             "relate_universal_regions: fr_a={:?} outlives fr_b={:?}",
-            fr_a,
-            fr_b
+            fr_a, fr_b
         );
         self.outlives.add(fr_a, fr_b);
         self.inverse_outlives.add(fr_b, fr_a);
@@ -796,9 +795,7 @@ impl<'tcx> UniversalRegionIndices<'tcx> {
     /// in later and instantiate the late-bound regions, and then we
     /// insert the `ReFree` version of those into the map as
     /// well. These are used for error reporting.
-    fn insert_late_bound_region(&mut self, r: ty::Region<'tcx>,
-                                vid: ty::RegionVid)
-    {
+    fn insert_late_bound_region(&mut self, r: ty::Region<'tcx>, vid: ty::RegionVid) {
         self.indices.insert(r, vid);
     }
 
@@ -814,9 +811,9 @@ impl<'tcx> UniversalRegionIndices<'tcx> {
         if let ty::ReVar(..) = r {
             r.to_region_vid()
         } else {
-            *self.indices.get(&r).unwrap_or_else(|| {
-                bug!("cannot convert `{:?}` to a region vid", r)
-            })
+            *self.indices
+                .get(&r)
+                .unwrap_or_else(|| bug!("cannot convert `{:?}` to a region vid", r))
         }
     }
 

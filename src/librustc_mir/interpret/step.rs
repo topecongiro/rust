@@ -3,15 +3,15 @@
 //! The main entry point is the `step` method.
 
 use rustc::hir;
-use rustc::mir::visit::{Visitor, PlaceContext};
+use rustc::mir::visit::{PlaceContext, Visitor};
 use rustc::mir;
 use rustc::ty::{self, Instance};
 use rustc::ty::layout::LayoutOf;
 use rustc::middle::const_val::ConstVal;
 use rustc::mir::interpret::GlobalId;
 
-use rustc::mir::interpret::{EvalResult, EvalErrorKind};
-use super::{EvalContext, StackPopCleanup, Place, Machine};
+use rustc::mir::interpret::{EvalErrorKind, EvalResult};
+use super::{EvalContext, Machine, Place, StackPopCleanup};
 
 use syntax::codemap::Span;
 use syntax::ast::Mutability;
@@ -124,11 +124,9 @@ impl<'a, 'tcx, M: Machine<'tcx>> EvalContext<'a, 'tcx, M> {
             }
 
             // Validity checks.
-            Validate(op, ref places) => {
-                for operand in places {
-                    M::validation_op(self, op, operand)?;
-                }
-            }
+            Validate(op, ref places) => for operand in places {
+                M::validation_op(self, op, operand)?;
+            },
             EndRegion(ce) => {
                 M::end_region(self, Some(ce))?;
             }
@@ -165,7 +163,12 @@ impl<'a, 'tcx, M: Machine<'tcx>> EvalContext<'a, 'tcx, M> {
             instance,
             promoted: None,
         };
-        if self.tcx.interpret_interner.borrow().get_cached(cid).is_some() {
+        if self.tcx
+            .interpret_interner
+            .borrow()
+            .get_cached(cid)
+            .is_some()
+        {
             return Ok(false);
         }
         if self.tcx.has_attr(instance.def_id(), "linkage") {
@@ -175,12 +178,12 @@ impl<'a, 'tcx, M: Machine<'tcx>> EvalContext<'a, 'tcx, M> {
         let instance_ty = instance.ty(self.tcx);
         let layout = self.layout_of(instance_ty)?;
         assert!(!layout.is_unsized());
-        let ptr = self.memory.allocate(
-            layout.size.bytes(),
-            layout.align,
-            None,
-        )?;
-        self.tcx.interpret_interner.borrow_mut().cache(cid, ptr.alloc_id);
+        let ptr = self.memory
+            .allocate(layout.size.bytes(), layout.align, None)?;
+        self.tcx
+            .interpret_interner
+            .borrow_mut()
+            .cache(cid, ptr.alloc_id);
         let internally_mutable = !layout.ty.is_freeze(self.tcx, self.param_env, span);
         let mutability = if mutability == Mutability::Mutable || internally_mutable {
             Mutability::Mutable
@@ -215,11 +218,11 @@ impl<'a, 'b, 'tcx, M: Machine<'tcx>> ConstantExtractor<'a, 'b, 'tcx, M> {
     fn try<F: FnOnce(&mut Self) -> EvalResult<'tcx, bool>>(&mut self, f: F) {
         match *self.new_constant {
             // already computed a constant, don't do more than one per iteration
-            Ok(true) => {},
+            Ok(true) => {}
             // no constants computed yet
             Ok(false) => *self.new_constant = f(self),
             // error happened, abort the visitor traversing
-            Err(_) => {},
+            Err(_) => {}
         }
     }
 }
@@ -230,22 +233,24 @@ impl<'a, 'b, 'tcx, M: Machine<'tcx>> Visitor<'tcx> for ConstantExtractor<'a, 'b,
         self.try(|this| {
             match constant.literal {
                 // already computed by rustc
-                mir::Literal::Value { value: &ty::Const { val: ConstVal::Unevaluated(def_id, substs), .. } } => {
+                mir::Literal::Value {
+                    value:
+                        &ty::Const {
+                            val: ConstVal::Unevaluated(def_id, substs),
+                            ..
+                        },
+                } => {
                     debug!("global_item: {:?}, {:#?}", def_id, substs);
-                    let substs = this.ecx.tcx.trans_apply_param_substs(this.instance.substs, &substs);
+                    let substs = this.ecx
+                        .tcx
+                        .trans_apply_param_substs(this.instance.substs, &substs);
                     debug!("global_item_new_substs: {:#?}", substs);
                     debug!("global_item_param_env: {:#?}", this.ecx.param_env);
-                    let instance = Instance::resolve(
-                        this.ecx.tcx,
-                        this.ecx.param_env,
-                        def_id,
-                        substs,
-                    ).ok_or(EvalErrorKind::TypeckError)?; // turn error prop into a panic to expose associated type in const issue
-                    this.ecx.global_item(
-                        instance,
-                        constant.span,
-                        Mutability::Immutable,
-                    )
+                    let instance =
+                        Instance::resolve(this.ecx.tcx, this.ecx.param_env, def_id, substs)
+                            .ok_or(EvalErrorKind::TypeckError)?; // turn error prop into a panic to expose associated type in const issue
+                    this.ecx
+                        .global_item(instance, constant.span, Mutability::Immutable)
                 }
                 mir::Literal::Value { .. } => Ok(false),
                 mir::Literal::Promoted { index } => {
@@ -253,19 +258,27 @@ impl<'a, 'b, 'tcx, M: Machine<'tcx>> Visitor<'tcx> for ConstantExtractor<'a, 'b,
                         instance: this.instance,
                         promoted: Some(index),
                     };
-                    if this.ecx.tcx.interpret_interner.borrow().get_cached(cid).is_some() {
+                    if this.ecx
+                        .tcx
+                        .interpret_interner
+                        .borrow()
+                        .get_cached(cid)
+                        .is_some()
+                    {
                         return Ok(false);
                     }
                     let mir = &this.mir.promoted[index];
                     let ty = this.ecx.monomorphize(mir.return_ty(), this.instance.substs);
                     let layout = this.ecx.layout_of(ty)?;
                     assert!(!layout.is_unsized());
-                    let ptr = this.ecx.memory.allocate(
-                        layout.size.bytes(),
-                        layout.align,
-                        None,
-                    )?;
-                    this.ecx.tcx.interpret_interner.borrow_mut().cache(cid, ptr.alloc_id);
+                    let ptr = this.ecx
+                        .memory
+                        .allocate(layout.size.bytes(), layout.align, None)?;
+                    this.ecx
+                        .tcx
+                        .interpret_interner
+                        .borrow_mut()
+                        .cache(cid, ptr.alloc_id);
                     trace!("pushing stack frame for {:?}", index);
                     this.ecx.push_stack_frame(
                         this.instance,

@@ -41,8 +41,12 @@ fn test_double_drop() {
             x: Vec::new(),
             y: Vec::new(),
         };
-        tv.x.push(DropCounter { count: &mut count_x });
-        tv.y.push(DropCounter { count: &mut count_y });
+        tv.x.push(DropCounter {
+            count: &mut count_x,
+        });
+        tv.y.push(DropCounter {
+            count: &mut count_y,
+        });
 
         // If Vec had a drop flag, here is where it would be zeroed.
         // Instead, it should rely on its internal state to prevent
@@ -117,7 +121,11 @@ fn test_extend() {
     let mut count_x = 0;
     {
         let mut x = Vec::new();
-        let y = vec![DropCounter { count: &mut count_x }];
+        let y = vec![
+            DropCounter {
+                count: &mut count_x,
+            },
+        ];
         x.extend(y);
     }
     assert_eq!(count_x, 1);
@@ -275,7 +283,12 @@ fn test_dedup_by() {
     assert_eq!(vec, ["foo", "bar", "baz", "bar"]);
 
     let mut vec = vec![("foo", 1), ("foo", 2), ("bar", 3), ("bar", 4), ("bar", 5)];
-    vec.dedup_by(|a, b| a.0 == b.0 && { b.1 += a.1; true });
+    vec.dedup_by(|a, b| {
+        a.0 == b.0 && {
+            b.1 += a.1;
+            true
+        }
+    });
 
     assert_eq!(vec, [("foo", 3), ("bar", 12)]);
 }
@@ -327,14 +340,22 @@ fn zero_sized_values() {
 
 #[test]
 fn test_partition() {
-    assert_eq!(vec![].into_iter().partition(|x: &i32| *x < 3),
-               (vec![], vec![]));
-    assert_eq!(vec![1, 2, 3].into_iter().partition(|x| *x < 4),
-               (vec![1, 2, 3], vec![]));
-    assert_eq!(vec![1, 2, 3].into_iter().partition(|x| *x < 2),
-               (vec![1], vec![2, 3]));
-    assert_eq!(vec![1, 2, 3].into_iter().partition(|x| *x < 0),
-               (vec![], vec![1, 2, 3]));
+    assert_eq!(
+        vec![].into_iter().partition(|x: &i32| *x < 3),
+        (vec![], vec![])
+    );
+    assert_eq!(
+        vec![1, 2, 3].into_iter().partition(|x| *x < 4),
+        (vec![1, 2, 3], vec![])
+    );
+    assert_eq!(
+        vec![1, 2, 3].into_iter().partition(|x| *x < 2),
+        (vec![1], vec![2, 3])
+    );
+    assert_eq!(
+        vec![1, 2, 3].into_iter().partition(|x| *x < 0),
+        (vec![], vec![1, 2, 3])
+    );
 }
 
 #[test]
@@ -513,66 +534,59 @@ fn test_drain_out_of_bounds() {
 #[test]
 fn test_drain_range() {
     let mut v = vec![1, 2, 3, 4, 5];
-    for _ in v.drain(4..) {
-    }
+    for _ in v.drain(4..) {}
     assert_eq!(v, &[1, 2, 3, 4]);
 
     let mut v: Vec<_> = (1..6).map(|x| x.to_string()).collect();
-    for _ in v.drain(1..4) {
-    }
+    for _ in v.drain(1..4) {}
     assert_eq!(v, &[1.to_string(), 5.to_string()]);
 
     let mut v: Vec<_> = (1..6).map(|x| x.to_string()).collect();
-    for _ in v.drain(1..4).rev() {
-    }
+    for _ in v.drain(1..4).rev() {}
     assert_eq!(v, &[1.to_string(), 5.to_string()]);
 
     let mut v: Vec<_> = vec![(); 5];
-    for _ in v.drain(1..4).rev() {
-    }
+    for _ in v.drain(1..4).rev() {}
     assert_eq!(v, &[(), ()]);
 }
 
 #[test]
 fn test_drain_inclusive_range() {
     let mut v = vec!['a', 'b', 'c', 'd', 'e'];
-    for _ in v.drain(1..=3) {
-    }
+    for _ in v.drain(1..=3) {}
     assert_eq!(v, &['a', 'e']);
 
     let mut v: Vec<_> = (0..=5).map(|x| x.to_string()).collect();
-    for _ in v.drain(1..=5) {
-    }
+    for _ in v.drain(1..=5) {}
     assert_eq!(v, &["0".to_string()]);
 
     let mut v: Vec<String> = (0..=5).map(|x| x.to_string()).collect();
-    for _ in v.drain(0..=5) {
-    }
+    for _ in v.drain(0..=5) {}
     assert_eq!(v, Vec::<String>::new());
 
     let mut v: Vec<_> = (0..=5).map(|x| x.to_string()).collect();
-    for _ in v.drain(0..=3) {
-    }
+    for _ in v.drain(0..=3) {}
     assert_eq!(v, &["4".to_string(), "5".to_string()]);
 
     let mut v: Vec<_> = (0..=1).map(|x| x.to_string()).collect();
-    for _ in v.drain(..=0) {
-    }
+    for _ in v.drain(..=0) {}
     assert_eq!(v, &["1".to_string()]);
 }
 
 #[test]
 fn test_drain_max_vec_size() {
     let mut v = Vec::<()>::with_capacity(usize::max_value());
-    unsafe { v.set_len(usize::max_value()); }
-    for _ in v.drain(usize::max_value() - 1..) {
+    unsafe {
+        v.set_len(usize::max_value());
     }
+    for _ in v.drain(usize::max_value() - 1..) {}
     assert_eq!(v.len(), usize::max_value() - 1);
 
     let mut v = Vec::<()>::with_capacity(usize::max_value());
-    unsafe { v.set_len(usize::max_value()); }
-    for _ in v.drain(usize::max_value() - 1..=usize::max_value() - 1) {
+    unsafe {
+        v.set_len(usize::max_value());
     }
+    for _ in v.drain(usize::max_value() - 1..=usize::max_value() - 1) {}
     assert_eq!(v.len(), usize::max_value() - 1);
 }
 
@@ -738,7 +752,10 @@ fn test_cow_from() {
 fn test_from_cow() {
     let borrowed: &[_] = &["borrowed", "(slice)"];
     let owned = vec!["owned", "(vec)"];
-    assert_eq!(Vec::from(Cow::Borrowed(borrowed)), vec!["borrowed", "(slice)"]);
+    assert_eq!(
+        Vec::from(Cow::Borrowed(borrowed)),
+        vec!["borrowed", "(slice)"]
+    );
     assert_eq!(Vec::from(Cow::Owned(owned)), vec!["owned", "(vec)"]);
 }
 
@@ -765,8 +782,12 @@ fn test_placement() {
 #[test]
 fn test_placement_panic() {
     let mut vec = vec![1, 2, 3];
-    fn mkpanic() -> usize { panic!() }
-    let _ = panic::catch_unwind(panic::AssertUnwindSafe(|| { vec.place_back() <- mkpanic(); }));
+    fn mkpanic() -> usize {
+        panic!()
+    }
+    let _ = panic::catch_unwind(panic::AssertUnwindSafe(|| {
+        vec.place_back() <- mkpanic();
+    }));
     assert_eq!(vec.len(), 3);
 }
 
@@ -886,35 +907,29 @@ fn drain_filter_true() {
 
 #[test]
 fn drain_filter_complex() {
-
-    {   //                [+xxx++++++xxxxx++++x+x++]
-        let mut vec = vec![1,
-                           2, 4, 6,
-                           7, 9, 11, 13, 15, 17,
-                           18, 20, 22, 24, 26,
-                           27, 29, 31, 33,
-                           34,
-                           35,
-                           36,
-                           37, 39];
+    {
+        //                [+xxx++++++xxxxx++++x+x++]
+        let mut vec = vec![
+            1, 2, 4, 6, 7, 9, 11, 13, 15, 17, 18, 20, 22, 24, 26, 27, 29, 31, 33, 34, 35, 36, 37,
+            39,
+        ];
 
         let removed = vec.drain_filter(|x| *x % 2 == 0).collect::<Vec<_>>();
         assert_eq!(removed.len(), 10);
         assert_eq!(removed, vec![2, 4, 6, 18, 20, 22, 24, 26, 34, 36]);
 
         assert_eq!(vec.len(), 14);
-        assert_eq!(vec, vec![1, 7, 9, 11, 13, 15, 17, 27, 29, 31, 33, 35, 37, 39]);
+        assert_eq!(
+            vec,
+            vec![1, 7, 9, 11, 13, 15, 17, 27, 29, 31, 33, 35, 37, 39]
+        );
     }
 
-    {   //                [xxx++++++xxxxx++++x+x++]
-        let mut vec = vec![2, 4, 6,
-                           7, 9, 11, 13, 15, 17,
-                           18, 20, 22, 24, 26,
-                           27, 29, 31, 33,
-                           34,
-                           35,
-                           36,
-                           37, 39];
+    {
+        //                [xxx++++++xxxxx++++x+x++]
+        let mut vec = vec![
+            2, 4, 6, 7, 9, 11, 13, 15, 17, 18, 20, 22, 24, 26, 27, 29, 31, 33, 34, 35, 36, 37, 39
+        ];
 
         let removed = vec.drain_filter(|x| *x % 2 == 0).collect::<Vec<_>>();
         assert_eq!(removed.len(), 10);
@@ -924,14 +939,11 @@ fn drain_filter_complex() {
         assert_eq!(vec, vec![7, 9, 11, 13, 15, 17, 27, 29, 31, 33, 35, 37, 39]);
     }
 
-    {   //                [xxx++++++xxxxx++++x+x]
-        let mut vec = vec![2, 4, 6,
-                           7, 9, 11, 13, 15, 17,
-                           18, 20, 22, 24, 26,
-                           27, 29, 31, 33,
-                           34,
-                           35,
-                           36];
+    {
+        //                [xxx++++++xxxxx++++x+x]
+        let mut vec = vec![
+            2, 4, 6, 7, 9, 11, 13, 15, 17, 18, 20, 22, 24, 26, 27, 29, 31, 33, 34, 35, 36
+        ];
 
         let removed = vec.drain_filter(|x| *x % 2 == 0).collect::<Vec<_>>();
         assert_eq!(removed.len(), 10);
@@ -941,9 +953,11 @@ fn drain_filter_complex() {
         assert_eq!(vec, vec![7, 9, 11, 13, 15, 17, 27, 29, 31, 33, 35]);
     }
 
-    {   //                [xxxxxxxxxx+++++++++++]
-        let mut vec = vec![2, 4, 6, 8, 10, 12, 14, 16, 18, 20,
-                           1, 3, 5, 7, 9, 11, 13, 15, 17, 19];
+    {
+        //                [xxxxxxxxxx+++++++++++]
+        let mut vec = vec![
+            2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19
+        ];
 
         let removed = vec.drain_filter(|x| *x % 2 == 0).collect::<Vec<_>>();
         assert_eq!(removed.len(), 10);
@@ -953,9 +967,11 @@ fn drain_filter_complex() {
         assert_eq!(vec, vec![1, 3, 5, 7, 9, 11, 13, 15, 17, 19]);
     }
 
-    {   //                [+++++++++++xxxxxxxxxx]
-        let mut vec = vec![1, 3, 5, 7, 9, 11, 13, 15, 17, 19,
-                           2, 4, 6, 8, 10, 12, 14, 16, 18, 20];
+    {
+        //                [+++++++++++xxxxxxxxxx]
+        let mut vec = vec![
+            1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20
+        ];
 
         let removed = vec.drain_filter(|x| *x % 2 == 0).collect::<Vec<_>>();
         assert_eq!(removed.len(), 10);

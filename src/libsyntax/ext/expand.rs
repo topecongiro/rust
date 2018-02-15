@@ -9,16 +9,16 @@
 // except according to those terms.
 
 use ast::{self, Block, Ident, NodeId, PatKind, Path};
-use ast::{MacStmtStyle, StmtKind, ItemKind};
+use ast::{ItemKind, MacStmtStyle, StmtKind};
 use attr::{self, HasAttrs};
-use codemap::{ExpnInfo, NameAndSpan, MacroBang, MacroAttribute, dummy_spanned};
+use codemap::{dummy_spanned, ExpnInfo, MacroAttribute, MacroBang, NameAndSpan};
 use config::{is_test_or_bench, StripUnconfigured};
 use errors::FatalError;
 use ext::base::*;
 use ext::derive::{add_derived_markers, collect_derives};
 use ext::hygiene::{Mark, SyntaxContext};
 use ext::placeholders::{placeholder, PlaceholderExpander};
-use feature_gate::{self, Features, is_builtin_attr};
+use feature_gate::{self, is_builtin_attr, Features};
 use fold;
 use fold::*;
 use parse::{DirectoryOwnership, PResult};
@@ -27,7 +27,7 @@ use parse::parser::Parser;
 use ptr::P;
 use symbol::Symbol;
 use symbol::keywords;
-use syntax_pos::{Span, DUMMY_SP, FileName};
+use syntax_pos::{FileName, Span, DUMMY_SP};
 use syntax_pos::hygiene::ExpnFormat;
 use tokenstream::{TokenStream, TokenTree};
 use util::small_vector::SmallVector;
@@ -143,12 +143,13 @@ impl ExpansionKind {
     fn expect_from_annotatables<I: IntoIterator<Item = Annotatable>>(self, items: I) -> Expansion {
         let items = items.into_iter();
         match self {
-            ExpansionKind::Items =>
-                Expansion::Items(items.map(Annotatable::expect_item).collect()),
-            ExpansionKind::ImplItems =>
-                Expansion::ImplItems(items.map(Annotatable::expect_impl_item).collect()),
-            ExpansionKind::TraitItems =>
-                Expansion::TraitItems(items.map(Annotatable::expect_trait_item).collect()),
+            ExpansionKind::Items => Expansion::Items(items.map(Annotatable::expect_item).collect()),
+            ExpansionKind::ImplItems => {
+                Expansion::ImplItems(items.map(Annotatable::expect_impl_item).collect())
+            }
+            ExpansionKind::TraitItems => {
+                Expansion::TraitItems(items.map(Annotatable::expect_trait_item).collect())
+            }
             _ => unreachable!(),
         }
     }
@@ -164,8 +165,8 @@ fn macro_bang_format(path: &ast::Path) -> ExpnFormat {
             path_str.push_str("::");
         }
 
-        if segment.identifier.name != keywords::CrateRoot.name() &&
-            segment.identifier.name != keywords::DollarCrate.name()
+        if segment.identifier.name != keywords::CrateRoot.name()
+            && segment.identifier.name != keywords::DollarCrate.name()
         {
             path_str.push_str(&segment.identifier.name.as_str())
         }
@@ -201,21 +202,27 @@ impl Invocation {
     fn span(&self) -> Span {
         match self.kind {
             InvocationKind::Bang { span, .. } => span,
-            InvocationKind::Attr { attr: Some(ref attr), .. } => attr.span,
+            InvocationKind::Attr {
+                attr: Some(ref attr),
+                ..
+            } => attr.span,
             InvocationKind::Attr { attr: None, .. } => DUMMY_SP,
             InvocationKind::Derive { ref path, .. } => path.span,
         }
     }
 }
 
-pub struct MacroExpander<'a, 'b:'a> {
+pub struct MacroExpander<'a, 'b: 'a> {
     pub cx: &'a mut ExtCtxt<'b>,
     monotonic: bool, // c.f. `cx.monotonic_expander()`
 }
 
 impl<'a, 'b> MacroExpander<'a, 'b> {
     pub fn new(cx: &'a mut ExtCtxt<'b>, monotonic: bool) -> Self {
-        MacroExpander { cx: cx, monotonic: monotonic }
+        MacroExpander {
+            cx: cx,
+            monotonic: monotonic,
+        }
     }
 
     pub fn expand_crate(&mut self, mut krate: ast::Crate) -> ast::Crate {
@@ -242,11 +249,19 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
             tokens: None,
         })));
 
-        match self.expand(krate_item).make_items().pop().map(P::into_inner) {
-            Some(ast::Item { attrs, node: ast::ItemKind::Mod(module), .. }) => {
+        match self.expand(krate_item)
+            .make_items()
+            .pop()
+            .map(P::into_inner)
+        {
+            Some(ast::Item {
+                attrs,
+                node: ast::ItemKind::Mod(module),
+                ..
+            }) => {
                 krate.attrs = attrs;
                 krate.module = module;
-            },
+            }
             None => {
                 // Resolution failed so we return an empty expansion
                 krate.attrs = vec![];
@@ -254,7 +269,7 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
                     inner: orig_mod_span,
                     items: vec![],
                 };
-            },
+            }
             _ => unreachable!(),
         };
         self.cx.trace_macros_diag();
@@ -279,20 +294,25 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
                 invoc
             } else {
                 self.resolve_imports();
-                if undetermined_invocations.is_empty() { break }
+                if undetermined_invocations.is_empty() {
+                    break;
+                }
                 invocations = mem::replace(&mut undetermined_invocations, Vec::new());
                 force = !mem::replace(&mut progress, false);
-                continue
+                continue;
             };
 
-            let scope =
-                if self.monotonic { invoc.expansion_data.mark } else { orig_expansion_data.mark };
+            let scope = if self.monotonic {
+                invoc.expansion_data.mark
+            } else {
+                orig_expansion_data.mark
+            };
             let ext = match self.cx.resolver.resolve_invoc(&mut invoc, scope, force) {
                 Ok(ext) => Some(ext),
                 Err(Determinacy::Determined) => None,
                 Err(Determinacy::Undetermined) => {
                     undetermined_invocations.push(invoc);
-                    continue
+                    continue;
                 }
             };
 
@@ -307,34 +327,49 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
                     let dummy = invoc.expansion_kind.dummy(invoc.span()).unwrap();
                     let expansion = self.expand_invoc(invoc, ext).unwrap_or(dummy);
                     self.collect_invocations(expansion, &[])
-                } else if let InvocationKind::Attr { attr: None, traits, item } = invoc.kind {
+                } else if let InvocationKind::Attr {
+                    attr: None,
+                    traits,
+                    item,
+                } = invoc.kind
+                {
                     if !item.derive_allowed() {
                         let attr = attr::find_by_name(item.attrs(), "derive")
                             .expect("`derive` attribute should exist");
                         let span = attr.span;
-                        let mut err = self.cx.mut_span_err(span,
-                                                           "`derive` may only be applied to \
-                                                            structs, enums and unions");
+                        let mut err = self.cx.mut_span_err(
+                            span,
+                            "`derive` may only be applied to \
+                             structs, enums and unions",
+                        );
                         if let ast::AttrStyle::Inner = attr.style {
-                            let trait_list = traits.iter()
-                                .map(|t| format!("{}", t)).collect::<Vec<_>>();
+                            let trait_list =
+                                traits.iter().map(|t| format!("{}", t)).collect::<Vec<_>>();
                             let suggestion = format!("#[derive({})]", trait_list.join(", "));
                             err.span_suggestion(span, "try an outer attribute", suggestion);
                         }
                         err.emit();
                     }
 
-                    let item = self.fully_configure(item)
-                        .map_attrs(|mut attrs| { attrs.retain(|a| a.path != "derive"); attrs });
+                    let item = self.fully_configure(item).map_attrs(|mut attrs| {
+                        attrs.retain(|a| a.path != "derive");
+                        attrs
+                    });
                     let item_with_markers =
                         add_derived_markers(&mut self.cx, item.span(), &traits, item.clone());
-                    let derives = derives.entry(invoc.expansion_data.mark).or_insert_with(Vec::new);
+                    let derives = derives
+                        .entry(invoc.expansion_data.mark)
+                        .or_insert_with(Vec::new);
 
                     for path in &traits {
                         let mark = Mark::fresh(self.cx.current_expansion.mark);
                         derives.push(mark);
                         let item = match self.cx.resolver.resolve_macro(
-                                Mark::root(), path, MacroKind::Derive, false) {
+                            Mark::root(),
+                            path,
+                            MacroKind::Derive,
+                            false,
+                        ) {
                             Ok(ext) => match *ext {
                                 BuiltinDerive(..) => item_with_markers.clone(),
                                 _ => item.clone(),
@@ -342,7 +377,10 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
                             _ => item.clone(),
                         };
                         invocations.push(Invocation {
-                            kind: InvocationKind::Derive { path: path.clone(), item: item },
+                            kind: InvocationKind::Derive {
+                                path: path.clone(),
+                                item: item,
+                            },
                             expansion_kind: invoc.expansion_kind,
                             expansion_data: ExpansionData {
                                 mark,
@@ -350,7 +388,8 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
                             },
                         });
                     }
-                    let expansion = invoc.expansion_kind
+                    let expansion = invoc
+                        .expansion_kind
                         .expect_from_annotatables(::std::iter::once(item_with_markers));
                     self.collect_invocations(expansion, derives)
                 } else {
@@ -390,8 +429,11 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
         }
     }
 
-    fn collect_invocations(&mut self, expansion: Expansion, derives: &[Mark])
-                           -> (Expansion, Vec<Invocation>) {
+    fn collect_invocations(
+        &mut self,
+        expansion: Expansion,
+        derives: &[Mark],
+    ) -> (Expansion, Vec<Invocation>) {
         let result = {
             let mut collector = InvocationCollector {
                 cfg: StripUnconfigured {
@@ -425,9 +467,7 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
         // Since the item itself has already been configured by the InvocationCollector,
         // we know that fold result vector will contain exactly one element
         match item {
-            Annotatable::Item(item) => {
-                Annotatable::Item(cfg.fold_item(item).pop().unwrap())
-            }
+            Annotatable::Item(item) => Annotatable::Item(cfg.fold_item(item).pop().unwrap()),
             Annotatable::TraitItem(item) => {
                 Annotatable::TraitItem(item.map(|item| cfg.fold_trait_item(item).pop().unwrap()))
             }
@@ -447,12 +487,17 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
         if self.cx.current_expansion.depth > self.cx.ecfg.recursion_limit {
             let info = self.cx.current_expansion.mark.expn_info().unwrap();
             let suggested_limit = self.cx.ecfg.recursion_limit * 2;
-            let mut err = self.cx.struct_span_err(info.call_site,
-                &format!("recursion limit reached while expanding the macro `{}`",
-                         info.callee.name()));
+            let mut err = self.cx.struct_span_err(
+                info.call_site,
+                &format!(
+                    "recursion limit reached while expanding the macro `{}`",
+                    info.callee.name()
+                ),
+            );
             err.help(&format!(
                 "consider adding a `#![recursion_limit=\"{}\"]` attribute to your crate",
-                suggested_limit));
+                suggested_limit
+            ));
             err.emit();
             self.cx.trace_macros_diag();
             FatalError.raise();
@@ -461,11 +506,15 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
         Some(result)
     }
 
-    fn expand_attr_invoc(&mut self,
-                         invoc: Invocation,
-                         ext: Rc<SyntaxExtension>)
-                         -> Option<Expansion> {
-        let Invocation { expansion_kind: kind, .. } = invoc;
+    fn expand_attr_invoc(
+        &mut self,
+        invoc: Invocation,
+        ext: Rc<SyntaxExtension>,
+    ) -> Option<Expansion> {
+        let Invocation {
+            expansion_kind: kind,
+            ..
+        } = invoc;
         let (attr, item) = match invoc.kind {
             InvocationKind::Attr { attr, item, .. } => (attr?, item),
             _ => unreachable!(),
@@ -479,7 +528,7 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
                 span: None,
                 allow_internal_unstable: false,
                 allow_internal_unsafe: false,
-            }
+            },
         });
 
         match *ext {
@@ -491,21 +540,27 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
             MultiDecorator(ref mac) => {
                 let mut items = Vec::new();
                 let meta = attr.parse_meta(self.cx.parse_sess).ok()?;
-                mac.expand(self.cx, attr.span, &meta, &item, &mut |item| items.push(item));
+                mac.expand(self.cx, attr.span, &meta, &item, &mut |item| {
+                    items.push(item)
+                });
                 items.push(item);
                 Some(kind.expect_from_annotatables(items))
             }
             AttrProcMacro(ref mac) => {
-                let item_tok = TokenTree::Token(DUMMY_SP, Token::interpolated(match item {
-                    Annotatable::Item(item) => token::NtItem(item),
-                    Annotatable::TraitItem(item) => token::NtTraitItem(item.into_inner()),
-                    Annotatable::ImplItem(item) => token::NtImplItem(item.into_inner()),
-                })).into();
+                let item_tok = TokenTree::Token(
+                    DUMMY_SP,
+                    Token::interpolated(match item {
+                        Annotatable::Item(item) => token::NtItem(item),
+                        Annotatable::TraitItem(item) => token::NtTraitItem(item.into_inner()),
+                        Annotatable::ImplItem(item) => token::NtImplItem(item.into_inner()),
+                    }),
+                ).into();
                 let tok_result = mac.expand(self.cx, attr.span, attr.tokens, item_tok);
                 self.parse_expansion(tok_result, kind, &attr.path, attr.span)
             }
             ProcMacroDerive(..) | BuiltinDerive(..) => {
-                self.cx.span_err(attr.span, &format!("`{}` is a derive mode", attr.path));
+                self.cx
+                    .span_err(attr.span, &format!("`{}` is a derive mode", attr.path));
                 self.cx.trace_macros_diag();
                 kind.dummy(attr.span)
             }
@@ -519,10 +574,11 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
     }
 
     /// Expand a macro invocation. Returns the result of expansion.
-    fn expand_bang_invoc(&mut self,
-                         invoc: Invocation,
-                         ext: Rc<SyntaxExtension>)
-                         -> Option<Expansion> {
+    fn expand_bang_invoc(
+        &mut self,
+        invoc: Invocation,
+        ext: Rc<SyntaxExtension>,
+    ) -> Option<Expansion> {
         let (mark, kind) = (invoc.expansion_data.mark, invoc.expansion_kind);
         let (mac, ident, span) = match invoc.kind {
             InvocationKind::Bang { mac, ident, span } => (mac, ident, span),
@@ -531,28 +587,30 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
         let path = &mac.node.path;
 
         let ident = ident.unwrap_or_else(|| keywords::Invalid.ident());
-        let validate_and_set_expn_info = |def_site_span,
-                                          allow_internal_unstable,
-                                          allow_internal_unsafe| {
-            if ident.name != keywords::Invalid.name() {
-                return Err(format!("macro {}! expects no ident argument, given '{}'", path, ident));
-            }
-            mark.set_expn_info(ExpnInfo {
-                call_site: span,
-                callee: NameAndSpan {
-                    format: macro_bang_format(path),
-                    span: def_site_span,
-                    allow_internal_unstable,
-                    allow_internal_unsafe,
-                },
-            });
-            Ok(())
-        };
+        let validate_and_set_expn_info =
+            |def_site_span, allow_internal_unstable, allow_internal_unsafe| {
+                if ident.name != keywords::Invalid.name() {
+                    return Err(format!(
+                        "macro {}! expects no ident argument, given '{}'",
+                        path, ident
+                    ));
+                }
+                mark.set_expn_info(ExpnInfo {
+                    call_site: span,
+                    callee: NameAndSpan {
+                        format: macro_bang_format(path),
+                        span: def_site_span,
+                        allow_internal_unstable,
+                        allow_internal_unsafe,
+                    },
+                });
+                Ok(())
+            };
 
         let opt_expanded = match *ext {
             DeclMacro(ref expand, def_span) => {
-                if let Err(msg) = validate_and_set_expn_info(def_span.map(|(_, s)| s),
-                                                             false, false) {
+                if let Err(msg) = validate_and_set_expn_info(def_span.map(|(_, s)| s), false, false)
+                {
                     self.cx.span_err(path.span, &msg);
                     self.cx.trace_macros_diag();
                     kind.dummy(span)
@@ -565,11 +623,13 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
                 ref expander,
                 def_info,
                 allow_internal_unstable,
-                allow_internal_unsafe
+                allow_internal_unsafe,
             } => {
-                if let Err(msg) = validate_and_set_expn_info(def_info.map(|(_, s)| s),
-                                                             allow_internal_unstable,
-                                                             allow_internal_unsafe) {
+                if let Err(msg) = validate_and_set_expn_info(
+                    def_info.map(|(_, s)| s),
+                    allow_internal_unstable,
+                    allow_internal_unsafe,
+                ) {
                     self.cx.span_err(path.span, &msg);
                     self.cx.trace_macros_diag();
                     kind.dummy(span)
@@ -580,8 +640,10 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
 
             IdentTT(ref expander, tt_span, allow_internal_unstable) => {
                 if ident.name == keywords::Invalid.name() {
-                    self.cx.span_err(path.span,
-                                    &format!("macro {}! expects an ident argument", path));
+                    self.cx.span_err(
+                        path.span,
+                        &format!("macro {}! expects an ident argument", path),
+                    );
                     self.cx.trace_macros_diag();
                     kind.dummy(span)
                 } else {
@@ -592,7 +654,7 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
                             span: tt_span,
                             allow_internal_unstable,
                             allow_internal_unsafe: false,
-                        }
+                        },
                     });
 
                     let input: Vec<_> = mac.node.stream().into_trees().collect();
@@ -601,22 +663,27 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
             }
 
             MultiDecorator(..) | MultiModifier(..) | AttrProcMacro(..) => {
-                self.cx.span_err(path.span,
-                                 &format!("`{}` can only be used in attributes", path));
+                self.cx.span_err(
+                    path.span,
+                    &format!("`{}` can only be used in attributes", path),
+                );
                 self.cx.trace_macros_diag();
                 kind.dummy(span)
             }
 
             ProcMacroDerive(..) | BuiltinDerive(..) => {
-                self.cx.span_err(path.span, &format!("`{}` is a derive mode", path));
+                self.cx
+                    .span_err(path.span, &format!("`{}` is a derive mode", path));
                 self.cx.trace_macros_diag();
                 kind.dummy(span)
             }
 
             ProcMacro(ref expandfun) => {
                 if ident.name != keywords::Invalid.name() {
-                    let msg =
-                        format!("macro {}! expects no ident argument, given '{}'", path, ident);
+                    let msg = format!(
+                        "macro {}! expects no ident argument, given '{}'",
+                        path, ident
+                    );
                     self.cx.span_err(path.span, &msg);
                     self.cx.trace_macros_diag();
                     kind.dummy(span)
@@ -643,8 +710,11 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
         if opt_expanded.is_some() {
             opt_expanded
         } else {
-            let msg = format!("non-{kind} macro in {kind} position: {name}",
-                              name = path.segments[0].identifier.name, kind = kind.name());
+            let msg = format!(
+                "non-{kind} macro in {kind} position: {name}",
+                name = path.segments[0].identifier.name,
+                kind = kind.name()
+            );
             self.cx.span_err(path.span, &msg);
             self.cx.trace_macros_diag();
             kind.dummy(span)
@@ -652,11 +722,15 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
     }
 
     /// Expand a derive invocation. Returns the result of expansion.
-    fn expand_derive_invoc(&mut self,
-                           invoc: Invocation,
-                           ext: Rc<SyntaxExtension>)
-                           -> Option<Expansion> {
-        let Invocation { expansion_kind: kind, .. } = invoc;
+    fn expand_derive_invoc(
+        &mut self,
+        invoc: Invocation,
+        ext: Rc<SyntaxExtension>,
+    ) -> Option<Expansion> {
+        let Invocation {
+            expansion_kind: kind,
+            ..
+        } = invoc;
         let (path, item) = match invoc.kind {
             InvocationKind::Derive { path, item } => (path, item),
             _ => unreachable!(),
@@ -668,10 +742,13 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
         let pretty_name = Symbol::intern(&format!("derive({})", path));
         let span = path.span;
         let attr = ast::Attribute {
-            path, span,
+            path,
+            span,
             tokens: TokenStream::empty(),
             // irrelevant:
-            id: ast::AttrId(0), style: ast::AttrStyle::Outer, is_sugared_doc: false,
+            id: ast::AttrId(0),
+            style: ast::AttrStyle::Outer,
+            is_sugared_doc: false,
         };
 
         let mut expn_info = ExpnInfo {
@@ -681,14 +758,15 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
                 span: None,
                 allow_internal_unstable: false,
                 allow_internal_unsafe: false,
-            }
+            },
         };
 
         match *ext {
             ProcMacroDerive(ref ext, _) => {
                 invoc.expansion_data.mark.set_expn_info(expn_info);
                 let span = span.with_ctxt(self.cx.backtrace());
-                let dummy = ast::MetaItem { // FIXME(jseyfried) avoid this
+                let dummy = ast::MetaItem {
+                    // FIXME(jseyfried) avoid this
                     name: keywords::Invalid.name(),
                     span: DUMMY_SP,
                     node: ast::MetaItemKind::Word,
@@ -704,7 +782,10 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
                 Some(kind.expect_from_annotatables(items))
             }
             _ => {
-                let msg = &format!("macro `{}` may not be used for derive attributes", attr.path);
+                let msg = &format!(
+                    "macro `{}` may not be used for derive attributes",
+                    attr.path
+                );
                 self.cx.span_err(span, msg);
                 self.cx.trace_macros_diag();
                 kind.dummy(span)
@@ -712,13 +793,15 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
         }
     }
 
-    fn parse_expansion(&mut self,
-                       toks: TokenStream,
-                       kind: ExpansionKind,
-                       path: &Path,
-                       span: Span)
-                       -> Option<Expansion> {
-        let mut parser = self.cx.new_parser_from_tts(&toks.into_trees().collect::<Vec<_>>());
+    fn parse_expansion(
+        &mut self,
+        toks: TokenStream,
+        kind: ExpansionKind,
+        path: &Path,
+        span: Span,
+    ) -> Option<Expansion> {
+        let mut parser = self.cx
+            .new_parser_from_tts(&toks.into_trees().collect::<Vec<_>>());
         match parser.parse_expansion(kind, false) {
             Ok(expansion) => {
                 parser.ensure_complete_parse(path, kind.name(), span);
@@ -734,8 +817,11 @@ impl<'a, 'b> MacroExpander<'a, 'b> {
 }
 
 impl<'a> Parser<'a> {
-    pub fn parse_expansion(&mut self, kind: ExpansionKind, macro_legacy_warnings: bool)
-                           -> PResult<'a, Expansion> {
+    pub fn parse_expansion(
+        &mut self,
+        kind: ExpansionKind,
+        macro_legacy_warnings: bool,
+    ) -> PResult<'a, Expansion> {
         Ok(match kind {
             ExpansionKind::Items => {
                 let mut items = SmallVector::new();
@@ -762,7 +848,8 @@ impl<'a> Parser<'a> {
                 let mut stmts = SmallVector::new();
                 while self.token != token::Eof &&
                       // won't make progress on a `}`
-                      self.token != token::CloseDelim(token::Brace) {
+                      self.token != token::CloseDelim(token::Brace)
+                {
                     if let Some(stmt) = self.parse_full_stmt(macro_legacy_warnings)? {
                         stmts.push(stmt);
                     }
@@ -778,14 +865,18 @@ impl<'a> Parser<'a> {
 
     pub fn ensure_complete_parse(&mut self, macro_path: &Path, kind_name: &str, span: Span) {
         if self.token != token::Eof {
-            let msg = format!("macro expansion ignores token `{}` and any following",
-                              self.this_token_to_string());
+            let msg = format!(
+                "macro expansion ignores token `{}` and any following",
+                self.this_token_to_string()
+            );
             // Avoid emitting backtrace info twice.
             let def_site_span = self.span.with_ctxt(SyntaxContext::empty());
             let mut err = self.diagnostic().struct_span_err(def_site_span, &msg);
-            let msg = format!("caused by the macro expansion here; the usage \
-                               of `{}!` is likely invalid in {} context",
-                               macro_path, kind_name);
+            let msg = format!(
+                "caused by the macro expansion here; the usage \
+                 of `{}!` is likely invalid in {} context",
+                macro_path, kind_name
+            );
             err.span_note(span, &msg).emit();
         }
     }
@@ -814,21 +905,30 @@ impl<'a, 'b> InvocationCollector<'a, 'b> {
     }
 
     fn collect_bang(&mut self, mac: ast::Mac, span: Span, kind: ExpansionKind) -> Expansion {
-        self.collect(kind, InvocationKind::Bang { mac: mac, ident: None, span: span })
+        self.collect(
+            kind,
+            InvocationKind::Bang {
+                mac: mac,
+                ident: None,
+                span: span,
+            },
+        )
     }
 
-    fn collect_attr(&mut self,
-                    attr: Option<ast::Attribute>,
-                    traits: Vec<Path>,
-                    item: Annotatable,
-                    kind: ExpansionKind)
-                    -> Expansion {
+    fn collect_attr(
+        &mut self,
+        attr: Option<ast::Attribute>,
+        traits: Vec<Path>,
+        item: Annotatable,
+        kind: ExpansionKind,
+    ) -> Expansion {
         self.collect(kind, InvocationKind::Attr { attr, traits, item })
     }
 
     // If `item` is an attr invocation, remove and return the macro attribute.
     fn classify_item<T>(&mut self, mut item: T) -> (Option<ast::Attribute>, Vec<Path>, T)
-        where T: HasAttrs,
+    where
+        T: HasAttrs,
     {
         let (mut attr, mut traits) = (None, Vec::new());
 
@@ -868,9 +968,10 @@ impl<'a, 'b> InvocationCollector<'a, 'b> {
 }
 
 pub fn find_attr_invoc(attrs: &mut Vec<ast::Attribute>) -> Option<ast::Attribute> {
-    attrs.iter()
-         .position(|a| !attr::is_known(a) && !is_builtin_attr(a))
-         .map(|i| attrs.remove(i))
+    attrs
+        .iter()
+        .position(|a| !attr::is_known(a) && !is_builtin_attr(a))
+        .map(|i| attrs.remove(i))
 }
 
 impl<'a, 'b> Folder for InvocationCollector<'a, 'b> {
@@ -880,7 +981,8 @@ impl<'a, 'b> Folder for InvocationCollector<'a, 'b> {
 
         if let ast::ExprKind::Mac(mac) = expr.node {
             self.check_attributes(&expr.attrs);
-            self.collect_bang(mac, expr.span, ExpansionKind::Expr).make_expr()
+            self.collect_bang(mac, expr.span, ExpansionKind::Expr)
+                .make_expr()
         } else {
             P(noop_fold_expr(expr, self))
         }
@@ -892,7 +994,8 @@ impl<'a, 'b> Folder for InvocationCollector<'a, 'b> {
 
         if let ast::ExprKind::Mac(mac) = expr.node {
             self.check_attributes(&expr.attrs);
-            self.collect_bang(mac, expr.span, ExpansionKind::OptExpr).make_opt_expr()
+            self.collect_bang(mac, expr.span, ExpansionKind::OptExpr)
+                .make_opt_expr()
         } else {
             Some(P(noop_fold_expr(expr, self)))
         }
@@ -906,7 +1009,8 @@ impl<'a, 'b> Folder for InvocationCollector<'a, 'b> {
         }
 
         pat.and_then(|pat| match pat.node {
-            PatKind::Mac(mac) => self.collect_bang(mac, pat.span, ExpansionKind::Pat).make_pat(),
+            PatKind::Mac(mac) => self.collect_bang(mac, pat.span, ExpansionKind::Pat)
+                .make_pat(),
             _ => unreachable!(),
         })
     }
@@ -922,13 +1026,19 @@ impl<'a, 'b> Folder for InvocationCollector<'a, 'b> {
         } else {
             // The placeholder expander gives ids to statements, so we avoid folding the id here.
             let ast::Stmt { id, node, span } = stmt;
-            return noop_fold_stmt_kind(node, self).into_iter().map(|node| {
-                ast::Stmt { id: id, node: node, span: span }
-            }).collect()
+            return noop_fold_stmt_kind(node, self)
+                .into_iter()
+                .map(|node| ast::Stmt {
+                    id: id,
+                    node: node,
+                    span: span,
+                })
+                .collect();
         };
 
         self.check_attributes(&attrs);
-        let mut placeholder = self.collect_bang(mac, stmt.span, ExpansionKind::Stmts).make_stmts();
+        let mut placeholder = self.collect_bang(mac, stmt.span, ExpansionKind::Stmts)
+            .make_stmts();
 
         // If this is a macro invocation with a semicolon, then apply that
         // semicolon to the final statement produced by expansion.
@@ -955,20 +1065,22 @@ impl<'a, 'b> Folder for InvocationCollector<'a, 'b> {
         let (attr, traits, mut item) = self.classify_item(item);
         if attr.is_some() || !traits.is_empty() {
             let item = Annotatable::Item(item);
-            return self.collect_attr(attr, traits, item, ExpansionKind::Items).make_items();
+            return self.collect_attr(attr, traits, item, ExpansionKind::Items)
+                .make_items();
         }
 
         match item.node {
             ast::ItemKind::Mac(..) => {
                 self.check_attributes(&item.attrs);
                 item.and_then(|item| match item.node {
-                    ItemKind::Mac(mac) => {
-                        self.collect(ExpansionKind::Items, InvocationKind::Bang {
+                    ItemKind::Mac(mac) => self.collect(
+                        ExpansionKind::Items,
+                        InvocationKind::Bang {
                             mac,
                             ident: Some(item.ident),
                             span: item.span,
-                        }).make_items()
-                    }
+                        },
+                    ).make_items(),
                     _ => unreachable!(),
                 })
             }
@@ -1022,7 +1134,10 @@ impl<'a, 'b> Folder for InvocationCollector<'a, 'b> {
             // Ensure that test functions are accessible from the test harness.
             ast::ItemKind::Fn(..) if self.cx.ecfg.should_test => {
                 if item.attrs.iter().any(|attr| is_test_or_bench(attr)) {
-                    item = item.map(|mut item| { item.vis = ast::Visibility::Public; item });
+                    item = item.map(|mut item| {
+                        item.vis = ast::Visibility::Public;
+                        item
+                    });
                 }
                 noop_fold_item(item, self)
             }
@@ -1037,14 +1152,15 @@ impl<'a, 'b> Folder for InvocationCollector<'a, 'b> {
         if attr.is_some() || !traits.is_empty() {
             let item = Annotatable::TraitItem(P(item));
             return self.collect_attr(attr, traits, item, ExpansionKind::TraitItems)
-                .make_trait_items()
+                .make_trait_items();
         }
 
         match item.node {
             ast::TraitItemKind::Macro(mac) => {
                 let ast::TraitItem { attrs, span, .. } = item;
                 self.check_attributes(&attrs);
-                self.collect_bang(mac, span, ExpansionKind::TraitItems).make_trait_items()
+                self.collect_bang(mac, span, ExpansionKind::TraitItems)
+                    .make_trait_items()
             }
             _ => fold::noop_fold_trait_item(item, self),
         }
@@ -1064,7 +1180,8 @@ impl<'a, 'b> Folder for InvocationCollector<'a, 'b> {
             ast::ImplItemKind::Macro(mac) => {
                 let ast::ImplItem { attrs, span, .. } = item;
                 self.check_attributes(&attrs);
-                self.collect_bang(mac, span, ExpansionKind::ImplItems).make_impl_items()
+                self.collect_bang(mac, span, ExpansionKind::ImplItems)
+                    .make_impl_items()
             }
             _ => fold::noop_fold_impl_item(item, self),
         }
@@ -1127,10 +1244,10 @@ impl<'a, 'b> Folder for InvocationCollector<'a, 'b> {
                     match File::open(&filename).and_then(|mut f| f.read_to_end(&mut buf)) {
                         Ok(..) => {}
                         Err(e) => {
-                            self.cx.span_err(at.span,
-                                             &format!("couldn't read {}: {}",
-                                                      filename.display(),
-                                                      e));
+                            self.cx.span_err(
+                                at.span,
+                                &format!("couldn't read {}: {}", filename.display(), e),
+                            );
                         }
                     }
 
@@ -1142,20 +1259,22 @@ impl<'a, 'b> Folder for InvocationCollector<'a, 'b> {
 
                             let include_info = vec![
                                 dummy_spanned(ast::NestedMetaItemKind::MetaItem(
-                                        attr::mk_name_value_item_str("file".into(),
-                                                                     file))),
+                                    attr::mk_name_value_item_str("file".into(), file),
+                                )),
                                 dummy_spanned(ast::NestedMetaItemKind::MetaItem(
-                                        attr::mk_name_value_item_str("contents".into(),
-                                                                     (&*src).into()))),
+                                    attr::mk_name_value_item_str("contents".into(), (&*src).into()),
+                                )),
                             ];
 
                             items.push(dummy_spanned(ast::NestedMetaItemKind::MetaItem(
-                                        attr::mk_list_item("include".into(), include_info))));
+                                attr::mk_list_item("include".into(), include_info),
+                            )));
                         }
                         Err(_) => {
-                            self.cx.span_err(at.span,
-                                             &format!("{} wasn't a utf-8 file",
-                                                      filename.display()));
+                            self.cx.span_err(
+                                at.span,
+                                &format!("{} wasn't a utf-8 file", filename.display()),
+                            );
                         }
                     }
                 } else {
@@ -1165,10 +1284,8 @@ impl<'a, 'b> Folder for InvocationCollector<'a, 'b> {
 
             let meta = attr::mk_list_item("doc".into(), items);
             match at.style {
-                ast::AttrStyle::Inner =>
-                    Some(attr::mk_spanned_attr_inner(at.span, at.id, meta)),
-                ast::AttrStyle::Outer =>
-                    Some(attr::mk_spanned_attr_outer(at.span, at.id, meta)),
+                ast::AttrStyle::Inner => Some(attr::mk_spanned_attr_inner(at.span, at.id, meta)),
+                ast::AttrStyle::Outer => Some(attr::mk_spanned_attr_outer(at.span, at.id, meta)),
             }
         } else {
             noop_fold_attribute(at, self)

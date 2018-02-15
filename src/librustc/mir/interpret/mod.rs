@@ -8,9 +8,9 @@ macro_rules! err {
 mod error;
 mod value;
 
-pub use self::error::{EvalError, EvalResult, EvalErrorKind};
+pub use self::error::{EvalError, EvalErrorKind, EvalResult};
 
-pub use self::value::{PrimVal, PrimValKind, Value, Pointer, bytes_to_f32, bytes_to_f64};
+pub use self::value::{Pointer, PrimVal, PrimValKind, Value, bytes_to_f32, bytes_to_f64};
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -85,12 +85,20 @@ pub trait PointerArithmetic: layout::HasDataLayout {
 
     fn signed_offset<'tcx>(self, val: u64, i: i64) -> EvalResult<'tcx, u64> {
         let (res, over) = self.overflowing_signed_offset(val, i as i128);
-        if over { err!(OverflowingMath) } else { Ok(res) }
+        if over {
+            err!(OverflowingMath)
+        } else {
+            Ok(res)
+        }
     }
 
     fn offset<'tcx>(self, val: u64, i: u64) -> EvalResult<'tcx, u64> {
         let (res, over) = self.overflowing_offset(val, i);
-        if over { err!(OverflowingMath) } else { Ok(res) }
+        if over {
+            err!(OverflowingMath)
+        } else {
+            Ok(res)
+        }
     }
 
     fn wrapping_signed_offset(self, val: u64, i: i64) -> u64 {
@@ -99,7 +107,6 @@ pub trait PointerArithmetic: layout::HasDataLayout {
 }
 
 impl<T: layout::HasDataLayout> PointerArithmetic for T {}
-
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct MemoryPointer {
@@ -143,7 +150,6 @@ impl<'tcx> MemoryPointer {
         ))
     }
 }
-
 
 #[derive(Copy, Clone, Default, Eq, Hash, Ord, PartialEq, PartialOrd, Debug)]
 pub struct AllocId(pub u64);
@@ -250,9 +256,8 @@ impl UndefMask {
         if amount > unused_trailing_bits {
             let additional_blocks = amount / BLOCK_SIZE + 1;
             assert_eq!(additional_blocks as usize as u64, additional_blocks);
-            self.blocks.extend(
-                iter::repeat(0).take(additional_blocks as usize),
-            );
+            self.blocks
+                .extend(iter::repeat(0).take(additional_blocks as usize));
         }
         let start = self.len;
         self.len += amount;

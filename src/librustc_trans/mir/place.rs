@@ -10,13 +10,13 @@
 
 use llvm::{self, ValueRef};
 use rustc::ty::{self, Ty};
-use rustc::ty::layout::{self, Align, TyLayout, LayoutOf};
+use rustc::ty::layout::{self, Align, LayoutOf, TyLayout};
 use rustc::mir;
 use rustc::mir::tcx::PlaceTy;
 use rustc_data_structures::indexed_vec::Idx;
 use base;
 use builder::Builder;
-use common::{CodegenCx, C_usize, C_u8, C_u32, C_uint, C_int, C_null, C_uint_big};
+use common::{C_int, C_null, C_u32, C_u8, C_uint, C_uint_big, C_usize, CodegenCx};
 use consts;
 use type_of::LayoutLlvmExt;
 use type_::Type;
@@ -44,20 +44,16 @@ pub struct PlaceRef<'tcx> {
 }
 
 impl<'a, 'tcx> PlaceRef<'tcx> {
-    pub fn new_sized(llval: ValueRef,
-                     layout: TyLayout<'tcx>,
-                     align: Align)
-                     -> PlaceRef<'tcx> {
+    pub fn new_sized(llval: ValueRef, layout: TyLayout<'tcx>, align: Align) -> PlaceRef<'tcx> {
         PlaceRef {
             llval,
             llextra: ptr::null_mut(),
             layout,
-            align
+            align,
         }
     }
 
-    pub fn alloca(bx: &Builder<'a, 'tcx>, layout: TyLayout<'tcx>, name: &str)
-                  -> PlaceRef<'tcx> {
+    pub fn alloca(bx: &Builder<'a, 'tcx>, layout: TyLayout<'tcx>, name: &str) -> PlaceRef<'tcx> {
         debug!("alloca({:?}: {:?})", name, layout);
         let tmp = bx.alloca(layout.llvm_type(bx.cx), name, layout.align);
         Self::new_sized(tmp, layout, layout.align)
@@ -154,7 +150,10 @@ impl<'a, 'tcx> PlaceRef<'tcx> {
             OperandValue::Ref(self.llval, self.align)
         };
 
-        OperandRef { val, layout: self.layout }
+        OperandRef {
+            val,
+            layout: self.layout,
+        }
     }
 
     /// Access a field, at a point when the value's case is known.
@@ -194,8 +193,11 @@ impl<'a, 'tcx> PlaceRef<'tcx> {
         //   * packed struct - there is no alignment padding
         match field.ty.sty {
             _ if !self.has_extra() => {
-                debug!("Unsized field `{}`, of `{:?}` has no metadata for adjustment",
-                    ix, Value(self.llval));
+                debug!(
+                    "Unsized field `{}`, of `{:?}` has no metadata for adjustment",
+                    ix,
+                    Value(self.llval)
+                );
                 return simple();
             }
             _ if !field.is_unsized() => return simple(),
@@ -240,8 +242,7 @@ impl<'a, 'tcx> PlaceRef<'tcx> {
 
         // Calculate offset
         let align_sub_1 = bx.sub(unsized_align, C_usize(cx, 1u64));
-        let offset = bx.and(bx.add(unaligned_offset, align_sub_1),
-        bx.neg(unsized_align));
+        let offset = bx.and(bx.add(unaligned_offset, align_sub_1), bx.neg(unsized_align));
 
         debug!("struct_field_ptr: DST field offset: {:?}", Value(offset));
 
@@ -268,8 +269,7 @@ impl<'a, 'tcx> PlaceRef<'tcx> {
             layout::Variants::Single { index } => {
                 return C_uint(cast_to, index as u64);
             }
-            layout::Variants::Tagged { .. } |
-            layout::Variants::NicheFilling { .. } => {},
+            layout::Variants::Tagged { .. } | layout::Variants::NicheFilling { .. } => {}
         }
 
         let discr = self.project_field(bx, 0);
@@ -279,7 +279,7 @@ impl<'a, 'tcx> PlaceRef<'tcx> {
             layout::Variants::Tagged { ref discr, .. } => {
                 let signed = match discr.value {
                     layout::Int(_, signed) => signed,
-                    _ => false
+                    _ => false,
                 };
                 bx.intcast(lldiscr, cast_to, signed)
             }
@@ -298,17 +298,21 @@ impl<'a, 'tcx> PlaceRef<'tcx> {
                     } else {
                         C_uint_big(niche_llty, niche_start)
                     };
-                    bx.select(bx.icmp(llvm::IntEQ, lldiscr, niche_llval),
+                    bx.select(
+                        bx.icmp(llvm::IntEQ, lldiscr, niche_llval),
                         C_uint(cast_to, niche_variants.start as u64),
-                        C_uint(cast_to, dataful_variant as u64))
+                        C_uint(cast_to, dataful_variant as u64),
+                    )
                 } else {
                     // Rebase from niche values to discriminant values.
                     let delta = niche_start.wrapping_sub(niche_variants.start as u128);
                     let lldiscr = bx.sub(lldiscr, C_uint_big(niche_llty, delta));
                     let lldiscr_max = C_uint(niche_llty, niche_variants.end as u64);
-                    bx.select(bx.icmp(llvm::IntULE, lldiscr, lldiscr_max),
+                    bx.select(
+                        bx.icmp(llvm::IntULE, lldiscr, lldiscr_max),
                         bx.intcast(lldiscr, cast_to, false),
-                        C_uint(cast_to, dataful_variant as u64))
+                        C_uint(cast_to, dataful_variant as u64),
+                    )
                 }
             }
         }
@@ -326,11 +330,17 @@ impl<'a, 'tcx> PlaceRef<'tcx> {
             }
             layout::Variants::Tagged { .. } => {
                 let ptr = self.project_field(bx, 0);
-                let to = self.layout.ty.ty_adt_def().unwrap()
+                let to = self.layout
+                    .ty
+                    .ty_adt_def()
+                    .unwrap()
                     .discriminant_for_variant(bx.tcx(), variant_index)
                     .to_u128_unchecked() as u64;
-                bx.store(C_int(ptr.layout.llvm_type(bx.cx), to as i64),
-                    ptr.llval, ptr.align);
+                bx.store(
+                    C_int(ptr.layout.llvm_type(bx.cx), to as i64),
+                    ptr.llval,
+                    ptr.align,
+                );
             }
             layout::Variants::NicheFilling {
                 dataful_variant,
@@ -339,8 +349,9 @@ impl<'a, 'tcx> PlaceRef<'tcx> {
                 ..
             } => {
                 if variant_index != dataful_variant {
-                    if bx.sess().target.target.arch == "arm" ||
-                       bx.sess().target.target.arch == "aarch64" {
+                    if bx.sess().target.target.arch == "arm"
+                        || bx.sess().target.target.arch == "aarch64"
+                    {
                         // Issue #34427: As workaround for LLVM bug on ARM,
                         // use memset of 0 before assigning niche value.
                         let llptr = bx.pointercast(self.llval, Type::i8(bx.cx).ptr_to());
@@ -353,8 +364,8 @@ impl<'a, 'tcx> PlaceRef<'tcx> {
 
                     let niche = self.project_field(bx, 0);
                     let niche_llty = niche.layout.immediate_llvm_type(bx.cx);
-                    let niche_value = ((variant_index - niche_variants.start) as u128)
-                        .wrapping_add(niche_start);
+                    let niche_value =
+                        ((variant_index - niche_variants.start) as u128).wrapping_add(niche_start);
                     // FIXME(eddyb) Check the actual primitive type here.
                     let niche_llval = if niche_value == 0 {
                         // HACK(eddyb) Using `C_null` as it works on all types.
@@ -368,18 +379,16 @@ impl<'a, 'tcx> PlaceRef<'tcx> {
         }
     }
 
-    pub fn project_index(&self, bx: &Builder<'a, 'tcx>, llindex: ValueRef)
-                         -> PlaceRef<'tcx> {
+    pub fn project_index(&self, bx: &Builder<'a, 'tcx>, llindex: ValueRef) -> PlaceRef<'tcx> {
         PlaceRef {
             llval: bx.inbounds_gep(self.llval, &[C_usize(bx.cx, 0), llindex]),
             llextra: ptr::null_mut(),
             layout: self.layout.field(bx.cx, 0),
-            align: self.align
+            align: self.align,
         }
     }
 
-    pub fn project_downcast(&self, bx: &Builder<'a, 'tcx>, variant_index: usize)
-                            -> PlaceRef<'tcx> {
+    pub fn project_downcast(&self, bx: &Builder<'a, 'tcx>, variant_index: usize) -> PlaceRef<'tcx> {
         let mut downcast = *self;
         downcast.layout = self.layout.for_variant(bx.cx, variant_index);
 
@@ -400,10 +409,11 @@ impl<'a, 'tcx> PlaceRef<'tcx> {
 }
 
 impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
-    pub fn trans_place(&mut self,
-                        bx: &Builder<'a, 'tcx>,
-                        place: &mir::Place<'tcx>)
-                        -> PlaceRef<'tcx> {
+    pub fn trans_place(
+        &mut self,
+        bx: &Builder<'a, 'tcx>,
+        place: &mir::Place<'tcx>,
+    ) -> PlaceRef<'tcx> {
         debug!("trans_place(place={:?})", place);
 
         let cx = bx.cx;
@@ -425,10 +435,10 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
             mir::Place::Static(box mir::Static { def_id, ty }) => {
                 let layout = cx.layout_of(self.monomorphize(&ty));
                 PlaceRef::new_sized(consts::get_static(cx, def_id), layout, layout.align)
-            },
+            }
             mir::Place::Projection(box mir::Projection {
                 ref base,
-                elem: mir::ProjectionElem::Deref
+                elem: mir::ProjectionElem::Deref,
             }) => {
                 // Load the pointer from its location.
                 self.trans_consume(bx, base).deref(bx.cx)
@@ -447,43 +457,50 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                         let llindex = index.immediate();
                         tr_base.project_index(bx, llindex)
                     }
-                    mir::ProjectionElem::ConstantIndex { offset,
-                                                         from_end: false,
-                                                         min_length: _ } => {
+                    mir::ProjectionElem::ConstantIndex {
+                        offset,
+                        from_end: false,
+                        min_length: _,
+                    } => {
                         let lloffset = C_usize(bx.cx, offset as u64);
                         tr_base.project_index(bx, lloffset)
                     }
-                    mir::ProjectionElem::ConstantIndex { offset,
-                                                         from_end: true,
-                                                         min_length: _ } => {
+                    mir::ProjectionElem::ConstantIndex {
+                        offset,
+                        from_end: true,
+                        min_length: _,
+                    } => {
                         let lloffset = C_usize(bx.cx, offset as u64);
                         let lllen = tr_base.len(bx.cx);
                         let llindex = bx.sub(lllen, lloffset);
                         tr_base.project_index(bx, llindex)
                     }
                     mir::ProjectionElem::Subslice { from, to } => {
-                        let mut subslice = tr_base.project_index(bx,
-                            C_usize(bx.cx, from as u64));
-                        let projected_ty = PlaceTy::Ty { ty: tr_base.layout.ty }
-                            .projection_ty(tcx, &projection.elem).to_ty(bx.tcx());
+                        let mut subslice = tr_base.project_index(bx, C_usize(bx.cx, from as u64));
+                        let projected_ty = PlaceTy::Ty {
+                            ty: tr_base.layout.ty,
+                        }.projection_ty(tcx, &projection.elem)
+                            .to_ty(bx.tcx());
                         subslice.layout = bx.cx.layout_of(self.monomorphize(&projected_ty));
 
                         if subslice.layout.is_unsized() {
                             assert!(tr_base.has_extra());
-                            subslice.llextra = bx.sub(tr_base.llextra,
-                                C_usize(bx.cx, (from as u64) + (to as u64)));
+                            subslice.llextra = bx.sub(
+                                tr_base.llextra,
+                                C_usize(bx.cx, (from as u64) + (to as u64)),
+                            );
                         }
 
                         // Cast the place pointer type to the new
                         // array or slice type (*[%_; new_len]).
-                        subslice.llval = bx.pointercast(subslice.llval,
-                            subslice.layout.llvm_type(bx.cx).ptr_to());
+                        subslice.llval = bx.pointercast(
+                            subslice.llval,
+                            subslice.layout.llvm_type(bx.cx).ptr_to(),
+                        );
 
                         subslice
                     }
-                    mir::ProjectionElem::Downcast(_, v) => {
-                        tr_base.project_downcast(bx, v)
-                    }
+                    mir::ProjectionElem::Downcast(_, v) => tr_base.project_downcast(bx, v),
                 }
             }
         };
@@ -497,4 +514,3 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
         self.monomorphize(&place_ty.to_ty(tcx))
     }
 }
-

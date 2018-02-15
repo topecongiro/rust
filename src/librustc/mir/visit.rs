@@ -10,7 +10,7 @@
 
 use hir::def_id::DefId;
 use ty::subst::Substs;
-use ty::{ClosureSubsts, Region, Ty, GeneratorInterior};
+use ty::{ClosureSubsts, GeneratorInterior, Region, Ty};
 use mir::*;
 use rustc_const_math::ConstUsize;
 use syntax_pos::Span;
@@ -826,26 +826,23 @@ make_mir_visitor!(Visitor,);
 make_mir_visitor!(MutVisitor,mut);
 
 pub trait MirVisitable<'tcx> {
-    fn apply(&self, location: Location, visitor: &mut dyn Visitor<'tcx>);
+    fn apply(&self, location: Location, visitor: &mut Visitor<'tcx>);
 }
 
 impl<'tcx> MirVisitable<'tcx> for Statement<'tcx> {
-    fn apply(&self, location: Location, visitor: &mut dyn Visitor<'tcx>)
-    {
+    fn apply(&self, location: Location, visitor: &mut Visitor<'tcx>) {
         visitor.visit_statement(location.block, self, location)
     }
 }
 
 impl<'tcx> MirVisitable<'tcx> for Terminator<'tcx> {
-    fn apply(&self, location: Location, visitor: &mut dyn Visitor<'tcx>)
-    {
+    fn apply(&self, location: Location, visitor: &mut Visitor<'tcx>) {
         visitor.visit_terminator(location.block, self, location)
     }
 }
 
 impl<'tcx> MirVisitable<'tcx> for Option<Terminator<'tcx>> {
-    fn apply(&self, location: Location, visitor: &mut dyn Visitor<'tcx>)
-    {
+    fn apply(&self, location: Location, visitor: &mut Visitor<'tcx>) {
         visitor.visit_terminator(location.block, self.as_ref().unwrap(), location)
     }
 }
@@ -891,7 +888,10 @@ pub enum PlaceContext<'tcx> {
     Inspect,
 
     // Being borrowed
-    Borrow { region: Region<'tcx>, kind: BorrowKind },
+    Borrow {
+        region: Region<'tcx>,
+        kind: BorrowKind,
+    },
 
     // Used as base for another place, e.g. `x` in `x.y`.
     //
@@ -956,34 +956,62 @@ impl<'tcx> PlaceContext<'tcx> {
     /// Returns true if this place context represents a use that potentially changes the value.
     pub fn is_mutating_use(&self) -> bool {
         match *self {
-            PlaceContext::Store | PlaceContext::AsmOutput | PlaceContext::Call |
-            PlaceContext::Borrow { kind: BorrowKind::Mut { .. }, .. } |
-            PlaceContext::Projection(Mutability::Mut) |
-            PlaceContext::Drop => true,
+            PlaceContext::Store
+            | PlaceContext::AsmOutput
+            | PlaceContext::Call
+            | PlaceContext::Borrow {
+                kind: BorrowKind::Mut { .. },
+                ..
+            }
+            | PlaceContext::Projection(Mutability::Mut)
+            | PlaceContext::Drop => true,
 
-            PlaceContext::Inspect |
-            PlaceContext::Borrow { kind: BorrowKind::Shared, .. } |
-            PlaceContext::Borrow { kind: BorrowKind::Unique, .. } |
-            PlaceContext::Projection(Mutability::Not) |
-            PlaceContext::Copy | PlaceContext::Move |
-            PlaceContext::StorageLive | PlaceContext::StorageDead |
-            PlaceContext::Validate => false,
+            PlaceContext::Inspect
+            | PlaceContext::Borrow {
+                kind: BorrowKind::Shared,
+                ..
+            }
+            | PlaceContext::Borrow {
+                kind: BorrowKind::Unique,
+                ..
+            }
+            | PlaceContext::Projection(Mutability::Not)
+            | PlaceContext::Copy
+            | PlaceContext::Move
+            | PlaceContext::StorageLive
+            | PlaceContext::StorageDead
+            | PlaceContext::Validate => false,
         }
     }
 
     /// Returns true if this place context represents a use that does not change the value.
     pub fn is_nonmutating_use(&self) -> bool {
         match *self {
-            PlaceContext::Inspect | PlaceContext::Borrow { kind: BorrowKind::Shared, .. } |
-            PlaceContext::Borrow { kind: BorrowKind::Unique, .. } |
-            PlaceContext::Projection(Mutability::Not) |
-            PlaceContext::Copy | PlaceContext::Move => true,
+            PlaceContext::Inspect
+            | PlaceContext::Borrow {
+                kind: BorrowKind::Shared,
+                ..
+            }
+            | PlaceContext::Borrow {
+                kind: BorrowKind::Unique,
+                ..
+            }
+            | PlaceContext::Projection(Mutability::Not)
+            | PlaceContext::Copy
+            | PlaceContext::Move => true,
 
-            PlaceContext::Borrow { kind: BorrowKind::Mut { .. }, .. } | PlaceContext::Store |
-            PlaceContext::AsmOutput |
-            PlaceContext::Call | PlaceContext::Projection(Mutability::Mut) |
-            PlaceContext::Drop | PlaceContext::StorageLive | PlaceContext::StorageDead |
-            PlaceContext::Validate => false,
+            PlaceContext::Borrow {
+                kind: BorrowKind::Mut { .. },
+                ..
+            }
+            | PlaceContext::Store
+            | PlaceContext::AsmOutput
+            | PlaceContext::Call
+            | PlaceContext::Projection(Mutability::Mut)
+            | PlaceContext::Drop
+            | PlaceContext::StorageLive
+            | PlaceContext::StorageDead
+            | PlaceContext::Validate => false,
         }
     }
 

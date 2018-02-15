@@ -1,13 +1,13 @@
-use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian, BigEndian};
+use byteorder::{BigEndian, LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::collections::{btree_map, BTreeMap, HashMap, HashSet, VecDeque};
-use std::{ptr, mem, io};
+use std::{io, mem, ptr};
 
 use rustc::ty::{Instance, TyCtxt};
 use rustc::ty::layout::{self, Align, TargetDataLayout};
 use syntax::ast::Mutability;
 
-use rustc::mir::interpret::{MemoryPointer, AllocId, Allocation, AccessKind, UndefMask, Value, Pointer,
-                            EvalResult, PrimVal, EvalErrorKind};
+use rustc::mir::interpret::{AccessKind, AllocId, Allocation, EvalErrorKind, EvalResult,
+                            MemoryPointer, Pointer, PrimVal, UndefMask, Value};
 
 use super::{EvalContext, Machine};
 
@@ -70,14 +70,15 @@ impl<'a, 'tcx, M: Machine<'tcx>> Memory<'a, 'tcx, M> {
         }
     }
 
-    pub fn allocations<'x>(
-        &'x self,
-    ) -> impl Iterator<Item = (AllocId, &'x Allocation)> {
+    pub fn allocations<'x>(&'x self) -> impl Iterator<Item = (AllocId, &'x Allocation)> {
         self.alloc_map.iter().map(|(&id, alloc)| (id, alloc))
     }
 
     pub fn create_fn_alloc(&mut self, instance: Instance<'tcx>) -> MemoryPointer {
-        let id = self.tcx.interpret_interner.borrow_mut().create_fn_alloc(instance);
+        let id = self.tcx
+            .interpret_interner
+            .borrow_mut()
+            .create_fn_alloc(instance);
         MemoryPointer::new(id, 0)
     }
 
@@ -111,15 +112,14 @@ impl<'a, 'tcx, M: Machine<'tcx>> Memory<'a, 'tcx, M> {
         let id = self.tcx.interpret_interner.borrow_mut().reserve();
         M::add_lock(self, id);
         match kind {
-            Some(kind @ MemoryKind::Stack) |
-            Some(kind @ MemoryKind::Machine(_)) => {
+            Some(kind @ MemoryKind::Stack) | Some(kind @ MemoryKind::Machine(_)) => {
                 self.alloc_map.insert(id, alloc);
                 self.alloc_kind.insert(id, kind);
-            },
+            }
             None => {
                 self.uninitialized_statics.insert(id, alloc);
-            },
-            Some(MemoryKind::MutableStatic) => bug!("don't allocate mutable statics directly")
+            }
+            Some(MemoryKind::MutableStatic) => bug!("don't allocate mutable statics directly"),
         }
         Ok(MemoryPointer::new(id, 0))
     }
@@ -191,23 +191,35 @@ impl<'a, 'tcx, M: Machine<'tcx>> Memory<'a, 'tcx, M> {
                 return err!(DeallocatedWrongMemoryKind(
                     "uninitializedstatic".to_string(),
                     format!("{:?}", kind),
-                ))
-            } else if self.tcx.interpret_interner.borrow().get_fn(ptr.alloc_id).is_some() {
+                ));
+            } else if self.tcx
+                .interpret_interner
+                .borrow()
+                .get_fn(ptr.alloc_id)
+                .is_some()
+            {
                 return err!(DeallocatedWrongMemoryKind(
                     "function".to_string(),
                     format!("{:?}", kind),
-                ))
-            } else if self.tcx.interpret_interner.borrow().get_alloc(ptr.alloc_id).is_some() {
+                ));
+            } else if self.tcx
+                .interpret_interner
+                .borrow()
+                .get_alloc(ptr.alloc_id)
+                .is_some()
+            {
                 return err!(DeallocatedWrongMemoryKind(
                     "static".to_string(),
                     format!("{:?}", kind),
-                ))
+                ));
             } else {
-                return err!(DoubleFree)
+                return err!(DoubleFree);
             },
         };
 
-        let alloc_kind = self.alloc_kind.remove(&ptr.alloc_id).expect("alloc_map out of sync with alloc_kind");
+        let alloc_kind = self.alloc_kind
+            .remove(&ptr.alloc_id)
+            .expect("alloc_map out of sync with alloc_kind");
 
         // It is okay for us to still holds locks on deallocation -- for example, we could store data we own
         // in a local, and the local could be deallocated (from StorageDead) before the function returns.
@@ -224,7 +236,12 @@ impl<'a, 'tcx, M: Machine<'tcx>> Memory<'a, 'tcx, M> {
         }
         if let Some((size, align)) = size_and_align {
             if size != alloc.bytes.len() as u64 || align != alloc.align {
-                return err!(IncorrectAllocationInformation(size, alloc.bytes.len(), align.abi(), alloc.align.abi()));
+                return err!(IncorrectAllocationInformation(
+                    size,
+                    alloc.bytes.len(),
+                    align.abi(),
+                    alloc.align.abi()
+                ));
             }
         }
 
@@ -296,7 +313,7 @@ impl<'a, 'tcx, M: Machine<'tcx>> Memory<'a, 'tcx, M> {
     pub fn get(&self, id: AllocId) -> EvalResult<'tcx, &Allocation> {
         // normal alloc?
         match self.alloc_map.get(&id) {
-                    Some(alloc) => Ok(alloc),
+            Some(alloc) => Ok(alloc),
             // uninitialized static alloc?
             None => match self.uninitialized_statics.get(&id) {
                 Some(alloc) => Ok(alloc),
@@ -310,15 +327,12 @@ impl<'a, 'tcx, M: Machine<'tcx>> Memory<'a, 'tcx, M> {
                         } else {
                             EvalErrorKind::DanglingPointerDeref.into()
                         })
-                },
+                }
             },
         }
     }
 
-    fn get_mut(
-        &mut self,
-        id: AllocId,
-    ) -> EvalResult<'tcx, &mut Allocation> {
+    fn get_mut(&mut self, id: AllocId) -> EvalResult<'tcx, &mut Allocation> {
         // normal alloc?
         match self.alloc_map.get_mut(&id) {
             Some(alloc) => Ok(alloc),
@@ -335,7 +349,7 @@ impl<'a, 'tcx, M: Machine<'tcx>> Memory<'a, 'tcx, M> {
                     } else {
                         err!(DanglingPointerDeref)
                     }
-                },
+                }
             },
         }
     }
@@ -444,10 +458,12 @@ impl<'a, 'tcx, M: Machine<'tcx>> Memory<'a, 'tcx, M> {
         let kinds = &self.alloc_kind;
         let leaks: Vec<_> = self.alloc_map
             .keys()
-            .filter_map(|key| if kinds[key] != MemoryKind::MutableStatic {
-                Some(*key)
-            } else {
-                None
+            .filter_map(|key| {
+                if kinds[key] != MemoryKind::MutableStatic {
+                    Some(*key)
+                } else {
+                    None
+                }
             })
             .collect();
         let n = leaks.len();
@@ -556,7 +572,10 @@ impl<'a, 'tcx, M: Machine<'tcx>> Memory<'a, 'tcx, M> {
             let uninit = self.uninitialized_statics.remove(&alloc_id);
             if let Some(alloc) = alloc.or(uninit) {
                 let alloc = self.tcx.intern_const_alloc(alloc);
-                self.tcx.interpret_interner.borrow_mut().intern_at_reserved(alloc_id, alloc);
+                self.tcx
+                    .interpret_interner
+                    .borrow_mut()
+                    .intern_at_reserved(alloc_id, alloc);
                 // recurse into inner allocations
                 for &alloc in alloc.relocations.values() {
                     self.mark_inner_allocation_initialized(alloc, mutability)?;
@@ -572,19 +591,18 @@ impl<'a, 'tcx, M: Machine<'tcx>> Memory<'a, 'tcx, M> {
         // sub-element or have circular pointers (e.g. `Rc`-cycles)
         let relocations = match self.alloc_map.get_mut(&alloc_id) {
             Some(&mut Allocation {
-                     ref mut relocations,
-                     ..
-                 }) => {
+                ref mut relocations,
+                ..
+            }) => {
                 match self.alloc_kind.get(&alloc_id) {
                     // const eval results can refer to "locals".
                     // E.g. `const Foo: &u32 = &1;` refers to the temp local that stores the `1`
-                    None |
-                    Some(&MemoryKind::Stack) => {},
+                    None | Some(&MemoryKind::Stack) => {}
                     Some(&MemoryKind::Machine(m)) => M::mark_static_initialized(m)?,
                     Some(&MemoryKind::MutableStatic) => {
                         trace!("mark_static_initalized: skipping already initialized static referred to by static currently being initialized");
                         return Ok(());
-                    },
+                    }
                 }
                 // overwrite or insert
                 self.alloc_kind.insert(alloc_id, MemoryKind::MutableStatic);
@@ -646,12 +664,12 @@ impl<'a, 'tcx, M: Machine<'tcx>> Memory<'a, 'tcx, M> {
             assert_eq!(size as usize as u64, size);
             if src.alloc_id == dest.alloc_id {
                 if nonoverlapping {
-                    if (src.offset <= dest.offset && src.offset + size > dest.offset) ||
-                        (dest.offset <= src.offset && dest.offset + size > src.offset)
+                    if (src.offset <= dest.offset && src.offset + size > dest.offset)
+                        || (dest.offset <= src.offset && dest.offset + size > src.offset)
                     {
-                        return err!(Intrinsic(
-                            format!("copy_nonoverlapping called on overlapping ranges"),
-                        ));
+                        return err!(Intrinsic(format!(
+                            "copy_nonoverlapping called on overlapping ranges"
+                        ),));
                     }
                 }
                 ptr::copy(src_bytes, dest_bytes, size as usize);
@@ -720,7 +738,13 @@ impl<'a, 'tcx, M: Machine<'tcx>> Memory<'a, 'tcx, M> {
         Ok(())
     }
 
-    pub fn read_primval(&self, ptr: MemoryPointer, ptr_align: Align, size: u64, signed: bool) -> EvalResult<'tcx, PrimVal> {
+    pub fn read_primval(
+        &self,
+        ptr: MemoryPointer,
+        ptr_align: Align,
+        size: u64,
+        signed: bool,
+    ) -> EvalResult<'tcx, PrimVal> {
         self.check_relocation_edges(ptr, size)?; // Make sure we don't read part of a pointer as a pointer
         let endianess = self.endianess();
         let bytes = self.get_bytes_unchecked(ptr, size, ptr_align.min(self.int_align(size)))?;
@@ -743,19 +767,32 @@ impl<'a, 'tcx, M: Machine<'tcx>> Memory<'a, 'tcx, M> {
         } else {
             let alloc = self.get(ptr.alloc_id)?;
             match alloc.relocations.get(&ptr.offset) {
-                Some(&alloc_id) => return Ok(PrimVal::Ptr(MemoryPointer::new(alloc_id, bytes as u64))),
-                None => {},
+                Some(&alloc_id) => {
+                    return Ok(PrimVal::Ptr(MemoryPointer::new(alloc_id, bytes as u64)))
+                }
+                None => {}
             }
         }
         // We don't. Just return the bytes.
         Ok(PrimVal::Bytes(bytes))
     }
 
-    pub fn read_ptr_sized_unsigned(&self, ptr: MemoryPointer, ptr_align: Align) -> EvalResult<'tcx, PrimVal> {
+    pub fn read_ptr_sized_unsigned(
+        &self,
+        ptr: MemoryPointer,
+        ptr_align: Align,
+    ) -> EvalResult<'tcx, PrimVal> {
         self.read_primval(ptr, ptr_align, self.pointer_size(), false)
     }
 
-    pub fn write_primval(&mut self, ptr: MemoryPointer, ptr_align: Align, val: PrimVal, size: u64, signed: bool) -> EvalResult<'tcx> {
+    pub fn write_primval(
+        &mut self,
+        ptr: MemoryPointer,
+        ptr_align: Align,
+        val: PrimVal,
+        size: u64,
+        signed: bool,
+    ) -> EvalResult<'tcx> {
         let endianess = self.endianess();
 
         let bytes = match val {
@@ -797,10 +834,9 @@ impl<'a, 'tcx, M: Machine<'tcx>> Memory<'a, 'tcx, M> {
         // See if we have to also write a relocation
         match val {
             PrimVal::Ptr(val) => {
-                self.get_mut(ptr.alloc_id)?.relocations.insert(
-                    ptr.offset,
-                    val.alloc_id,
-                );
+                self.get_mut(ptr.alloc_id)?
+                    .relocations
+                    .insert(ptr.offset, val.alloc_id);
             }
             _ => {}
         }
@@ -808,7 +844,12 @@ impl<'a, 'tcx, M: Machine<'tcx>> Memory<'a, 'tcx, M> {
         Ok(())
     }
 
-    pub fn write_ptr_sized_unsigned(&mut self, ptr: MemoryPointer, ptr_align: Align, val: PrimVal) -> EvalResult<'tcx> {
+    pub fn write_ptr_sized_unsigned(
+        &mut self,
+        ptr: MemoryPointer,
+        ptr_align: Align,
+        val: PrimVal,
+    ) -> EvalResult<'tcx> {
         let ptr_size = self.pointer_size();
         self.write_primval(ptr, ptr_align, val, ptr_size, false)
     }
@@ -899,21 +940,18 @@ impl<'a, 'tcx, M: Machine<'tcx>> Memory<'a, 'tcx, M> {
             v.push(defined);
         }
         for (i, defined) in v.into_iter().enumerate() {
-            self.get_mut(dest.alloc_id)?.undef_mask.set(
-                dest.offset +
-                    i as u64,
-                defined,
-            );
+            self.get_mut(dest.alloc_id)?
+                .undef_mask
+                .set(dest.offset + i as u64, defined);
         }
         Ok(())
     }
 
     fn check_defined(&self, ptr: MemoryPointer, size: u64) -> EvalResult<'tcx> {
         let alloc = self.get(ptr.alloc_id)?;
-        if !alloc.undef_mask.is_range_defined(
-            ptr.offset,
-            ptr.offset + size,
-        )
+        if !alloc
+            .undef_mask
+            .is_range_defined(ptr.offset, ptr.offset + size)
         {
             return err!(ReadUndefBytes);
         }
@@ -931,11 +969,9 @@ impl<'a, 'tcx, M: Machine<'tcx>> Memory<'a, 'tcx, M> {
         }
         let ptr = ptr.to_ptr()?;
         let alloc = self.get_mut(ptr.alloc_id)?;
-        alloc.undef_mask.set_range(
-            ptr.offset,
-            ptr.offset + size,
-            new_state,
-        );
+        alloc
+            .undef_mask
+            .set_range(ptr.offset, ptr.offset + size, new_state);
         Ok(())
     }
 }
@@ -991,31 +1027,28 @@ pub trait HasMemory<'a, 'tcx: 'a, M: Machine<'tcx>> {
 
     /// Convert the value into a pointer (or a pointer-sized integer).  If the value is a ByRef,
     /// this may have to perform a load.
-    fn into_ptr(
-        &self,
-        value: Value,
-    ) -> EvalResult<'tcx, Pointer> {
+    fn into_ptr(&self, value: Value) -> EvalResult<'tcx, Pointer> {
         Ok(match value {
             Value::ByRef(ptr, align) => {
                 self.memory().read_ptr_sized_unsigned(ptr.to_ptr()?, align)?
             }
-            Value::ByVal(ptr) |
-            Value::ByValPair(ptr, _) => ptr,
+            Value::ByVal(ptr) | Value::ByValPair(ptr, _) => ptr,
         }.into())
     }
 
-    fn into_ptr_vtable_pair(
-        &self,
-        value: Value,
-    ) -> EvalResult<'tcx, (Pointer, MemoryPointer)> {
+    fn into_ptr_vtable_pair(&self, value: Value) -> EvalResult<'tcx, (Pointer, MemoryPointer)> {
         match value {
             Value::ByRef(ref_ptr, align) => {
                 let mem = self.memory();
-                let ptr = mem.read_ptr_sized_unsigned(ref_ptr.to_ptr()?, align)?.into();
+                let ptr = mem.read_ptr_sized_unsigned(ref_ptr.to_ptr()?, align)?
+                    .into();
                 let vtable = mem.read_ptr_sized_unsigned(
-                    ref_ptr.offset(mem.pointer_size(), &mem.tcx.data_layout)?.to_ptr()?,
-                    align
-                )?.to_ptr()?;
+                    ref_ptr
+                        .offset(mem.pointer_size(), &mem.tcx.data_layout)?
+                        .to_ptr()?,
+                    align,
+                )?
+                    .to_ptr()?;
                 Ok((ptr, vtable))
             }
 
@@ -1026,18 +1059,19 @@ pub trait HasMemory<'a, 'tcx: 'a, M: Machine<'tcx>> {
         }
     }
 
-    fn into_slice(
-        &self,
-        value: Value,
-    ) -> EvalResult<'tcx, (Pointer, u64)> {
+    fn into_slice(&self, value: Value) -> EvalResult<'tcx, (Pointer, u64)> {
         match value {
             Value::ByRef(ref_ptr, align) => {
                 let mem = self.memory();
-                let ptr = mem.read_ptr_sized_unsigned(ref_ptr.to_ptr()?, align)?.into();
+                let ptr = mem.read_ptr_sized_unsigned(ref_ptr.to_ptr()?, align)?
+                    .into();
                 let len = mem.read_ptr_sized_unsigned(
-                    ref_ptr.offset(mem.pointer_size(), &mem.tcx.data_layout)?.to_ptr()?,
-                    align
-                )?.to_bytes()? as u64;
+                    ref_ptr
+                        .offset(mem.pointer_size(), &mem.tcx.data_layout)?
+                        .to_ptr()?,
+                    align,
+                )?
+                    .to_bytes()? as u64;
                 Ok((ptr, len))
             }
             Value::ByValPair(ptr, val) => {

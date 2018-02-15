@@ -27,14 +27,14 @@
 use std::collections::HashSet;
 use std::iter::FromIterator;
 use std::vec::Vec;
-use rustc::dep_graph::{DepNode, label_strs};
+use rustc::dep_graph::{label_strs, DepNode};
 use rustc::hir;
-use rustc::hir::{Item_ as HirItem, ImplItemKind, TraitItemKind};
+use rustc::hir::{ImplItemKind, Item_ as HirItem, TraitItemKind};
 use rustc::hir::map::Node as HirNode;
 use rustc::hir::def_id::DefId;
 use rustc::hir::itemlikevisit::ItemLikeVisitor;
 use rustc::hir::intravisit;
-use rustc::ich::{ATTR_DIRTY, ATTR_CLEAN};
+use rustc::ich::{ATTR_CLEAN, ATTR_DIRTY};
 use syntax::ast::{self, Attribute, NestedMetaItem};
 use rustc_data_structures::fx::FxHashSet;
 use syntax_pos::Span;
@@ -47,9 +47,7 @@ const CFG: &str = "cfg";
 // Base and Extra labels to build up the labels
 
 /// For typedef, constants, and statics
-const BASE_CONST: &[&str] = &[
-    label_strs::TypeOfItem,
-];
+const BASE_CONST: &[&str] = &[label_strs::TypeOfItem];
 
 /// DepNodes for functions + methods
 const BASE_FN: &[&str] = &[
@@ -58,7 +56,6 @@ const BASE_FN: &[&str] = &[
     label_strs::GenericsOfItem,
     label_strs::PredicatesOfItem,
     label_strs::TypeOfItem,
-
     // And a big part of compilation (that we eventually want to cache) is type inference
     // information:
     label_strs::TypeckTables,
@@ -80,10 +77,7 @@ const BASE_IMPL: &[&str] = &[
 
 /// DepNodes for MirValidated/Optimized, which is relevant in "executable"
 /// code, i.e. functions+methods
-const BASE_MIR: &[&str] = &[
-    label_strs::MirOptimized,
-    label_strs::MirValidated,
-];
+const BASE_MIR: &[&str] = &[label_strs::MirOptimized, label_strs::MirValidated];
 
 /// Struct, Enum and Union DepNodes
 ///
@@ -107,84 +101,42 @@ const BASE_TRAIT_DEF: &[&str] = &[
 ];
 
 /// extra DepNodes for methods (+fn)
-const EXTRA_ASSOCIATED: &[&str] = &[
-    label_strs::AssociatedItems,
-];
+const EXTRA_ASSOCIATED: &[&str] = &[label_strs::AssociatedItems];
 
-const EXTRA_TRAIT: &[&str] = &[
-    label_strs::TraitOfItem,
-];
+const EXTRA_TRAIT: &[&str] = &[label_strs::TraitOfItem];
 
 // Fully Built Labels
 
-const LABELS_CONST: &[&[&str]] = &[
-    BASE_HIR,
-    BASE_CONST,
-];
+const LABELS_CONST: &[&[&str]] = &[BASE_HIR, BASE_CONST];
 
 /// Constant/Typedef in an impl
-const LABELS_CONST_IN_IMPL: &[&[&str]] = &[
-    BASE_HIR,
-    BASE_CONST,
-    EXTRA_ASSOCIATED,
-];
+const LABELS_CONST_IN_IMPL: &[&[&str]] = &[BASE_HIR, BASE_CONST, EXTRA_ASSOCIATED];
 
 /// Trait-Const/Typedef DepNodes
-const LABELS_CONST_IN_TRAIT: &[&[&str]] = &[
-    BASE_HIR,
-    BASE_CONST,
-    EXTRA_ASSOCIATED,
-    EXTRA_TRAIT,
-];
+const LABELS_CONST_IN_TRAIT: &[&[&str]] = &[BASE_HIR, BASE_CONST, EXTRA_ASSOCIATED, EXTRA_TRAIT];
 
 /// Function DepNode
-const LABELS_FN: &[&[&str]] = &[
-    BASE_HIR,
-    BASE_MIR,
-    BASE_FN,
-];
+const LABELS_FN: &[&[&str]] = &[BASE_HIR, BASE_MIR, BASE_FN];
 
 /// Method DepNodes
-const LABELS_FN_IN_IMPL: &[&[&str]] = &[
-    BASE_HIR,
-    BASE_MIR,
-    BASE_FN,
-    EXTRA_ASSOCIATED,
-];
+const LABELS_FN_IN_IMPL: &[&[&str]] = &[BASE_HIR, BASE_MIR, BASE_FN, EXTRA_ASSOCIATED];
 
 /// Trait-Method DepNodes
-const LABELS_FN_IN_TRAIT: &[&[&str]] = &[
-    BASE_HIR,
-    BASE_MIR,
-    BASE_FN,
-    EXTRA_ASSOCIATED,
-    EXTRA_TRAIT,
-];
+const LABELS_FN_IN_TRAIT: &[&[&str]] =
+    &[BASE_HIR, BASE_MIR, BASE_FN, EXTRA_ASSOCIATED, EXTRA_TRAIT];
 
 /// For generic cases like inline-assemply/mod/etc
-const LABELS_HIR_ONLY: &[&[&str]] = &[
-    BASE_HIR,
-];
+const LABELS_HIR_ONLY: &[&[&str]] = &[BASE_HIR];
 
 /// Impl DepNodes
-const LABELS_IMPL: &[&[&str]] = &[
-    BASE_HIR,
-    BASE_IMPL,
-];
+const LABELS_IMPL: &[&[&str]] = &[BASE_HIR, BASE_IMPL];
 
 /// Abstract Data Type (Struct, Enum, Unions) DepNodes
-const LABELS_ADT: &[&[&str]] = &[
-    BASE_HIR,
-    BASE_STRUCT,
-];
+const LABELS_ADT: &[&[&str]] = &[BASE_HIR, BASE_STRUCT];
 
 /// Trait Definition DepNodes
 #[allow(dead_code)]
-const LABELS_TRAIT: &[&[&str]] = &[
-    BASE_HIR,
-    BASE_TRAIT_DEF,
-];
-
+const LABELS_TRAIT: &[&[&str]] = &[BASE_HIR, BASE_TRAIT_DEF];
 
 // FIXME: Struct/Enum/Unions Fields (there is currently no way to attach these)
 //
@@ -245,24 +197,21 @@ pub fn check_dirty_clean_annotations<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>) {
     })
 }
 
-pub struct DirtyCleanVisitor<'a, 'tcx:'a> {
+pub struct DirtyCleanVisitor<'a, 'tcx: 'a> {
     tcx: TyCtxt<'a, 'tcx, 'tcx>,
     checked_attrs: FxHashSet<ast::AttrId>,
 }
 
 impl<'a, 'tcx> DirtyCleanVisitor<'a, 'tcx> {
-
     /// Possibly "deserialize" the attribute into a clean/dirty assertion
-    fn assertion_maybe(&mut self, item_id: ast::NodeId, attr: &Attribute)
-        -> Option<Assertion>
-    {
+    fn assertion_maybe(&mut self, item_id: ast::NodeId, attr: &Attribute) -> Option<Assertion> {
         let is_clean = if attr.check_name(ATTR_DIRTY) {
             false
         } else if attr.check_name(ATTR_CLEAN) {
             true
         } else {
             // skip: not rustc_clean/dirty
-            return None
+            return None;
         };
         if !check_config(self.tcx, attr) {
             // skip: not the correct `cfg=`
@@ -281,17 +230,19 @@ impl<'a, 'tcx> DirtyCleanVisitor<'a, 'tcx> {
     }
 
     /// Get the "auto" assertion on pre-validated attr, along with the `except` labels
-    fn assertion_auto(&mut self, item_id: ast::NodeId, attr: &Attribute, is_clean: bool)
-        -> Assertion
-    {
+    fn assertion_auto(
+        &mut self,
+        item_id: ast::NodeId,
+        attr: &Attribute,
+        is_clean: bool,
+    ) -> Assertion {
         let (name, mut auto) = self.auto_labels(item_id, attr);
         let except = self.except(attr);
         for e in except.iter() {
             if !auto.remove(e) {
                 let msg = format!(
                     "`except` specified DepNodes that can not be affected for \"{}\": \"{}\"",
-                    name,
-                    e
+                    name, e
                 );
                 self.tcx.sess.span_fatal(attr.span, &msg);
             }
@@ -357,7 +308,7 @@ impl<'a, 'tcx> DirtyCleanVisitor<'a, 'tcx> {
                     HirItem::ItemFn(..) => ("ItemFn", LABELS_FN),
 
                     // // A module
-                    HirItem::ItemMod(..) =>("ItemMod", LABELS_HIR_ONLY),
+                    HirItem::ItemMod(..) => ("ItemMod", LABELS_HIR_ONLY),
 
                     // // An external module
                     HirItem::ItemForeignMod(..) => ("ItemForeignMod", LABELS_HIR_ONLY),
@@ -401,35 +352,26 @@ impl<'a, 'tcx> DirtyCleanVisitor<'a, 'tcx> {
                         &format!(
                             "clean/dirty auto-assertions not yet defined for NodeItem.node={:?}",
                             item.node
-                        )
+                        ),
                     ),
                 }
+            }
+            HirNode::NodeTraitItem(item) => match item.node {
+                TraitItemKind::Method(..) => ("NodeTraitItem", LABELS_FN_IN_TRAIT),
+                TraitItemKind::Const(..) => ("NodeTraitConst", LABELS_CONST_IN_TRAIT),
+                TraitItemKind::Type(..) => ("NodeTraitType", LABELS_CONST_IN_TRAIT),
             },
-            HirNode::NodeTraitItem(item) => {
-                match item.node {
-                    TraitItemKind::Method(..) => ("NodeTraitItem", LABELS_FN_IN_TRAIT),
-                    TraitItemKind::Const(..) => ("NodeTraitConst", LABELS_CONST_IN_TRAIT),
-                    TraitItemKind::Type(..) => ("NodeTraitType", LABELS_CONST_IN_TRAIT),
-                }
-            },
-            HirNode::NodeImplItem(item) => {
-                match item.node {
-                    ImplItemKind::Method(..) => ("NodeImplItem", LABELS_FN_IN_IMPL),
-                    ImplItemKind::Const(..) => ("NodeImplConst", LABELS_CONST_IN_IMPL),
-                    ImplItemKind::Type(..) => ("NodeImplType", LABELS_CONST_IN_IMPL),
-                }
+            HirNode::NodeImplItem(item) => match item.node {
+                ImplItemKind::Method(..) => ("NodeImplItem", LABELS_FN_IN_IMPL),
+                ImplItemKind::Const(..) => ("NodeImplConst", LABELS_CONST_IN_IMPL),
+                ImplItemKind::Type(..) => ("NodeImplType", LABELS_CONST_IN_IMPL),
             },
             _ => self.tcx.sess.span_fatal(
                 attr.span,
-                &format!(
-                    "clean/dirty auto-assertions not yet defined for {:?}",
-                    node
-                )
+                &format!("clean/dirty auto-assertions not yet defined for {:?}", node),
             ),
         };
-        let labels = Labels::from_iter(
-            labels.iter().flat_map(|s| s.iter().map(|l| l.to_string()))
-        );
+        let labels = Labels::from_iter(labels.iter().flat_map(|s| s.iter().map(|l| l.to_string())));
         (name, labels)
     }
 
@@ -441,13 +383,15 @@ impl<'a, 'tcx> DirtyCleanVisitor<'a, 'tcx> {
                 if out.contains(label) {
                     self.tcx.sess.span_fatal(
                         item.span,
-                        &format!("dep-node label `{}` is repeated", label));
+                        &format!("dep-node label `{}` is repeated", label),
+                    );
                 }
                 out.insert(label.to_string());
             } else {
                 self.tcx.sess.span_fatal(
                     item.span,
-                    &format!("dep-node label `{}` not recognized", label));
+                    &format!("dep-node label `{}` not recognized", label),
+                );
             }
         }
         out
@@ -467,9 +411,7 @@ impl<'a, 'tcx> DirtyCleanVisitor<'a, 'tcx> {
 
     fn dep_node_str(&self, dep_node: &DepNode) -> String {
         if let Some(def_id) = dep_node.extract_def_id(self.tcx) {
-            format!("{:?}({})",
-                    dep_node.kind,
-                    self.tcx.item_path_str(def_id))
+            format!("{:?}({})", dep_node.kind, self.tcx.item_path_str(def_id))
         } else {
             format!("{:?}({:?})", dep_node.kind, dep_node.hash)
         }
@@ -486,7 +428,8 @@ impl<'a, 'tcx> DirtyCleanVisitor<'a, 'tcx> {
             let dep_node_str = self.dep_node_str(&dep_node);
             self.tcx.sess.span_err(
                 item_span,
-                &format!("`{}` should be dirty but is not", dep_node_str));
+                &format!("`{}` should be dirty but is not", dep_node_str),
+            );
         }
     }
 
@@ -501,7 +444,8 @@ impl<'a, 'tcx> DirtyCleanVisitor<'a, 'tcx> {
             let dep_node_str = self.dep_node_str(&dep_node);
             self.tcx.sess.span_err(
                 item_span,
-                &format!("`{}` should be clean but is not", dep_node_str));
+                &format!("`{}` should be clean but is not", dep_node_str),
+            );
         }
     }
 
@@ -563,17 +507,12 @@ fn check_config(tcx: TyCtxt, attr: &Attribute) -> bool {
     }
 
     if label && except {
-        tcx.sess.span_fatal(
-            attr.span,
-            "must specify only one of: `label`, `except`"
-        );
+        tcx.sess
+            .span_fatal(attr.span, "must specify only one of: `label`, `except`");
     }
 
     match cfg {
-        None => tcx.sess.span_fatal(
-            attr.span,
-            "no cfg attribute"
-        ),
+        None => tcx.sess.span_fatal(attr.span, "no cfg attribute"),
         Some(c) => c,
     }
 }
@@ -595,14 +534,13 @@ fn expect_associated_value(tcx: TyCtxt, item: &NestedMetaItem) -> ast::Name {
 // A visitor that collects all #[rustc_dirty]/#[rustc_clean] attributes from
 // the HIR. It is used to verfiy that we really ran checks for all annotated
 // nodes.
-pub struct FindAllAttrs<'a, 'tcx:'a> {
+pub struct FindAllAttrs<'a, 'tcx: 'a> {
     tcx: TyCtxt<'a, 'tcx, 'tcx>,
     attr_names: Vec<&'static str>,
     found_attrs: Vec<&'tcx Attribute>,
 }
 
 impl<'a, 'tcx> FindAllAttrs<'a, 'tcx> {
-
     fn is_active_attr(&mut self, attr: &Attribute) -> bool {
         for attr_name in &self.attr_names {
             if attr.check_name(attr_name) && check_config(self.tcx, attr) {
@@ -616,8 +554,13 @@ impl<'a, 'tcx> FindAllAttrs<'a, 'tcx> {
     fn report_unchecked_attrs(&self, checked_attrs: &FxHashSet<ast::AttrId>) {
         for attr in &self.found_attrs {
             if !checked_attrs.contains(&attr.id) {
-                self.tcx.sess.span_err(attr.span, &format!("found unchecked \
-                    #[rustc_dirty]/#[rustc_clean] attribute"));
+                self.tcx.sess.span_err(
+                    attr.span,
+                    &format!(
+                        "found unchecked \
+                         #[rustc_dirty]/#[rustc_clean] attribute"
+                    ),
+                );
             }
         }
     }

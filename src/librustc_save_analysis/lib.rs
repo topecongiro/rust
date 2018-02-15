@@ -30,7 +30,6 @@ extern crate syntax_pos;
 extern crate rls_data;
 extern crate rls_span;
 
-
 mod json_dumper;
 mod dump_visitor;
 #[macro_use]
@@ -65,10 +64,9 @@ use json_dumper::JsonDumper;
 use dump_visitor::DumpVisitor;
 use span_utils::SpanUtils;
 
-use rls_data::{Def, DefKind, ExternalCrateData, GlobalCrateId, MacroRef, Ref, RefKind, Relation,
-               RelationKind, SpanData, Impl, ImplKind};
+use rls_data::{Def, DefKind, ExternalCrateData, GlobalCrateId, Impl, ImplKind, MacroRef, Ref,
+               RefKind, Relation, RelationKind, SpanData};
 use rls_data::config::Config;
-
 
 pub struct SaveContext<'l, 'tcx: 'l> {
     tcx: TyCtxt<'l, 'tcx, 'tcx>,
@@ -331,35 +329,35 @@ impl<'l, 'tcx: 'l> SaveContext<'l, 'tcx> {
 
                     let type_data = self.lookup_ref_id(typ.id);
                     type_data.map(|type_data| {
-                        Data::RelationData(Relation {
-                            kind: RelationKind::Impl {
+                        Data::RelationData(
+                            Relation {
+                                kind: RelationKind::Impl { id: impl_id },
+                                span: span.clone(),
+                                from: id_from_def_id(type_data),
+                                to: trait_ref
+                                    .as_ref()
+                                    .and_then(|t| self.lookup_ref_id(t.ref_id))
+                                    .map(id_from_def_id)
+                                    .unwrap_or(null_id()),
+                            },
+                            Impl {
                                 id: impl_id,
+                                kind: match *trait_ref {
+                                    Some(_) => ImplKind::Direct,
+                                    None => ImplKind::Inherent,
+                                },
+                                span: span,
+                                value: String::new(),
+                                parent: None,
+                                children: impls
+                                    .iter()
+                                    .map(|i| id_from_node_id(i.id, self))
+                                    .collect(),
+                                docs: String::new(),
+                                sig: None,
+                                attributes: vec![],
                             },
-                            span: span.clone(),
-                            from: id_from_def_id(type_data),
-                            to: trait_ref
-                                .as_ref()
-                                .and_then(|t| self.lookup_ref_id(t.ref_id))
-                                .map(id_from_def_id)
-                                .unwrap_or(null_id()),
-                        },
-                        Impl {
-                            id: impl_id,
-                            kind: match *trait_ref {
-                                Some(_) => ImplKind::Direct,
-                                None => ImplKind::Inherent,
-                            },
-                            span: span,
-                            value: String::new(),
-                            parent: None,
-                            children: impls
-                                .iter()
-                                .map(|i| id_from_node_id(i.id, self))
-                                .collect(),
-                            docs: String::new(),
-                            sig: None,
-                            attributes: vec![],
-                        })
+                        )
                     })
                 } else {
                     None
@@ -381,7 +379,6 @@ impl<'l, 'tcx: 'l> SaveContext<'l, 'tcx> {
             filter!(self.span_utils, sub_span, field.span, None);
             let def_id = self.tcx.hir.local_def_id(field.id);
             let typ = self.tcx.type_of(def_id).to_string();
-
 
             let id = id_from_node_id(field.id, self);
             let span = self.span_from_span(sub_span.unwrap());
@@ -544,8 +541,7 @@ impl<'l, 'tcx: 'l> SaveContext<'l, 'tcx> {
                     _ => {
                         debug!(
                             "Missing or weird node for sub-expression {} in {:?}",
-                            sub_ex.id,
-                            expr
+                            sub_ex.id, expr
                         );
                         return None;
                     }
@@ -630,26 +626,26 @@ impl<'l, 'tcx: 'l> SaveContext<'l, 'tcx> {
             Node::NodeItem(&hir::Item {
                 node: hir::ItemUse(ref path, _),
                 ..
-            }) |
-            Node::NodeVisibility(&hir::Visibility::Restricted { ref path, .. }) => path.def,
+            })
+            | Node::NodeVisibility(&hir::Visibility::Restricted { ref path, .. }) => path.def,
 
             Node::NodeExpr(&hir::Expr {
                 node: hir::ExprStruct(ref qpath, ..),
                 ..
-            }) |
-            Node::NodeExpr(&hir::Expr {
+            })
+            | Node::NodeExpr(&hir::Expr {
                 node: hir::ExprPath(ref qpath),
                 ..
-            }) |
-            Node::NodePat(&hir::Pat {
+            })
+            | Node::NodePat(&hir::Pat {
                 node: hir::PatKind::Path(ref qpath),
                 ..
-            }) |
-            Node::NodePat(&hir::Pat {
+            })
+            | Node::NodePat(&hir::Pat {
                 node: hir::PatKind::Struct(ref qpath, ..),
                 ..
-            }) |
-            Node::NodePat(&hir::Pat {
+            })
+            | Node::NodePat(&hir::Pat {
                 node: hir::PatKind::TupleStruct(ref qpath, ..),
                 ..
             }) => {
@@ -716,10 +712,10 @@ impl<'l, 'tcx: 'l> SaveContext<'l, 'tcx> {
                     ref_id: id_from_node_id(id, self),
                 })
             }
-            HirDef::Static(..) |
-            HirDef::Const(..) |
-            HirDef::AssociatedConst(..) |
-            HirDef::VariantCtor(..) => {
+            HirDef::Static(..)
+            | HirDef::Const(..)
+            | HirDef::AssociatedConst(..)
+            | HirDef::VariantCtor(..) => {
                 let span = self.span_from_span(sub_span);
                 Some(Ref {
                     kind: RefKind::Variable,
@@ -731,24 +727,22 @@ impl<'l, 'tcx: 'l> SaveContext<'l, 'tcx> {
                 // Function type bounds are desugared in the parser, so we have to
                 // special case them here.
                 let fn_span = self.span_utils.span_for_first_ident(path.span);
-                fn_span.map(|span| {
-                    Ref {
-                        kind: RefKind::Type,
-                        span: self.span_from_span(span),
-                        ref_id: id_from_def_id(def_id),
-                    }
+                fn_span.map(|span| Ref {
+                    kind: RefKind::Type,
+                    span: self.span_from_span(span),
+                    ref_id: id_from_def_id(def_id),
                 })
             }
-            HirDef::Struct(def_id) |
-            HirDef::Variant(def_id, ..) |
-            HirDef::Union(def_id) |
-            HirDef::Enum(def_id) |
-            HirDef::TyAlias(def_id) |
-            HirDef::TyForeign(def_id) |
-            HirDef::TraitAlias(def_id) |
-            HirDef::AssociatedTy(def_id) |
-            HirDef::Trait(def_id) |
-            HirDef::TyParam(def_id) => {
+            HirDef::Struct(def_id)
+            | HirDef::Variant(def_id, ..)
+            | HirDef::Union(def_id)
+            | HirDef::Enum(def_id)
+            | HirDef::TyAlias(def_id)
+            | HirDef::TyForeign(def_id)
+            | HirDef::TraitAlias(def_id)
+            | HirDef::AssociatedTy(def_id)
+            | HirDef::Trait(def_id)
+            | HirDef::TyParam(def_id) => {
                 let span = self.span_from_span(sub_span);
                 Some(Ref {
                     kind: RefKind::Type,
@@ -801,12 +795,12 @@ impl<'l, 'tcx: 'l> SaveContext<'l, 'tcx> {
                     ref_id: id_from_def_id(def_id),
                 })
             }
-            HirDef::PrimTy(..) |
-            HirDef::SelfTy(..) |
-            HirDef::Label(..) |
-            HirDef::Macro(..) |
-            HirDef::GlobalAsm(..) |
-            HirDef::Err => None,
+            HirDef::PrimTy(..)
+            | HirDef::SelfTy(..)
+            | HirDef::Label(..)
+            | HirDef::Macro(..)
+            | HirDef::GlobalAsm(..)
+            | HirDef::Err => None,
         }
     }
 
@@ -895,16 +889,17 @@ impl<'l, 'tcx: 'l> SaveContext<'l, 'tcx> {
                     }
                     result.push('\n');
                 } else if let Some(meta_list) = attr.meta_item_list() {
-                    meta_list.into_iter()
-                             .filter(|it| it.check_name("include"))
-                             .filter_map(|it| it.meta_item_list().map(|l| l.to_owned()))
-                             .flat_map(|it| it)
-                             .filter(|meta| meta.check_name("contents"))
-                             .filter_map(|meta| meta.value_str())
-                             .for_each(|val| {
-                                 result.push_str(&val.as_str());
-                                 result.push('\n');
-                             });
+                    meta_list
+                        .into_iter()
+                        .filter(|it| it.check_name("include"))
+                        .filter_map(|it| it.meta_item_list().map(|l| l.to_owned()))
+                        .flat_map(|it| it)
+                        .filter(|meta| meta.check_name("contents"))
+                        .filter_map(|meta| meta.value_str())
+                        .for_each(|val| {
+                            result.push_str(&val.as_str());
+                            result.push('\n');
+                        });
                 }
             }
         }
@@ -983,9 +978,7 @@ impl<'l, 'a: 'l> Visitor<'a> for PathCollector<'l> {
             PatKind::Ident(bm, ref path1, _) => {
                 debug!(
                     "PathCollector, visit ident in pat {}: {:?} {:?}",
-                    path1.node,
-                    p.span,
-                    path1.span
+                    path1.node, p.span, path1.span
                 );
                 let immut = match bm {
                     // Even if the ref is mut, you can't change the ref, only
@@ -1061,9 +1054,9 @@ impl<'a> DumpHandler<'a> {
 
         info!("Writing output to {}", file_name.display());
 
-        let output_file = File::create(&file_name).unwrap_or_else(
-            |e| sess.fatal(&format!("Could not open {}: {}", file_name.display(), e)),
-        );
+        let output_file = File::create(&file_name).unwrap_or_else(|e| {
+            sess.fatal(&format!("Could not open {}: {}", file_name.display(), e))
+        });
 
         output_file
     }

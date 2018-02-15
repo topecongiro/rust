@@ -8,7 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use target::{TargetOptions, RelroLevel};
+use target::{RelroLevel, TargetOptions};
 use std::default::Default;
 
 pub fn opts() -> TargetOptions {
@@ -21,6 +21,6 @@ pub fn opts() -> TargetOptions {
         position_independent_executables: true,
         relro_level: RelroLevel::Full,
 
-        .. Default::default()
+        ..Default::default()
     }
 }

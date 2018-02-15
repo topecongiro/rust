@@ -8,12 +8,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-
 use std::iter::Iterator;
 use std::vec::Vec;
 use std::collections::BTreeMap;
-use rand::{Rng, thread_rng};
-use test::{Bencher, black_box};
+use rand::{thread_rng, Rng};
+use test::{black_box, Bencher};
 
 macro_rules! map_insert_rand_bench {
     ($name: ident, $n: expr, $map: ident) => (

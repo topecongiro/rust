@@ -55,11 +55,11 @@ impl Combine for () {
 /// to keep the DAG relatively balanced, which helps keep the running
 /// time of the algorithm under control. For more information, see
 /// <http://en.wikipedia.org/wiki/Disjoint-set_data_structure>.
-#[derive(PartialEq,Clone,Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct VarValue<K: UnifyKey> {
-    parent: K, // if equal to self, this is a root
+    parent: K,       // if equal to self, this is a root
     value: K::Value, // value assigned (only relevant to root)
-    rank: u32, // max depth (only relevant to root)
+    rank: u32,       // max depth (only relevant to root)
 }
 
 /// Table of unification keys and their values.
@@ -115,7 +115,11 @@ impl<K: UnifyKey> VarValue<K> {
     }
 
     fn if_not_self(&self, key: K, self_key: K) -> Option<K> {
-        if key == self_key { None } else { Some(key) }
+        if key == self_key {
+            None
+        } else {
+            Some(key)
+        }
     }
 }
 
@@ -126,7 +130,9 @@ impl<K: UnifyKey> VarValue<K> {
 
 impl<K: UnifyKey> UnificationTable<K> {
     pub fn new() -> UnificationTable<K> {
-        UnificationTable { values: sv::SnapshotVec::new() }
+        UnificationTable {
+            values: sv::SnapshotVec::new(),
+        }
     }
 
     /// Starts a new snapshot. Each snapshot must be either
@@ -208,11 +214,13 @@ impl<K: UnifyKey> UnificationTable<K> {
     /// your key are non-trivial, you would probably prefer to call
     /// `unify_var_var` below.
     fn unify(&mut self, root_a: VarValue<K>, root_b: VarValue<K>, new_value: K::Value) -> K {
-        debug!("unify(root_a(id={:?}, rank={:?}), root_b(id={:?}, rank={:?}))",
-               root_a.key(),
-               root_a.rank,
-               root_b.key(),
-               root_b.rank);
+        debug!(
+            "unify(root_a(id={:?}, rank={:?}), root_b(id={:?}, rank={:?}))",
+            root_a.key(),
+            root_a.rank,
+            root_b.key(),
+            root_b.rank
+        );
 
         if root_a.rank > root_b.rank {
             // a has greater rank, so a should become b's parent,
@@ -228,12 +236,13 @@ impl<K: UnifyKey> UnificationTable<K> {
         }
     }
 
-    fn redirect_root(&mut self,
-                     new_rank: u32,
-                     old_root: VarValue<K>,
-                     new_root: VarValue<K>,
-                     new_value: K::Value)
-                     -> K {
+    fn redirect_root(
+        &mut self,
+        new_rank: u32,
+        old_root: VarValue<K>,
+        new_root: VarValue<K>,
+        new_value: K::Value,
+    ) -> K {
         let old_root_key = old_root.key();
         let new_root_key = new_root.key();
         self.set(old_root_key, old_root.redirect(new_root_key));
@@ -252,7 +261,8 @@ impl<K: UnifyKey> sv::SnapshotVecDelegate for Delegate<K> {
 /// # Base union-find algorithm, where we are just making sets
 
 impl<'tcx, K: UnifyKey> UnificationTable<K>
-    where K::Value: Combine
+where
+    K::Value: Combine,
 {
     pub fn union(&mut self, a_id: K, b_id: K) -> K {
         let node_a = self.get(a_id);
@@ -288,8 +298,9 @@ impl<'tcx, K: UnifyKey> UnificationTable<K>
 /// need to worry about.
 
 impl<'tcx, K, V> UnificationTable<K>
-    where K: UnifyKey<Value = Option<V>>,
-          V: Clone + PartialEq + Debug
+where
+    K: UnifyKey<Value = Option<V>>,
+    V: Clone + PartialEq + Debug,
 {
     pub fn unify_var_var(&mut self, a_id: K, b_id: K) -> Result<K, (V, V)> {
         let node_a = self.get(a_id);
@@ -304,8 +315,7 @@ impl<'tcx, K, V> UnificationTable<K>
         let combined = {
             match (&node_a.value, &node_b.value) {
                 (&None, &None) => None,
-                (&Some(ref v), &None) |
-                (&None, &Some(ref v)) => Some(v.clone()),
+                (&Some(ref v), &None) | (&None, &Some(ref v)) => Some(v.clone()),
                 (&Some(ref v1), &Some(ref v2)) => {
                     if *v1 != *v2 {
                         return Err((v1.clone(), v2.clone()));

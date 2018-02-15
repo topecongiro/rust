@@ -18,9 +18,15 @@ pub trait ToType {
 
 impl UnifyKey for ty::IntVid {
     type Value = Option<IntVarValue>;
-    fn index(&self) -> u32 { self.index }
-    fn from_index(i: u32) -> ty::IntVid { ty::IntVid { index: i } }
-    fn tag(_: Option<ty::IntVid>) -> &'static str { "IntVid" }
+    fn index(&self) -> u32 {
+        self.index
+    }
+    fn from_index(i: u32) -> ty::IntVid {
+        ty::IntVid { index: i }
+    }
+    fn tag(_: Option<ty::IntVid>) -> &'static str {
+        "IntVid"
+    }
 }
 
 #[derive(PartialEq, Copy, Clone, Debug)]
@@ -28,7 +34,7 @@ pub struct RegionVidKey {
     /// The minimum region vid in the unification set. This is needed
     /// to have a canonical name for a type to prevent infinite
     /// recursion.
-    pub min_vid: ty::RegionVid
+    pub min_vid: ty::RegionVid,
 }
 
 impl Combine for RegionVidKey {
@@ -45,9 +51,15 @@ impl Combine for RegionVidKey {
 
 impl UnifyKey for ty::RegionVid {
     type Value = RegionVidKey;
-    fn index(&self) -> u32 { self.0 }
-    fn from_index(i: u32) -> ty::RegionVid { ty::RegionVid(i) }
-    fn tag(_: Option<ty::RegionVid>) -> &'static str { "RegionVid" }
+    fn index(&self) -> u32 {
+        self.0
+    }
+    fn from_index(i: u32) -> ty::RegionVid {
+        ty::RegionVid(i)
+    }
+    fn tag(_: Option<ty::RegionVid>) -> &'static str {
+        "RegionVid"
+    }
 }
 
 impl ToType for IntVarValue {
@@ -63,9 +75,15 @@ impl ToType for IntVarValue {
 
 impl UnifyKey for ty::FloatVid {
     type Value = Option<ast::FloatTy>;
-    fn index(&self) -> u32 { self.index }
-    fn from_index(i: u32) -> ty::FloatVid { ty::FloatVid { index: i } }
-    fn tag(_: Option<ty::FloatVid>) -> &'static str { "FloatVid" }
+    fn index(&self) -> u32 {
+        self.index
+    }
+    fn from_index(i: u32) -> ty::FloatVid {
+        ty::FloatVid { index: i }
+    }
+    fn tag(_: Option<ty::FloatVid>) -> &'static str {
+        "FloatVid"
+    }
 }
 
 impl ToType for ast::FloatTy {
@@ -76,7 +94,13 @@ impl ToType for ast::FloatTy {
 
 impl UnifyKey for ty::TyVid {
     type Value = ();
-    fn index(&self) -> u32 { self.index }
-    fn from_index(i: u32) -> ty::TyVid { ty::TyVid { index: i } }
-    fn tag(_: Option<ty::TyVid>) -> &'static str { "TyVid" }
+    fn index(&self) -> u32 {
+        self.index
+    }
+    fn from_index(i: u32) -> ty::TyVid {
+        ty::TyVid { index: i }
+    }
+    fn tag(_: Option<ty::TyVid>) -> &'static str {
+        "TyVid"
+    }
 }

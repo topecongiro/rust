@@ -16,18 +16,15 @@ use rustc::ty::layout::{self, TyLayout};
 #[derive(PartialEq)]
 pub enum Flavor {
     General,
-    Fastcall
+    Fastcall,
 }
 
-fn is_single_fp_element<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>,
-                                  layout: TyLayout<'tcx>) -> bool {
+fn is_single_fp_element<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>, layout: TyLayout<'tcx>) -> bool {
     match layout.abi {
-        layout::Abi::Scalar(ref scalar) => {
-            match scalar.value {
-                layout::F32 | layout::F64 => true,
-                _ => false
-            }
-        }
+        layout::Abi::Scalar(ref scalar) => match scalar.value {
+            layout::F32 | layout::F64 => true,
+            _ => false,
+        },
         layout::Abi::Aggregate { .. } => {
             if layout.fields.count() == 1 && layout.fields.offset(0).bytes() == 0 {
                 is_single_fp_element(cx, layout.field(cx, 0))
@@ -35,13 +32,15 @@ fn is_single_fp_element<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>,
                 false
             }
         }
-        _ => false
+        _ => false,
     }
 }
 
-pub fn compute_abi_info<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>,
-                                  fty: &mut FnType<'tcx>,
-                                  flavor: Flavor) {
+pub fn compute_abi_info<'a, 'tcx>(
+    cx: &CodegenCx<'a, 'tcx>,
+    fty: &mut FnType<'tcx>,
+    flavor: Flavor,
+) {
     if !fty.ret.is_ignore() {
         if fty.ret.layout.is_aggregate() {
             // Returning a structure. Most often, this will use
@@ -52,15 +51,14 @@ pub fn compute_abi_info<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>,
             // http://www.angelcode.com/dev/callconv/callconv.html
             // Clang's ABI handling is in lib/CodeGen/TargetInfo.cpp
             let t = &cx.sess().target.target;
-            if t.options.is_like_osx || t.options.is_like_windows
-                || t.options.is_like_openbsd {
+            if t.options.is_like_osx || t.options.is_like_windows || t.options.is_like_openbsd {
                 // According to Clang, everyone but MSVC returns single-element
                 // float aggregates directly in a floating-point register.
                 if !t.options.is_like_msvc && is_single_fp_element(cx, fty.ret.layout) {
                     match fty.ret.layout.size.bytes() {
                         4 => fty.ret.cast_to(Reg::f32()),
                         8 => fty.ret.cast_to(Reg::f64()),
-                        _ => fty.ret.make_indirect()
+                        _ => fty.ret.make_indirect(),
                     }
                 } else {
                     match fty.ret.layout.size.bytes() {
@@ -68,7 +66,7 @@ pub fn compute_abi_info<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>,
                         2 => fty.ret.cast_to(Reg::i16()),
                         4 => fty.ret.cast_to(Reg::i32()),
                         8 => fty.ret.cast_to(Reg::i64()),
-                        _ => fty.ret.make_indirect()
+                        _ => fty.ret.make_indirect(),
                     }
                 }
             } else {
@@ -80,7 +78,9 @@ pub fn compute_abi_info<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>,
     }
 
     for arg in &mut fty.args {
-        if arg.is_ignore() { continue; }
+        if arg.is_ignore() {
+            continue;
+        }
         if arg.layout.is_aggregate() {
             arg.make_indirect_byval();
         } else {
@@ -102,11 +102,9 @@ pub fn compute_abi_info<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>,
 
         for arg in &mut fty.args {
             let attrs = match arg.mode {
-                PassMode::Ignore |
-                PassMode::Indirect(_) => continue,
+                PassMode::Ignore | PassMode::Indirect(_) => continue,
                 PassMode::Direct(ref mut attrs) => attrs,
-                PassMode::Pair(..) |
-                PassMode::Cast(_) => {
+                PassMode::Pair(..) | PassMode::Cast(_) => {
                     bug!("x86 shouldn't be passing arguments by {:?}", arg.mode)
                 }
             };

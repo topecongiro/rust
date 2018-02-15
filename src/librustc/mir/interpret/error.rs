@@ -1,12 +1,10 @@
 use std::error::Error;
-use std::{fmt, env};
+use std::{env, fmt};
 
 use mir;
-use ty::{FnSig, Ty, layout};
+use ty::{layout, FnSig, Ty};
 
-use super::{
-    MemoryPointer, Lock, AccessKind
-};
+use super::{AccessKind, Lock, MemoryPointer};
 
 use rustc_const_math::ConstMathErr;
 use syntax::codemap::Span;
@@ -22,12 +20,9 @@ impl<'tcx> From<EvalErrorKind<'tcx>> for EvalError<'tcx> {
     fn from(kind: EvalErrorKind<'tcx>) -> Self {
         let backtrace = match env::var("RUST_BACKTRACE") {
             Ok(ref val) if !val.is_empty() => Some(Backtrace::new_unresolved()),
-            _ => None
+            _ => None,
         };
-        EvalError {
-            kind,
-            backtrace,
-        }
+        EvalError { kind, backtrace }
     }
 }
 

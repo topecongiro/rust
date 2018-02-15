@@ -10,7 +10,7 @@
 
 #![allow(non_upper_case_globals)]
 
-use abi::{FnType, ArgType, LayoutExt};
+use abi::{ArgType, FnType, LayoutExt};
 
 fn classify_ret_ty(ret: &mut ArgType) {
     if ret.layout.is_aggregate() && ret.layout.size.bits() > 64 {

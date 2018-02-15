@@ -38,7 +38,8 @@ pub fn lev_distance(a: &str, b: &str) -> usize {
             current = next;
             t_last = j;
         }
-    } dcol[t_last + 1]
+    }
+    dcol[t_last + 1]
 }
 
 /// To find the best match for a given string from an iterator of names
@@ -47,10 +48,14 @@ pub fn lev_distance(a: &str, b: &str) -> usize {
 /// to one-third of the given word.
 /// Besides Levenshtein, we use case insensitive comparison to improve accuracy on an edge case with
 /// a lower(upper)case letters mismatch.
-pub fn find_best_match_for_name<'a, T>(iter_names: T,
-                                       lookup: &str,
-                                       dist: Option<usize>) -> Option<Symbol>
-    where T: Iterator<Item = &'a Symbol> {
+pub fn find_best_match_for_name<'a, T>(
+    iter_names: T,
+    lookup: &str,
+    dist: Option<usize>,
+) -> Option<Symbol>
+where
+    T: Iterator<Item = &'a Symbol>,
+{
     let max_dist = dist.map_or_else(|| cmp::max(lookup.len(), 3) / 3, |d| d);
 
     let (case_insensitive_match, levenstein_match) = iter_names
@@ -81,7 +86,11 @@ pub fn find_best_match_for_name<'a, T>(iter_names: T,
     if let Some(candidate) = case_insensitive_match {
         Some(candidate) // exact case insensitive match has a higher priority
     } else {
-        if let Some((candidate, _)) = levenstein_match { Some(candidate) } else { None }
+        if let Some((candidate, _)) = levenstein_match {
+            Some(candidate)
+        } else {
+            None
+        }
     }
 }
 
@@ -90,8 +99,9 @@ fn test_lev_distance() {
     use std::char::{from_u32, MAX};
     // Test bytelength agnosticity
     for c in (0..MAX as u32)
-             .filter_map(|i| from_u32(i))
-             .map(|i| i.to_string()) {
+        .filter_map(|i| from_u32(i))
+        .map(|i| i.to_string())
+    {
         assert_eq!(lev_distance(&c[..], &c[..]), 0);
     }
 

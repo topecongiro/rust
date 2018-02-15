@@ -24,7 +24,7 @@
 
 use error::Error;
 use fmt;
-use ops::{Add, Sub, AddAssign, SubAssign};
+use ops::{Add, AddAssign, Sub, SubAssign};
 use sys::time;
 use sys_common::FromInner;
 
@@ -294,8 +294,7 @@ impl SystemTime {
     /// println!("{:?}", difference);
     /// ```
     #[stable(feature = "time2", since = "1.8.0")]
-    pub fn duration_since(&self, earlier: SystemTime)
-                          -> Result<Duration, SystemTimeError> {
+    pub fn duration_since(&self, earlier: SystemTime) -> Result<Duration, SystemTimeError> {
         self.0.sub_time(&earlier.0).map_err(SystemTimeError)
     }
 
@@ -428,7 +427,9 @@ impl SystemTimeError {
 
 #[stable(feature = "time2", since = "1.8.0")]
 impl Error for SystemTimeError {
-    fn description(&self) -> &str { "other time was not earlier than self" }
+    fn description(&self) -> &str {
+        "other time was not earlier than self"
+    }
 }
 
 #[stable(feature = "time2", since = "1.8.0")]
@@ -446,7 +447,7 @@ impl FromInner<time::SystemTime> for SystemTime {
 
 #[cfg(test)]
 mod tests {
-    use super::{Instant, SystemTime, Duration, UNIX_EPOCH};
+    use super::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
     macro_rules! assert_almost_eq {
         ($a:expr, $b:expr) => ({
@@ -513,8 +514,7 @@ mod tests {
 
         let second = Duration::new(1, 0);
         assert_almost_eq!(a.duration_since(a - second).unwrap(), second);
-        assert_almost_eq!(a.duration_since(a + second).unwrap_err()
-                           .duration(), second);
+        assert_almost_eq!(a.duration_since(a + second).unwrap_err().duration(), second);
 
         assert_almost_eq!(a - second + second, a);
 
@@ -526,8 +526,8 @@ mod tests {
         }
 
         let one_second_from_epoch = UNIX_EPOCH + Duration::new(1, 0);
-        let one_second_from_epoch2 = UNIX_EPOCH + Duration::new(0, 500_000_000)
-            + Duration::new(0, 500_000_000);
+        let one_second_from_epoch2 =
+            UNIX_EPOCH + Duration::new(0, 500_000_000) + Duration::new(0, 500_000_000);
         assert_eq!(one_second_from_epoch, one_second_from_epoch2);
     }
 

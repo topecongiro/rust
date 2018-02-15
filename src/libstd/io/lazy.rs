@@ -43,7 +43,7 @@ impl<T: Send + Sync + 'static> Lazy<T> {
                 Some((*ptr).clone())
             };
             self.lock.unlock();
-            return ret
+            return ret;
         }
     }
 

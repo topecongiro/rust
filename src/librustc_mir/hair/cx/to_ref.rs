@@ -43,7 +43,8 @@ impl<'a, 'tcx: 'a> ToRef for Expr<'tcx> {
 }
 
 impl<'a, 'tcx: 'a, T, U> ToRef for &'tcx Option<T>
-    where &'tcx T: ToRef<Output = U>
+where
+    &'tcx T: ToRef<Output = U>,
 {
     type Output = Option<U>;
 
@@ -53,7 +54,8 @@ impl<'a, 'tcx: 'a, T, U> ToRef for &'tcx Option<T>
 }
 
 impl<'a, 'tcx: 'a, T, U> ToRef for &'tcx Vec<T>
-    where &'tcx T: ToRef<Output = U>
+where
+    &'tcx T: ToRef<Output = U>,
 {
     type Output = Vec<U>;
 
@@ -63,7 +65,8 @@ impl<'a, 'tcx: 'a, T, U> ToRef for &'tcx Vec<T>
 }
 
 impl<'a, 'tcx: 'a, T, U> ToRef for &'tcx P<[T]>
-    where &'tcx T: ToRef<Output = U>
+where
+    &'tcx T: ToRef<Output = U>,
 {
     type Output = Vec<U>;
 

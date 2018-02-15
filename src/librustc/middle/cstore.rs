@@ -26,11 +26,11 @@ use hir;
 use hir::def;
 use hir::def_id::{CrateNum, DefId, LOCAL_CRATE};
 use hir::map as hir_map;
-use hir::map::definitions::{Definitions, DefKey, DefPathTable};
+use hir::map::definitions::{DefKey, DefPathTable, Definitions};
 use hir::svh::Svh;
 use ich;
 use ty::{self, TyCtxt};
-use session::{Session, CrateDisambiguator};
+use session::{CrateDisambiguator, Session};
 use session::search_paths::PathKind;
 use util::nodemap::NodeSet;
 
@@ -164,7 +164,7 @@ pub struct ExternCrate {
 }
 
 pub struct EncodedMetadata {
-    pub raw_data: Vec<u8>
+    pub raw_data: Vec<u8>,
 }
 
 impl EncodedMetadata {
@@ -184,14 +184,16 @@ impl EncodedMetadata {
 /// metadata in library -- this trait just serves to decouple rustc_metadata from
 /// the archive reader, which depends on LLVM.
 pub trait MetadataLoader {
-    fn get_rlib_metadata(&self,
-                         target: &Target,
-                         filename: &Path)
-                         -> Result<ErasedBoxRef<[u8]>, String>;
-    fn get_dylib_metadata(&self,
-                          target: &Target,
-                          filename: &Path)
-                          -> Result<ErasedBoxRef<[u8]>, String>;
+    fn get_rlib_metadata(
+        &self,
+        target: &Target,
+        filename: &Path,
+    ) -> Result<ErasedBoxRef<[u8]>, String>;
+    fn get_dylib_metadata(
+        &self,
+        target: &Target,
+        filename: &Path,
+    ) -> Result<ErasedBoxRef<[u8]>, String>;
 }
 
 #[derive(Clone)]
@@ -256,11 +258,12 @@ pub trait CrateStore {
     fn crates_untracked(&self) -> Vec<CrateNum>;
 
     // utility functions
-    fn encode_metadata<'a, 'tcx>(&self,
-                                 tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                                 link_meta: &LinkMeta,
-                                 reachable: &NodeSet)
-                                 -> EncodedMetadata;
+    fn encode_metadata<'a, 'tcx>(
+        &self,
+        tcx: TyCtxt<'a, 'tcx, 'tcx>,
+        link_meta: &LinkMeta,
+        reachable: &NodeSet,
+    ) -> EncodedMetadata;
     fn metadata_encoding_version(&self) -> &[u8];
 }
 
@@ -280,8 +283,12 @@ pub fn validate_crate_name(sess: Option<&Session>, s: &str, sp: Option<Span>) {
             say("crate name must not be empty");
         }
         for c in s.chars() {
-            if c.is_alphanumeric() { continue }
-            if c == '_'  { continue }
+            if c.is_alphanumeric() {
+                continue;
+            }
+            if c == '_' {
+                continue;
+            }
             say(&format!("invalid character `{}` in crate name: `{}`", c, s));
         }
     }
@@ -297,28 +304,43 @@ pub struct DummyCrateStore;
 
 #[allow(unused_variables)]
 impl CrateStore for DummyCrateStore {
-    fn crate_data_as_rc_any(&self, krate: CrateNum) -> Rc<Any>
-        { bug!("crate_data_as_rc_any") }
+    fn crate_data_as_rc_any(&self, krate: CrateNum) -> Rc<Any> {
+        bug!("crate_data_as_rc_any")
+    }
     // item info
-    fn visibility_untracked(&self, def: DefId) -> ty::Visibility { bug!("visibility") }
-    fn item_generics_cloned_untracked(&self, def: DefId, sess: &Session) -> ty::Generics
-        { bug!("item_generics_cloned") }
+    fn visibility_untracked(&self, def: DefId) -> ty::Visibility {
+        bug!("visibility")
+    }
+    fn item_generics_cloned_untracked(&self, def: DefId, sess: &Session) -> ty::Generics {
+        bug!("item_generics_cloned")
+    }
 
     // trait/impl-item info
-    fn associated_item_cloned_untracked(&self, def: DefId) -> ty::AssociatedItem
-        { bug!("associated_item_cloned") }
+    fn associated_item_cloned_untracked(&self, def: DefId) -> ty::AssociatedItem {
+        bug!("associated_item_cloned")
+    }
 
     // crate metadata
-    fn dep_kind_untracked(&self, cnum: CrateNum) -> DepKind { bug!("is_explicitly_linked") }
-    fn export_macros_untracked(&self, cnum: CrateNum) { bug!("export_macros") }
-    fn crate_name_untracked(&self, cnum: CrateNum) -> Symbol { bug!("crate_name") }
+    fn dep_kind_untracked(&self, cnum: CrateNum) -> DepKind {
+        bug!("is_explicitly_linked")
+    }
+    fn export_macros_untracked(&self, cnum: CrateNum) {
+        bug!("export_macros")
+    }
+    fn crate_name_untracked(&self, cnum: CrateNum) -> Symbol {
+        bug!("crate_name")
+    }
     fn crate_disambiguator_untracked(&self, cnum: CrateNum) -> CrateDisambiguator {
         bug!("crate_disambiguator")
     }
-    fn crate_hash_untracked(&self, cnum: CrateNum) -> Svh { bug!("crate_hash") }
+    fn crate_hash_untracked(&self, cnum: CrateNum) -> Svh {
+        bug!("crate_hash")
+    }
 
     // resolve
-    fn def_key(&self, def: DefId) -> DefKey { bug!("def_key") }
+    fn def_key(&self, def: DefId) -> DefKey {
+        bug!("def_key")
+    }
     fn def_path(&self, def: DefId) -> hir_map::DefPath {
         bug!("relative_def_path")
     }
@@ -334,24 +356,37 @@ impl CrateStore for DummyCrateStore {
     fn item_children_untracked(&self, did: DefId, sess: &Session) -> Vec<def::Export> {
         bug!("item_children")
     }
-    fn load_macro_untracked(&self, did: DefId, sess: &Session) -> LoadedMacro { bug!("load_macro") }
+    fn load_macro_untracked(&self, did: DefId, sess: &Session) -> LoadedMacro {
+        bug!("load_macro")
+    }
 
-    fn crates_untracked(&self) -> Vec<CrateNum> { vec![] }
+    fn crates_untracked(&self) -> Vec<CrateNum> {
+        vec![]
+    }
 
     // utility functions
-    fn extern_mod_stmt_cnum_untracked(&self, emod_id: ast::NodeId) -> Option<CrateNum> { None }
-    fn encode_metadata<'a, 'tcx>(&self,
-                                 tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                                 link_meta: &LinkMeta,
-                                 reachable: &NodeSet)
-                                 -> EncodedMetadata {
+    fn extern_mod_stmt_cnum_untracked(&self, emod_id: ast::NodeId) -> Option<CrateNum> {
+        None
+    }
+    fn encode_metadata<'a, 'tcx>(
+        &self,
+        tcx: TyCtxt<'a, 'tcx, 'tcx>,
+        link_meta: &LinkMeta,
+        reachable: &NodeSet,
+    ) -> EncodedMetadata {
         bug!("encode_metadata")
     }
-    fn metadata_encoding_version(&self) -> &[u8] { bug!("metadata_encoding_version") }
-    fn postorder_cnums_untracked(&self) -> Vec<CrateNum> { bug!("postorder_cnums_untracked") }
+    fn metadata_encoding_version(&self) -> &[u8] {
+        bug!("metadata_encoding_version")
+    }
+    fn postorder_cnums_untracked(&self) -> Vec<CrateNum> {
+        bug!("postorder_cnums_untracked")
+    }
 
     // access to the metadata loader
-    fn metadata_loader(&self) -> &MetadataLoader { bug!("metadata_loader") }
+    fn metadata_loader(&self) -> &MetadataLoader {
+        bug!("metadata_loader")
+    }
 }
 
 pub trait CrateLoader {
@@ -369,15 +404,13 @@ pub trait CrateLoader {
 // In order to get this left-to-right dependency ordering, we perform a
 // topological sort of all crates putting the leaves at the right-most
 // positions.
-pub fn used_crates(tcx: TyCtxt, prefer: LinkagePreference)
-    -> Vec<(CrateNum, LibSource)>
-{
+pub fn used_crates(tcx: TyCtxt, prefer: LinkagePreference) -> Vec<(CrateNum, LibSource)> {
     let mut libs = tcx.crates()
         .iter()
         .cloned()
         .filter_map(|cnum| {
             if tcx.dep_kind(cnum).macros_only() {
-                return None
+                return None;
             }
             let source = tcx.used_crate_source(cnum);
             let path = match prefer {
@@ -399,8 +432,6 @@ pub fn used_crates(tcx: TyCtxt, prefer: LinkagePreference)
         .collect::<Vec<_>>();
     let mut ordering = tcx.postorder_cnums(LOCAL_CRATE);
     Rc::make_mut(&mut ordering).reverse();
-    libs.sort_by_key(|&(a, _)| {
-        ordering.iter().position(|x| *x == a)
-    });
+    libs.sort_by_key(|&(a, _)| ordering.iter().position(|x| *x == a));
     libs
 }

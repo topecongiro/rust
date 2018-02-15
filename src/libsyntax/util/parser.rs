@@ -7,7 +7,7 @@
 // <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
-use parse::token::{Token, BinOpToken};
+use parse::token::{BinOpToken, Token};
 use symbol::keywords;
 use ast::{self, BinOpKind};
 
@@ -77,7 +77,7 @@ pub enum Fixity {
     /// The operator is right-associative
     Right,
     /// The operator is not associative
-    None
+    None,
 }
 
 impl AssocOp {
@@ -112,7 +112,7 @@ impl AssocOp {
             Token::DotDotDot => Some(DotDotEq),
             Token::Colon => Some(Colon),
             _ if t.is_keyword(keywords::As) => Some(As),
-            _ => None
+            _ => None,
         }
     }
 
@@ -137,7 +137,7 @@ impl AssocOp {
             BinOpKind::BitXor => BitXor,
             BinOpKind::BitOr => BitOr,
             BinOpKind::And => LAnd,
-            BinOpKind::Or => LOr
+            BinOpKind::Or => LOr,
         }
     }
 
@@ -167,10 +167,10 @@ impl AssocOp {
         // NOTE: it is a bug to have an operators that has same precedence but different fixities!
         match *self {
             Inplace | Assign | AssignOp(_) => Fixity::Right,
-            As | Multiply | Divide | Modulus | Add | Subtract | ShiftLeft | ShiftRight | BitAnd |
-            BitXor | BitOr | Less | Greater | LessEqual | GreaterEqual | Equal | NotEqual |
-            LAnd | LOr | Colon => Fixity::Left,
-            DotDot | DotDotEq => Fixity::None
+            As | Multiply | Divide | Modulus | Add | Subtract | ShiftLeft | ShiftRight | BitAnd
+            | BitXor | BitOr | Less | Greater | LessEqual | GreaterEqual | Equal | NotEqual
+            | LAnd | LOr | Colon => Fixity::Left,
+            DotDot | DotDotEq => Fixity::None,
         }
     }
 
@@ -178,9 +178,9 @@ impl AssocOp {
         use self::AssocOp::*;
         match *self {
             Less | Greater | LessEqual | GreaterEqual | Equal | NotEqual => true,
-            Inplace | Assign | AssignOp(_) | As | Multiply | Divide | Modulus | Add | Subtract |
-            ShiftLeft | ShiftRight | BitAnd | BitXor | BitOr | LAnd | LOr |
-            DotDot | DotDotEq | Colon => false
+            Inplace | Assign | AssignOp(_) | As | Multiply | Divide | Modulus | Add | Subtract
+            | ShiftLeft | ShiftRight | BitAnd | BitXor | BitOr | LAnd | LOr | DotDot | DotDotEq
+            | Colon => false,
         }
     }
 
@@ -188,9 +188,9 @@ impl AssocOp {
         use self::AssocOp::*;
         match *self {
             Assign | AssignOp(_) | Inplace => true,
-            Less | Greater | LessEqual | GreaterEqual | Equal | NotEqual | As | Multiply | Divide |
-            Modulus | Add | Subtract | ShiftLeft | ShiftRight | BitAnd | BitXor | BitOr | LAnd |
-            LOr | DotDot | DotDotEq | Colon => false
+            Less | Greater | LessEqual | GreaterEqual | Equal | NotEqual | As | Multiply
+            | Divide | Modulus | Add | Subtract | ShiftLeft | ShiftRight | BitAnd | BitXor
+            | BitOr | LAnd | LOr | DotDot | DotDotEq | Colon => false,
         }
     }
 
@@ -215,7 +215,7 @@ impl AssocOp {
             BitOr => Some(BinOpKind::BitOr),
             LAnd => Some(BinOpKind::And),
             LOr => Some(BinOpKind::Or),
-            Inplace | Assign | AssignOp(_) | As | DotDot | DotDotEq | Colon => None
+            Inplace | Assign | AssignOp(_) | As | DotDot | DotDotEq | Colon => None,
         }
     }
 }
@@ -297,10 +297,10 @@ impl ExprPrecedence {
         match self {
             ExprPrecedence::Closure => PREC_CLOSURE,
 
-            ExprPrecedence::Break |
-            ExprPrecedence::Continue |
-            ExprPrecedence::Ret |
-            ExprPrecedence::Yield => PREC_JUMP,
+            ExprPrecedence::Break
+            | ExprPrecedence::Continue
+            | ExprPrecedence::Ret
+            | ExprPrecedence::Yield => PREC_JUMP,
 
             // `Range` claims to have higher precedence than `Assign`, but `x .. x = x` fails to
             // parse, instead of parsing as `(x .. x) = x`.  Giving `Range` a lower precedence
@@ -314,45 +314,41 @@ impl ExprPrecedence {
             ExprPrecedence::Cast => AssocOp::As.precedence() as i8,
             ExprPrecedence::Type => AssocOp::Colon.precedence() as i8,
 
-            ExprPrecedence::Assign |
-            ExprPrecedence::AssignOp => AssocOp::Assign.precedence() as i8,
+            ExprPrecedence::Assign | ExprPrecedence::AssignOp => AssocOp::Assign.precedence() as i8,
 
             // Unary, prefix
-            ExprPrecedence::Box |
-            ExprPrecedence::AddrOf |
-            ExprPrecedence::Unary => PREC_PREFIX,
+            ExprPrecedence::Box | ExprPrecedence::AddrOf | ExprPrecedence::Unary => PREC_PREFIX,
 
             // Unary, postfix
-            ExprPrecedence::Call |
-            ExprPrecedence::MethodCall |
-            ExprPrecedence::Field |
-            ExprPrecedence::TupField |
-            ExprPrecedence::Index |
-            ExprPrecedence::Try |
-            ExprPrecedence::InlineAsm |
-            ExprPrecedence::Mac => PREC_POSTFIX,
+            ExprPrecedence::Call
+            | ExprPrecedence::MethodCall
+            | ExprPrecedence::Field
+            | ExprPrecedence::TupField
+            | ExprPrecedence::Index
+            | ExprPrecedence::Try
+            | ExprPrecedence::InlineAsm
+            | ExprPrecedence::Mac => PREC_POSTFIX,
 
             // Never need parens
-            ExprPrecedence::Array |
-            ExprPrecedence::Repeat |
-            ExprPrecedence::Tup |
-            ExprPrecedence::Lit |
-            ExprPrecedence::Path |
-            ExprPrecedence::Paren |
-            ExprPrecedence::If |
-            ExprPrecedence::IfLet |
-            ExprPrecedence::While |
-            ExprPrecedence::WhileLet |
-            ExprPrecedence::ForLoop |
-            ExprPrecedence::Loop |
-            ExprPrecedence::Match |
-            ExprPrecedence::Block |
-            ExprPrecedence::Catch |
-            ExprPrecedence::Struct => PREC_PAREN,
+            ExprPrecedence::Array
+            | ExprPrecedence::Repeat
+            | ExprPrecedence::Tup
+            | ExprPrecedence::Lit
+            | ExprPrecedence::Path
+            | ExprPrecedence::Paren
+            | ExprPrecedence::If
+            | ExprPrecedence::IfLet
+            | ExprPrecedence::While
+            | ExprPrecedence::WhileLet
+            | ExprPrecedence::ForLoop
+            | ExprPrecedence::Loop
+            | ExprPrecedence::Match
+            | ExprPrecedence::Block
+            | ExprPrecedence::Catch
+            | ExprPrecedence::Struct => PREC_PAREN,
         }
     }
 }
-
 
 /// Expressions that syntactically contain an "exterior" struct literal i.e. not surrounded by any
 /// parens or other delimiters, e.g. `X { y: 1 }`, `X { y: 1 }.method()`, `foo == X { y: 1 }` and
@@ -361,18 +357,18 @@ pub fn contains_exterior_struct_lit(value: &ast::Expr) -> bool {
     match value.node {
         ast::ExprKind::Struct(..) => true,
 
-        ast::ExprKind::Assign(ref lhs, ref rhs) |
-        ast::ExprKind::AssignOp(_, ref lhs, ref rhs) |
-        ast::ExprKind::Binary(_, ref lhs, ref rhs) => {
+        ast::ExprKind::Assign(ref lhs, ref rhs)
+        | ast::ExprKind::AssignOp(_, ref lhs, ref rhs)
+        | ast::ExprKind::Binary(_, ref lhs, ref rhs) => {
             // X { y: 1 } + X { y: 2 }
             contains_exterior_struct_lit(&lhs) || contains_exterior_struct_lit(&rhs)
         }
-        ast::ExprKind::Unary(_, ref x) |
-        ast::ExprKind::Cast(ref x, _) |
-        ast::ExprKind::Type(ref x, _) |
-        ast::ExprKind::Field(ref x, _) |
-        ast::ExprKind::TupField(ref x, _) |
-        ast::ExprKind::Index(ref x, _) => {
+        ast::ExprKind::Unary(_, ref x)
+        | ast::ExprKind::Cast(ref x, _)
+        | ast::ExprKind::Type(ref x, _)
+        | ast::ExprKind::Field(ref x, _)
+        | ast::ExprKind::TupField(ref x, _)
+        | ast::ExprKind::Index(ref x, _) => {
             // &X { y: 1 }, X { y: 1 }.y
             contains_exterior_struct_lit(&x)
         }

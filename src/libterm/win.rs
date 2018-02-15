@@ -207,7 +207,8 @@ impl<T: Write + Send + 'static> Terminal for WinConsole<T> {
     }
 
     fn into_inner(self) -> T
-        where Self: Sized
+    where
+        Self: Sized,
     {
         self.buf
     }

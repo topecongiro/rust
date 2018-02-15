@@ -8,14 +8,14 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use llvm::{self, ValueRef, BasicBlockRef};
+use llvm::{self, BasicBlockRef, ValueRef};
 use rustc::middle::lang_items;
 use rustc::middle::const_val::{ConstEvalErr, ConstInt, ErrKind};
 use rustc::ty::{self, TypeFoldable};
 use rustc::ty::layout::{self, LayoutOf};
 use rustc::traits;
 use rustc::mir;
-use abi::{Abi, FnType, ArgType, PassMode};
+use abi::{Abi, ArgType, FnType, PassMode};
 use base;
 use callee;
 use builder::Builder;
@@ -33,7 +33,7 @@ use super::{FunctionCx, LocalRef};
 use super::constant::Const;
 use super::place::PlaceRef;
 use super::operand::OperandRef;
-use super::operand::OperandValue::{Pair, Ref, Immediate};
+use super::operand::OperandValue::{Immediate, Pair, Ref};
 
 impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
     pub fn trans_block(&mut self, bb: mir::BasicBlock) {
@@ -49,11 +49,12 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
         self.trans_terminator(bx, bb, data.terminator());
     }
 
-    fn trans_terminator(&mut self,
-                        mut bx: Builder<'a, 'tcx>,
-                        bb: mir::BasicBlock,
-                        terminator: &mir::Terminator<'tcx>)
-    {
+    fn trans_terminator(
+        &mut self,
+        mut bx: Builder<'a, 'tcx>,
+        bb: mir::BasicBlock,
+        terminator: &mir::Terminator<'tcx>,
+    ) {
         debug!("trans_terminator: {:?}", terminator);
 
         // Create the cleanup bundle, if needed.
@@ -70,17 +71,15 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
             let target_funclet = this.cleanup_kinds[target].funclet_bb(target);
             match (funclet_bb, target_funclet) {
                 (None, None) => (lltarget, false),
-                (Some(f), Some(t_f))
-                    if f == t_f || !base::wants_msvc_seh(tcx.sess)
-                    => (lltarget, false),
+                (Some(f), Some(t_f)) if f == t_f || !base::wants_msvc_seh(tcx.sess) => {
+                    (lltarget, false)
+                }
                 (None, Some(_)) => {
                     // jump *into* cleanup - need a landing pad if GNU
                     (this.landing_pad_to(target), false)
                 }
                 (Some(_), None) => span_bug!(span, "{:?} - jump out of cleanup?", terminator),
-                (Some(_), Some(_)) => {
-                    (this.landing_pad_to(target), true)
-                }
+                (Some(_), Some(_)) => (this.landing_pad_to(target), true),
             }
         };
 
@@ -110,26 +109,26 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
             }
         };
 
-        let do_call = |
-            this: &mut Self,
-            bx: Builder<'a, 'tcx>,
-            fn_ty: FnType<'tcx>,
-            fn_ptr: ValueRef,
-            llargs: &[ValueRef],
-            destination: Option<(ReturnDest<'tcx>, mir::BasicBlock)>,
-            cleanup: Option<mir::BasicBlock>
-        | {
+        let do_call = |this: &mut Self,
+                       bx: Builder<'a, 'tcx>,
+                       fn_ty: FnType<'tcx>,
+                       fn_ptr: ValueRef,
+                       llargs: &[ValueRef],
+                       destination: Option<(ReturnDest<'tcx>, mir::BasicBlock)>,
+                       cleanup: Option<mir::BasicBlock>| {
             if let Some(cleanup) = cleanup {
                 let ret_bx = if let Some((_, target)) = destination {
                     this.blocks[target]
                 } else {
                     this.unreachable_block()
                 };
-                let invokeret = bx.invoke(fn_ptr,
-                                           &llargs,
-                                           ret_bx,
-                                           llblock(this, cleanup),
-                                           cleanup_bundle);
+                let invokeret = bx.invoke(
+                    fn_ptr,
+                    &llargs,
+                    ret_bx,
+                    llblock(this, cleanup),
+                    cleanup_bundle,
+                );
                 fn_ty.apply_attrs_callsite(invokeret);
 
                 if let Some((ret_dest, target)) = destination {
@@ -191,7 +190,12 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                 funclet_br(self, bx, target);
             }
 
-            mir::TerminatorKind::SwitchInt { ref discr, switch_ty, ref values, ref targets } => {
+            mir::TerminatorKind::SwitchInt {
+                ref discr,
+                switch_ty,
+                ref values,
+                ref targets,
+            } => {
                 let discr = self.trans_operand(&bx, discr);
                 if switch_ty == bx.tcx().types.bool {
                     let lltrue = llblock(self, targets[0]);
@@ -203,8 +207,8 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                     }
                 } else {
                     let (otherwise, targets) = targets.split_last().unwrap();
-                    let switch = bx.switch(discr.immediate(),
-                                            llblock(self, *otherwise), values.len());
+                    let switch =
+                        bx.switch(discr.immediate(), llblock(self, *otherwise), values.len());
                     for (value, target) in values.iter().zip(targets) {
                         let val = Const::from_constint(bx.cx, value);
                         let llbb = llblock(self, *target);
@@ -233,12 +237,10 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                         let op = match self.locals[mir::RETURN_PLACE] {
                             LocalRef::Operand(Some(op)) => op,
                             LocalRef::Operand(None) => bug!("use of return before def"),
-                            LocalRef::Place(tr_place) => {
-                                OperandRef {
-                                    val: Ref(tr_place.llval, tr_place.align),
-                                    layout: tr_place.layout
-                                }
-                            }
+                            LocalRef::Place(tr_place) => OperandRef {
+                                val: Ref(tr_place.llval, tr_place.align),
+                                layout: tr_place.layout,
+                            },
                         };
                         let llslot = match op.val {
                             Immediate(_) | Pair(..) => {
@@ -247,14 +249,18 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                                 scratch.llval
                             }
                             Ref(llval, align) => {
-                                assert_eq!(align.abi(), op.layout.align.abi(),
-                                           "return place is unaligned!");
+                                assert_eq!(
+                                    align.abi(),
+                                    op.layout.align.abi(),
+                                    "return place is unaligned!"
+                                );
                                 llval
                             }
                         };
                         bx.load(
                             bx.pointercast(llslot, cast_ty.llvm_type(bx.cx).ptr_to()),
-                            self.fn_ty.ret.layout.align)
+                            self.fn_ty.ret.layout.align,
+                        )
                     }
                 };
                 bx.ret(llval);
@@ -264,7 +270,11 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                 bx.unreachable();
             }
 
-            mir::TerminatorKind::Drop { ref location, target, unwind } => {
+            mir::TerminatorKind::Drop {
+                ref location,
+                target,
+                unwind,
+            } => {
                 let ty = location.ty(self.mir, bx.tcx()).to_ty(bx.tcx());
                 let ty = self.monomorphize(&ty);
                 let drop_fn = monomorphize::resolve_drop_in_place(bx.cx.tcx, ty);
@@ -272,7 +282,7 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                 if let ty::InstanceDef::DropGlue(_, None) = drop_fn.def {
                     // we don't actually need to drop anything.
                     funclet_br(self, bx, target);
-                    return
+                    return;
                 }
 
                 let place = self.trans_place(&bx, location);
@@ -287,17 +297,29 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                         args = &args[..1];
                         (meth::DESTRUCTOR.get_fn(&bx, place.llextra, &fn_ty), fn_ty)
                     }
-                    _ => {
-                        (callee::get_fn(bx.cx, drop_fn),
-                         FnType::of_instance(bx.cx, &drop_fn))
-                    }
+                    _ => (
+                        callee::get_fn(bx.cx, drop_fn),
+                        FnType::of_instance(bx.cx, &drop_fn),
+                    ),
                 };
-                do_call(self, bx, fn_ty, drop_fn, args,
-                        Some((ReturnDest::Nothing, target)),
-                        unwind);
+                do_call(
+                    self,
+                    bx,
+                    fn_ty,
+                    drop_fn,
+                    args,
+                    Some((ReturnDest::Nothing, target)),
+                    unwind,
+                );
             }
 
-            mir::TerminatorKind::Assert { ref cond, expected, ref msg, target, cleanup } => {
+            mir::TerminatorKind::Assert {
+                ref cond,
+                expected,
+                ref msg,
+                target,
+                cleanup,
+            } => {
                 let cond = self.trans_operand(&bx, cond).immediate();
                 let mut const_cond = common::const_to_opt_u128(cond, false).map(|c| c == 1);
 
@@ -346,7 +368,8 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                 let filename = C_str_slice(bx.cx, filename);
                 let line = C_u32(bx.cx, loc.line as u32);
                 let col = C_u32(bx.cx, loc.col.to_usize() as u32 + 1);
-                let align = tcx.data_layout.aggregate_align
+                let align = tcx.data_layout
+                    .aggregate_align
                     .max(tcx.data_layout.i32_align)
                     .max(tcx.data_layout.pointer_align);
 
@@ -356,38 +379,39 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                         let len = self.trans_operand(&mut bx, len).immediate();
                         let index = self.trans_operand(&mut bx, index).immediate();
 
-                        let const_err = common::const_to_opt_u128(len, false)
-                            .and_then(|len| common::const_to_opt_u128(index, false)
-                                .map(|index| ErrKind::IndexOutOfBounds {
+                        let const_err = common::const_to_opt_u128(len, false).and_then(|len| {
+                            common::const_to_opt_u128(index, false).map(|index| {
+                                ErrKind::IndexOutOfBounds {
                                     len: len as u64,
-                                    index: index as u64
-                                }));
+                                    index: index as u64,
+                                }
+                            })
+                        });
 
                         let file_line_col = C_struct(bx.cx, &[filename, line, col], false);
-                        let file_line_col = consts::addr_of(bx.cx,
-                                                            file_line_col,
-                                                            align,
-                                                            "panic_bounds_check_loc");
-                        (lang_items::PanicBoundsCheckFnLangItem,
-                         vec![file_line_col, index, len],
-                         const_err)
+                        let file_line_col =
+                            consts::addr_of(bx.cx, file_line_col, align, "panic_bounds_check_loc");
+                        (
+                            lang_items::PanicBoundsCheckFnLangItem,
+                            vec![file_line_col, index, len],
+                            const_err,
+                        )
                     }
                     mir::AssertMessage::Math(ref err) => {
                         let msg_str = Symbol::intern(err.description()).as_str();
                         let msg_str = C_str_slice(bx.cx, msg_str);
-                        let msg_file_line_col = C_struct(bx.cx,
-                                                     &[msg_str, filename, line, col],
-                                                     false);
-                        let msg_file_line_col = consts::addr_of(bx.cx,
-                                                                msg_file_line_col,
-                                                                align,
-                                                                "panic_loc");
-                        (lang_items::PanicFnLangItem,
-                         vec![msg_file_line_col],
-                         Some(ErrKind::Math(err.clone())))
+                        let msg_file_line_col =
+                            C_struct(bx.cx, &[msg_str, filename, line, col], false);
+                        let msg_file_line_col =
+                            consts::addr_of(bx.cx, msg_file_line_col, align, "panic_loc");
+                        (
+                            lang_items::PanicFnLangItem,
+                            vec![msg_file_line_col],
+                            Some(ErrKind::Math(err.clone())),
+                        )
                     }
-                    mir::AssertMessage::GeneratorResumedAfterReturn |
-                    mir::AssertMessage::GeneratorResumedAfterPanic => {
+                    mir::AssertMessage::GeneratorResumedAfterReturn
+                    | mir::AssertMessage::GeneratorResumedAfterPanic => {
                         let str = if let mir::AssertMessage::GeneratorResumedAfterReturn = *msg {
                             "generator resumed after completion"
                         } else {
@@ -395,16 +419,11 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                         };
                         let msg_str = Symbol::intern(str).as_str();
                         let msg_str = C_str_slice(bx.cx, msg_str);
-                        let msg_file_line_col = C_struct(bx.cx,
-                                                     &[msg_str, filename, line, col],
-                                                     false);
-                        let msg_file_line_col = consts::addr_of(bx.cx,
-                                                                msg_file_line_col,
-                                                                align,
-                                                                "panic_loc");
-                        (lang_items::PanicFnLangItem,
-                         vec![msg_file_line_col],
-                         None)
+                        let msg_file_line_col =
+                            C_struct(bx.cx, &[msg_str, filename, line, col], false);
+                        let msg_file_line_col =
+                            consts::addr_of(bx.cx, msg_file_line_col, align, "panic_loc");
+                        (lang_items::PanicFnLangItem, vec![msg_file_line_col], None)
                     }
                 };
 
@@ -412,9 +431,13 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                 // is also constant, then we can produce a warning.
                 if const_cond == Some(!expected) {
                     if let Some(err) = const_err {
-                        let err = ConstEvalErr{ span: span, kind: err };
-                        let mut diag = bx.tcx().sess.struct_span_warn(
-                            span, "this expression will panic at run-time");
+                        let err = ConstEvalErr {
+                            span: span,
+                            kind: err,
+                        };
+                        let mut diag = bx.tcx()
+                            .sess
+                            .struct_span_warn(span, "this expression will panic at run-time");
                         err.note(bx.tcx(), span, "expression", &mut diag);
                         diag.emit();
                     }
@@ -434,22 +457,29 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                 bug!("undesugared DropAndReplace in trans: {:?}", terminator);
             }
 
-            mir::TerminatorKind::Call { ref func, ref args, ref destination, cleanup } => {
+            mir::TerminatorKind::Call {
+                ref func,
+                ref args,
+                ref destination,
+                cleanup,
+            } => {
                 // Create the callee. This is a fn ptr or zero-sized and hence a kind of scalar.
                 let callee = self.trans_operand(&bx, func);
 
                 let (instance, mut llfn) = match callee.layout.ty.sty {
-                    ty::TyFnDef(def_id, substs) => {
-                        (Some(ty::Instance::resolve(bx.cx.tcx,
-                                                    ty::ParamEnv::empty(traits::Reveal::All),
-                                                    def_id,
-                                                    substs).unwrap()),
-                         None)
-                    }
-                    ty::TyFnPtr(_) => {
-                        (None, Some(callee.immediate()))
-                    }
-                    _ => bug!("{} is not callable", callee.layout.ty)
+                    ty::TyFnDef(def_id, substs) => (
+                        Some(
+                            ty::Instance::resolve(
+                                bx.cx.tcx,
+                                ty::ParamEnv::empty(traits::Reveal::All),
+                                def_id,
+                                substs,
+                            ).unwrap(),
+                        ),
+                        None,
+                    ),
+                    ty::TyFnPtr(_) => (None, Some(callee.immediate())),
+                    _ => bug!("{} is not callable", callee.layout.ty),
                 };
                 let def = instance.map(|i| i.def);
                 let sig = callee.layout.ty.fn_sig(bx.tcx());
@@ -458,9 +488,8 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
 
                 // Handle intrinsics old trans wants Expr's for, ourselves.
                 let intrinsic = match def {
-                    Some(ty::InstanceDef::Intrinsic(def_id))
-                        => Some(bx.tcx().item_name(def_id)),
-                    _ => None
+                    Some(ty::InstanceDef::Intrinsic(def_id)) => Some(bx.tcx().item_name(def_id)),
+                    _ => None,
                 };
                 let intrinsic = intrinsic.as_ref().map(|s| &s[..]);
 
@@ -472,10 +501,13 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                 }
 
                 let extra_args = &args[sig.inputs().len()..];
-                let extra_args = extra_args.iter().map(|op_arg| {
-                    let op_ty = op_arg.ty(self.mir, bx.tcx());
-                    self.monomorphize(&op_ty)
-                }).collect::<Vec<_>>();
+                let extra_args = extra_args
+                    .iter()
+                    .map(|op_arg| {
+                        let op_ty = op_arg.ty(self.mir, bx.tcx());
+                        self.monomorphize(&op_ty)
+                    })
+                    .collect::<Vec<_>>();
 
                 let fn_ty = match def {
                     Some(ty::InstanceDef::Virtual(..)) => {
@@ -487,7 +519,7 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                         funclet_br(self, bx, target);
                         return;
                     }
-                    _ => FnType::new(bx.cx, sig, &extra_args)
+                    _ => FnType::new(bx.cx, sig, &extra_args),
                 };
 
                 // The arguments we'll be passing. Plus one to account for outptr, if used.
@@ -497,8 +529,7 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                 // Prepare the return value destination
                 let ret_dest = if let Some((ref dest, _)) = *destination {
                     let is_intrinsic = intrinsic.is_some();
-                    self.make_return_dest(&bx, dest, &fn_ty.ret, &mut llargs,
-                                          is_intrinsic)
+                    self.make_return_dest(&bx, dest, &fn_ty.ret, &mut llargs, is_intrinsic)
                 } else {
                     ReturnDest::Nothing
                 };
@@ -508,43 +539,48 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
 
                     let dest = match ret_dest {
                         _ if fn_ty.ret.is_indirect() => llargs[0],
-                        ReturnDest::Nothing => {
-                            C_undef(fn_ty.ret.memory_ty(bx.cx).ptr_to())
-                        }
-                        ReturnDest::IndirectOperand(dst, _) |
-                        ReturnDest::Store(dst) => dst.llval,
-                        ReturnDest::DirectOperand(_) =>
+                        ReturnDest::Nothing => C_undef(fn_ty.ret.memory_ty(bx.cx).ptr_to()),
+                        ReturnDest::IndirectOperand(dst, _) | ReturnDest::Store(dst) => dst.llval,
+                        ReturnDest::DirectOperand(_) => {
                             bug!("Cannot use direct operand with an intrinsic call")
+                        }
                     };
 
-                    let args: Vec<_> = args.iter().enumerate().map(|(i, arg)| {
-                        // The indices passed to simd_shuffle* in the
-                        // third argument must be constant. This is
-                        // checked by const-qualification, which also
-                        // promotes any complex rvalues to constants.
-                        if i == 2 && intrinsic.unwrap().starts_with("simd_shuffle") {
-                            match *arg {
-                                mir::Operand::Copy(_) |
-                                mir::Operand::Move(_) => {
-                                    span_bug!(span, "shuffle indices must be constant");
-                                }
-                                mir::Operand::Constant(ref constant) => {
-                                    let val = self.trans_constant(&bx, constant);
-                                    return OperandRef {
-                                        val: Immediate(val.llval),
-                                        layout: bx.cx.layout_of(val.ty)
-                                    };
+                    let args: Vec<_> = args.iter()
+                        .enumerate()
+                        .map(|(i, arg)| {
+                            // The indices passed to simd_shuffle* in the
+                            // third argument must be constant. This is
+                            // checked by const-qualification, which also
+                            // promotes any complex rvalues to constants.
+                            if i == 2 && intrinsic.unwrap().starts_with("simd_shuffle") {
+                                match *arg {
+                                    mir::Operand::Copy(_) | mir::Operand::Move(_) => {
+                                        span_bug!(span, "shuffle indices must be constant");
+                                    }
+                                    mir::Operand::Constant(ref constant) => {
+                                        let val = self.trans_constant(&bx, constant);
+                                        return OperandRef {
+                                            val: Immediate(val.llval),
+                                            layout: bx.cx.layout_of(val.ty),
+                                        };
+                                    }
                                 }
                             }
-                        }
 
-                        self.trans_operand(&bx, arg)
-                    }).collect();
-
+                            self.trans_operand(&bx, arg)
+                        })
+                        .collect();
 
                     let callee_ty = instance.as_ref().unwrap().ty(bx.cx.tcx);
-                    trans_intrinsic_call(&bx, callee_ty, &fn_ty, &args, dest,
-                                         terminator.source_info.span);
+                    trans_intrinsic_call(
+                        &bx,
+                        callee_ty,
+                        &fn_ty,
+                        &args,
+                        dest,
+                        terminator.source_info.span,
+                    );
 
                     if let ReturnDest::IndirectOperand(dst, _) = ret_dest {
                         self.store_return(&bx, ret_dest, &fn_ty.ret, dst.llval);
@@ -571,8 +607,8 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                     let mut op = self.trans_operand(&bx, arg);
                     if let (0, Some(ty::InstanceDef::Virtual(_, idx))) = (i, def) {
                         if let Pair(data_ptr, meta) = op.val {
-                            llfn = Some(meth::VirtualIndex::from_index(idx)
-                                .get_fn(&bx, meta, &fn_ty));
+                            llfn =
+                                Some(meth::VirtualIndex::from_index(idx).get_fn(&bx, meta, &fn_ty));
                             llargs.push(data_ptr);
                             continue;
                         }
@@ -581,8 +617,8 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                     // The callee needs to own the argument memory if we pass it
                     // by-ref, so make a local copy of non-immediate constants.
                     match (arg, op.val) {
-                        (&mir::Operand::Copy(_), Ref(..)) |
-                        (&mir::Operand::Constant(_), Ref(..)) => {
+                        (&mir::Operand::Copy(_), Ref(..))
+                        | (&mir::Operand::Constant(_), Ref(..)) => {
                             let tmp = PlaceRef::alloca(&bx, op.layout, "const");
                             op.val.store(&bx, tmp);
                             op.val = Ref(tmp.llval, tmp.align);
@@ -593,8 +629,12 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                     self.trans_argument(&bx, op, &mut llargs, &fn_ty.args[i]);
                 }
                 if let Some(tup) = untuple {
-                    self.trans_arguments_untupled(&bx, tup, &mut llargs,
-                        &fn_ty.args[first_args.len()..])
+                    self.trans_arguments_untupled(
+                        &bx,
+                        tup,
+                        &mut llargs,
+                        &fn_ty.args[first_args.len()..],
+                    )
                 }
 
                 let fn_ptr = match (llfn, instance) {
@@ -603,22 +643,32 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                     _ => span_bug!(span, "no llfn for call"),
                 };
 
-                do_call(self, bx, fn_ty, fn_ptr, &llargs,
-                        destination.as_ref().map(|&(_, target)| (ret_dest, target)),
-                        cleanup);
+                do_call(
+                    self,
+                    bx,
+                    fn_ty,
+                    fn_ptr,
+                    &llargs,
+                    destination.as_ref().map(|&(_, target)| (ret_dest, target)),
+                    cleanup,
+                );
             }
-            mir::TerminatorKind::GeneratorDrop |
-            mir::TerminatorKind::Yield { .. } => bug!("generator ops in trans"),
-            mir::TerminatorKind::FalseEdges { .. } |
-            mir::TerminatorKind::FalseUnwind { .. } => bug!("borrowck false edges in trans"),
+            mir::TerminatorKind::GeneratorDrop | mir::TerminatorKind::Yield { .. } => {
+                bug!("generator ops in trans")
+            }
+            mir::TerminatorKind::FalseEdges { .. } | mir::TerminatorKind::FalseUnwind { .. } => {
+                bug!("borrowck false edges in trans")
+            }
         }
     }
 
-    fn trans_argument(&mut self,
-                      bx: &Builder<'a, 'tcx>,
-                      op: OperandRef<'tcx>,
-                      llargs: &mut Vec<ValueRef>,
-                      arg: &ArgType<'tcx>) {
+    fn trans_argument(
+        &mut self,
+        bx: &Builder<'a, 'tcx>,
+        op: OperandRef<'tcx>,
+        llargs: &mut Vec<ValueRef>,
+        arg: &ArgType<'tcx>,
+    ) {
         // Fill padding with undef value, where applicable.
         if let Some(ty) = arg.pad {
             llargs.push(C_undef(ty.llvm_type(bx.cx)));
@@ -635,24 +685,20 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                     llargs.push(b);
                     return;
                 }
-                _ => bug!("trans_argument: {:?} invalid for pair arugment", op)
+                _ => bug!("trans_argument: {:?} invalid for pair arugment", op),
             }
         }
 
         // Force by-ref if we have to load through a cast pointer.
         let (mut llval, align, by_ref) = match op.val {
-            Immediate(_) | Pair(..) => {
-                match arg.mode {
-                    PassMode::Indirect(_) | PassMode::Cast(_) => {
-                        let scratch = PlaceRef::alloca(bx, arg.layout, "arg");
-                        op.val.store(bx, scratch);
-                        (scratch.llval, scratch.align, true)
-                    }
-                    _ => {
-                        (op.immediate_or_packed_pair(bx), arg.layout.align, false)
-                    }
+            Immediate(_) | Pair(..) => match arg.mode {
+                PassMode::Indirect(_) | PassMode::Cast(_) => {
+                    let scratch = PlaceRef::alloca(bx, arg.layout, "arg");
+                    op.val.store(bx, scratch);
+                    (scratch.llval, scratch.align, true)
                 }
-            }
+                _ => (op.immediate_or_packed_pair(bx), arg.layout.align, false),
+            },
             Ref(llval, align) => {
                 if arg.is_indirect() && align.abi() < arg.layout.align.abi() {
                     // `foo(packed.large_field)`. We can't pass the (unaligned) field directly. I
@@ -671,8 +717,10 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
         if by_ref && !arg.is_indirect() {
             // Have to load the argument, maybe while casting it.
             if let PassMode::Cast(ty) = arg.mode {
-                llval = bx.load(bx.pointercast(llval, ty.llvm_type(bx.cx).ptr_to()),
-                                 align.min(arg.layout.align));
+                llval = bx.load(
+                    bx.pointercast(llval, ty.llvm_type(bx.cx).ptr_to()),
+                    align.min(arg.layout.align),
+                );
             } else {
                 // We can't use `PlaceRef::load` here because the argument
                 // may have a type we don't treat as immediate, but the ABI
@@ -693,11 +741,13 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
         llargs.push(llval);
     }
 
-    fn trans_arguments_untupled(&mut self,
-                                bx: &Builder<'a, 'tcx>,
-                                operand: &mir::Operand<'tcx>,
-                                llargs: &mut Vec<ValueRef>,
-                                args: &[ArgType<'tcx>]) {
+    fn trans_arguments_untupled(
+        &mut self,
+        bx: &Builder<'a, 'tcx>,
+        operand: &mir::Operand<'tcx>,
+        llargs: &mut Vec<ValueRef>,
+        args: &[ArgType<'tcx>],
+    ) {
         let tuple = self.trans_operand(bx, operand);
 
         // Handle both by-ref and immediate tuples.
@@ -721,10 +771,10 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
         if let Some(slot) = self.personality_slot {
             slot
         } else {
-            let layout = cx.layout_of(cx.tcx.intern_tup(&[
-                cx.tcx.mk_mut_ptr(cx.tcx.types.u8),
-                cx.tcx.types.i32
-            ], false));
+            let layout = cx.layout_of(cx.tcx.intern_tup(
+                &[cx.tcx.mk_mut_ptr(cx.tcx.types.u8), cx.tcx.types.i32],
+                false,
+            ));
             let slot = PlaceRef::alloca(bx, layout, "personalityslot");
             self.personality_slot = Some(slot);
             slot
@@ -789,10 +839,14 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
         bx
     }
 
-    fn make_return_dest(&mut self, bx: &Builder<'a, 'tcx>,
-                        dest: &mir::Place<'tcx>, fn_ret: &ArgType<'tcx>,
-                        llargs: &mut Vec<ValueRef>, is_intrinsic: bool)
-                        -> ReturnDest<'tcx> {
+    fn make_return_dest(
+        &mut self,
+        bx: &Builder<'a, 'tcx>,
+        dest: &mir::Place<'tcx>,
+        fn_ret: &ArgType<'tcx>,
+        llargs: &mut Vec<ValueRef>,
+        is_intrinsic: bool,
+    ) -> ReturnDest<'tcx> {
         // If the return is ignored, we can just return a do-nothing ReturnDest
         if fn_ret.is_ignore() {
             return ReturnDest::Nothing;
@@ -845,9 +899,12 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
         }
     }
 
-    fn trans_transmute(&mut self, bx: &Builder<'a, 'tcx>,
-                       src: &mir::Operand<'tcx>,
-                       dst: &mir::Place<'tcx>) {
+    fn trans_transmute(
+        &mut self,
+        bx: &Builder<'a, 'tcx>,
+        src: &mir::Operand<'tcx>,
+        dst: &mir::Place<'tcx>,
+    ) {
         if let mir::Place::Local(index) = *dst {
             match self.locals[index] {
                 LocalRef::Place(place) => self.trans_transmute_into(bx, src, place),
@@ -862,8 +919,7 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                     self.locals[index] = LocalRef::Operand(Some(op));
                 }
                 LocalRef::Operand(Some(op)) => {
-                    assert!(op.layout.is_zst(),
-                            "assigning to initialized SSAtemp");
+                    assert!(op.layout.is_zst(), "assigning to initialized SSAtemp");
                 }
             }
         } else {
@@ -872,23 +928,28 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
         }
     }
 
-    fn trans_transmute_into(&mut self, bx: &Builder<'a, 'tcx>,
-                            src: &mir::Operand<'tcx>,
-                            dst: PlaceRef<'tcx>) {
+    fn trans_transmute_into(
+        &mut self,
+        bx: &Builder<'a, 'tcx>,
+        src: &mir::Operand<'tcx>,
+        dst: PlaceRef<'tcx>,
+    ) {
         let src = self.trans_operand(bx, src);
         let llty = src.layout.llvm_type(bx.cx);
         let cast_ptr = bx.pointercast(dst.llval, llty.ptr_to());
         let align = src.layout.align.min(dst.layout.align);
-        src.val.store(bx, PlaceRef::new_sized(cast_ptr, src.layout, align));
+        src.val
+            .store(bx, PlaceRef::new_sized(cast_ptr, src.layout, align));
     }
 
-
     // Stores the return value of a function call into it's final location.
-    fn store_return(&mut self,
-                    bx: &Builder<'a, 'tcx>,
-                    dest: ReturnDest<'tcx>,
-                    ret_ty: &ArgType<'tcx>,
-                    llval: ValueRef) {
+    fn store_return(
+        &mut self,
+        bx: &Builder<'a, 'tcx>,
+        dest: ReturnDest<'tcx>,
+        ret_ty: &ArgType<'tcx>,
+        llval: ValueRef,
+    ) {
         use self::ReturnDest::*;
 
         match dest {
@@ -925,5 +986,5 @@ enum ReturnDest<'tcx> {
     // Stores an indirect return value to an operand local place
     IndirectOperand(PlaceRef<'tcx>, mir::Local),
     // Stores a direct return value to an operand local place
-    DirectOperand(mir::Local)
+    DirectOperand(mir::Local),
 }

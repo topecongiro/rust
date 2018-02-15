@@ -31,12 +31,17 @@ pub struct Page<'a> {
 }
 
 pub fn render<T: fmt::Display, S: fmt::Display>(
-    dst: &mut io::Write, layout: &Layout, page: &Page, sidebar: &S, t: &T,
-    css_file_extension: bool, themes: &[PathBuf])
-    -> io::Result<()>
-{
-    write!(dst,
-r##"<!DOCTYPE html>
+    dst: &mut io::Write,
+    layout: &Layout,
+    page: &Page,
+    sidebar: &S,
+    t: &T,
+    css_file_extension: bool,
+    themes: &[PathBuf],
+) -> io::Result<()> {
+    write!(
+        dst,
+        r##"<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
@@ -157,49 +162,56 @@ r##"<!DOCTYPE html>
     <script defer src="{root_path}search-index.js"></script>
 </body>
 </html>"##,
-    css_extension = if css_file_extension {
-        format!("<link rel=\"stylesheet\" type=\"text/css\" href=\"{root_path}theme.css\">",
-                root_path = page.root_path)
-    } else {
-        "".to_owned()
-    },
-    content   = *t,
-    root_path = page.root_path,
-    css_class = page.css_class,
-    logo      = if layout.logo.is_empty() {
-        "".to_string()
-    } else {
-        format!("<a href='{}{}/index.html'>\
+        css_extension = if css_file_extension {
+            format!(
+                "<link rel=\"stylesheet\" type=\"text/css\" href=\"{root_path}theme.css\">",
+                root_path = page.root_path
+            )
+        } else {
+            "".to_owned()
+        },
+        content = *t,
+        root_path = page.root_path,
+        css_class = page.css_class,
+        logo = if layout.logo.is_empty() {
+            "".to_string()
+        } else {
+            format!(
+                "<a href='{}{}/index.html'>\
                  <img src='{}' alt='logo' width='100'></a>",
-                page.root_path, layout.krate,
-                layout.logo)
-    },
-    title     = page.title,
-    description = page.description,
-    keywords = page.keywords,
-    favicon   = if layout.favicon.is_empty() {
-        "".to_string()
-    } else {
-        format!(r#"<link rel="shortcut icon" href="{}">"#, layout.favicon)
-    },
-    in_header = layout.external_html.in_header,
-    before_content = layout.external_html.before_content,
-    after_content = layout.external_html.after_content,
-    sidebar   = *sidebar,
-    krate     = layout.krate,
-    themes = themes.iter()
-                   .filter_map(|t| t.file_stem())
-                   .filter_map(|t| t.to_str())
-                   .map(|t| format!(r#"<link rel="stylesheet" type="text/css" href="{}{}">"#,
-                                    page.root_path, t))
-                   .collect::<String>(),
+                page.root_path, layout.krate, layout.logo
+            )
+        },
+        title = page.title,
+        description = page.description,
+        keywords = page.keywords,
+        favicon = if layout.favicon.is_empty() {
+            "".to_string()
+        } else {
+            format!(r#"<link rel="shortcut icon" href="{}">"#, layout.favicon)
+        },
+        in_header = layout.external_html.in_header,
+        before_content = layout.external_html.before_content,
+        after_content = layout.external_html.after_content,
+        sidebar = *sidebar,
+        krate = layout.krate,
+        themes = themes
+            .iter()
+            .filter_map(|t| t.file_stem())
+            .filter_map(|t| t.to_str())
+            .map(|t| format!(
+                r#"<link rel="stylesheet" type="text/css" href="{}{}">"#,
+                page.root_path, t
+            ))
+            .collect::<String>(),
     )
 }
 
 pub fn redirect(dst: &mut io::Write, url: &str) -> io::Result<()> {
     // <script> triggers a redirect before refresh, so this is fine.
-    write!(dst,
-r##"<!DOCTYPE html>
+    write!(
+        dst,
+        r##"<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta http-equiv="refresh" content="0;URL={url}">
@@ -209,6 +221,6 @@ r##"<!DOCTYPE html>
     <script>location.replace("{url}" + location.search + location.hash);</script>
 </body>
 </html>"##,
-    url = url,
+        url = url,
     )
 }

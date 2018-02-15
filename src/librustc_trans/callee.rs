@@ -36,10 +36,7 @@ use rustc_back::PanicStrategy;
 ///
 /// - `cx`: the crate context
 /// - `instance`: the instance to be instantiated
-pub fn get_fn<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>,
-                        instance: Instance<'tcx>)
-                        -> ValueRef
-{
+pub fn get_fn<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>, instance: Instance<'tcx>) -> ValueRef {
     let tcx = cx.tcx;
 
     debug!("get_fn(instance={:?})", instance);
@@ -160,9 +157,7 @@ pub fn get_fn<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>,
             }
         }
 
-        if cx.use_dll_storage_attrs &&
-            tcx.is_dllimport_foreign_item(instance_def_id)
-        {
+        if cx.use_dll_storage_attrs && tcx.is_dllimport_foreign_item(instance_def_id) {
             unsafe {
                 llvm::LLVMSetDLLStorageClass(llfn, llvm::DLLStorageClass::DllImport);
             }
@@ -176,18 +171,18 @@ pub fn get_fn<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>,
     llfn
 }
 
-pub fn resolve_and_get_fn<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>,
-                                    def_id: DefId,
-                                    substs: &'tcx Substs<'tcx>)
-                                    -> ValueRef
-{
+pub fn resolve_and_get_fn<'a, 'tcx>(
+    cx: &CodegenCx<'a, 'tcx>,
+    def_id: DefId,
+    substs: &'tcx Substs<'tcx>,
+) -> ValueRef {
     get_fn(
         cx,
         ty::Instance::resolve(
             cx.tcx,
             ty::ParamEnv::empty(traits::Reveal::All),
             def_id,
-            substs
-        ).unwrap()
+            substs,
+        ).unwrap(),
     )
 }

@@ -12,7 +12,7 @@
 
 use dep_graph::DepNode;
 use ich::Fingerprint;
-use rustc_data_structures::indexed_vec::{IndexVec, Idx};
+use rustc_data_structures::indexed_vec::{Idx, IndexVec};
 
 newtype_index!(SerializedDepNodeIndex);
 
@@ -31,7 +31,6 @@ pub struct SerializedDepGraph {
 }
 
 impl SerializedDepGraph {
-
     pub fn new() -> SerializedDepGraph {
         SerializedDepGraph {
             nodes: IndexVec::new(),
@@ -41,9 +40,7 @@ impl SerializedDepGraph {
     }
 
     #[inline]
-    pub fn edge_targets_from(&self,
-                             source: SerializedDepNodeIndex)
-                             -> &[SerializedDepNodeIndex] {
+    pub fn edge_targets_from(&self, source: SerializedDepNodeIndex) -> &[SerializedDepNodeIndex] {
         let targets = self.edge_list_indices[source];
         &self.edge_list_data[targets.0 as usize..targets.1 as usize]
     }

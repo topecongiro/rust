@@ -29,13 +29,22 @@ pub trait Idx: Copy + 'static + Eq + Debug {
 }
 
 impl Idx for usize {
-    fn new(idx: usize) -> Self { idx }
-    fn index(self) -> usize { self }
+    fn new(idx: usize) -> Self {
+        idx
+    }
+    fn index(self) -> usize {
+        self
+    }
 }
 
 impl Idx for u32 {
-    fn new(idx: usize) -> Self { assert!(idx <= u32::MAX as usize); idx as u32 }
-    fn index(self) -> usize { self as usize }
+    fn new(idx: usize) -> Self {
+        assert!(idx <= u32::MAX as usize);
+        idx as u32
+    }
+    fn index(self) -> usize {
+        self as usize
+    }
 }
 
 #[macro_export]
@@ -327,12 +336,16 @@ macro_rules! newtype_index {
 #[derive(Clone, PartialEq, Eq)]
 pub struct IndexVec<I: Idx, T> {
     pub raw: Vec<T>,
-    _marker: PhantomData<fn(&I)>
+    _marker: PhantomData<fn(&I)>,
 }
 
 // Whether `IndexVec` is `Send` depends only on the data,
 // not the phantom data.
-unsafe impl<I: Idx, T> Send for IndexVec<I, T> where T: Send {}
+unsafe impl<I: Idx, T> Send for IndexVec<I, T>
+where
+    T: Send,
+{
+}
 
 impl<I: Idx, T: serialize::Encodable> serialize::Encodable for IndexVec<I, T> {
     fn encode<S: serialize::Encoder>(&self, s: &mut S) -> Result<(), S::Error> {
@@ -342,8 +355,9 @@ impl<I: Idx, T: serialize::Encodable> serialize::Encodable for IndexVec<I, T> {
 
 impl<I: Idx, T: serialize::Decodable> serialize::Decodable for IndexVec<I, T> {
     fn decode<D: serialize::Decoder>(d: &mut D) -> Result<Self, D::Error> {
-        serialize::Decodable::decode(d).map(|v| {
-            IndexVec { raw: v, _marker: PhantomData }
+        serialize::Decodable::decode(d).map(|v| IndexVec {
+            raw: v,
+            _marker: PhantomData,
         })
     }
 }
@@ -359,26 +373,40 @@ pub type Enumerated<I, J> = iter::Map<iter::Enumerate<J>, IntoIdx<I>>;
 impl<I: Idx, T> IndexVec<I, T> {
     #[inline]
     pub fn new() -> Self {
-        IndexVec { raw: Vec::new(), _marker: PhantomData }
+        IndexVec {
+            raw: Vec::new(),
+            _marker: PhantomData,
+        }
     }
 
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
-        IndexVec { raw: Vec::with_capacity(capacity), _marker: PhantomData }
+        IndexVec {
+            raw: Vec::with_capacity(capacity),
+            _marker: PhantomData,
+        }
     }
 
     #[inline]
     pub fn from_elem<S>(elem: T, universe: &IndexVec<I, S>) -> Self
-        where T: Clone
+    where
+        T: Clone,
     {
-        IndexVec { raw: vec![elem; universe.len()], _marker: PhantomData }
+        IndexVec {
+            raw: vec![elem; universe.len()],
+            _marker: PhantomData,
+        }
     }
 
     #[inline]
     pub fn from_elem_n(elem: T, n: usize) -> Self
-        where T: Clone
+    where
+        T: Clone,
     {
-        IndexVec { raw: vec![elem; n], _marker: PhantomData }
+        IndexVec {
+            raw: vec![elem; n],
+            _marker: PhantomData,
+        }
     }
 
     #[inline]
@@ -409,9 +437,10 @@ impl<I: Idx, T> IndexVec<I, T> {
     }
 
     #[inline]
-    pub fn into_iter_enumerated(self) -> Enumerated<I, vec::IntoIter<T>>
-    {
-        self.raw.into_iter().enumerate().map(IntoIdx { _marker: PhantomData })
+    pub fn into_iter_enumerated(self) -> Enumerated<I, vec::IntoIter<T>> {
+        self.raw.into_iter().enumerate().map(IntoIdx {
+            _marker: PhantomData,
+        })
     }
 
     #[inline]
@@ -420,14 +449,17 @@ impl<I: Idx, T> IndexVec<I, T> {
     }
 
     #[inline]
-    pub fn iter_enumerated(&self) -> Enumerated<I, slice::Iter<'_, T>>
-    {
-        self.raw.iter().enumerate().map(IntoIdx { _marker: PhantomData })
+    pub fn iter_enumerated(&self) -> Enumerated<I, slice::Iter<'_, T>> {
+        self.raw.iter().enumerate().map(IntoIdx {
+            _marker: PhantomData,
+        })
     }
 
     #[inline]
     pub fn indices(&self) -> iter::Map<Range<usize>, IntoIdx<I>> {
-        (0..self.len()).map(IntoIdx { _marker: PhantomData })
+        (0..self.len()).map(IntoIdx {
+            _marker: PhantomData,
+        })
     }
 
     #[inline]
@@ -436,21 +468,28 @@ impl<I: Idx, T> IndexVec<I, T> {
     }
 
     #[inline]
-    pub fn iter_enumerated_mut(&mut self) -> Enumerated<I, slice::IterMut<'_, T>>
-    {
-        self.raw.iter_mut().enumerate().map(IntoIdx { _marker: PhantomData })
+    pub fn iter_enumerated_mut(&mut self) -> Enumerated<I, slice::IterMut<'_, T>> {
+        self.raw.iter_mut().enumerate().map(IntoIdx {
+            _marker: PhantomData,
+        })
     }
 
     #[inline]
     pub fn drain<'a, R: RangeArgument<usize>>(
-        &'a mut self, range: R) -> impl Iterator<Item=T> + 'a {
+        &'a mut self,
+        range: R,
+    ) -> impl Iterator<Item = T> + 'a {
         self.raw.drain(range)
     }
 
     #[inline]
     pub fn drain_enumerated<'a, R: RangeArgument<usize>>(
-        &'a mut self, range: R) -> impl Iterator<Item=(I, T)> + 'a {
-        self.raw.drain(range).enumerate().map(IntoIdx { _marker: PhantomData })
+        &'a mut self,
+        range: R,
+    ) -> impl Iterator<Item = (I, T)> + 'a {
+        self.raw.drain(range).enumerate().map(IntoIdx {
+            _marker: PhantomData,
+        })
     }
 
     #[inline]
@@ -533,8 +572,14 @@ impl<I: Idx, T> Extend<T> for IndexVec<I, T> {
 
 impl<I: Idx, T> FromIterator<T> for IndexVec<I, T> {
     #[inline]
-    fn from_iter<J>(iter: J) -> Self where J: IntoIterator<Item=T> {
-        IndexVec { raw: FromIterator::from_iter(iter), _marker: PhantomData }
+    fn from_iter<J>(iter: J) -> Self
+    where
+        J: IntoIterator<Item = T>,
+    {
+        IndexVec {
+            raw: FromIterator::from_iter(iter),
+            _marker: PhantomData,
+        }
     }
 }
 
@@ -546,7 +591,6 @@ impl<I: Idx, T> IntoIterator for IndexVec<I, T> {
     fn into_iter(self) -> vec::IntoIter<T> {
         self.raw.into_iter()
     }
-
 }
 
 impl<'a, I: Idx, T> IntoIterator for &'a IndexVec<I, T> {
@@ -569,7 +613,9 @@ impl<'a, I: Idx, T> IntoIterator for &'a mut IndexVec<I, T> {
     }
 }
 
-pub struct IntoIdx<I: Idx> { _marker: PhantomData<fn(&I)> }
+pub struct IntoIdx<I: Idx> {
+    _marker: PhantomData<fn(&I)>,
+}
 impl<I: Idx, T> FnOnce<((usize, T),)> for IntoIdx<I> {
     type Output = (I, T);
 

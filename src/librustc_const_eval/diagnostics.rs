@@ -563,7 +563,6 @@ See also https://github.com/rust-lang/rust/issues/14587
 
 }
 
-
 register_diagnostics! {
 //  E0298, // cannot compare constants
 //  E0299, // mismatched types between arms

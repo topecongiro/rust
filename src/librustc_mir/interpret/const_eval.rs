@@ -1,4 +1,4 @@
-use rustc::ty::{self, TyCtxt, Ty, Instance};
+use rustc::ty::{self, Instance, Ty, TyCtxt};
 use rustc::ty::layout::{self, LayoutOf};
 use rustc::ty::subst::Substs;
 use rustc::hir::def_id::DefId;
@@ -12,14 +12,14 @@ use rustc_data_structures::indexed_vec::Idx;
 use syntax::ast::Mutability;
 use syntax::codemap::Span;
 
-use rustc::mir::interpret::{EvalResult, EvalError, EvalErrorKind, GlobalId, Value, MemoryPointer, Pointer, PrimVal};
-use super::{Place, EvalContext, StackPopCleanup, ValTy};
+use rustc::mir::interpret::{EvalError, EvalErrorKind, EvalResult, GlobalId, MemoryPointer,
+                            Pointer, PrimVal, Value};
+use super::{EvalContext, Place, StackPopCleanup, ValTy};
 
 use rustc_const_math::ConstInt;
 
 use std::fmt;
 use std::error::Error;
-
 
 pub fn mk_eval_cx<'a, 'tcx>(
     tcx: TyCtxt<'a, 'tcx, 'tcx>,
@@ -62,11 +62,8 @@ pub fn eval_body<'a, 'tcx>(
         let mir = ecx.load_mir(instance.def)?;
         let layout = ecx.layout_of(instance_ty)?;
         assert!(!layout.is_unsized());
-        let ptr = ecx.memory.allocate(
-            layout.size.bytes(),
-            layout.align,
-            None,
-        )?;
+        let ptr = ecx.memory
+            .allocate(layout.size.bytes(), layout.align, None)?;
         tcx.interpret_interner.borrow_mut().cache(cid, ptr.alloc_id);
         let cleanup = StackPopCleanup::MarkStatic(Mutability::Immutable);
         let name = ty::tls::with(|tcx| tcx.item_path_str(instance.def_id()));
@@ -81,7 +78,10 @@ pub fn eval_body<'a, 'tcx>(
 
         while ecx.step()? {}
     }
-    let alloc = tcx.interpret_interner.borrow().get_cached(cid).expect("global not cached");
+    let alloc = tcx.interpret_interner
+        .borrow()
+        .get_cached(cid)
+        .expect("global not cached");
     Ok((MemoryPointer::new(alloc, 0).into(), instance_ty))
 }
 
@@ -120,11 +120,9 @@ pub fn eval_body_as_integer<'a, 'tcx>(
                 .expect("miri should already have errored"),
         ),
         _ => {
-            return Err(
-                ConstEvalError::NeedsRfc(
-                    "evaluating anything other than isize/usize during typeck".to_string(),
-                ).into(),
-            )
+            return Err(ConstEvalError::NeedsRfc(
+                "evaluating anything other than isize/usize during typeck".to_string(),
+            ).into())
         }
     })
 }
@@ -147,13 +145,11 @@ impl fmt::Display for ConstEvalError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::ConstEvalError::*;
         match *self {
-            NeedsRfc(ref msg) => {
-                write!(
-                    f,
-                    "\"{}\" needs an rfc before being allowed inside constants",
-                    msg
-                )
-            }
+            NeedsRfc(ref msg) => write!(
+                f,
+                "\"{}\" needs an rfc before being allowed inside constants",
+                msg
+            ),
             NotConst(ref msg) => write!(f, "Cannot evaluate within constants: \"{}\"", msg),
         }
     }
@@ -192,11 +188,13 @@ impl<'tcx> super::Machine<'tcx> for CompileTimeEvaluator {
         }
         let mir = match ecx.load_mir(instance.def) {
             Ok(mir) => mir,
-            Err(EvalError { kind: EvalErrorKind::NoMirFor(path), .. }) => {
+            Err(EvalError {
+                kind: EvalErrorKind::NoMirFor(path),
+                ..
+            }) => {
                 // some simple things like `malloc` might get accepted in the future
                 return Err(
-                    ConstEvalError::NeedsRfc(format!("calling extern function `{}`", path))
-                        .into(),
+                    ConstEvalError::NeedsRfc(format!("calling extern function `{}`", path)).into(),
                 );
             }
             Err(other) => return Err(other),
@@ -206,17 +204,10 @@ impl<'tcx> super::Machine<'tcx> for CompileTimeEvaluator {
             None => (Place::undef(), StackPopCleanup::None),
         };
 
-        ecx.push_stack_frame(
-            instance,
-            span,
-            mir,
-            return_place,
-            return_to_block,
-        )?;
+        ecx.push_stack_frame(instance, span, mir, return_place, return_to_block)?;
 
         Ok(false)
     }
-
 
     fn call_intrinsic<'a>(
         ecx: &mut EvalContext<'a, 'tcx, Self>,
@@ -249,7 +240,9 @@ impl<'tcx> super::Machine<'tcx> for CompileTimeEvaluator {
                 ecx.write_primval(dest, PrimVal::from_u128(type_id), dest_layout.ty)?;
             }
 
-            name => return Err(ConstEvalError::NeedsRfc(format!("calling intrinsic `{}`", name)).into()),
+            name => {
+                return Err(ConstEvalError::NeedsRfc(format!("calling intrinsic `{}`", name)).into())
+            }
         }
 
         ecx.goto_block(target);
@@ -271,9 +264,7 @@ impl<'tcx> super::Machine<'tcx> for CompileTimeEvaluator {
         if left.is_bytes() && right.is_bytes() {
             Ok(None)
         } else {
-            Err(
-                ConstEvalError::NeedsRfc("Pointer arithmetic or comparison".to_string()).into(),
-            )
+            Err(ConstEvalError::NeedsRfc("Pointer arithmetic or comparison".to_string()).into())
         }
     }
 
@@ -286,9 +277,7 @@ impl<'tcx> super::Machine<'tcx> for CompileTimeEvaluator {
         _ty: Ty<'tcx>,
         _dest: Place,
     ) -> EvalResult<'tcx> {
-        Err(
-            ConstEvalError::NeedsRfc("Heap allocations via `box` keyword".to_string()).into(),
-        )
+        Err(ConstEvalError::NeedsRfc("Heap allocations via `box` keyword".to_string()).into())
     }
 
     fn global_item_with_linkage<'a>(
@@ -296,9 +285,7 @@ impl<'tcx> super::Machine<'tcx> for CompileTimeEvaluator {
         _instance: ty::Instance<'tcx>,
         _mutability: Mutability,
     ) -> EvalResult<'tcx> {
-        Err(
-            ConstEvalError::NotConst("statics with `linkage` attribute".to_string()).into(),
-        )
+        Err(ConstEvalError::NotConst("statics with `linkage` attribute".to_string()).into())
     }
 }
 
@@ -312,7 +299,7 @@ pub fn const_eval_provider<'a, 'tcx>(
     } else {
         return Err(ConstEvalErr {
             span: tcx.def_span(key.value.0),
-            kind: TypeckError
+            kind: TypeckError,
         });
     };
 
@@ -337,7 +324,10 @@ pub fn const_eval_provider<'a, 'tcx>(
     // do not continue into miri if typeck errors occurred
     // it will fail horribly
     if tables.tainted_by_errors {
-        return Err(ConstEvalErr { span: body.value.span, kind: TypeckError })
+        return Err(ConstEvalErr {
+            span: body.value.span,
+            kind: TypeckError,
+        });
     }
 
     trace!("running old const eval");
@@ -357,7 +347,7 @@ pub fn const_eval_provider<'a, 'tcx>(
                 let ecx = mk_eval_cx(tcx, instance, key.param_env).unwrap();
                 let () = unwrap_miri(&ecx, Err(err));
                 Ok(ok)
-            },
+            }
             (_, Err(err)) => Err(err),
             (Ok((miri_val, miri_ty)), Ok(ctfe)) => {
                 let mut ecx = mk_eval_cx(tcx, instance, key.param_env).unwrap();
@@ -383,54 +373,69 @@ fn check_ctfe_against_miri<'a, 'tcx>(
     use rustc::ty::TypeVariants::*;
     let miri_val = ValTy {
         value: ecx.read_place(miri_place).unwrap(),
-        ty: miri_ty
+        ty: miri_ty,
     };
     match miri_ty.sty {
         TyInt(int_ty) => {
             let prim = get_prim(ecx, miri_val);
-            let c = ConstInt::new_signed_truncating(prim as i128,
-                                                    int_ty,
-                                                    ecx.tcx.sess.target.isize_ty);
+            let c =
+                ConstInt::new_signed_truncating(prim as i128, int_ty, ecx.tcx.sess.target.isize_ty);
             let c = ConstVal::Integral(c);
-            assert_eq!(c, ctfe, "miri evaluated to {:?}, but ctfe yielded {:?}", c, ctfe);
-        },
+            assert_eq!(
+                c, ctfe,
+                "miri evaluated to {:?}, but ctfe yielded {:?}",
+                c, ctfe
+            );
+        }
         TyUint(uint_ty) => {
             let prim = get_prim(ecx, miri_val);
-            let c = ConstInt::new_unsigned_truncating(prim,
-                                                     uint_ty,
-                                                     ecx.tcx.sess.target.usize_ty);
+            let c = ConstInt::new_unsigned_truncating(prim, uint_ty, ecx.tcx.sess.target.usize_ty);
             let c = ConstVal::Integral(c);
-            assert_eq!(c, ctfe, "miri evaluated to {:?}, but ctfe yielded {:?}", c, ctfe);
-        },
+            assert_eq!(
+                c, ctfe,
+                "miri evaluated to {:?}, but ctfe yielded {:?}",
+                c, ctfe
+            );
+        }
         TyFloat(ty) => {
             let prim = get_prim(ecx, miri_val);
             let f = ConstVal::Float(ConstFloat { bits: prim, ty });
-            assert_eq!(f, ctfe, "miri evaluated to {:?}, but ctfe yielded {:?}", f, ctfe);
-        },
+            assert_eq!(
+                f, ctfe,
+                "miri evaluated to {:?}, but ctfe yielded {:?}",
+                f, ctfe
+            );
+        }
         TyBool => {
             let bits = get_prim(ecx, miri_val);
             if bits > 1 {
                 bug!("miri evaluated to {}, but expected a bool {:?}", bits, ctfe);
             }
             let b = ConstVal::Bool(bits == 1);
-            assert_eq!(b, ctfe, "miri evaluated to {:?}, but ctfe yielded {:?}", b, ctfe);
-        },
+            assert_eq!(
+                b, ctfe,
+                "miri evaluated to {:?}, but ctfe yielded {:?}",
+                b, ctfe
+            );
+        }
         TyChar => {
             let bits = get_prim(ecx, miri_val);
             if let Some(cm) = ::std::char::from_u32(bits as u32) {
                 assert_eq!(
-                    ConstVal::Char(cm), ctfe,
-                    "miri evaluated to {:?}, but expected {:?}", cm, ctfe,
+                    ConstVal::Char(cm),
+                    ctfe,
+                    "miri evaluated to {:?}, but expected {:?}",
+                    cm,
+                    ctfe,
                 );
             } else {
                 bug!("miri evaluated to {}, but expected a char {:?}", bits, ctfe);
             }
-        },
+        }
         TyStr => {
             let value = ecx.follow_by_ref_value(miri_val.value, miri_val.ty);
             if let Ok(Value::ByValPair(PrimVal::Ptr(ptr), PrimVal::Bytes(len))) = value {
-                let bytes = ecx
-                    .memory
+                let bytes = ecx.memory
                     .read_bytes(ptr.into(), len as u64)
                     .expect("bad miri memory for str");
                 if let Ok(s) = ::std::str::from_utf8(bytes) {
@@ -447,31 +452,31 @@ fn check_ctfe_against_miri<'a, 'tcx>(
                     );
                 }
             } else {
-                bug!("miri evaluated to {:?}, but expected a str {:?}", value, ctfe);
+                bug!(
+                    "miri evaluated to {:?}, but expected a str {:?}",
+                    value,
+                    ctfe
+                );
             }
-        },
+        }
         TyArray(elem_ty, n) => {
             let n = n.val.to_const_int().unwrap().to_u64().unwrap();
             let vec: Vec<(ConstVal, Ty<'tcx>)> = match ctfe {
-                ConstVal::ByteStr(arr) => arr.data.iter().map(|&b| {
-                    (ConstVal::Integral(ConstInt::U8(b)), ecx.tcx.types.u8)
-                }).collect(),
-                ConstVal::Aggregate(Array(v)) => {
-                    v.iter().map(|c| (c.val, c.ty)).collect()
-                },
-                ConstVal::Aggregate(Repeat(v, n)) => {
-                    vec![(v.val, v.ty); n as usize]
-                },
+                ConstVal::ByteStr(arr) => arr.data
+                    .iter()
+                    .map(|&b| (ConstVal::Integral(ConstInt::U8(b)), ecx.tcx.types.u8))
+                    .collect(),
+                ConstVal::Aggregate(Array(v)) => v.iter().map(|c| (c.val, c.ty)).collect(),
+                ConstVal::Aggregate(Repeat(v, n)) => vec![(v.val, v.ty); n as usize],
                 _ => bug!("miri produced {:?}, but ctfe yielded {:?}", miri_ty, ctfe),
             };
             let layout = ecx.layout_of(miri_ty).unwrap();
             for (i, elem) in vec.into_iter().enumerate() {
                 assert!((i as u64) < n);
-                let (field_place, _) =
-                    ecx.place_field(miri_place, Field::new(i), layout).unwrap();
+                let (field_place, _) = ecx.place_field(miri_place, Field::new(i), layout).unwrap();
                 check_ctfe_against_miri(ecx, field_place, elem_ty, elem.0);
             }
-        },
+        }
         TyTuple(..) => {
             let vec = match ctfe {
                 ConstVal::Aggregate(Tuple(v)) => v,
@@ -479,18 +484,17 @@ fn check_ctfe_against_miri<'a, 'tcx>(
             };
             let layout = ecx.layout_of(miri_ty).unwrap();
             for (i, elem) in vec.into_iter().enumerate() {
-                let (field_place, _) =
-                    ecx.place_field(miri_place, Field::new(i), layout).unwrap();
+                let (field_place, _) = ecx.place_field(miri_place, Field::new(i), layout).unwrap();
                 check_ctfe_against_miri(ecx, field_place, elem.ty, elem.val);
             }
-        },
+        }
         TyAdt(def, _) => {
             let mut miri_place = miri_place;
             let struct_variant = if def.is_enum() {
                 let discr = ecx.read_discriminant_value(miri_place, miri_ty).unwrap();
-                let variant = def.discriminants(ecx.tcx).position(|variant_discr| {
-                    variant_discr.to_u128_unchecked() == discr
-                }).expect("miri produced invalid enum discriminant");
+                let variant = def.discriminants(ecx.tcx)
+                    .position(|variant_discr| variant_discr.to_u128_unchecked() == discr)
+                    .expect("miri produced invalid enum discriminant");
                 miri_place = ecx.place_downcast(miri_place, variant).unwrap();
                 &def.variants[variant]
             } else {
@@ -502,21 +506,24 @@ fn check_ctfe_against_miri<'a, 'tcx>(
                     assert_eq!(struct_variant.fields.len(), 0);
                     assert_eq!(did, struct_variant.did);
                     return;
-                },
+                }
                 ctfe => bug!("miri produced {:?}, but ctfe yielded {:?}", miri_ty, ctfe),
             };
             let layout = ecx.layout_of(miri_ty).unwrap();
             for &(name, elem) in vec.into_iter() {
-                let field = struct_variant.fields.iter().position(|f| f.name == name).unwrap();
-                let (field_place, _) =
-                    ecx.place_field(miri_place, Field::new(field), layout).unwrap();
+                let field = struct_variant
+                    .fields
+                    .iter()
+                    .position(|f| f.name == name)
+                    .unwrap();
+                let (field_place, _) = ecx.place_field(miri_place, Field::new(field), layout)
+                    .unwrap();
                 check_ctfe_against_miri(ecx, field_place, elem.ty, elem.val);
             }
-        },
+        }
         TySlice(_) => bug!("miri produced a slice?"),
         // not supported by ctfe
-        TyRawPtr(_) |
-        TyRef(..) => {}
+        TyRawPtr(_) | TyRef(..) => {}
         TyDynamic(..) => bug!("miri produced a trait object"),
         TyClosure(..) => bug!("miri produced a closure"),
         TyGenerator(..) => bug!("miri produced a generator"),
@@ -539,17 +546,16 @@ fn check_ctfe_against_miri<'a, 'tcx>(
             let inst = ecx.memory.get_fn(ptr).unwrap();
             match ctfe {
                 ConstVal::Function(did, substs) => {
-                    let ctfe = ty::Instance::resolve(
-                        ecx.tcx,
-                        ecx.param_env,
-                        did,
-                        substs,
-                    ).unwrap();
+                    let ctfe = ty::Instance::resolve(ecx.tcx, ecx.param_env, did, substs).unwrap();
                     assert_eq!(inst, ctfe, "expected fn ptr {:?}, but got {:?}", ctfe, inst);
-                },
-                _ => bug!("ctfe produced {:?}, but miri produced function {:?}", ctfe, inst),
+                }
+                _ => bug!(
+                    "ctfe produced {:?}, but miri produced function {:?}",
+                    ctfe,
+                    inst
+                ),
             }
-        },
+        }
     }
 }
 

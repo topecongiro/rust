@@ -14,7 +14,7 @@ use errors;
 
 use syntax::ast::{self, Ident, NodeId};
 use syntax::attr;
-use syntax::codemap::{ExpnInfo, NameAndSpan, MacroAttribute};
+use syntax::codemap::{ExpnInfo, MacroAttribute, NameAndSpan};
 use syntax::ext::base::ExtCtxt;
 use syntax::ext::build::AstBuilder;
 use syntax::ext::expand::ExpansionConfig;
@@ -54,13 +54,15 @@ struct CollectProcMacros<'a> {
     is_test_crate: bool,
 }
 
-pub fn modify(sess: &ParseSess,
-              resolver: &mut ::syntax::ext::base::Resolver,
-              mut krate: ast::Crate,
-              is_proc_macro_crate: bool,
-              is_test_crate: bool,
-              num_crate_types: usize,
-              handler: &errors::Handler) -> ast::Crate {
+pub fn modify(
+    sess: &ParseSess,
+    resolver: &mut ::syntax::ext::base::Resolver,
+    mut krate: ast::Crate,
+    is_proc_macro_crate: bool,
+    is_test_crate: bool,
+    num_crate_types: usize,
+    handler: &errors::Handler,
+) -> ast::Crate {
     let ecfg = ExpansionConfig::default("proc_macro".to_string());
     let mut cx = ExtCtxt::new(sess, ecfg, resolver);
 
@@ -79,7 +81,7 @@ pub fn modify(sess: &ParseSess,
     };
 
     if !is_proc_macro_crate {
-        return krate
+        return krate;
     }
 
     if num_crate_types > 1 {
@@ -90,7 +92,10 @@ pub fn modify(sess: &ParseSess,
         return krate;
     }
 
-    krate.module.items.push(mk_registrar(&mut cx, &derives, &attr_macros, &bang_macros));
+    krate
+        .module
+        .items
+        .push(mk_registrar(&mut cx, &derives, &attr_macros, &bang_macros));
 
     krate
 }
@@ -101,13 +106,13 @@ fn is_proc_macro_attr(attr: &ast::Attribute) -> bool {
 
 impl<'a> CollectProcMacros<'a> {
     fn check_not_pub_in_root(&self, vis: &ast::Visibility, sp: Span) {
-        if self.is_proc_macro_crate &&
-           self.in_root &&
-           *vis == ast::Visibility::Public {
-            self.handler.span_err(sp,
-                                  "`proc-macro` crate types cannot \
-                                   export any items other than functions \
-                                   tagged with `#[proc_macro_derive]` currently");
+        if self.is_proc_macro_crate && self.in_root && *vis == ast::Visibility::Public {
+            self.handler.span_err(
+                sp,
+                "`proc-macro` crate types cannot \
+                 export any items other than functions \
+                 tagged with `#[proc_macro_derive]` currently",
+            );
         }
     }
 
@@ -118,16 +123,20 @@ impl<'a> CollectProcMacros<'a> {
         let list = match attr.meta_item_list() {
             Some(list) => list,
             None => {
-                self.handler.span_err(attr.span(),
-                                      "attribute must be of form: \
-                                       #[proc_macro_derive(TraitName)]");
-                return
+                self.handler.span_err(
+                    attr.span(),
+                    "attribute must be of form: \
+                     #[proc_macro_derive(TraitName)]",
+                );
+                return;
             }
         };
         if list.len() != 1 && list.len() != 2 {
-            self.handler.span_err(attr.span(),
-                                  "attribute must have either one or two arguments");
-            return
+            self.handler.span_err(
+                attr.span(),
+                "attribute must have either one or two arguments",
+            );
+            return;
         }
         let trait_attr = &list[0];
         let attributes_attr = list.get(1);
@@ -135,48 +144,58 @@ impl<'a> CollectProcMacros<'a> {
             Some(name) => name,
             _ => {
                 self.handler.span_err(trait_attr.span(), "not a meta item");
-                return
+                return;
             }
         };
         if !trait_attr.is_word() {
-            self.handler.span_err(trait_attr.span(), "must only be one word");
+            self.handler
+                .span_err(trait_attr.span(), "must only be one word");
         }
 
         if deriving::is_builtin_trait(trait_name) {
-            self.handler.span_err(trait_attr.span(),
-                                  "cannot override a built-in #[derive] mode");
+            self.handler.span_err(
+                trait_attr.span(),
+                "cannot override a built-in #[derive] mode",
+            );
         }
 
         if self.derives.iter().any(|d| d.trait_name == trait_name) {
-            self.handler.span_err(trait_attr.span(),
-                                  "derive mode defined twice in this crate");
+            self.handler
+                .span_err(trait_attr.span(), "derive mode defined twice in this crate");
         }
 
         let proc_attrs: Vec<_> = if let Some(attr) = attributes_attr {
             if !attr.check_name("attributes") {
-                self.handler.span_err(attr.span(), "second argument must be `attributes`")
+                self.handler
+                    .span_err(attr.span(), "second argument must be `attributes`")
             }
-            attr.meta_item_list().unwrap_or_else(|| {
-                self.handler.span_err(attr.span(),
-                                      "attribute must be of form: \
-                                       `attributes(foo, bar)`");
-                &[]
-            }).into_iter().filter_map(|attr| {
-                let name = match attr.name() {
-                    Some(name) => name,
-                    _ => {
-                        self.handler.span_err(attr.span(), "not a meta item");
+            attr.meta_item_list()
+                .unwrap_or_else(|| {
+                    self.handler.span_err(
+                        attr.span(),
+                        "attribute must be of form: \
+                         `attributes(foo, bar)`",
+                    );
+                    &[]
+                })
+                .into_iter()
+                .filter_map(|attr| {
+                    let name = match attr.name() {
+                        Some(name) => name,
+                        _ => {
+                            self.handler.span_err(attr.span(), "not a meta item");
+                            return None;
+                        }
+                    };
+
+                    if !attr.is_word() {
+                        self.handler.span_err(attr.span(), "must only be one word");
                         return None;
-                    },
-                };
+                    }
 
-                if !attr.is_word() {
-                    self.handler.span_err(attr.span(), "must only be one word");
-                    return None;
-                }
-
-                Some(name)
-            }).collect()
+                    Some(name)
+                })
+                .collect()
         } else {
             Vec::new()
         };
@@ -201,8 +220,11 @@ impl<'a> CollectProcMacros<'a> {
 
     fn collect_attr_proc_macro(&mut self, item: &'a ast::Item, attr: &'a ast::Attribute) {
         if let Some(_) = attr.meta_item_list() {
-            self.handler.span_err(attr.span, "`#[proc_macro_attribute]` attribute
-                does not take any arguments");
+            self.handler.span_err(
+                attr.span,
+                "`#[proc_macro_attribute]` attribute
+                does not take any arguments",
+            );
             return;
         }
 
@@ -224,8 +246,11 @@ impl<'a> CollectProcMacros<'a> {
 
     fn collect_bang_proc_macro(&mut self, item: &'a ast::Item, attr: &'a ast::Attribute) {
         if let Some(_) = attr.meta_item_list() {
-            self.handler.span_err(attr.span, "`#[proc_macro]` attribute
-                does not take any arguments");
+            self.handler.span_err(
+                attr.span,
+                "`#[proc_macro]` attribute
+                does not take any arguments",
+            );
             return;
         }
 
@@ -272,14 +297,20 @@ impl<'a> Visitor<'a> for CollectProcMacros<'a> {
             if is_proc_macro_attr(&attr) {
                 if let Some(prev_attr) = found_attr {
                     let msg = if attr.path == prev_attr.path {
-                        format!("Only one `#[{}]` attribute is allowed on any given function",
-                                attr.path)
+                        format!(
+                            "Only one `#[{}]` attribute is allowed on any given function",
+                            attr.path
+                        )
                     } else {
-                        format!("`#[{}]` and `#[{}]` attributes cannot both be applied \
-                                to the same function", attr.path, prev_attr.path)
+                        format!(
+                            "`#[{}]` and `#[{}]` attributes cannot both be applied \
+                             to the same function",
+                            attr.path, prev_attr.path
+                        )
                     };
 
-                    self.handler.struct_span_err(attr.span(), &msg)
+                    self.handler
+                        .struct_span_err(attr.span(), &msg)
                         .span_note(prev_attr.span(), "Previous attribute here")
                         .emit();
 
@@ -294,13 +325,15 @@ impl<'a> Visitor<'a> for CollectProcMacros<'a> {
             None => {
                 self.check_not_pub_in_root(&item.vis, item.span);
                 return visit::walk_item(self, item);
-            },
+            }
             Some(attr) => attr,
         };
 
         if !is_fn {
-            let msg = format!("the `#[{}]` attribute may only be used on bare functions",
-                              attr.path);
+            let msg = format!(
+                "the `#[{}]` attribute may only be used on bare functions",
+                attr.path
+            );
 
             self.handler.span_err(attr.span(), &msg);
             return;
@@ -311,8 +344,11 @@ impl<'a> Visitor<'a> for CollectProcMacros<'a> {
         }
 
         if !self.is_proc_macro_crate {
-            let msg = format!("the `#[{}]` attribute is only usable with crates of the \
-                              `proc-macro` crate type", attr.path);
+            let msg = format!(
+                "the `#[{}]` attribute is only usable with crates of the \
+                 `proc-macro` crate type",
+                attr.path
+            );
 
             self.handler.span_err(attr.span(), &msg);
             return;
@@ -357,10 +393,12 @@ impl<'a> Visitor<'a> for CollectProcMacros<'a> {
 //              // ...
 //          }
 //      }
-fn mk_registrar(cx: &mut ExtCtxt,
-                custom_derives: &[ProcMacroDerive],
-                custom_attrs: &[ProcMacroDef],
-                custom_macros: &[ProcMacroDef]) -> P<ast::Item> {
+fn mk_registrar(
+    cx: &mut ExtCtxt,
+    custom_derives: &[ProcMacroDerive],
+    custom_attrs: &[ProcMacroDef],
+    custom_macros: &[ProcMacroDef],
+) -> P<ast::Item> {
     let mark = Mark::fresh(Mark::root());
     mark.set_expn_info(ExpnInfo {
         call_site: DUMMY_SP,
@@ -369,15 +407,17 @@ fn mk_registrar(cx: &mut ExtCtxt,
             span: None,
             allow_internal_unstable: true,
             allow_internal_unsafe: false,
-        }
+        },
     });
     let span = DUMMY_SP.with_ctxt(SyntaxContext::empty().apply_mark(mark));
 
     let proc_macro = Ident::from_str("proc_macro");
-    let krate = cx.item(span,
-                        proc_macro,
-                        Vec::new(),
-                        ast::ItemKind::ExternCrate(None));
+    let krate = cx.item(
+        span,
+        proc_macro,
+        Vec::new(),
+        ast::ItemKind::ExternCrate(None),
+    );
 
     let __internal = Ident::from_str("__internal");
     let registry = Ident::from_str("Registry");
@@ -386,32 +426,47 @@ fn mk_registrar(cx: &mut ExtCtxt,
     let register_attr_proc_macro = Ident::from_str("register_attr_proc_macro");
     let register_bang_proc_macro = Ident::from_str("register_bang_proc_macro");
 
-    let mut stmts = custom_derives.iter().map(|cd| {
-        let path = cx.path_global(cd.span, vec![cd.function_name]);
-        let trait_name = cx.expr_str(cd.span, cd.trait_name);
-        let attrs = cx.expr_vec_slice(
-            span,
-            cd.attrs.iter().map(|&s| cx.expr_str(cd.span, s)).collect::<Vec<_>>()
-        );
-        let registrar = cx.expr_ident(span, registrar);
-        let ufcs_path = cx.path(span, vec![proc_macro, __internal, registry,
-                                           register_custom_derive]);
+    let mut stmts = custom_derives
+        .iter()
+        .map(|cd| {
+            let path = cx.path_global(cd.span, vec![cd.function_name]);
+            let trait_name = cx.expr_str(cd.span, cd.trait_name);
+            let attrs = cx.expr_vec_slice(
+                span,
+                cd.attrs
+                    .iter()
+                    .map(|&s| cx.expr_str(cd.span, s))
+                    .collect::<Vec<_>>(),
+            );
+            let registrar = cx.expr_ident(span, registrar);
+            let ufcs_path = cx.path(
+                span,
+                vec![proc_macro, __internal, registry, register_custom_derive],
+            );
 
-        cx.stmt_expr(cx.expr_call(span, cx.expr_path(ufcs_path),
-                                  vec![registrar, trait_name, cx.expr_path(path), attrs]))
-
-    }).collect::<Vec<_>>();
+            cx.stmt_expr(cx.expr_call(
+                span,
+                cx.expr_path(ufcs_path),
+                vec![registrar, trait_name, cx.expr_path(path), attrs],
+            ))
+        })
+        .collect::<Vec<_>>();
 
     stmts.extend(custom_attrs.iter().map(|ca| {
         let name = cx.expr_str(ca.span, ca.function_name.name);
         let path = cx.path_global(ca.span, vec![ca.function_name]);
         let registrar = cx.expr_ident(ca.span, registrar);
 
-        let ufcs_path = cx.path(span,
-                                vec![proc_macro, __internal, registry, register_attr_proc_macro]);
+        let ufcs_path = cx.path(
+            span,
+            vec![proc_macro, __internal, registry, register_attr_proc_macro],
+        );
 
-        cx.stmt_expr(cx.expr_call(span, cx.expr_path(ufcs_path),
-                                  vec![registrar, name, cx.expr_path(path)]))
+        cx.stmt_expr(cx.expr_call(
+            span,
+            cx.expr_path(ufcs_path),
+            vec![registrar, name, cx.expr_path(path)],
+        ))
     }));
 
     stmts.extend(custom_macros.iter().map(|cm| {
@@ -419,21 +474,28 @@ fn mk_registrar(cx: &mut ExtCtxt,
         let path = cx.path_global(cm.span, vec![cm.function_name]);
         let registrar = cx.expr_ident(cm.span, registrar);
 
-        let ufcs_path = cx.path(span,
-                                vec![proc_macro, __internal, registry, register_bang_proc_macro]);
+        let ufcs_path = cx.path(
+            span,
+            vec![proc_macro, __internal, registry, register_bang_proc_macro],
+        );
 
-        cx.stmt_expr(cx.expr_call(span, cx.expr_path(ufcs_path),
-                                  vec![registrar, name, cx.expr_path(path)]))
+        cx.stmt_expr(cx.expr_call(
+            span,
+            cx.expr_path(ufcs_path),
+            vec![registrar, name, cx.expr_path(path)],
+        ))
     }));
 
     let path = cx.path(span, vec![proc_macro, __internal, registry]);
     let registrar_path = cx.ty_path(path);
     let arg_ty = cx.ty_rptr(span, registrar_path, None, ast::Mutability::Mutable);
-    let func = cx.item_fn(span,
-                          registrar,
-                          vec![cx.arg(span, registrar, arg_ty)],
-                          cx.ty(span, ast::TyKind::Tup(Vec::new())),
-                          cx.block(span, stmts));
+    let func = cx.item_fn(
+        span,
+        registrar,
+        vec![cx.arg(span, registrar, arg_ty)],
+        cx.ty(span, ast::TyKind::Tup(Vec::new())),
+        cx.block(span, stmts),
+    );
 
     let derive_registrar = cx.meta_word(span, Symbol::intern("rustc_derive_registrar"));
     let derive_registrar = cx.attribute(span, derive_registrar);
@@ -443,10 +505,11 @@ fn mk_registrar(cx: &mut ExtCtxt,
         i
     });
     let ident = ast::Ident::with_empty_ctxt(Symbol::gensym("registrar"));
-    let module = cx.item_mod(span, span, ident, Vec::new(), vec![krate, func]).map(|mut i| {
-        i.vis = ast::Visibility::Public;
-        i
-    });
+    let module = cx.item_mod(span, span, ident, Vec::new(), vec![krate, func])
+        .map(|mut i| {
+            i.vis = ast::Visibility::Public;
+            i
+        });
 
     cx.monotonic_expander().fold_item(module).pop().unwrap()
 }

@@ -19,18 +19,18 @@ use char_private::is_printable;
 use convert::TryFrom;
 use fmt::{self, Write};
 use slice;
-use str::{from_utf8_unchecked_mut, FromStr};
+use str::{FromStr, from_utf8_unchecked_mut};
 use iter::FusedIterator;
 use mem::transmute;
 
 // UTF-8 ranges and tags for encoding characters
-const TAG_CONT: u8    = 0b1000_0000;
-const TAG_TWO_B: u8   = 0b1100_0000;
+const TAG_CONT: u8 = 0b1000_0000;
+const TAG_TWO_B: u8 = 0b1100_0000;
 const TAG_THREE_B: u8 = 0b1110_0000;
-const TAG_FOUR_B: u8  = 0b1111_0000;
-const MAX_ONE_B: u32   =     0x80;
-const MAX_TWO_B: u32   =    0x800;
-const MAX_THREE_B: u32 =  0x10000;
+const TAG_FOUR_B: u8 = 0b1111_0000;
+const MAX_ONE_B: u32 = 0x80;
+const MAX_TWO_B: u32 = 0x800;
+const MAX_THREE_B: u32 = 0x10000;
 
 /*
     Lu  Uppercase_Letter        an uppercase letter
@@ -208,7 +208,6 @@ impl From<u8> for char {
     }
 }
 
-
 /// An error which can be returned when parsing a char.
 #[stable(feature = "char_from_str", since = "1.20.0")]
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -218,15 +217,12 @@ pub struct ParseCharError {
 
 impl ParseCharError {
     #[unstable(feature = "char_error_internals",
-               reason = "this method should not be available publicly",
-               issue = "0")]
+               reason = "this method should not be available publicly", issue = "0")]
     #[doc(hidden)]
     pub fn __description(&self) -> &str {
         match self.kind {
-            CharErrorKind::EmptyString => {
-                "cannot parse char from empty string"
-            },
-            CharErrorKind::TooManyChars => "too many characters in string"
+            CharErrorKind::EmptyString => "cannot parse char from empty string",
+            CharErrorKind::TooManyChars => "too many characters in string",
         }
     }
 }
@@ -244,7 +240,6 @@ impl fmt::Display for ParseCharError {
     }
 }
 
-
 #[stable(feature = "char_from_str", since = "1.20.0")]
 impl FromStr for char {
     type Err = ParseCharError;
@@ -253,17 +248,16 @@ impl FromStr for char {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut chars = s.chars();
         match (chars.next(), chars.next()) {
-            (None, _) => {
-                Err(ParseCharError { kind: CharErrorKind::EmptyString })
-            },
+            (None, _) => Err(ParseCharError {
+                kind: CharErrorKind::EmptyString,
+            }),
             (Some(c), None) => Ok(c),
-            _ => {
-                Err(ParseCharError { kind: CharErrorKind::TooManyChars })
-            }
+            _ => Err(ParseCharError {
+                kind: CharErrorKind::TooManyChars,
+            }),
         }
     }
 }
-
 
 #[unstable(feature = "try_from", issue = "33417")]
 impl TryFrom<u32> for char {
@@ -368,8 +362,7 @@ pub fn from_digit(num: u32, radix: u32) -> Option<char> {
 #[allow(missing_docs)] // docs in libunicode/u_char.rs
 #[doc(hidden)]
 #[unstable(feature = "core_char_ext",
-           reason = "the stable interface is `impl char` in later crate",
-           issue = "32110")]
+           reason = "the stable interface is `impl char` in later crate", issue = "32110")]
 pub trait CharExt {
     #[stable(feature = "core", since = "1.6.0")]
     fn is_digit(self, radix: u32) -> bool;
@@ -404,13 +397,16 @@ impl CharExt for char {
             panic!("to_digit: radix is too high (maximum 36)");
         }
         let val = match self {
-          '0' ... '9' => self as u32 - '0' as u32,
-          'a' ... 'z' => self as u32 - 'a' as u32 + 10,
-          'A' ... 'Z' => self as u32 - 'A' as u32 + 10,
-          _ => return None,
+            '0'...'9' => self as u32 - '0' as u32,
+            'a'...'z' => self as u32 - 'a' as u32 + 10,
+            'A'...'Z' => self as u32 - 'A' as u32 + 10,
+            _ => return None,
         };
-        if val < radix { Some(val) }
-        else { None }
+        if val < radix {
+            Some(val)
+        } else {
+            None
+        }
     }
 
     #[inline]
@@ -438,8 +434,8 @@ impl CharExt for char {
             '\r' => EscapeDefaultState::Backslash('r'),
             '\n' => EscapeDefaultState::Backslash('n'),
             '\\' | '\'' | '"' => EscapeDefaultState::Backslash(self),
-            '\x20' ... '\x7e' => EscapeDefaultState::Char(self),
-            _ => EscapeDefaultState::Unicode(self.escape_unicode())
+            '\x20'...'\x7e' => EscapeDefaultState::Char(self),
+            _ => EscapeDefaultState::Unicode(self.escape_unicode()),
         };
         EscapeDefault { state: init_state }
     }
@@ -474,37 +470,42 @@ impl CharExt for char {
     #[inline]
     fn len_utf16(self) -> usize {
         let ch = self as u32;
-        if (ch & 0xFFFF) == ch { 1 } else { 2 }
+        if (ch & 0xFFFF) == ch {
+            1
+        } else {
+            2
+        }
     }
 
     #[inline]
     fn encode_utf8(self, dst: &mut [u8]) -> &mut str {
         let code = self as u32;
         unsafe {
-            let len =
-            if code < MAX_ONE_B && !dst.is_empty() {
+            let len = if code < MAX_ONE_B && !dst.is_empty() {
                 *dst.get_unchecked_mut(0) = code as u8;
                 1
             } else if code < MAX_TWO_B && dst.len() >= 2 {
                 *dst.get_unchecked_mut(0) = (code >> 6 & 0x1F) as u8 | TAG_TWO_B;
                 *dst.get_unchecked_mut(1) = (code & 0x3F) as u8 | TAG_CONT;
                 2
-            } else if code < MAX_THREE_B && dst.len() >= 3  {
+            } else if code < MAX_THREE_B && dst.len() >= 3 {
                 *dst.get_unchecked_mut(0) = (code >> 12 & 0x0F) as u8 | TAG_THREE_B;
-                *dst.get_unchecked_mut(1) = (code >>  6 & 0x3F) as u8 | TAG_CONT;
+                *dst.get_unchecked_mut(1) = (code >> 6 & 0x3F) as u8 | TAG_CONT;
                 *dst.get_unchecked_mut(2) = (code & 0x3F) as u8 | TAG_CONT;
                 3
             } else if dst.len() >= 4 {
                 *dst.get_unchecked_mut(0) = (code >> 18 & 0x07) as u8 | TAG_FOUR_B;
                 *dst.get_unchecked_mut(1) = (code >> 12 & 0x3F) as u8 | TAG_CONT;
-                *dst.get_unchecked_mut(2) = (code >>  6 & 0x3F) as u8 | TAG_CONT;
+                *dst.get_unchecked_mut(2) = (code >> 6 & 0x3F) as u8 | TAG_CONT;
                 *dst.get_unchecked_mut(3) = (code & 0x3F) as u8 | TAG_CONT;
                 4
             } else {
-                panic!("encode_utf8: need {} bytes to encode U+{:X}, but the buffer has {}",
+                panic!(
+                    "encode_utf8: need {} bytes to encode U+{:X}, but the buffer has {}",
                     from_u32_unchecked(code).len_utf8(),
                     code,
-                    dst.len())
+                    dst.len()
+                )
             };
             from_utf8_unchecked_mut(dst.get_unchecked_mut(..len))
         }
@@ -525,10 +526,12 @@ impl CharExt for char {
                 *dst.get_unchecked_mut(1) = 0xDC00 | ((code as u16) & 0x3FF);
                 slice::from_raw_parts_mut(dst.as_mut_ptr(), 2)
             } else {
-                panic!("encode_utf16: need {} units to encode U+{:X}, but the buffer has {}",
+                panic!(
+                    "encode_utf16: need {} units to encode U+{:X}, but the buffer has {}",
                     from_u32_unchecked(code).len_utf16(),
                     code,
-                    dst.len())
+                    dst.len()
+                )
             }
         }
     }
@@ -618,11 +621,11 @@ impl Iterator for EscapeUnicode {
         match self.state {
             EscapeUnicodeState::Done => None,
 
-            EscapeUnicodeState::RightBrace |
-            EscapeUnicodeState::Value |
-            EscapeUnicodeState::LeftBrace |
-            EscapeUnicodeState::Type |
-            EscapeUnicodeState::Backslash => Some('}'),
+            EscapeUnicodeState::RightBrace
+            | EscapeUnicodeState::Value
+            | EscapeUnicodeState::LeftBrace
+            | EscapeUnicodeState::Type
+            | EscapeUnicodeState::Backslash => Some('}'),
         }
     }
 }
@@ -666,7 +669,7 @@ impl fmt::Display for EscapeUnicode {
 #[derive(Clone, Debug)]
 #[stable(feature = "rust1", since = "1.0.0")]
 pub struct EscapeDefault {
-    state: EscapeDefaultState
+    state: EscapeDefaultState,
 }
 
 #[derive(Clone, Debug)]
@@ -712,15 +715,15 @@ impl Iterator for EscapeDefault {
             EscapeDefaultState::Backslash(c) if n == 0 => {
                 self.state = EscapeDefaultState::Char(c);
                 Some('\\')
-            },
+            }
             EscapeDefaultState::Backslash(c) if n == 1 => {
                 self.state = EscapeDefaultState::Done;
                 Some(c)
-            },
+            }
             EscapeDefaultState::Backslash(_) => {
                 self.state = EscapeDefaultState::Done;
                 None
-            },
+            }
             EscapeDefaultState::Char(c) => {
                 self.state = EscapeDefaultState::Done;
 
@@ -729,7 +732,7 @@ impl Iterator for EscapeDefault {
                 } else {
                     None
                 }
-            },
+            }
             EscapeDefaultState::Done => return None,
             EscapeDefaultState::Unicode(ref mut i) => return i.nth(n),
         }
@@ -783,12 +786,16 @@ pub struct EscapeDebug(EscapeDefault);
 #[stable(feature = "char_escape_debug", since = "1.20.0")]
 impl Iterator for EscapeDebug {
     type Item = char;
-    fn next(&mut self) -> Option<char> { self.0.next() }
-    fn size_hint(&self) -> (usize, Option<usize>) { self.0.size_hint() }
+    fn next(&mut self) -> Option<char> {
+        self.0.next()
+    }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 #[stable(feature = "char_escape_debug", since = "1.20.0")]
-impl ExactSizeIterator for EscapeDebug { }
+impl ExactSizeIterator for EscapeDebug {}
 
 #[unstable(feature = "fused", issue = "35602")]
 impl FusedIterator for EscapeDebug {}
@@ -799,8 +806,6 @@ impl fmt::Display for EscapeDebug {
         fmt::Display::fmt(&self.0, f)
     }
 }
-
-
 
 /// An iterator over an iterator of bytes of the characters the bytes represent
 /// as UTF-8
@@ -864,7 +869,7 @@ impl<I: Iterator<Item = u8>> Iterator for DecodeUtf8<I> {
                 }
                 0xE0 => {
                     first_byte!(0b0000_1111);
-                    continuation_byte!(0xA0...0xBF);  // 0x80...0x9F here are overlong
+                    continuation_byte!(0xA0...0xBF); // 0x80...0x9F here are overlong
                     continuation_byte!();
                 }
                 0xE1...0xEC | 0xEE...0xEF => {
@@ -874,12 +879,12 @@ impl<I: Iterator<Item = u8>> Iterator for DecodeUtf8<I> {
                 }
                 0xED => {
                     first_byte!(0b0000_1111);
-                    continuation_byte!(0x80...0x9F);  // 0xA0..0xBF here are surrogates
+                    continuation_byte!(0x80...0x9F); // 0xA0..0xBF here are surrogates
                     continuation_byte!();
                 }
                 0xF0 => {
                     first_byte!(0b0000_0111);
-                    continuation_byte!(0x90...0xBF);  // 0x80..0x8F here are overlong
+                    continuation_byte!(0x90...0xBF); // 0x80..0x8F here are overlong
                     continuation_byte!();
                     continuation_byte!();
                 }
@@ -891,15 +896,13 @@ impl<I: Iterator<Item = u8>> Iterator for DecodeUtf8<I> {
                 }
                 0xF4 => {
                     first_byte!(0b0000_0111);
-                    continuation_byte!(0x80...0x8F);  // 0x90..0xBF here are beyond char::MAX
+                    continuation_byte!(0x80...0x8F); // 0x90..0xBF here are beyond char::MAX
                     continuation_byte!();
                     continuation_byte!();
                 }
-                _ => return Err(InvalidSequence(()))  // Illegal first byte, overlong, or beyond MAX
+                _ => return Err(InvalidSequence(())), // Illegal first byte, overlong, or beyond MAX
             }
-            unsafe {
-                Ok(from_u32_unchecked(code_point))
-            }
+            unsafe { Ok(from_u32_unchecked(code_point)) }
         })
     }
 }

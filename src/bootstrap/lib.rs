@@ -118,34 +118,34 @@
 
 #[macro_use]
 extern crate build_helper;
-#[macro_use]
-extern crate serde_derive;
-#[macro_use]
-extern crate lazy_static;
-extern crate serde_json;
+extern crate cc;
 extern crate cmake;
 extern crate filetime;
-extern crate cc;
 extern crate getopts;
+#[macro_use]
+extern crate lazy_static;
 extern crate num_cpus;
-extern crate toml;
+#[macro_use]
+extern crate serde_derive;
+extern crate serde_json;
 extern crate time;
+extern crate toml;
 
 #[cfg(unix)]
 extern crate libc;
 
-use std::cell::{RefCell, Cell};
-use std::collections::{HashSet, HashMap};
+use std::cell::{Cell, RefCell};
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs::{self, File};
 use std::io::Read;
-use std::path::{PathBuf, Path};
+use std::path::{Path, PathBuf};
 use std::process::{self, Command};
 use std::slice;
 
-use build_helper::{run_silent, run_suppressed, try_run_silent, try_run_suppressed, output, mtime};
+use build_helper::{mtime, output, run_silent, run_suppressed, try_run_silent, try_run_suppressed};
 
-use util::{exe, libdir, OutputFolder, CiEnv};
+use util::{exe, libdir, CiEnv, OutputFolder};
 
 mod cc_detect;
 mod channel;
@@ -183,8 +183,7 @@ mod job {
 
 #[cfg(not(any(unix, windows)))]
 mod job {
-    pub unsafe fn setup(_build: &mut ::Build) {
-    }
+    pub unsafe fn setup(_build: &mut ::Build) {}
 }
 
 pub use config::Config;
@@ -268,8 +267,7 @@ struct Crate {
 
 impl Crate {
     fn is_local(&self, build: &Build) -> bool {
-        self.path.starts_with(&build.config.src) &&
-        !self.path.to_string_lossy().ends_with("_shim")
+        self.path.starts_with(&build.config.src) && !self.path.to_string_lossy().ends_with("_shim")
     }
 
     fn local_path(&self, build: &Build) -> PathBuf {
@@ -308,12 +306,10 @@ impl Build {
         let out = cwd.join("build");
 
         let is_sudo = match env::var_os("SUDO_USER") {
-            Some(sudo_user) => {
-                match env::var_os("USER") {
-                    Some(user) => user != sudo_user,
-                    None => false,
-                }
-            }
+            Some(sudo_user) => match env::var_os("USER") {
+                Some(user) => user != sudo_user,
+                None => false,
+            },
             None => false,
         };
         let rust_info = channel::GitInfo::new(&config, &src);
@@ -354,9 +350,7 @@ impl Build {
     }
 
     pub fn build_triple(&self) -> &[Interned<String>] {
-        unsafe {
-            slice::from_raw_parts(&self.build, 1)
-        }
+        unsafe { slice::from_raw_parts(&self.build, 1) }
     }
 
     /// Executes the entire build, as configured by the flags and configuration.
@@ -375,12 +369,23 @@ impl Build {
         sanity::check(self);
         // If local-rust is the same major.minor as the current version, then force a local-rebuild
         let local_version_verbose = output(
-            Command::new(&self.initial_rustc).arg("--version").arg("--verbose"));
+            Command::new(&self.initial_rustc)
+                .arg("--version")
+                .arg("--verbose"),
+        );
         let local_release = local_version_verbose
-            .lines().filter(|x| x.starts_with("release:"))
-            .next().unwrap().trim_left_matches("release:").trim();
+            .lines()
+            .filter(|x| x.starts_with("release:"))
+            .next()
+            .unwrap()
+            .trim_left_matches("release:")
+            .trim();
         let my_version = channel::CFG_RELEASE_NUM;
-        if local_release.split('.').take(2).eq(my_version.split('.').take(2)) {
+        if local_release
+            .split('.')
+            .take(2)
+            .eq(my_version.split('.').take(2))
+        {
             self.verbose(&format!("auto-detected local-rebuild {}", local_release));
             self.local_rebuild = true;
         }
@@ -392,7 +397,10 @@ impl Build {
         // Check for postponed failures from `test --no-fail-fast`.
         let failures = self.delayed_failures.borrow();
         if failures.len() > 0 {
-            println!("\n{} command(s) did not execute successfully:\n", failures.len());
+            println!(
+                "\n{} command(s) did not execute successfully:\n",
+                failures.len()
+            );
             for failure in failures.iter() {
                 println!("  - {}\n", failure);
             }
@@ -453,11 +461,17 @@ impl Build {
     /// Component directory that Cargo will produce output into (e.g.
     /// release/debug)
     fn cargo_dir(&self) -> &'static str {
-        if self.config.rust_optimize {"release"} else {"debug"}
+        if self.config.rust_optimize {
+            "release"
+        } else {
+            "debug"
+        }
     }
 
     fn tools_dir(&self, compiler: Compiler) -> PathBuf {
-        let out = self.out.join(&*compiler.host).join(format!("stage{}-tools-bin", compiler.stage));
+        let out = self.out
+            .join(&*compiler.host)
+            .join(format!("stage{}-tools-bin", compiler.stage));
         t!(fs::create_dir_all(&out));
         out
     }
@@ -473,18 +487,18 @@ impl Build {
             Mode::Tool => "-tools",
             Mode::Librustc => "-rustc",
         };
-        self.out.join(&*compiler.host)
-                .join(format!("stage{}{}", compiler.stage, suffix))
+        self.out
+            .join(&*compiler.host)
+            .join(format!("stage{}{}", compiler.stage, suffix))
     }
 
     /// Returns the root output directory for all Cargo output in a given stage,
     /// running a particular compiler, whether or not we're building the
     /// standard library, and targeting the specified architecture.
-    fn cargo_out(&self,
-                 compiler: Compiler,
-                 mode: Mode,
-                 target: Interned<String>) -> PathBuf {
-        self.stage_out(compiler, mode).join(&*target).join(self.cargo_dir())
+    fn cargo_out(&self, compiler: Compiler, mode: Mode, target: Interned<String>) -> PathBuf {
+        self.stage_out(compiler, mode)
+            .join(&*target)
+            .join(self.cargo_dir())
     }
 
     /// Root output directory for LLVM compiled for `target`
@@ -522,7 +536,7 @@ impl Build {
     fn is_rust_llvm(&self, target: Interned<String>) -> bool {
         match self.config.target_config.get(&target) {
             Some(ref c) => c.llvm_config.is_none(),
-            None => true
+            None => true,
         }
     }
 
@@ -535,7 +549,8 @@ impl Build {
         if let Some(s) = target_config.and_then(|c| c.llvm_config.as_ref()) {
             s.clone()
         } else {
-            self.llvm_out(self.config.build).join("bin")
+            self.llvm_out(self.config.build)
+                .join("bin")
                 .join(exe("llvm-config", &*target))
         }
     }
@@ -577,7 +592,11 @@ impl Build {
 
     /// Returns the libdir of the snapshot compiler.
     fn rustc_snapshot_libdir(&self) -> PathBuf {
-        self.initial_rustc.parent().unwrap().parent().unwrap()
+        self.initial_rustc
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
             .join(libdir(&self.config.build))
     }
 
@@ -640,10 +659,12 @@ impl Build {
     fn cflags(&self, target: Interned<String>) -> Vec<String> {
         // Filter out -O and /O (the optimization flags) that we picked up from
         // cc-rs because the build scripts will determine that for themselves.
-        let mut base = self.cc[&target].args().iter()
-                           .map(|s| s.to_string_lossy().into_owned())
-                           .filter(|s| !s.starts_with("-O") && !s.starts_with("/O"))
-                           .collect::<Vec<_>>();
+        let mut base = self.cc[&target]
+            .args()
+            .iter()
+            .map(|s| s.to_string_lossy().into_owned())
+            .filter(|s| !s.starts_with("-O") && !s.starts_with("/O"))
+            .collect::<Vec<_>>();
 
         // If we're compiling on macOS then we add a few unconditional flags
         // indicating that we want libc++ (more filled out than libstdc++) and
@@ -672,18 +693,23 @@ impl Build {
         match self.cxx.get(&target) {
             Some(p) => Ok(p.path()),
             None => Err(format!(
-                    "target `{}` is not configured as a host, only as a target",
-                    target))
+                "target `{}` is not configured as a host, only as a target",
+                target
+            )),
         }
     }
 
     /// Returns the path to the linker for the given target if it needs to be overridden.
     fn linker(&self, target: Interned<String>) -> Option<&Path> {
-        if let Some(linker) = self.config.target_config.get(&target)
-                                                       .and_then(|c| c.linker.as_ref()) {
+        if let Some(linker) = self.config
+            .target_config
+            .get(&target)
+            .and_then(|c| c.linker.as_ref())
+        {
             Some(linker)
-        } else if target != self.config.build &&
-                  !target.contains("msvc") && !target.contains("emscripten") {
+        } else if target != self.config.build && !target.contains("msvc")
+            && !target.contains("emscripten")
+        {
             Some(self.cc(target))
         } else {
             None
@@ -695,14 +721,18 @@ impl Build {
         if target.contains("pc-windows-msvc") {
             Some(true)
         } else {
-            self.config.target_config.get(&target)
+            self.config
+                .target_config
+                .get(&target)
                 .and_then(|t| t.crt_static)
         }
     }
 
     /// Returns the "musl root" for this `target`, if defined
     fn musl_root(&self, target: Interned<String>) -> Option<&Path> {
-        self.config.target_config.get(&target)
+        self.config
+            .target_config
+            .get(&target)
             .and_then(|t| t.musl_root.as_ref())
             .or(self.config.musl_root.as_ref())
             .map(|p| &**p)
@@ -711,8 +741,8 @@ impl Build {
     /// Returns whether the target will be tested using the `remote-test-client`
     /// and `remote-test-server` binaries.
     fn remote_tested(&self, target: Interned<String>) -> bool {
-        self.qemu_rootfs(target).is_some() || target.contains("android") ||
-        env::var_os("TEST_DEVICE_ADDR").is_some()
+        self.qemu_rootfs(target).is_some() || target.contains("android")
+            || env::var_os("TEST_DEVICE_ADDR").is_some()
     }
 
     /// Returns the root of the "rootfs" image that this target will be using,
@@ -721,7 +751,9 @@ impl Build {
     /// If `Some` is returned then that means that tests for this target are
     /// emulated with QEMU and binaries will need to be shipped to the emulator.
     fn qemu_rootfs(&self, target: Interned<String>) -> Option<&Path> {
-        self.config.target_config.get(&target)
+        self.config
+            .target_config
+            .get(&target)
             .and_then(|t| t.qemu_rootfs.as_ref())
             .map(|p| &**p)
     }
@@ -755,9 +787,8 @@ impl Build {
     /// When all of these conditions are met the build will lift artifacts from
     /// the previous stage forward.
     fn force_use_stage1(&self, compiler: Compiler, target: Interned<String>) -> bool {
-        !self.config.full_bootstrap &&
-            compiler.stage >= 2 &&
-            (self.hosts.iter().any(|h| *h == target) || target == self.build)
+        !self.config.full_bootstrap && compiler.stage >= 2
+            && (self.hosts.iter().any(|h| *h == target) || target == self.build)
     }
 
     /// Returns the directory that OpenSSL artifacts are compiled into if
@@ -799,7 +830,7 @@ impl Build {
 
     fn beta_prerelease_version(&self) -> u32 {
         if let Some(s) = self.prerelease_version.get() {
-            return s
+            return s;
         }
 
         let beta = output(
@@ -807,7 +838,7 @@ impl Build {
                 .arg("ls-remote")
                 .arg("origin")
                 .arg("beta")
-                .current_dir(&self.src)
+                .current_dir(&self.src),
         );
         let beta = beta.trim().split_whitespace().next().unwrap();
         let master = output(
@@ -815,7 +846,7 @@ impl Build {
                 .arg("ls-remote")
                 .arg("origin")
                 .arg("master")
-                .current_dir(&self.src)
+                .current_dir(&self.src),
         );
         let master = master.trim().split_whitespace().next().unwrap();
 
@@ -907,7 +938,7 @@ impl Build {
             let prefix = "version = \"";
             let suffix = "\"";
             if line.starts_with(prefix) && line.ends_with(suffix) {
-                return line[prefix.len()..line.len() - suffix.len()].to_string()
+                return line[prefix.len()..line.len() - suffix.len()].to_string();
             }
         }
 
@@ -927,7 +958,9 @@ impl Build {
     /// ends when the returned object is dropped. Folding can only be used in
     /// the Travis CI environment.
     pub fn fold_output<D, F>(&self, name: F) -> Option<OutputFolder>
-        where D: Into<String>, F: FnOnce() -> D
+    where
+        D: Into<String>,
+        F: FnOnce() -> D,
     {
         if self.ci_env == CiEnv::Travis {
             Some(OutputFolder::new(name().into()))

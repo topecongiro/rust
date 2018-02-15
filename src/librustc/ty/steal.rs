@@ -32,20 +32,20 @@ use std::mem;
 ///
 /// FIXME(#41710) -- what is the best way to model linear queries?
 pub struct Steal<T> {
-    value: RefCell<Option<T>>
+    value: RefCell<Option<T>>,
 }
 
 impl<T> Steal<T> {
     pub fn new(value: T) -> Self {
         Steal {
-            value: RefCell::new(Some(value))
+            value: RefCell::new(Some(value)),
         }
     }
 
     pub fn borrow(&self) -> Ref<T> {
         Ref::map(self.value.borrow(), |opt| match *opt {
             None => bug!("attempted to read from stolen value"),
-            Some(ref v) => v
+            Some(ref v) => v,
         })
     }
 

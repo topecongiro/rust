@@ -18,7 +18,6 @@
        html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
        html_root_url = "https://doc.rust-lang.org/nightly/")]
 #![deny(warnings)]
-
 #![feature(rustc_diagnostic_macros)]
 
 #[macro_use]
@@ -28,10 +27,10 @@ extern crate rustc_const_math;
 
 #[macro_use]
 extern crate log;
+extern crate rustc_errors as errors;
 #[macro_use]
 extern crate syntax;
 extern crate syntax_pos;
-extern crate rustc_errors as errors;
 
 use rustc::ty::maps::Providers;
 

@@ -10,11 +10,13 @@
 
 // FIXME: This needs an audit for correctness and completeness.
 
-use abi::{FnType, ArgType, LayoutExt, Reg, RegKind, Uniform};
+use abi::{ArgType, FnType, LayoutExt, Reg, RegKind, Uniform};
 use context::CodegenCx;
 
-fn is_homogeneous_aggregate<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>, arg: &mut ArgType<'tcx>)
-                                     -> Option<Uniform> {
+fn is_homogeneous_aggregate<'a, 'tcx>(
+    cx: &CodegenCx<'a, 'tcx>,
+    arg: &mut ArgType<'tcx>,
+) -> Option<Uniform> {
     arg.layout.homogeneous_aggregate(cx).and_then(|unit| {
         // Ensure we have at most eight uniquely addressable members.
         if arg.layout.size > unit.size.checked_mul(8, cx).unwrap() {
@@ -24,13 +26,13 @@ fn is_homogeneous_aggregate<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>, arg: &mut ArgTyp
         let valid_unit = match unit.kind {
             RegKind::Integer => false,
             RegKind::Float => true,
-            RegKind::Vector => arg.layout.size.bits() == 128
+            RegKind::Vector => arg.layout.size.bits() == 128,
         };
 
         if valid_unit {
             Some(Uniform {
                 unit,
-                total: arg.layout.size
+                total: arg.layout.size,
             })
         } else {
             None
@@ -61,10 +63,7 @@ fn classify_ret_ty<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>, ret: &mut ArgType<'tcx>) 
             Reg::i64()
         };
 
-        ret.cast_to(Uniform {
-            unit,
-            total: size
-        });
+        ret.cast_to(Uniform { unit, total: size });
         return;
     }
 
@@ -91,7 +90,7 @@ fn classify_arg_ty<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>, arg: &mut ArgType<'tcx>) 
 
     arg.cast_to(Uniform {
         unit: Reg::i64(),
-        total
+        total,
     });
 }
 
@@ -101,7 +100,9 @@ pub fn compute_abi_info<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>, fty: &mut FnType<'tc
     }
 
     for arg in &mut fty.args {
-        if arg.is_ignore() { continue; }
+        if arg.is_ignore() {
+            continue;
+        }
         classify_arg_ty(cx, arg);
     }
 }

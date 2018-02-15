@@ -27,11 +27,11 @@
 use rustc::ty::cast::CastKind;
 use rustc_const_eval::ConstContext;
 use rustc::middle::const_val::ConstEvalErr;
-use rustc::middle::const_val::ErrKind::{IndexOpFeatureGated, UnimplementedConstVal, MiscCatchAll};
+use rustc::middle::const_val::ErrKind::{IndexOpFeatureGated, MiscCatchAll, UnimplementedConstVal};
 use rustc::middle::const_val::ErrKind::{ErroneousReferencedConstant, MiscBinaryOp, NonConstPath};
-use rustc::middle::const_val::ErrKind::{TypeckError, Math, LayoutError};
+use rustc::middle::const_val::ErrKind::{LayoutError, Math, TypeckError};
 use rustc_const_math::{ConstMathErr, Op};
-use rustc::hir::def::{Def, CtorKind};
+use rustc::hir::def::{CtorKind, Def};
 use rustc::hir::def_id::DefId;
 use rustc::hir::map::blocks::FnLikeNode;
 use rustc::middle::expr_use_visitor as euv;
@@ -48,7 +48,7 @@ use rustc::hir::{self, PatKind, RangeEnd};
 use std::rc::Rc;
 use syntax::ast;
 use syntax_pos::{Span, DUMMY_SP};
-use rustc::hir::intravisit::{self, Visitor, NestedVisitorMap};
+use rustc::hir::intravisit::{self, NestedVisitorMap, Visitor};
 
 use std::cmp::Ordering;
 
@@ -68,23 +68,22 @@ pub fn check_crate<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>) {
     tcx.sess.abort_if_errors();
 }
 
-fn const_is_rvalue_promotable_to_static<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                                                  def_id: DefId)
-                                                  -> bool
-{
+fn const_is_rvalue_promotable_to_static<'a, 'tcx>(
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    def_id: DefId,
+) -> bool {
     assert!(def_id.is_local());
 
-    let node_id = tcx.hir.as_local_node_id(def_id)
-                     .expect("rvalue_promotable_map invoked with non-local def-id");
+    let node_id = tcx.hir
+        .as_local_node_id(def_id)
+        .expect("rvalue_promotable_map invoked with non-local def-id");
     let body_id = tcx.hir.body_owned_by(node_id);
     let body_hir_id = tcx.hir.node_to_hir_id(body_id.node_id);
-    tcx.rvalue_promotable_map(def_id).contains(&body_hir_id.local_id)
+    tcx.rvalue_promotable_map(def_id)
+        .contains(&body_hir_id.local_id)
 }
 
-fn rvalue_promotable_map<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                                   def_id: DefId)
-                                   -> Rc<ItemLocalSet>
-{
+fn rvalue_promotable_map<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, def_id: DefId) -> Rc<ItemLocalSet> {
     let outer_def_id = tcx.closure_base_def_id(def_id);
     if outer_def_id != def_id {
         return tcx.rvalue_promotable_map(outer_def_id);
@@ -103,8 +102,9 @@ fn rvalue_promotable_map<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
     };
 
     // `def_id` should be a `Body` owner
-    let node_id = tcx.hir.as_local_node_id(def_id)
-                     .expect("rvalue_promotable_map invoked with non-local def-id");
+    let node_id = tcx.hir
+        .as_local_node_id(def_id)
+        .expect("rvalue_promotable_map invoked with non-local def-id");
     let body_id = tcx.hir.body_owned_by(node_id);
     visitor.visit_nested_body(body_id);
 
@@ -125,7 +125,11 @@ struct CheckCrateVisitor<'a, 'tcx: 'a> {
 
 impl<'a, 'gcx> CheckCrateVisitor<'a, 'gcx> {
     fn const_cx(&self) -> ConstContext<'a, 'gcx> {
-        ConstContext::new(self.tcx, self.param_env.and(self.identity_substs), self.tables)
+        ConstContext::new(
+            self.tcx,
+            self.param_env.and(self.identity_substs),
+            self.tables,
+        )
     }
 
     fn check_const_eval(&self, expr: &'gcx hir::Expr) {
@@ -137,11 +141,15 @@ impl<'a, 'gcx> CheckCrateVisitor<'a, 'gcx> {
                 TypeckError => {}
                 MiscCatchAll => {}
                 _ => {
-                    self.tcx.lint_node(CONST_ERR,
-                                       expr.id,
-                                       expr.span,
-                                       &format!("constant evaluation error: {}",
-                                                err.description().into_oneline()));
+                    self.tcx.lint_node(
+                        CONST_ERR,
+                        expr.id,
+                        expr.span,
+                        &format!(
+                            "constant evaluation error: {}",
+                            err.description().into_oneline()
+                        ),
+                    );
                 }
             }
         }
@@ -149,8 +157,7 @@ impl<'a, 'gcx> CheckCrateVisitor<'a, 'gcx> {
 
     // Returns true iff all the values of the type are promotable.
     fn type_has_only_promotable_values(&mut self, ty: Ty<'gcx>) -> bool {
-        ty.is_freeze(self.tcx, self.param_env, DUMMY_SP) &&
-        !ty.needs_drop(self.tcx, self.param_env)
+        ty.is_freeze(self.tcx, self.param_env, DUMMY_SP) && !ty.needs_drop(self.tcx, self.param_env)
     }
 
     fn handle_const_fn_call(&mut self, def_id: DefId, ret_ty: Ty<'gcx>) {
@@ -190,7 +197,6 @@ impl<'a, 'tcx> Visitor<'tcx> for CheckCrateVisitor<'a, 'tcx> {
             _ => {}
         };
 
-
         self.tables = self.tcx.typeck_tables_of(item_def_id);
         self.param_env = self.tcx.param_env(item_def_id);
         self.identity_substs = Substs::identity_for_item(self.tcx, item_def_id);
@@ -222,20 +228,20 @@ impl<'a, 'tcx> Visitor<'tcx> for CheckCrateVisitor<'a, 'tcx> {
             PatKind::Range(ref start, ref end, RangeEnd::Excluded) => {
                 match self.const_cx().compare_lit_exprs(p.span, start, end) {
                     Ok(Ordering::Less) => {}
-                    Ok(Ordering::Equal) |
-                    Ok(Ordering::Greater) => {
-                        span_err!(self.tcx.sess,
-                                  start.span,
-                                  E0579,
-                                  "lower range bound must be less than upper");
+                    Ok(Ordering::Equal) | Ok(Ordering::Greater) => {
+                        span_err!(
+                            self.tcx.sess,
+                            start.span,
+                            E0579,
+                            "lower range bound must be less than upper"
+                        );
                     }
                     Err(ErrorReported) => {}
                 }
             }
             PatKind::Range(ref start, ref end, RangeEnd::Included) => {
                 match self.const_cx().compare_lit_exprs(p.span, start, end) {
-                    Ok(Ordering::Less) |
-                    Ok(Ordering::Equal) => {}
+                    Ok(Ordering::Less) | Ok(Ordering::Equal) => {}
                     Ok(Ordering::Greater) => {
                         let mut err = struct_span_err!(
                             self.tcx.sess,
@@ -245,10 +251,12 @@ impl<'a, 'tcx> Visitor<'tcx> for CheckCrateVisitor<'a, 'tcx> {
                         );
                         err.span_label(start.span, "lower bound larger than upper bound");
                         if self.tcx.sess.teach(&err.get_code().unwrap()) {
-                            err.note("When matching against a range, the compiler verifies that \
-                                      the range is non-empty. Range patterns include both \
-                                      end-points, so this is equivalent to requiring the start of \
-                                      the range to be less than or equal to the end of the range.");
+                            err.note(
+                                "When matching against a range, the compiler verifies that \
+                                 the range is non-empty. Range patterns include both \
+                                 end-points, so this is equivalent to requiring the start of \
+                                 the range to be less than or equal to the end of the range.",
+                            );
                         }
                         err.emit();
                     }
@@ -271,8 +279,7 @@ impl<'a, 'tcx> Visitor<'tcx> for CheckCrateVisitor<'a, 'tcx> {
                     hir::DeclItem(_) => {}
                 }
             }
-            hir::StmtExpr(..) |
-            hir::StmtSemi(..) => {
+            hir::StmtExpr(..) | hir::StmtSemi(..) => {
                 self.promotable = false;
             }
         }
@@ -311,23 +318,49 @@ impl<'a, 'tcx> Visitor<'tcx> for CheckCrateVisitor<'a, 'tcx> {
         if self.in_fn && self.promotable {
             match self.const_cx().eval(ex) {
                 Ok(_) => {}
-                Err(ConstEvalErr { kind: UnimplementedConstVal(_), .. }) |
-                Err(ConstEvalErr { kind: MiscCatchAll, .. }) |
-                Err(ConstEvalErr { kind: MiscBinaryOp, .. }) |
-                Err(ConstEvalErr { kind: NonConstPath, .. }) |
-                Err(ConstEvalErr { kind: ErroneousReferencedConstant(_), .. }) |
-                Err(ConstEvalErr { kind: Math(ConstMathErr::Overflow(Op::Shr)), .. }) |
-                Err(ConstEvalErr { kind: Math(ConstMathErr::Overflow(Op::Shl)), .. }) |
-                Err(ConstEvalErr { kind: IndexOpFeatureGated, .. }) => {}
-                Err(ConstEvalErr { kind: TypeckError, .. }) => {}
                 Err(ConstEvalErr {
-                    kind: LayoutError(ty::layout::LayoutError::Unknown(_)), ..
+                    kind: UnimplementedConstVal(_),
+                    ..
+                })
+                | Err(ConstEvalErr {
+                    kind: MiscCatchAll, ..
+                })
+                | Err(ConstEvalErr {
+                    kind: MiscBinaryOp, ..
+                })
+                | Err(ConstEvalErr {
+                    kind: NonConstPath, ..
+                })
+                | Err(ConstEvalErr {
+                    kind: ErroneousReferencedConstant(_),
+                    ..
+                })
+                | Err(ConstEvalErr {
+                    kind: Math(ConstMathErr::Overflow(Op::Shr)),
+                    ..
+                })
+                | Err(ConstEvalErr {
+                    kind: Math(ConstMathErr::Overflow(Op::Shl)),
+                    ..
+                })
+                | Err(ConstEvalErr {
+                    kind: IndexOpFeatureGated,
+                    ..
+                }) => {}
+                Err(ConstEvalErr {
+                    kind: TypeckError, ..
+                }) => {}
+                Err(ConstEvalErr {
+                    kind: LayoutError(ty::layout::LayoutError::Unknown(_)),
+                    ..
                 }) => {}
                 Err(msg) => {
-                    self.tcx.lint_node(CONST_ERR,
-                                       ex.id,
-                                       msg.span,
-                                       &msg.description().into_oneline().into_owned());
+                    self.tcx.lint_node(
+                        CONST_ERR,
+                        ex.id,
+                        msg.span,
+                        &msg.description().into_oneline().into_owned(),
+                    );
                 }
             }
         }
@@ -560,13 +593,13 @@ fn check_adjustments<'a, 'tcx>(v: &mut CheckCrateVisitor<'a, 'tcx>, e: &hir::Exp
 
     for adjustment in v.tables.expr_adjustments(e) {
         match adjustment.kind {
-            Adjust::NeverToAny |
-            Adjust::ReifyFnPointer |
-            Adjust::UnsafeFnPointer |
-            Adjust::ClosureFnPointer |
-            Adjust::MutToConstPointer |
-            Adjust::Borrow(_) |
-            Adjust::Unsize => {}
+            Adjust::NeverToAny
+            | Adjust::ReifyFnPointer
+            | Adjust::UnsafeFnPointer
+            | Adjust::ClosureFnPointer
+            | Adjust::MutToConstPointer
+            | Adjust::Borrow(_)
+            | Adjust::Unsize => {}
 
             Adjust::Deref(ref overloaded) => {
                 if overloaded.is_some() {
@@ -579,19 +612,24 @@ fn check_adjustments<'a, 'tcx>(v: &mut CheckCrateVisitor<'a, 'tcx>, e: &hir::Exp
 }
 
 impl<'a, 'gcx, 'tcx> euv::Delegate<'tcx> for CheckCrateVisitor<'a, 'gcx> {
-    fn consume(&mut self,
-               _consume_id: ast::NodeId,
-               _consume_span: Span,
-               _cmt: mc::cmt,
-               _mode: euv::ConsumeMode) {}
+    fn consume(
+        &mut self,
+        _consume_id: ast::NodeId,
+        _consume_span: Span,
+        _cmt: mc::cmt,
+        _mode: euv::ConsumeMode,
+    ) {
+    }
 
-    fn borrow(&mut self,
-              borrow_id: ast::NodeId,
-              _borrow_span: Span,
-              cmt: mc::cmt<'tcx>,
-              _loan_region: ty::Region<'tcx>,
-              bk: ty::BorrowKind,
-              loan_cause: euv::LoanCause) {
+    fn borrow(
+        &mut self,
+        borrow_id: ast::NodeId,
+        _borrow_span: Span,
+        cmt: mc::cmt<'tcx>,
+        _loan_region: ty::Region<'tcx>,
+        bk: ty::BorrowKind,
+        loan_cause: euv::LoanCause,
+    ) {
         // Kind of hacky, but we allow Unsafe coercions in constants.
         // These occur when we convert a &T or *T to a *U, as well as
         // when making a thin pointer (e.g., `*T`) into a fat pointer
@@ -619,24 +657,25 @@ impl<'a, 'gcx, 'tcx> euv::Delegate<'tcx> for CheckCrateVisitor<'a, 'gcx> {
                 Categorization::StaticItem => {
                     break;
                 }
-                Categorization::Deref(ref cmt, _) |
-                Categorization::Downcast(ref cmt, _) |
-                Categorization::Interior(ref cmt, _) => {
+                Categorization::Deref(ref cmt, _)
+                | Categorization::Downcast(ref cmt, _)
+                | Categorization::Interior(ref cmt, _) => {
                     cur = cmt;
                 }
 
-                Categorization::Upvar(..) |
-                Categorization::Local(..) => break,
+                Categorization::Upvar(..) | Categorization::Local(..) => break,
             }
         }
     }
 
     fn decl_without_init(&mut self, _id: ast::NodeId, _span: Span) {}
-    fn mutate(&mut self,
-              _assignment_id: ast::NodeId,
-              _assignment_span: Span,
-              _assignee_cmt: mc::cmt,
-              _mode: euv::MutateMode) {
+    fn mutate(
+        &mut self,
+        _assignment_id: ast::NodeId,
+        _assignment_span: Span,
+        _assignee_cmt: mc::cmt,
+        _mode: euv::MutateMode,
+    ) {
     }
 
     fn matched_pat(&mut self, _: &hir::Pat, _: mc::cmt, _: euv::MatchMode) {}

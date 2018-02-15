@@ -113,10 +113,7 @@ impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
     ) -> InferOk<'tcx, (T, AnonTypeMap<'tcx>)> {
         debug!(
             "instantiate_anon_types(value={:?}, parent_def_id={:?}, body_id={:?}, param_env={:?})",
-            value,
-            parent_def_id,
-            body_id,
-            param_env,
+            value, parent_def_id, body_id, param_env,
         );
         let mut instantiator = Instantiator {
             infcx: self,
@@ -564,12 +561,13 @@ impl<'a, 'gcx, 'tcx> Instantiator<'a, 'gcx, 'tcx> {
                             return self.fold_anon_ty(ty, def_id, substs);
                         }
 
-                        debug!("instantiate_anon_types_in_map: \
-                                encountered anon with wrong parent \
-                                def_id={:?} \
-                                anon_parent_def_id={:?}",
-                               def_id,
-                               anon_parent_def_id);
+                        debug!(
+                            "instantiate_anon_types_in_map: \
+                             encountered anon with wrong parent \
+                             def_id={:?} \
+                             anon_parent_def_id={:?}",
+                            def_id, anon_parent_def_id
+                        );
                     }
                 }
 
@@ -589,8 +587,7 @@ impl<'a, 'gcx, 'tcx> Instantiator<'a, 'gcx, 'tcx> {
 
         debug!(
             "instantiate_anon_types: TyAnon(def_id={:?}, substs={:?})",
-            def_id,
-            substs
+            def_id, substs
         );
 
         // Use the same type variable if the exact same TyAnon appears more

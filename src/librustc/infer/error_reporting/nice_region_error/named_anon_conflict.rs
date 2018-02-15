@@ -22,8 +22,7 @@ impl<'a, 'gcx, 'tcx> NiceRegionError<'a, 'gcx, 'tcx> {
 
         debug!(
             "try_report_named_anon_conflict(sub={:?}, sup={:?})",
-            sub,
-            sup
+            sub, sup
         );
 
         // Determine whether the sub and sup consist of one named region ('a)

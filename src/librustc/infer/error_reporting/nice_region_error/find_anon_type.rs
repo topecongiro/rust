@@ -135,9 +135,7 @@ impl<'a, 'gcx, 'tcx> Visitor<'gcx> for FindNestedTypeVisitor<'a, 'gcx, 'tcx> {
                     ) => {
                         debug!(
                             "LateBoundAnon depth = {:?} anon_index = {:?} br_index={:?}",
-                            debruijn_index.depth,
-                            anon_index,
-                            br_index
+                            debruijn_index.depth, anon_index, br_index
                         );
                         if debruijn_index.depth == self.depth && anon_index == br_index {
                             self.found_type = Some(arg);
@@ -152,8 +150,7 @@ impl<'a, 'gcx, 'tcx> Visitor<'gcx> for FindNestedTypeVisitor<'a, 'gcx, 'tcx> {
                         debug!(
                             "EarlyBound self.infcx.tcx.hir.local_def_id(id)={:?} \
                              def_id={:?}",
-                            id,
-                            def_id
+                            id, def_id
                         );
                         if id == def_id {
                             self.found_type = Some(arg);
@@ -245,8 +242,7 @@ impl<'a, 'gcx, 'tcx> Visitor<'gcx> for TyPathVisitor<'a, 'gcx, 'tcx> {
                 debug!(
                     "EarlyBound self.infcx.tcx.hir.local_def_id(id)={:?} \
                      def_id={:?}",
-                    id,
-                    def_id
+                    id, def_id
                 );
                 if id == def_id {
                     self.found_it = true;

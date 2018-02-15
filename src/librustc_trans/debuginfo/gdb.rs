@@ -12,7 +12,7 @@
 
 use llvm;
 
-use common::{C_bytes, CodegenCx, C_i32};
+use common::{C_bytes, C_i32, CodegenCx};
 use builder::Builder;
 use declare;
 use type_::Type;
@@ -20,7 +20,6 @@ use rustc::session::config::NoDebugInfo;
 
 use std::ptr;
 use syntax::attr;
-
 
 /// Inserts a side-effect free instruction sequence that makes sure that the
 /// .debug_gdb_scripts global is referenced, so it isn't removed by the linker.
@@ -40,28 +39,22 @@ pub fn insert_reference_to_gdb_debug_scripts_section_global(bx: &Builder) {
 
 /// Allocates the global variable responsible for the .debug_gdb_scripts binary
 /// section.
-pub fn get_or_insert_gdb_debug_scripts_section_global(cx: &CodegenCx)
-                                                  -> llvm::ValueRef {
+pub fn get_or_insert_gdb_debug_scripts_section_global(cx: &CodegenCx) -> llvm::ValueRef {
     let c_section_var_name = "__rustc_debug_gdb_scripts_section__\0";
-    let section_var_name = &c_section_var_name[..c_section_var_name.len()-1];
+    let section_var_name = &c_section_var_name[..c_section_var_name.len() - 1];
 
-    let section_var = unsafe {
-        llvm::LLVMGetNamedGlobal(cx.llmod,
-                                 c_section_var_name.as_ptr() as *const _)
-    };
+    let section_var =
+        unsafe { llvm::LLVMGetNamedGlobal(cx.llmod, c_section_var_name.as_ptr() as *const _) };
 
     if section_var == ptr::null_mut() {
         let section_name = b".debug_gdb_scripts\0";
         let section_contents = b"\x01gdb_load_rust_pretty_printers.py\0";
 
         unsafe {
-            let llvm_type = Type::array(&Type::i8(cx),
-                                        section_contents.len() as u64);
+            let llvm_type = Type::array(&Type::i8(cx), section_contents.len() as u64);
 
-            let section_var = declare::define_global(cx, section_var_name,
-                                                     llvm_type).unwrap_or_else(||{
-                bug!("symbol `{}` is already defined", section_var_name)
-            });
+            let section_var = declare::define_global(cx, section_var_name, llvm_type)
+                .unwrap_or_else(|| bug!("symbol `{}` is already defined", section_var_name));
             llvm::LLVMSetSection(section_var, section_name.as_ptr() as *const _);
             llvm::LLVMSetInitializer(section_var, C_bytes(cx, section_contents));
             llvm::LLVMSetGlobalConstant(section_var, llvm::True);
@@ -79,11 +72,9 @@ pub fn get_or_insert_gdb_debug_scripts_section_global(cx: &CodegenCx)
 
 pub fn needs_gdb_debug_scripts_section(cx: &CodegenCx) -> bool {
     let omit_gdb_pretty_printer_section =
-        attr::contains_name(&cx.tcx.hir.krate_attrs(),
-                            "omit_gdb_pretty_printer_section");
+        attr::contains_name(&cx.tcx.hir.krate_attrs(), "omit_gdb_pretty_printer_section");
 
-    !omit_gdb_pretty_printer_section &&
-    !cx.sess().target.target.options.is_like_osx &&
-    !cx.sess().target.target.options.is_like_windows &&
-    cx.sess().opts.debuginfo != NoDebugInfo
+    !omit_gdb_pretty_printer_section && !cx.sess().target.target.options.is_like_osx
+        && !cx.sess().target.target.options.is_like_windows
+        && cx.sess().opts.debuginfo != NoDebugInfo
 }

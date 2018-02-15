@@ -20,7 +20,9 @@ impl BitVector {
     #[inline]
     pub fn new(num_bits: usize) -> BitVector {
         let num_words = u64s(num_bits);
-        BitVector { data: vec![0; num_words] }
+        BitVector {
+            data: vec![0; num_words],
+        }
     }
 
     #[inline]
@@ -126,7 +128,10 @@ impl<'a> Iterator for BitVectorIter<'a> {
 }
 
 impl FromIterator<bool> for BitVector {
-    fn from_iter<I>(iter: I) -> BitVector where I: IntoIterator<Item=bool> {
+    fn from_iter<I>(iter: I) -> BitVector
+    where
+        I: IntoIterator<Item = bool>,
+    {
         let iter = iter.into_iter();
         let (len, _) = iter.size_hint();
         // Make the minimum length for the bitvector 64 bits since that's
@@ -278,10 +283,11 @@ fn bitvec_iter_works() {
     bitvec.insert(65);
     bitvec.insert(66);
     bitvec.insert(99);
-    assert_eq!(bitvec.iter().collect::<Vec<_>>(),
-               [1, 10, 19, 62, 63, 64, 65, 66, 99]);
+    assert_eq!(
+        bitvec.iter().collect::<Vec<_>>(),
+        [1, 10, 19, 62, 63, 64, 65, 66, 99]
+    );
 }
-
 
 #[test]
 fn bitvec_iter_works_2() {
@@ -314,24 +320,24 @@ fn union_two_vecs() {
 #[test]
 fn grow() {
     let mut vec1 = BitVector::new(65);
-    for index in 0 .. 65 {
+    for index in 0..65 {
         assert!(vec1.insert(index));
         assert!(!vec1.insert(index));
     }
     vec1.grow(128);
 
     // Check if the bits set before growing are still set
-    for index in 0 .. 65 {
+    for index in 0..65 {
         assert!(vec1.contains(index));
     }
 
     // Check if the new bits are all un-set
-    for index in 65 .. 128 {
+    for index in 65..128 {
         assert!(!vec1.contains(index));
     }
 
     // Check that we can set all new bits without running out of bounds
-    for index in 65 .. 128 {
+    for index in 65..128 {
         assert!(vec1.insert(index));
         assert!(!vec1.insert(index));
     }

@@ -12,7 +12,7 @@ use io::prelude::*;
 
 use fmt;
 use io::{self, Initializer};
-use net::{ToSocketAddrs, SocketAddr, Shutdown};
+use net::{Shutdown, SocketAddr, ToSocketAddrs};
 use sys_common::net as net_imp;
 use sys_common::{AsInner, FromInner, IntoInner};
 use time::Duration;
@@ -103,7 +103,9 @@ pub struct TcpListener(net_imp::TcpListener);
 /// [`TcpListener`]: ../../std/net/struct.TcpListener.html
 #[stable(feature = "rust1", since = "1.0.0")]
 #[derive(Debug)]
-pub struct Incoming<'a> { listener: &'a TcpListener }
+pub struct Incoming<'a> {
+    listener: &'a TcpListener,
+}
 
 impl TcpStream {
     /// Opens a TCP connection to a remote host.
@@ -546,7 +548,9 @@ impl TcpStream {
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl Read for TcpStream {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> { self.0.read(buf) }
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.0.read(buf)
+    }
 
     #[inline]
     unsafe fn initializer(&self) -> Initializer {
@@ -555,12 +559,18 @@ impl Read for TcpStream {
 }
 #[stable(feature = "rust1", since = "1.0.0")]
 impl Write for TcpStream {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> { self.0.write(buf) }
-    fn flush(&mut self) -> io::Result<()> { Ok(()) }
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.0.write(buf)
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
 }
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<'a> Read for &'a TcpStream {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> { self.0.read(buf) }
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.0.read(buf)
+    }
 
     #[inline]
     unsafe fn initializer(&self) -> Initializer {
@@ -569,20 +579,30 @@ impl<'a> Read for &'a TcpStream {
 }
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<'a> Write for &'a TcpStream {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> { self.0.write(buf) }
-    fn flush(&mut self) -> io::Result<()> { Ok(()) }
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.0.write(buf)
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
 }
 
 impl AsInner<net_imp::TcpStream> for TcpStream {
-    fn as_inner(&self) -> &net_imp::TcpStream { &self.0 }
+    fn as_inner(&self) -> &net_imp::TcpStream {
+        &self.0
+    }
 }
 
 impl FromInner<net_imp::TcpStream> for TcpStream {
-    fn from_inner(inner: net_imp::TcpStream) -> TcpStream { TcpStream(inner) }
+    fn from_inner(inner: net_imp::TcpStream) -> TcpStream {
+        TcpStream(inner)
+    }
 }
 
 impl IntoInner<net_imp::TcpStream> for TcpStream {
-    fn into_inner(self) -> net_imp::TcpStream { self.0 }
+    fn into_inner(self) -> net_imp::TcpStream {
+        self.0
+    }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
@@ -865,7 +885,9 @@ impl<'a> Iterator for Incoming<'a> {
 }
 
 impl AsInner<net_imp::TcpListener> for TcpListener {
-    fn as_inner(&self) -> &net_imp::TcpListener { &self.0 }
+    fn as_inner(&self) -> &net_imp::TcpListener {
+        &self.0
+    }
 }
 
 impl FromInner<net_imp::TcpListener> for TcpListener {
@@ -875,7 +897,9 @@ impl FromInner<net_imp::TcpListener> for TcpListener {
 }
 
 impl IntoInner<net_imp::TcpListener> for TcpListener {
-    fn into_inner(self) -> net_imp::TcpListener { self.0 }
+    fn into_inner(self) -> net_imp::TcpListener {
+        self.0
+    }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
@@ -893,7 +917,7 @@ mod tests {
     use net::test::{next_test_ip4, next_test_ip6};
     use sync::mpsc::channel;
     use sys_common::AsInner;
-    use time::{Instant, Duration};
+    use time::{Duration, Instant};
     use thread;
 
     fn each_ip(f: &mut FnMut(SocketAddr)) {
@@ -914,8 +938,7 @@ mod tests {
     fn bind_error() {
         match TcpListener::bind("1.1.1.1:9999") {
             Ok(..) => panic!(),
-            Err(e) =>
-                assert_eq!(e.kind(), ErrorKind::AddrNotAvailable),
+            Err(e) => assert_eq!(e.kind(), ErrorKind::AddrNotAvailable),
         }
     }
 
@@ -923,11 +946,14 @@ mod tests {
     fn connect_error() {
         match TcpStream::connect("0.0.0.0:1") {
             Ok(..) => panic!(),
-            Err(e) => assert!(e.kind() == ErrorKind::ConnectionRefused ||
-                              e.kind() == ErrorKind::InvalidInput ||
-                              e.kind() == ErrorKind::AddrInUse ||
-                              e.kind() == ErrorKind::AddrNotAvailable,
-                              "bad error: {} {:?}", e, e.kind()),
+            Err(e) => assert!(
+                e.kind() == ErrorKind::ConnectionRefused || e.kind() == ErrorKind::InvalidInput
+                    || e.kind() == ErrorKind::AddrInUse
+                    || e.kind() == ErrorKind::AddrNotAvailable,
+                "bad error: {} {:?}",
+                e,
+                e.kind()
+            ),
         }
     }
 
@@ -937,8 +963,7 @@ mod tests {
         let listener = t!(TcpListener::bind(&socket_addr));
 
         let _t = thread::spawn(move || {
-            let mut stream = t!(TcpStream::connect(&("localhost",
-                                                     socket_addr.port())));
+            let mut stream = t!(TcpStream::connect(&("localhost", socket_addr.port())));
             t!(stream.write(&[144]));
         });
 
@@ -953,7 +978,7 @@ mod tests {
         each_ip(&mut |addr| {
             let acceptor = t!(TcpListener::bind(&addr));
 
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 let host = match addr {
                     SocketAddr::V4(..) => "127.0.0.1",
                     SocketAddr::V6(..) => "::1",
@@ -975,7 +1000,7 @@ mod tests {
             let acceptor = t!(TcpListener::bind(&addr));
 
             let (tx, rx) = channel();
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 let mut stream = t!(TcpStream::connect(&addr));
                 t!(stream.write(&[99]));
                 tx.send(t!(stream.local_addr())).unwrap();
@@ -994,7 +1019,7 @@ mod tests {
         each_ip(&mut |addr| {
             let acceptor = t!(TcpListener::bind(&addr));
 
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 let _stream = t!(TcpStream::connect(&addr));
                 // Close
             });
@@ -1014,7 +1039,7 @@ mod tests {
             let acceptor = t!(TcpListener::bind(&addr));
 
             let (tx, rx) = channel();
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 drop(t!(TcpStream::connect(&addr)));
                 tx.send(()).unwrap();
             });
@@ -1025,10 +1050,12 @@ mod tests {
             match stream.write(&buf) {
                 Ok(..) => {}
                 Err(e) => {
-                    assert!(e.kind() == ErrorKind::ConnectionReset ||
-                            e.kind() == ErrorKind::BrokenPipe ||
-                            e.kind() == ErrorKind::ConnectionAborted,
-                            "unknown error: {}", e);
+                    assert!(
+                        e.kind() == ErrorKind::ConnectionReset || e.kind() == ErrorKind::BrokenPipe
+                            || e.kind() == ErrorKind::ConnectionAborted,
+                        "unknown error: {}",
+                        e
+                    );
                 }
             }
         })
@@ -1040,7 +1067,7 @@ mod tests {
             let max = 10;
             let acceptor = t!(TcpListener::bind(&addr));
 
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 for _ in 0..max {
                     let mut stream = t!(TcpStream::connect(&addr));
                     t!(stream.write(&[99]));
@@ -1062,11 +1089,11 @@ mod tests {
         each_ip(&mut |addr| {
             let acceptor = t!(TcpListener::bind(&addr));
 
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 let acceptor = acceptor;
                 for (i, stream) in acceptor.incoming().enumerate().take(MAX) {
                     // Start another thread to handle the connection
-                    let _t = thread::spawn(move|| {
+                    let _t = thread::spawn(move || {
                         let mut stream = t!(stream);
                         let mut buf = [0];
                         t!(stream.read(&mut buf));
@@ -1079,9 +1106,11 @@ mod tests {
         });
 
         fn connect(i: usize, addr: SocketAddr) {
-            if i == MAX { return }
+            if i == MAX {
+                return;
+            }
 
-            let t = thread::spawn(move|| {
+            let t = thread::spawn(move || {
                 let mut stream = t!(TcpStream::connect(&addr));
                 // Connect again before writing
                 connect(i + 1, addr);
@@ -1097,10 +1126,10 @@ mod tests {
         each_ip(&mut |addr| {
             let acceptor = t!(TcpListener::bind(&addr));
 
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 for stream in acceptor.incoming().take(MAX) {
                     // Start another thread to handle the connection
-                    let _t = thread::spawn(move|| {
+                    let _t = thread::spawn(move || {
                         let mut stream = t!(stream);
                         let mut buf = [0];
                         t!(stream.read(&mut buf));
@@ -1113,9 +1142,11 @@ mod tests {
         });
 
         fn connect(i: usize, addr: SocketAddr) {
-            if i == MAX { return }
+            if i == MAX {
+                return;
+            }
 
-            let t = thread::spawn(move|| {
+            let t = thread::spawn(move || {
                 let mut stream = t!(TcpStream::connect(&addr));
                 connect(i + 1, addr);
                 t!(stream.write(&[99]));
@@ -1130,7 +1161,7 @@ mod tests {
             let listener = t!(TcpListener::bind(&addr));
             let so_name = t!(listener.local_addr());
             assert_eq!(addr, so_name);
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 t!(listener.accept());
             });
 
@@ -1144,7 +1175,7 @@ mod tests {
         each_ip(&mut |addr| {
             let (tx, rx) = channel();
             let srv = t!(TcpListener::bind(&addr));
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 let mut cl = t!(srv.accept()).0;
                 cl.write(&[10]).unwrap();
                 let mut b = [0];
@@ -1167,10 +1198,13 @@ mod tests {
             match TcpListener::bind(&addr) {
                 Ok(..) => panic!(),
                 Err(e) => {
-                    assert!(e.kind() == ErrorKind::ConnectionRefused ||
-                            e.kind() == ErrorKind::Other ||
-                            e.kind() == ErrorKind::AddrInUse,
-                            "unknown error: {} {:?}", e, e.kind());
+                    assert!(
+                        e.kind() == ErrorKind::ConnectionRefused || e.kind() == ErrorKind::Other
+                            || e.kind() == ErrorKind::AddrInUse,
+                        "unknown error: {} {:?}",
+                        e,
+                        e.kind()
+                    );
                 }
             }
         })
@@ -1181,7 +1215,7 @@ mod tests {
         each_ip(&mut |addr| {
             let acceptor = t!(TcpListener::bind(&addr));
 
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 t!(TcpStream::connect(&addr));
             });
 
@@ -1196,7 +1230,7 @@ mod tests {
         each_ip(&mut |addr| {
             let acceptor = t!(TcpListener::bind(&addr));
 
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 let mut s = t!(TcpStream::connect(&addr));
                 let mut buf = [0, 0];
                 assert_eq!(s.read(&mut buf).unwrap(), 1);
@@ -1209,7 +1243,7 @@ mod tests {
 
             let (tx1, rx1) = channel();
             let (tx2, rx2) = channel();
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 let mut s2 = s2;
                 rx1.recv().unwrap();
                 t!(s2.write(&[1]));
@@ -1229,7 +1263,7 @@ mod tests {
             let (tx1, rx) = channel();
             let tx2 = tx1.clone();
 
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 let mut s = t!(TcpStream::connect(&addr));
                 t!(s.write(&[1]));
                 rx.recv().unwrap();
@@ -1241,7 +1275,7 @@ mod tests {
             let s2 = t!(s1.try_clone());
 
             let (done, rx) = channel();
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 let mut s2 = s2;
                 let mut buf = [0, 0];
                 t!(s2.read(&mut buf));
@@ -1261,7 +1295,7 @@ mod tests {
         each_ip(&mut |addr| {
             let acceptor = t!(TcpListener::bind(&addr));
 
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 let mut s = t!(TcpStream::connect(&addr));
                 let mut buf = [0, 1];
                 t!(s.read(&mut buf));
@@ -1272,7 +1306,7 @@ mod tests {
             let s2 = t!(s1.try_clone());
 
             let (done, rx) = channel();
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 let mut s2 = s2;
                 t!(s2.write(&[1]));
                 done.send(()).unwrap();
@@ -1287,7 +1321,7 @@ mod tests {
     fn shutdown_smoke() {
         each_ip(&mut |addr| {
             let a = t!(TcpListener::bind(&addr));
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 let mut c = t!(a.accept()).0;
                 let mut b = [0];
                 assert_eq!(c.read(&mut b).unwrap(), 0);
@@ -1308,7 +1342,7 @@ mod tests {
         each_ip(&mut |addr| {
             let a = t!(TcpListener::bind(&addr));
             let (tx, rx) = channel::<()>();
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 let _s = t!(a.accept());
                 let _ = rx.recv();
             });
@@ -1347,7 +1381,7 @@ mod tests {
         each_ip(&mut |addr| {
             let a = t!(TcpListener::bind(&addr));
             let (tx1, rx) = channel::<()>();
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 let _s = t!(a.accept());
                 let _ = rx.recv();
             });
@@ -1355,7 +1389,7 @@ mod tests {
             let s = t!(TcpStream::connect(&addr));
             let s2 = t!(s.try_clone());
             let (tx, rx) = channel();
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 let mut s2 = s2;
                 assert_eq!(t!(s2.read(&mut [0])), 0);
                 tx.send(()).unwrap();
@@ -1378,7 +1412,7 @@ mod tests {
             let (tx, rx) = channel();
             let (txdone, rxdone) = channel();
             let txdone2 = txdone.clone();
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 let mut tcp = t!(TcpStream::connect(&addr));
                 rx.recv().unwrap();
                 t!(tcp.write(&[0]));
@@ -1389,7 +1423,7 @@ mod tests {
             let tcp = t!(accept.accept()).0;
             let tcp2 = t!(tcp.try_clone());
             let txdone3 = txdone.clone();
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 let mut tcp2 = tcp2;
                 t!(tcp2.read(&mut [0]));
                 txdone3.send(()).unwrap();
@@ -1415,10 +1449,10 @@ mod tests {
             let a = t!(TcpListener::bind(&addr));
             let a2 = t!(a.try_clone());
 
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 let _ = TcpStream::connect(&addr);
             });
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 let _ = TcpStream::connect(&addr);
             });
 
@@ -1436,17 +1470,17 @@ mod tests {
             let (tx, rx) = channel();
             let tx2 = tx.clone();
 
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 tx.send(t!(a.accept())).unwrap();
             });
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 tx2.send(t!(a2.accept())).unwrap();
             });
 
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 let _ = TcpStream::connect(&addr);
             });
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 let _ = TcpStream::connect(&addr);
             });
 
@@ -1457,24 +1491,27 @@ mod tests {
 
     #[test]
     fn debug() {
-        let name = if cfg!(windows) {"socket"} else {"fd"};
+        let name = if cfg!(windows) { "socket" } else { "fd" };
         let socket_addr = next_test_ip4();
 
         let listener = t!(TcpListener::bind(&socket_addr));
         let listener_inner = listener.0.socket().as_inner();
-        let compare = format!("TcpListener {{ addr: {:?}, {}: {:?} }}",
-                              socket_addr, name, listener_inner);
+        let compare = format!(
+            "TcpListener {{ addr: {:?}, {}: {:?} }}",
+            socket_addr, name, listener_inner
+        );
         assert_eq!(format!("{:?}", listener), compare);
 
-        let stream = t!(TcpStream::connect(&("localhost",
-                                                 socket_addr.port())));
+        let stream = t!(TcpStream::connect(&("localhost", socket_addr.port())));
         let stream_inner = stream.0.socket().as_inner();
-        let compare = format!("TcpStream {{ addr: {:?}, \
-                              peer: {:?}, {}: {:?} }}",
-                              stream.local_addr().unwrap(),
-                              stream.peer_addr().unwrap(),
-                              name,
-                              stream_inner);
+        let compare = format!(
+            "TcpStream {{ addr: {:?}, \
+             peer: {:?}, {}: {:?} }}",
+            stream.local_addr().unwrap(),
+            stream.peer_addr().unwrap(),
+            name,
+            stream_inner
+        );
         assert_eq!(format!("{:?}", stream), compare);
     }
 
@@ -1602,9 +1639,9 @@ mod tests {
             let (txdone, rxdone) = channel();
 
             let srv = t!(TcpListener::bind(&addr));
-            let _t = thread::spawn(move|| {
+            let _t = thread::spawn(move || {
                 let mut cl = t!(srv.accept()).0;
-                cl.write(&[1,3,3,7]).unwrap();
+                cl.write(&[1, 3, 3, 7]).unwrap();
                 t!(rxdone.recv());
             });
 
@@ -1633,9 +1670,12 @@ mod tests {
         // provided the network is reachable to begin with.
         let addr = "10.255.255.1:80".parse().unwrap();
         let e = TcpStream::connect_timeout(&addr, Duration::from_millis(250)).unwrap_err();
-        assert!(e.kind() == io::ErrorKind::TimedOut ||
-                e.kind() == io::ErrorKind::Other,
-                "bad error: {} {:?}", e, e.kind());
+        assert!(
+            e.kind() == io::ErrorKind::TimedOut || e.kind() == io::ErrorKind::Other,
+            "bad error: {} {:?}",
+            e,
+            e.kind()
+        );
     }
 
     #[test]
@@ -1647,10 +1687,13 @@ mod tests {
 
         let timeout = Duration::from_secs(1);
         let e = TcpStream::connect_timeout(&addr, timeout).unwrap_err();
-        assert!(e.kind() == io::ErrorKind::ConnectionRefused ||
-                e.kind() == io::ErrorKind::TimedOut ||
-                e.kind() == io::ErrorKind::Other,
-                "bad error: {} {:?}", e, e.kind());
+        assert!(
+            e.kind() == io::ErrorKind::ConnectionRefused || e.kind() == io::ErrorKind::TimedOut
+                || e.kind() == io::ErrorKind::Other,
+            "bad error: {} {:?}",
+            e,
+            e.kind()
+        );
     }
 
     #[test]

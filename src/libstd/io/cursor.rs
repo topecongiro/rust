@@ -12,7 +12,7 @@ use io::prelude::*;
 
 use core::convert::TryInto;
 use cmp;
-use io::{self, Initializer, SeekFrom, Error, ErrorKind};
+use io::{self, Error, ErrorKind, Initializer, SeekFrom};
 
 /// A `Cursor` wraps another type and provides it with a
 /// [`Seek`] implementation.
@@ -104,7 +104,10 @@ impl<T> Cursor<T> {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn new(inner: T) -> Cursor<T> {
-        Cursor { pos: 0, inner: inner }
+        Cursor {
+            pos: 0,
+            inner: inner,
+        }
     }
 
     /// Consumes this cursor, returning the underlying value.
@@ -121,7 +124,9 @@ impl<T> Cursor<T> {
     /// let vec = buff.into_inner();
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    pub fn into_inner(self) -> T { self.inner }
+    pub fn into_inner(self) -> T {
+        self.inner
+    }
 
     /// Gets a reference to the underlying value in this cursor.
     ///
@@ -137,7 +142,9 @@ impl<T> Cursor<T> {
     /// let reference = buff.get_ref();
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    pub fn get_ref(&self) -> &T { &self.inner }
+    pub fn get_ref(&self) -> &T {
+        &self.inner
+    }
 
     /// Gets a mutable reference to the underlying value in this cursor.
     ///
@@ -156,7 +163,9 @@ impl<T> Cursor<T> {
     /// let reference = buff.get_mut();
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    pub fn get_mut(&mut self) -> &mut T { &mut self.inner }
+    pub fn get_mut(&mut self) -> &mut T {
+        &mut self.inner
+    }
 
     /// Returns the current position of this cursor.
     ///
@@ -178,7 +187,9 @@ impl<T> Cursor<T> {
     /// assert_eq!(buff.position(), 1);
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    pub fn position(&self) -> u64 { self.pos }
+    pub fn position(&self) -> u64 {
+        self.pos
+    }
 
     /// Sets the position of this cursor.
     ///
@@ -198,14 +209,22 @@ impl<T> Cursor<T> {
     /// assert_eq!(buff.position(), 4);
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    pub fn set_position(&mut self, pos: u64) { self.pos = pos; }
+    pub fn set_position(&mut self, pos: u64) {
+        self.pos = pos;
+    }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<T> io::Seek for Cursor<T> where T: AsRef<[u8]> {
+impl<T> io::Seek for Cursor<T>
+where
+    T: AsRef<[u8]>,
+{
     fn seek(&mut self, style: SeekFrom) -> io::Result<u64> {
         let (base_pos, offset) = match style {
-            SeekFrom::Start(n) => { self.pos = n; return Ok(n); }
+            SeekFrom::Start(n) => {
+                self.pos = n;
+                return Ok(n);
+            }
             SeekFrom::End(n) => (self.inner.as_ref().len() as u64, n),
             SeekFrom::Current(n) => (self.pos, n),
         };
@@ -215,15 +234,23 @@ impl<T> io::Seek for Cursor<T> where T: AsRef<[u8]> {
             base_pos.checked_sub((offset.wrapping_neg()) as u64)
         };
         match new_pos {
-            Some(n) => {self.pos = n; Ok(self.pos)}
-            None => Err(Error::new(ErrorKind::InvalidInput,
-                           "invalid seek to a negative or overflowing position"))
+            Some(n) => {
+                self.pos = n;
+                Ok(self.pos)
+            }
+            None => Err(Error::new(
+                ErrorKind::InvalidInput,
+                "invalid seek to a negative or overflowing position",
+            )),
         }
     }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<T> Read for Cursor<T> where T: AsRef<[u8]> {
+impl<T> Read for Cursor<T>
+where
+    T: AsRef<[u8]>,
+{
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let n = Read::read(&mut self.fill_buf()?, buf)?;
         self.pos += n as u64;
@@ -244,12 +271,17 @@ impl<T> Read for Cursor<T> where T: AsRef<[u8]> {
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<T> BufRead for Cursor<T> where T: AsRef<[u8]> {
+impl<T> BufRead for Cursor<T>
+where
+    T: AsRef<[u8]>,
+{
     fn fill_buf(&mut self) -> io::Result<&[u8]> {
         let amt = cmp::min(self.pos, self.inner.as_ref().len() as u64);
         Ok(&self.inner.as_ref()[(amt as usize)..])
     }
-    fn consume(&mut self, amt: usize) { self.pos += amt as u64; }
+    fn consume(&mut self, amt: usize) {
+        self.pos += amt as u64;
+    }
 }
 
 // Non-resizing write implementation
@@ -263,8 +295,10 @@ fn slice_write(pos_mut: &mut u64, slice: &mut [u8], buf: &[u8]) -> io::Result<us
 // Resizing write implementation
 fn vec_write(pos_mut: &mut u64, vec: &mut Vec<u8>, buf: &[u8]) -> io::Result<usize> {
     let pos: usize = (*pos_mut).try_into().map_err(|_| {
-        Error::new(ErrorKind::InvalidInput,
-                    "cursor position exceeds maximum possible vector length")
+        Error::new(
+            ErrorKind::InvalidInput,
+            "cursor position exceeds maximum possible vector length",
+        )
     })?;
     // Make sure the internal buffer is as least as big as where we
     // currently are
@@ -293,7 +327,9 @@ impl<'a> Write for Cursor<&'a mut [u8]> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         slice_write(&mut self.pos, self.inner, buf)
     }
-    fn flush(&mut self) -> io::Result<()> { Ok(()) }
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
 }
 
 #[unstable(feature = "cursor_mut_vec", issue = "30132")]
@@ -301,7 +337,9 @@ impl<'a> Write for Cursor<&'a mut Vec<u8>> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         vec_write(&mut self.pos, self.inner, buf)
     }
-    fn flush(&mut self) -> io::Result<()> { Ok(()) }
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
@@ -309,7 +347,9 @@ impl Write for Cursor<Vec<u8>> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         vec_write(&mut self.pos, &mut self.inner, buf)
     }
-    fn flush(&mut self) -> io::Result<()> { Ok(()) }
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
 }
 
 #[stable(feature = "cursor_box_slice", since = "1.5.0")]
@@ -318,7 +358,9 @@ impl Write for Cursor<Box<[u8]>> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         slice_write(&mut self.pos, &mut self.inner, buf)
     }
-    fn flush(&mut self) -> io::Result<()> { Ok(()) }
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -419,7 +461,6 @@ mod tests {
             assert_eq!(writer.position(), 7);
             assert_eq!(writer.write(&[4]).unwrap(), 1);
             assert_eq!(writer.position(), 8);
-
         }
         let b: &[_] = &[1, 3, 2, 0, 0, 0, 0, 4];
         assert_eq!(buf, b);
@@ -593,7 +634,10 @@ mod tests {
         let buf = [0xff];
         let mut r = Cursor::new(&buf[..]);
         assert_eq!(r.seek(SeekFrom::Start(6)).unwrap(), 6);
-        assert_eq!(r.seek(SeekFrom::Current(0x7ffffffffffffff0)).unwrap(), 0x7ffffffffffffff6);
+        assert_eq!(
+            r.seek(SeekFrom::Current(0x7ffffffffffffff0)).unwrap(),
+            0x7ffffffffffffff6
+        );
         assert_eq!(r.seek(SeekFrom::Current(0x10)).unwrap(), 0x8000000000000006);
         assert_eq!(r.seek(SeekFrom::Current(0)).unwrap(), 0x8000000000000006);
         assert!(r.seek(SeekFrom::Current(0x7ffffffffffffffd)).is_err());
@@ -601,7 +645,10 @@ mod tests {
 
         let mut r = Cursor::new(vec![10]);
         assert_eq!(r.seek(SeekFrom::Start(6)).unwrap(), 6);
-        assert_eq!(r.seek(SeekFrom::Current(0x7ffffffffffffff0)).unwrap(), 0x7ffffffffffffff6);
+        assert_eq!(
+            r.seek(SeekFrom::Current(0x7ffffffffffffff0)).unwrap(),
+            0x7ffffffffffffff6
+        );
         assert_eq!(r.seek(SeekFrom::Current(0x10)).unwrap(), 0x8000000000000006);
         assert_eq!(r.seek(SeekFrom::Current(0)).unwrap(), 0x8000000000000006);
         assert!(r.seek(SeekFrom::Current(0x7ffffffffffffffd)).is_err());
@@ -610,7 +657,10 @@ mod tests {
         let mut buf = [0];
         let mut r = Cursor::new(&mut buf[..]);
         assert_eq!(r.seek(SeekFrom::Start(6)).unwrap(), 6);
-        assert_eq!(r.seek(SeekFrom::Current(0x7ffffffffffffff0)).unwrap(), 0x7ffffffffffffff6);
+        assert_eq!(
+            r.seek(SeekFrom::Current(0x7ffffffffffffff0)).unwrap(),
+            0x7ffffffffffffff6
+        );
         assert_eq!(r.seek(SeekFrom::Current(0x10)).unwrap(), 0x8000000000000006);
         assert_eq!(r.seek(SeekFrom::Current(0)).unwrap(), 0x8000000000000006);
         assert!(r.seek(SeekFrom::Current(0x7ffffffffffffffd)).is_err());
@@ -618,7 +668,10 @@ mod tests {
 
         let mut r = Cursor::new(vec![10].into_boxed_slice());
         assert_eq!(r.seek(SeekFrom::Start(6)).unwrap(), 6);
-        assert_eq!(r.seek(SeekFrom::Current(0x7ffffffffffffff0)).unwrap(), 0x7ffffffffffffff6);
+        assert_eq!(
+            r.seek(SeekFrom::Current(0x7ffffffffffffff0)).unwrap(),
+            0x7ffffffffffffff6
+        );
         assert_eq!(r.seek(SeekFrom::Current(0x10)).unwrap(), 0x8000000000000006);
         assert_eq!(r.seek(SeekFrom::Current(0)).unwrap(), 0x8000000000000006);
         assert!(r.seek(SeekFrom::Current(0x7ffffffffffffffd)).is_err());

@@ -13,7 +13,6 @@ use hir::def_id::DefId;
 use ty::{self, Ty, TyCtxt};
 use ty::subst::Substs;
 
-
 /// Represents coercing a value to a different type of value.
 ///
 /// We transform values by following a number of `Adjust` steps in order.
@@ -107,14 +106,19 @@ pub struct OverloadedDeref<'tcx> {
 }
 
 impl<'a, 'gcx, 'tcx> OverloadedDeref<'tcx> {
-    pub fn method_call(&self, tcx: TyCtxt<'a, 'gcx, 'tcx>, source: Ty<'tcx>)
-                       -> (DefId, &'tcx Substs<'tcx>) {
+    pub fn method_call(
+        &self,
+        tcx: TyCtxt<'a, 'gcx, 'tcx>,
+        source: Ty<'tcx>,
+    ) -> (DefId, &'tcx Substs<'tcx>) {
         let trait_def_id = match self.mutbl {
             hir::MutImmutable => tcx.lang_items().deref_trait(),
-            hir::MutMutable => tcx.lang_items().deref_mut_trait()
+            hir::MutMutable => tcx.lang_items().deref_mut_trait(),
         };
         let method_def_id = tcx.associated_items(trait_def_id.unwrap())
-            .find(|m| m.kind == ty::AssociatedKind::Method).unwrap().def_id;
+            .find(|m| m.kind == ty::AssociatedKind::Method)
+            .unwrap()
+            .def_id;
         (method_def_id, tcx.mk_substs_trait(source, &[]))
     }
 }
@@ -155,11 +159,11 @@ pub struct CoerceUnsizedInfo {
     /// coercion is it? This applies to impls of `CoerceUnsized` for
     /// structs, primarily, where we store a bit of info about which
     /// fields need to be coerced.
-    pub custom_kind: Option<CustomCoerceUnsized>
+    pub custom_kind: Option<CustomCoerceUnsized>,
 }
 
 #[derive(Clone, Copy, RustcEncodable, RustcDecodable, Debug)]
 pub enum CustomCoerceUnsized {
     /// Records the index of the field being coerced.
-    Struct(usize)
+    Struct(usize),
 }

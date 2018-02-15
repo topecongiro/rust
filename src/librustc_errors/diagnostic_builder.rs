@@ -89,19 +89,9 @@ impl<'a> DiagnosticBuilder<'a> {
 
     pub fn is_error(&self) -> bool {
         match self.level {
-            Level::Bug |
-            Level::Fatal |
-            Level::PhaseFatal |
-            Level::Error => {
-                true
-            }
+            Level::Bug | Level::Fatal | Level::PhaseFatal | Level::Error => true,
 
-            Level::Warning |
-            Level::Note |
-            Level::Help |
-            Level::Cancelled => {
-                false
-            }
+            Level::Warning | Level::Note | Level::Help | Level::Cancelled => false,
         }
     }
 
@@ -207,20 +197,23 @@ impl<'a> DiagnosticBuilder<'a> {
 
     /// Convenience function for internal use, clients should use one of the
     /// struct_* methods on Handler.
-    pub fn new_with_code(handler: &'a Handler,
-                         level: Level,
-                         code: Option<DiagnosticId>,
-                         message: &str)
-                         -> DiagnosticBuilder<'a> {
+    pub fn new_with_code(
+        handler: &'a Handler,
+        level: Level,
+        code: Option<DiagnosticId>,
+        message: &str,
+    ) -> DiagnosticBuilder<'a> {
         let diagnostic = Diagnostic::new_with_code(level, code, message);
         DiagnosticBuilder::new_diagnostic(handler, diagnostic)
     }
 
     /// Creates a new `DiagnosticBuilder` with an already constructed
     /// diagnostic.
-    pub fn new_diagnostic(handler: &'a Handler, diagnostic: Diagnostic)
-                         -> DiagnosticBuilder<'a> {
-        DiagnosticBuilder { handler, diagnostic }
+    pub fn new_diagnostic(handler: &'a Handler, diagnostic: Diagnostic) -> DiagnosticBuilder<'a> {
+        DiagnosticBuilder {
+            handler,
+            diagnostic,
+        }
     }
 }
 
@@ -235,9 +228,11 @@ impl<'a> Debug for DiagnosticBuilder<'a> {
 impl<'a> Drop for DiagnosticBuilder<'a> {
     fn drop(&mut self) {
         if !panicking() && !self.cancelled() {
-            let mut db = DiagnosticBuilder::new(self.handler,
-                                                Level::Bug,
-                                                "Error constructed but not emitted");
+            let mut db = DiagnosticBuilder::new(
+                self.handler,
+                Level::Bug,
+                "Error constructed but not emitted",
+            );
             db.emit();
             panic!();
         }

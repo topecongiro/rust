@@ -9,7 +9,7 @@
 // except according to those terms.
 
 use ast::{self, NodeId};
-use codemap::{DUMMY_SP, dummy_spanned};
+use codemap::{dummy_spanned, DUMMY_SP};
 use ext::base::ExtCtxt;
 use ext::expand::{Expansion, ExpansionKind};
 use ext::hygiene::Mark;
@@ -25,7 +25,10 @@ use std::collections::HashMap;
 pub fn placeholder(kind: ExpansionKind, id: ast::NodeId) -> Expansion {
     fn mac_placeholder() -> ast::Mac {
         dummy_spanned(ast::Mac_ {
-            path: ast::Path { span: DUMMY_SP, segments: Vec::new() },
+            path: ast::Path {
+                span: DUMMY_SP,
+                segments: Vec::new(),
+            },
             tts: TokenStream::empty().into(),
         })
     }
@@ -35,40 +38,68 @@ pub fn placeholder(kind: ExpansionKind, id: ast::NodeId) -> Expansion {
     let generics = ast::Generics::default();
     let vis = ast::Visibility::Inherited;
     let span = DUMMY_SP;
-    let expr_placeholder = || P(ast::Expr {
-        id, span,
-        attrs: ast::ThinVec::new(),
-        node: ast::ExprKind::Mac(mac_placeholder()),
-    });
+    let expr_placeholder = || {
+        P(ast::Expr {
+            id,
+            span,
+            attrs: ast::ThinVec::new(),
+            node: ast::ExprKind::Mac(mac_placeholder()),
+        })
+    };
 
     match kind {
         ExpansionKind::Expr => Expansion::Expr(expr_placeholder()),
         ExpansionKind::OptExpr => Expansion::OptExpr(Some(expr_placeholder())),
         ExpansionKind::Items => Expansion::Items(SmallVector::one(P(ast::Item {
-            id, span, ident, vis, attrs,
+            id,
+            span,
+            ident,
+            vis,
+            attrs,
             node: ast::ItemKind::Mac(mac_placeholder()),
             tokens: None,
         }))),
         ExpansionKind::TraitItems => Expansion::TraitItems(SmallVector::one(ast::TraitItem {
-            id, span, ident, attrs, generics,
+            id,
+            span,
+            ident,
+            attrs,
+            generics,
             node: ast::TraitItemKind::Macro(mac_placeholder()),
             tokens: None,
         })),
         ExpansionKind::ImplItems => Expansion::ImplItems(SmallVector::one(ast::ImplItem {
-            id, span, ident, vis, attrs, generics,
+            id,
+            span,
+            ident,
+            vis,
+            attrs,
+            generics,
             node: ast::ImplItemKind::Macro(mac_placeholder()),
             defaultness: ast::Defaultness::Final,
             tokens: None,
         })),
         ExpansionKind::Pat => Expansion::Pat(P(ast::Pat {
-            id, span, node: ast::PatKind::Mac(mac_placeholder()),
+            id,
+            span,
+            node: ast::PatKind::Mac(mac_placeholder()),
         })),
         ExpansionKind::Ty => Expansion::Ty(P(ast::Ty {
-            id, span, node: ast::TyKind::Mac(mac_placeholder()),
+            id,
+            span,
+            node: ast::TyKind::Mac(mac_placeholder()),
         })),
         ExpansionKind::Stmts => Expansion::Stmts(SmallVector::one({
-            let mac = P((mac_placeholder(), ast::MacStmtStyle::Braces, ast::ThinVec::new()));
-            ast::Stmt { id, span, node: ast::StmtKind::Mac(mac) }
+            let mac = P((
+                mac_placeholder(),
+                ast::MacStmtStyle::Braces,
+                ast::ThinVec::new(),
+            ));
+            ast::Stmt {
+                id,
+                span,
+                node: ast::StmtKind::Mac(mac),
+            }
         })),
     }
 }

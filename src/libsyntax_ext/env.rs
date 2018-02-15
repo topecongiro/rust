@@ -23,10 +23,11 @@ use syntax::tokenstream;
 
 use std::env;
 
-pub fn expand_option_env<'cx>(cx: &'cx mut ExtCtxt,
-                              sp: Span,
-                              tts: &[tokenstream::TokenTree])
-                              -> Box<base::MacResult + 'cx> {
+pub fn expand_option_env<'cx>(
+    cx: &'cx mut ExtCtxt,
+    sp: Span,
+    tts: &[tokenstream::TokenTree],
+) -> Box<base::MacResult + 'cx> {
     let var = match get_single_str_from_tts(cx, sp, tts, "option_env!") {
         None => return DummyResult::expr(sp),
         Some(v) => v,
@@ -34,31 +35,35 @@ pub fn expand_option_env<'cx>(cx: &'cx mut ExtCtxt,
 
     let sp = sp.with_ctxt(sp.ctxt().apply_mark(cx.current_expansion.mark));
     let e = match env::var(&*var.as_str()) {
-        Err(..) => {
-            cx.expr_path(cx.path_all(sp,
-                                     true,
-                                     cx.std_path(&["option", "Option", "None"]),
-                                     Vec::new(),
-                                     vec![cx.ty_rptr(sp,
-                                                     cx.ty_ident(sp, Ident::from_str("str")),
-                                                     Some(cx.lifetime(sp,
-                                                                      Ident::from_str("'static"))),
-                                                     ast::Mutability::Immutable)],
-                                     Vec::new()))
-        }
-        Ok(s) => {
-            cx.expr_call_global(sp,
-                                cx.std_path(&["option", "Option", "Some"]),
-                                vec![cx.expr_str(sp, Symbol::intern(&s))])
-        }
+        Err(..) => cx.expr_path(cx.path_all(
+            sp,
+            true,
+            cx.std_path(&["option", "Option", "None"]),
+            Vec::new(),
+            vec![
+                cx.ty_rptr(
+                    sp,
+                    cx.ty_ident(sp, Ident::from_str("str")),
+                    Some(cx.lifetime(sp, Ident::from_str("'static"))),
+                    ast::Mutability::Immutable,
+                ),
+            ],
+            Vec::new(),
+        )),
+        Ok(s) => cx.expr_call_global(
+            sp,
+            cx.std_path(&["option", "Option", "Some"]),
+            vec![cx.expr_str(sp, Symbol::intern(&s))],
+        ),
     };
     MacEager::expr(e)
 }
 
-pub fn expand_env<'cx>(cx: &'cx mut ExtCtxt,
-                       sp: Span,
-                       tts: &[tokenstream::TokenTree])
-                       -> Box<base::MacResult + 'cx> {
+pub fn expand_env<'cx>(
+    cx: &'cx mut ExtCtxt,
+    sp: Span,
+    tts: &[tokenstream::TokenTree],
+) -> Box<base::MacResult + 'cx> {
     let mut exprs = match get_exprs_from_tts(cx, sp, tts) {
         Some(ref exprs) if exprs.is_empty() => {
             cx.span_err(sp, "env! takes 1 or 2 arguments");
@@ -74,12 +79,10 @@ pub fn expand_env<'cx>(cx: &'cx mut ExtCtxt,
     };
     let msg = match exprs.next() {
         None => Symbol::intern(&format!("environment variable `{}` not defined", var)),
-        Some(second) => {
-            match expr_to_string(cx, second, "expected string literal") {
-                None => return DummyResult::expr(sp),
-                Some((s, _style)) => s,
-            }
-        }
+        Some(second) => match expr_to_string(cx, second, "expected string literal") {
+            None => return DummyResult::expr(sp),
+            Some((s, _style)) => s,
+        },
     };
 
     if let Some(_) = exprs.next() {

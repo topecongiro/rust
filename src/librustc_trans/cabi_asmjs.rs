@@ -8,7 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use abi::{FnType, ArgType, LayoutExt, Uniform};
+use abi::{ArgType, FnType, LayoutExt, Uniform};
 use context::CodegenCx;
 
 // Data layout: e-p:32:32-i64:64-v128:32:128-n32-S128
@@ -21,10 +21,7 @@ fn classify_ret_ty<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>, ret: &mut ArgType<'tcx>) 
         if let Some(unit) = ret.layout.homogeneous_aggregate(cx) {
             let size = ret.layout.size;
             if unit.size == size {
-                ret.cast_to(Uniform {
-                    unit,
-                    total: size
-                });
+                ret.cast_to(Uniform { unit, total: size });
                 return;
             }
         }
@@ -45,7 +42,9 @@ pub fn compute_abi_info<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>, fty: &mut FnType<'tc
     }
 
     for arg in &mut fty.args {
-        if arg.is_ignore() { continue; }
+        if arg.is_ignore() {
+            continue;
+        }
         classify_arg_ty(arg);
     }
 }

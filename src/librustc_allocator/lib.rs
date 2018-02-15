@@ -9,7 +9,6 @@
 // except according to those terms.
 
 #![deny(warnings)]
-
 #![feature(rustc_private)]
 
 extern crate rustc;

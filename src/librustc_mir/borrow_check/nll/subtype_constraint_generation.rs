@@ -15,7 +15,7 @@ use rustc::infer::region_constraints::{Verify, VerifyBound};
 use rustc::ty;
 use syntax::codemap::Span;
 
-use super::region_infer::{TypeTest, RegionInferenceContext, RegionTest};
+use super::region_infer::{RegionInferenceContext, RegionTest, TypeTest};
 use super::type_check::Locations;
 use super::type_check::MirTypeckRegionConstraints;
 use super::type_check::OutlivesSet;

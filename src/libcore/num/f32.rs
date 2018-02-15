@@ -142,8 +142,7 @@ pub mod consts {
 }
 
 #[unstable(feature = "core_float",
-           reason = "stable interface is via `impl f{32,64}` in later crates",
-           issue = "32110")]
+           reason = "stable interface is via `impl f{32,64}` in later crates", issue = "32110")]
 impl Float for f32 {
     type Bits = u32;
 
@@ -262,7 +261,11 @@ impl Float for f32 {
         // Since we do not support sNaN in Rust yet, we do not need to handle them.
         // FIXME(nagisa): due to https://bugs.llvm.org/show_bug.cgi?id=33303 we canonicalize by
         // multiplying by 1.0. Should switch to the `canonicalize` when it works.
-        (if self.is_nan() || self < other { other } else { self }) * 1.0
+        (if self.is_nan() || self < other {
+            other
+        } else {
+            self
+        }) * 1.0
     }
 
     /// Returns the minimum of the two numbers.
@@ -276,7 +279,11 @@ impl Float for f32 {
         // Since we do not support sNaN in Rust yet, we do not need to handle them.
         // FIXME(nagisa): due to https://bugs.llvm.org/show_bug.cgi?id=33303 we canonicalize by
         // multiplying by 1.0. Should switch to the `canonicalize` when it works.
-        (if other.is_nan() || self < other { self } else { other }) * 1.0
+        (if other.is_nan() || self < other {
+            self
+        } else {
+            other
+        }) * 1.0
     }
 
     /// Raw transmutation to `u32`.

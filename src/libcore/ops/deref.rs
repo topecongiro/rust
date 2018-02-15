@@ -83,14 +83,18 @@ pub trait Deref {
 impl<'a, T: ?Sized> Deref for &'a T {
     type Target = T;
 
-    fn deref(&self) -> &T { *self }
+    fn deref(&self) -> &T {
+        *self
+    }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<'a, T: ?Sized> Deref for &'a mut T {
     type Target = T;
 
-    fn deref(&self) -> &T { *self }
+    fn deref(&self) -> &T {
+        *self
+    }
 }
 
 /// Used for mutable dereferencing operations, like in `*v = 1;`.
@@ -171,5 +175,7 @@ pub trait DerefMut: Deref {
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<'a, T: ?Sized> DerefMut for &'a mut T {
-    fn deref_mut(&mut self) -> &mut T { *self }
+    fn deref_mut(&mut self) -> &mut T {
+        *self
+    }
 }

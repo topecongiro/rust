@@ -18,14 +18,13 @@ pub fn compute_abi_info(fty: &mut FnType) {
     let fixup = |a: &mut ArgType| {
         match a.layout.abi {
             layout::Abi::Uninhabited => {}
-            layout::Abi::ScalarPair(..) |
-            layout::Abi::Aggregate { .. } => {
+            layout::Abi::ScalarPair(..) | layout::Abi::Aggregate { .. } => {
                 match a.layout.size.bits() {
                     8 => a.cast_to(Reg::i8()),
                     16 => a.cast_to(Reg::i16()),
                     32 => a.cast_to(Reg::i32()),
                     64 => a.cast_to(Reg::i64()),
-                    _ => a.make_indirect()
+                    _ => a.make_indirect(),
                 }
             }
             layout::Abi::Vector { .. } => {
@@ -46,7 +45,9 @@ pub fn compute_abi_info(fty: &mut FnType) {
         fixup(&mut fty.ret);
     }
     for arg in &mut fty.args {
-        if arg.is_ignore() { continue; }
+        if arg.is_ignore() {
+            continue;
+        }
         fixup(arg);
     }
 }

@@ -1056,8 +1056,7 @@ extern "rust-intrinsic" {
     ///
     /// The volatile parameter is set to `true`, so it will not be optimized out
     /// unless size is equal to zero.
-    pub fn volatile_copy_nonoverlapping_memory<T>(dst: *mut T, src: *const T,
-                                                  count: usize);
+    pub fn volatile_copy_nonoverlapping_memory<T>(dst: *mut T, src: *const T, count: usize);
     /// Equivalent to the appropriate `llvm.memmove.p0i8.0i8.*` intrinsic, with
     /// a size of `count` * `size_of::<T>()` and an alignment of
     /// `min_align_of::<T>()`
@@ -1198,7 +1197,6 @@ extern "rust-intrinsic" {
     /// Float remainder that allows optimizations based on algebraic rules.
     /// May assume inputs are finite.
     pub fn frem_fast<T>(a: T, b: T) -> T;
-
 
     /// Returns the number of bits set in an integer type `T`
     pub fn ctpop<T>(x: T) -> T;

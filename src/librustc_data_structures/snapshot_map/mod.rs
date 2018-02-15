@@ -17,7 +17,8 @@ use std::mem;
 mod test;
 
 pub struct SnapshotMap<K, V>
-    where K: Hash + Clone + Eq
+where
+    K: Hash + Clone + Eq,
 {
     map: FxHashMap<K, V>,
     undo_log: Vec<UndoLog<K, V>>,
@@ -36,7 +37,8 @@ enum UndoLog<K, V> {
 }
 
 impl<K, V> SnapshotMap<K, V>
-    where K: Hash + Clone + Eq
+where
+    K: Hash + Clone + Eq,
 {
     pub fn new() -> Self {
         SnapshotMap {
@@ -102,10 +104,9 @@ impl<K, V> SnapshotMap<K, V>
         }
     }
 
-    pub fn partial_rollback<F>(&mut self,
-                               snapshot: &Snapshot,
-                               should_revert_key: &F)
-        where F: Fn(&K) -> bool
+    pub fn partial_rollback<F>(&mut self, snapshot: &Snapshot, should_revert_key: &F)
+    where
+        F: Fn(&K) -> bool,
     {
         self.assert_open_snapshot(snapshot);
         for i in (snapshot.len + 1..self.undo_log.len()).rev() {
@@ -161,7 +162,8 @@ impl<K, V> SnapshotMap<K, V>
 }
 
 impl<'k, K, V> ops::Index<&'k K> for SnapshotMap<K, V>
-    where K: Hash + Clone + Eq
+where
+    K: Hash + Clone + Eq,
 {
     type Output = V;
     fn index(&self, key: &'k K) -> &V {

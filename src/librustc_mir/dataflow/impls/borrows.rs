@@ -12,15 +12,15 @@ use rustc;
 use rustc::hir;
 use rustc::hir::def_id::DefId;
 use rustc::middle::region;
-use rustc::mir::{self, Location, Place, Mir};
+use rustc::mir::{self, Location, Mir, Place};
 use rustc::mir::visit::{PlaceContext, Visitor};
 use rustc::ty::{self, Region, TyCtxt};
 use rustc::ty::RegionKind;
 use rustc::ty::RegionKind::ReScope;
 use rustc::util::nodemap::{FxHashMap, FxHashSet};
 
-use rustc_data_structures::bitslice::{BitwiseOperator};
-use rustc_data_structures::indexed_set::{IdxSet};
+use rustc_data_structures::bitslice::BitwiseOperator;
+use rustc_data_structures::indexed_set::IdxSet;
 use rustc_data_structures::indexed_vec::{Idx, IndexVec};
 
 use dataflow::{BitDenotation, BlockSets, InitialFlow};
@@ -91,14 +91,18 @@ pub(crate) struct Reservations<'a, 'gcx: 'tcx, 'tcx: 'a>(pub(crate) Borrows<'a, 
 pub(crate) struct ActiveBorrows<'a, 'gcx: 'tcx, 'tcx: 'a>(pub(crate) Borrows<'a, 'gcx, 'tcx>);
 
 impl<'a, 'gcx, 'tcx> Reservations<'a, 'gcx, 'tcx> {
-    pub(crate) fn new(b: Borrows<'a, 'gcx, 'tcx>) -> Self { Reservations(b) }
+    pub(crate) fn new(b: Borrows<'a, 'gcx, 'tcx>) -> Self {
+        Reservations(b)
+    }
     pub(crate) fn location(&self, idx: ReserveOrActivateIndex) -> &Location {
         self.0.location(idx.borrow_index())
     }
 }
 
 impl<'a, 'gcx, 'tcx> ActiveBorrows<'a, 'gcx, 'tcx> {
-    pub(crate) fn new(r: Reservations<'a, 'gcx, 'tcx>) -> Self { ActiveBorrows(r.0) }
+    pub(crate) fn new(r: Reservations<'a, 'gcx, 'tcx>) -> Self {
+        ActiveBorrows(r.0)
+    }
     pub(crate) fn location(&self, idx: ReserveOrActivateIndex) -> &Location {
         self.0.location(idx.borrow_index())
     }
@@ -125,20 +129,36 @@ impl<'tcx> fmt::Display for BorrowData<'tcx> {
             mir::BorrowKind::Mut { .. } => "mut ",
         };
         let region = format!("{}", self.region);
-        let region = if region.len() > 0 { format!("{} ", region) } else { region };
+        let region = if region.len() > 0 {
+            format!("{} ", region)
+        } else {
+            region
+        };
         write!(w, "&{}{}{:?}", region, kind, self.borrowed_place)
     }
 }
 
 impl ReserveOrActivateIndex {
-    fn reserved(i: BorrowIndex) -> Self { ReserveOrActivateIndex::new(i.index() * 2) }
-    fn active(i: BorrowIndex) -> Self { ReserveOrActivateIndex::new((i.index() * 2) + 1) }
+    fn reserved(i: BorrowIndex) -> Self {
+        ReserveOrActivateIndex::new(i.index() * 2)
+    }
+    fn active(i: BorrowIndex) -> Self {
+        ReserveOrActivateIndex::new((i.index() * 2) + 1)
+    }
 
-    pub(crate) fn is_reservation(self) -> bool { self.index() % 2 == 0 }
-    pub(crate) fn is_activation(self) -> bool { self.index() % 2 == 1}
+    pub(crate) fn is_reservation(self) -> bool {
+        self.index() % 2 == 0
+    }
+    pub(crate) fn is_activation(self) -> bool {
+        self.index() % 2 == 1
+    }
 
     pub(crate) fn kind(self) -> &'static str {
-        if self.is_reservation() { "reserved" } else { "active" }
+        if self.is_reservation() {
+            "reserved"
+        } else {
+            "active"
+        }
     }
     pub(crate) fn borrow_index(self) -> BorrowIndex {
         BorrowIndex::new(self.index() / 2)
@@ -146,16 +166,16 @@ impl ReserveOrActivateIndex {
 }
 
 impl<'a, 'gcx, 'tcx> Borrows<'a, 'gcx, 'tcx> {
-    pub fn new(tcx: TyCtxt<'a, 'gcx, 'tcx>,
-               mir: &'a Mir<'tcx>,
-               nonlexical_regioncx: Option<Rc<RegionInferenceContext<'tcx>>>,
-               def_id: DefId,
-               body_id: Option<hir::BodyId>)
-               -> Self {
+    pub fn new(
+        tcx: TyCtxt<'a, 'gcx, 'tcx>,
+        mir: &'a Mir<'tcx>,
+        nonlexical_regioncx: Option<Rc<RegionInferenceContext<'tcx>>>,
+        def_id: DefId,
+        body_id: Option<hir::BodyId>,
+    ) -> Self {
         let scope_tree = tcx.region_scope_tree(def_id);
-        let root_scope = body_id.map(|body_id| {
-            region::Scope::CallSite(tcx.hir.body(body_id).value.hir_id.local_id)
-        });
+        let root_scope = body_id
+            .map(|body_id| region::Scope::CallSite(tcx.hir.body(body_id).value.hir_id.local_id));
         let mut visitor = GatherBorrows {
             tcx,
             mir,
@@ -164,20 +184,22 @@ impl<'a, 'gcx, 'tcx> Borrows<'a, 'gcx, 'tcx> {
             assigned_map: FxHashMap(),
             region_map: FxHashMap(),
             local_map: FxHashMap(),
-            region_span_map: FxHashMap()
+            region_span_map: FxHashMap(),
         };
         visitor.visit_mir(mir);
-        return Borrows { tcx: tcx,
-                         mir: mir,
-                         borrows: visitor.idx_vec,
-                         scope_tree,
-                         root_scope,
-                         location_map: visitor.location_map,
-                         assigned_map: visitor.assigned_map,
-                         region_map: visitor.region_map,
-                         local_map: visitor.local_map,
-                         region_span_map: visitor.region_span_map,
-                         nonlexical_regioncx };
+        return Borrows {
+            tcx: tcx,
+            mir: mir,
+            borrows: visitor.idx_vec,
+            scope_tree,
+            root_scope,
+            location_map: visitor.location_map,
+            assigned_map: visitor.assigned_map,
+            region_map: visitor.region_map,
+            local_map: visitor.local_map,
+            region_span_map: visitor.region_span_map,
+            nonlexical_regioncx,
+        };
 
         struct GatherBorrows<'a, 'gcx: 'tcx, 'tcx: 'a> {
             tcx: TyCtxt<'a, 'gcx, 'tcx>,
@@ -191,24 +213,32 @@ impl<'a, 'gcx, 'tcx> Borrows<'a, 'gcx, 'tcx> {
         }
 
         impl<'a, 'gcx, 'tcx> Visitor<'tcx> for GatherBorrows<'a, 'gcx, 'tcx> {
-            fn visit_assign(&mut self,
-                            block: mir::BasicBlock,
-                            assigned_place: &mir::Place<'tcx>,
-                            rvalue: &mir::Rvalue<'tcx>,
-                            location: mir::Location) {
+            fn visit_assign(
+                &mut self,
+                block: mir::BasicBlock,
+                assigned_place: &mir::Place<'tcx>,
+                rvalue: &mir::Rvalue<'tcx>,
+                location: mir::Location,
+            ) {
                 fn root_local(mut p: &mir::Place<'_>) -> Option<mir::Local> {
-                    loop { match p {
-                        mir::Place::Projection(pi) => p = &pi.base,
-                        mir::Place::Static(_) => return None,
-                        mir::Place::Local(l) => return Some(*l)
-                    }}
+                    loop {
+                        match p {
+                            mir::Place::Projection(pi) => p = &pi.base,
+                            mir::Place::Static(_) => return None,
+                            mir::Place::Local(l) => return Some(*l),
+                        }
+                    }
                 }
 
                 if let mir::Rvalue::Ref(region, kind, ref borrowed_place) = *rvalue {
-                    if is_unsafe_place(self.tcx, self.mir, borrowed_place) { return; }
+                    if is_unsafe_place(self.tcx, self.mir, borrowed_place) {
+                        return;
+                    }
 
                     let borrow = BorrowData {
-                        location, kind, region,
+                        location,
+                        kind,
+                        region,
                         borrowed_place: borrowed_place.clone(),
                         assigned_place: assigned_place.clone(),
                     };
@@ -224,56 +254,61 @@ impl<'a, 'gcx, 'tcx> Borrows<'a, 'gcx, 'tcx> {
 
                 return self.super_assign(block, assigned_place, rvalue, location);
 
-                fn insert<'a, K, V>(map: &'a mut FxHashMap<K, FxHashSet<V>>,
-                                    k: &K,
-                                    v: V)
-                    where K: Clone+Eq+Hash, V: Eq+Hash
+                fn insert<'a, K, V>(map: &'a mut FxHashMap<K, FxHashSet<V>>, k: &K, v: V)
+                where
+                    K: Clone + Eq + Hash,
+                    V: Eq + Hash,
                 {
-                    map.entry(k.clone())
-                        .or_insert(FxHashSet())
-                        .insert(v);
+                    map.entry(k.clone()).or_insert(FxHashSet()).insert(v);
                 }
             }
 
-            fn visit_rvalue(&mut self,
-                            rvalue: &mir::Rvalue<'tcx>,
-                            location: mir::Location) {
+            fn visit_rvalue(&mut self, rvalue: &mir::Rvalue<'tcx>, location: mir::Location) {
                 if let mir::Rvalue::Ref(region, kind, ref place) = *rvalue {
                     // double-check that we already registered a BorrowData for this
 
                     let mut found_it = false;
                     for idx in &self.region_map[region] {
                         let bd = &self.idx_vec[*idx];
-                        if bd.location == location &&
-                            bd.kind == kind &&
-                            bd.region == region &&
-                            bd.borrowed_place == *place
+                        if bd.location == location && bd.kind == kind && bd.region == region
+                            && bd.borrowed_place == *place
                         {
                             found_it = true;
                             break;
                         }
                     }
-                    assert!(found_it, "Ref {:?} at {:?} missing BorrowData", rvalue, location);
+                    assert!(
+                        found_it,
+                        "Ref {:?} at {:?} missing BorrowData",
+                        rvalue, location
+                    );
                 }
 
                 return self.super_rvalue(rvalue, location);
             }
 
-            fn visit_statement(&mut self,
-                               block: mir::BasicBlock,
-                               statement: &mir::Statement<'tcx>,
-                               location: Location) {
+            fn visit_statement(
+                &mut self,
+                block: mir::BasicBlock,
+                statement: &mir::Statement<'tcx>,
+                location: Location,
+            ) {
                 if let mir::StatementKind::EndRegion(region_scope) = statement.kind {
-                    self.region_span_map.insert(ReScope(region_scope), statement.source_info.span);
+                    self.region_span_map
+                        .insert(ReScope(region_scope), statement.source_info.span);
                 }
                 return self.super_statement(block, statement, location);
             }
         }
     }
 
-    pub fn borrows(&self) -> &IndexVec<BorrowIndex, BorrowData<'tcx>> { &self.borrows }
+    pub fn borrows(&self) -> &IndexVec<BorrowIndex, BorrowData<'tcx>> {
+        &self.borrows
+    }
 
-    pub fn scope_tree(&self) -> &Rc<region::ScopeTree> { &self.scope_tree }
+    pub fn scope_tree(&self) -> &Rc<region::ScopeTree> {
+        &self.scope_tree
+    }
 
     pub fn location(&self, idx: BorrowIndex) -> &Location {
         &self.borrows[idx].location
@@ -288,10 +323,12 @@ impl<'a, 'gcx, 'tcx> Borrows<'a, 'gcx, 'tcx> {
     /// never gen'ed by Reservations in the first place.  But it makes
     /// the instrumentation and graph renderings nicer to leave
     /// activations out when of the Reservations kill sets.)
-    fn kill_loans_out_of_scope_at_location(&self,
-                                           sets: &mut BlockSets<ReserveOrActivateIndex>,
-                                           location: Location,
-                                           is_activations: bool) {
+    fn kill_loans_out_of_scope_at_location(
+        &self,
+        sets: &mut BlockSets<ReserveOrActivateIndex>,
+        location: Location,
+        is_activations: bool,
+    ) {
         if let Some(ref regioncx) = self.nonlexical_regioncx {
             // NOTE: The state associated with a given `location`
             // reflects the dataflow on entry to the statement. If it
@@ -319,16 +356,24 @@ impl<'a, 'gcx, 'tcx> Borrows<'a, 'gcx, 'tcx> {
     /// Models statement effect in Reservations and ActiveBorrows flow
     /// analyses; `is activations` tells us if we are in the latter
     /// case.
-    fn statement_effect_on_borrows(&self,
-                                   sets: &mut BlockSets<ReserveOrActivateIndex>,
-                                   location: Location,
-                                   is_activations: bool) {
-        let block = &self.mir.basic_blocks().get(location.block).unwrap_or_else(|| {
-            panic!("could not find block at location {:?}", location);
-        });
-        let stmt = block.statements.get(location.statement_index).unwrap_or_else(|| {
-            panic!("could not find statement at location {:?}");
-        });
+    fn statement_effect_on_borrows(
+        &self,
+        sets: &mut BlockSets<ReserveOrActivateIndex>,
+        location: Location,
+        is_activations: bool,
+    ) {
+        let block = &self.mir
+            .basic_blocks()
+            .get(location.block)
+            .unwrap_or_else(|| {
+                panic!("could not find block at location {:?}", location);
+            });
+        let stmt = block
+            .statements
+            .get(location.statement_index)
+            .unwrap_or_else(|| {
+                panic!("could not find statement at location {:?}");
+            });
 
         // Do kills introduced by NLL before setting up any potential
         // gens. (See NOTE in kill_loans_out_of_scope_at_location.)
@@ -342,7 +387,10 @@ impl<'a, 'gcx, 'tcx> Borrows<'a, 'gcx, 'tcx> {
             //
             // Now compute the activations generated by uses within
             // the statement based on that reservation state.
-            let mut find = FindPlaceUses { sets, assigned_map: &self.assigned_map };
+            let mut find = FindPlaceUses {
+                sets,
+                assigned_map: &self.assigned_map,
+            };
             find.visit_statement(location.block, stmt, location);
         }
 
@@ -377,19 +425,26 @@ impl<'a, 'gcx, 'tcx> Borrows<'a, 'gcx, 'tcx> {
                 // propagate_call_return method.
 
                 if let mir::Rvalue::Ref(region, _, ref place) = *rhs {
-                    if is_unsafe_place(self.tcx, self.mir, place) { return; }
+                    if is_unsafe_place(self.tcx, self.mir, place) {
+                        return;
+                    }
                     if let RegionKind::ReEmpty = region {
                         // If the borrowed value is dead, the region for it
                         // can be empty. Don't track the borrow in that case.
-                        return
+                        return;
                     }
 
                     let index = self.location_map.get(&location).unwrap_or_else(|| {
                         panic!("could not find BorrowIndex for location {:?}", location);
                     });
-                    assert!(self.region_map.get(region).unwrap_or_else(|| {
-                        panic!("could not find BorrowIndexs for region {:?}", region);
-                    }).contains(&index));
+                    assert!(
+                        self.region_map
+                            .get(region)
+                            .unwrap_or_else(|| {
+                                panic!("could not find BorrowIndexs for region {:?}", region);
+                            })
+                            .contains(&index)
+                    );
                     sets.gen(&ReserveOrActivateIndex::reserved(*index));
 
                     if is_activations {
@@ -415,7 +470,11 @@ impl<'a, 'gcx, 'tcx> Borrows<'a, 'gcx, 'tcx> {
                 self.kill_borrows_on_local(sets, &local, is_activations)
             }
 
-            mir::StatementKind::InlineAsm { ref outputs, ref asm, .. } => {
+            mir::StatementKind::InlineAsm {
+                ref outputs,
+                ref asm,
+                ..
+            } => {
                 for (output, kind) in outputs.iter().zip(&asm.outputs) {
                     if !kind.is_indirect && !kind.is_rw {
                         // Make sure there are no remaining borrows for direct
@@ -429,25 +488,31 @@ impl<'a, 'gcx, 'tcx> Borrows<'a, 'gcx, 'tcx> {
                 }
             }
 
-            mir::StatementKind::SetDiscriminant { .. } |
-            mir::StatementKind::StorageLive(..) |
-            mir::StatementKind::Validate(..) |
-            mir::StatementKind::Nop => {}
-
+            mir::StatementKind::SetDiscriminant { .. }
+            | mir::StatementKind::StorageLive(..)
+            | mir::StatementKind::Validate(..)
+            | mir::StatementKind::Nop => {}
         }
     }
 
-    fn kill_borrows_on_local(&self,
-                             sets: &mut BlockSets<ReserveOrActivateIndex>,
-                             local: &rustc::mir::Local,
-                             is_activations: bool)
-    {
+    fn kill_borrows_on_local(
+        &self,
+        sets: &mut BlockSets<ReserveOrActivateIndex>,
+        local: &rustc::mir::Local,
+        is_activations: bool,
+    ) {
         if let Some(borrow_indexes) = self.local_map.get(local) {
-            sets.kill_all(borrow_indexes.iter()
-                            .map(|b| ReserveOrActivateIndex::reserved(*b)));
+            sets.kill_all(
+                borrow_indexes
+                    .iter()
+                    .map(|b| ReserveOrActivateIndex::reserved(*b)),
+            );
             if is_activations {
-                sets.kill_all(borrow_indexes.iter()
-                                .map(|b| ReserveOrActivateIndex::active(*b)));
+                sets.kill_all(
+                    borrow_indexes
+                        .iter()
+                        .map(|b| ReserveOrActivateIndex::active(*b)),
+                );
             }
         }
     }
@@ -455,13 +520,18 @@ impl<'a, 'gcx, 'tcx> Borrows<'a, 'gcx, 'tcx> {
     /// Models terminator effect in Reservations and ActiveBorrows
     /// flow analyses; `is activations` tells us if we are in the
     /// latter case.
-    fn terminator_effect_on_borrows(&self,
-                                    sets: &mut BlockSets<ReserveOrActivateIndex>,
-                                    location: Location,
-                                    is_activations: bool) {
-        let block = &self.mir.basic_blocks().get(location.block).unwrap_or_else(|| {
-            panic!("could not find block at location {:?}", location);
-        });
+    fn terminator_effect_on_borrows(
+        &self,
+        sets: &mut BlockSets<ReserveOrActivateIndex>,
+        location: Location,
+        is_activations: bool,
+    ) {
+        let block = &self.mir
+            .basic_blocks()
+            .get(location.block)
+            .unwrap_or_else(|| {
+                panic!("could not find block at location {:?}", location);
+            });
 
         // Do kills introduced by NLL before setting up any potential
         // gens. (See NOTE in kill_loans_out_of_scope_at_location.)
@@ -476,14 +546,17 @@ impl<'a, 'gcx, 'tcx> Borrows<'a, 'gcx, 'tcx> {
             //
             // Now compute effect of the terminator on the activations
             // themselves in the ActiveBorrows state.
-            let mut find = FindPlaceUses { sets, assigned_map: &self.assigned_map };
+            let mut find = FindPlaceUses {
+                sets,
+                assigned_map: &self.assigned_map,
+            };
             find.visit_terminator(location.block, term, location);
         }
 
         match term.kind {
-            mir::TerminatorKind::Resume |
-            mir::TerminatorKind::Return |
-            mir::TerminatorKind::GeneratorDrop => {
+            mir::TerminatorKind::Resume
+            | mir::TerminatorKind::Return
+            | mir::TerminatorKind::GeneratorDrop => {
                 // When we return from the function, then all `ReScope`-style regions
                 // are guaranteed to have ended.
                 // Normally, there would be `EndRegion` statements that come before,
@@ -496,8 +569,8 @@ impl<'a, 'gcx, 'tcx> Borrows<'a, 'gcx, 'tcx> {
                         // a parent of our closure. Note that the CallSite scope itself is
                         // *outside* of the closure, for some weird reason.
                         if let Some(root_scope) = self.root_scope {
-                            if *scope != root_scope &&
-                                self.scope_tree.is_subscope_of(*scope, root_scope)
+                            if *scope != root_scope
+                                && self.scope_tree.is_subscope_of(*scope, root_scope)
                             {
                                 sets.kill(&ReserveOrActivateIndex::reserved(borrow_index));
                                 if is_activations {
@@ -508,17 +581,17 @@ impl<'a, 'gcx, 'tcx> Borrows<'a, 'gcx, 'tcx> {
                     }
                 }
             }
-            mir::TerminatorKind::Abort |
-            mir::TerminatorKind::SwitchInt {..} |
-            mir::TerminatorKind::Drop {..} |
-            mir::TerminatorKind::DropAndReplace {..} |
-            mir::TerminatorKind::Call {..} |
-            mir::TerminatorKind::Assert {..} |
-            mir::TerminatorKind::Yield {..} |
-            mir::TerminatorKind::Goto {..} |
-            mir::TerminatorKind::FalseEdges {..} |
-            mir::TerminatorKind::FalseUnwind {..} |
-            mir::TerminatorKind::Unreachable => {}
+            mir::TerminatorKind::Abort
+            | mir::TerminatorKind::SwitchInt { .. }
+            | mir::TerminatorKind::Drop { .. }
+            | mir::TerminatorKind::DropAndReplace { .. }
+            | mir::TerminatorKind::Call { .. }
+            | mir::TerminatorKind::Assert { .. }
+            | mir::TerminatorKind::Yield { .. }
+            | mir::TerminatorKind::Goto { .. }
+            | mir::TerminatorKind::FalseEdges { .. }
+            | mir::TerminatorKind::FalseUnwind { .. }
+            | mir::TerminatorKind::Unreachable => {}
         }
     }
 }
@@ -535,12 +608,10 @@ impl<'a, 'gcx, 'tcx> ActiveBorrows<'a, 'gcx, 'tcx> {
     pub(crate) fn opt_region_end_span(&self, region: &Region) -> Option<Span> {
         match self.0.nonlexical_regioncx {
             Some(_) => None,
-            None => {
-                match self.0.region_span_map.get(region) {
-                    Some(span) => Some(self.0.tcx.sess.codemap().end_point(*span)),
-                    None => Some(self.0.tcx.sess.codemap().end_point(self.0.mir.span))
-                }
-            }
+            None => match self.0.region_span_map.get(region) {
+                Some(span) => Some(self.0.tcx.sess.codemap().end_point(*span)),
+                None => Some(self.0.tcx.sess.codemap().end_point(self.0.mir.span)),
+            },
         }
     }
 }
@@ -566,7 +637,9 @@ struct FindPlaceUses<'a, 'b: 'a, 'tcx: 'a> {
 
 impl<'a, 'b, 'tcx> FindPlaceUses<'a, 'b, 'tcx> {
     fn has_been_reserved(&self, b: &BorrowIndex) -> bool {
-        self.sets.on_entry.contains(&ReserveOrActivateIndex::reserved(*b))
+        self.sets
+            .on_entry
+            .contains(&ReserveOrActivateIndex::reserved(*b))
     }
 
     /// return whether `context` should be considered a "use" of a
@@ -605,28 +678,42 @@ impl<'a, 'b, 'tcx> FindPlaceUses<'a, 'b, 'tcx> {
 }
 
 impl<'a, 'b, 'tcx> Visitor<'tcx> for FindPlaceUses<'a, 'b, 'tcx> {
-    fn visit_place(&mut self,
-                    place: &mir::Place<'tcx>,
-                    context: PlaceContext<'tcx>,
-                    location: Location) {
-        debug!("FindPlaceUses place: {:?} assigned from borrows: {:?} \
-                used in context: {:?} at location: {:?}",
-               place, self.assigned_map.get(place), context, location);
+    fn visit_place(
+        &mut self,
+        place: &mir::Place<'tcx>,
+        context: PlaceContext<'tcx>,
+        location: Location,
+    ) {
+        debug!(
+            "FindPlaceUses place: {:?} assigned from borrows: {:?} \
+             used in context: {:?} at location: {:?}",
+            place,
+            self.assigned_map.get(place),
+            context,
+            location
+        );
         if Self::is_potential_use(context) {
             if let Some(borrows) = self.assigned_map.get(place) {
                 for borrow_idx in borrows {
-                    debug!("checking if index {:?} for {:?} is reserved ({}) \
-                            and thus needs active gen-bit set in sets {:?}",
-                           borrow_idx, place, self.has_been_reserved(&borrow_idx), self.sets);
+                    debug!(
+                        "checking if index {:?} for {:?} is reserved ({}) \
+                         and thus needs active gen-bit set in sets {:?}",
+                        borrow_idx,
+                        place,
+                        self.has_been_reserved(&borrow_idx),
+                        self.sets
+                    );
                     if self.has_been_reserved(&borrow_idx) {
                         self.sets.gen(&ReserveOrActivateIndex::active(*borrow_idx));
                     } else {
                         // (This can certainly happen in valid code. I
                         // just want to know about it in the short
                         // term.)
-                        debug!("encountered use of Place {:?} of borrow_idx {:?} \
-                                at location {:?} outside of reservation",
-                               place, borrow_idx, location);
+                        debug!(
+                            "encountered use of Place {:?} of borrow_idx {:?} \
+                             at location {:?} outside of reservation",
+                            place, borrow_idx, location
+                        );
                     }
                 }
             }
@@ -636,52 +723,69 @@ impl<'a, 'b, 'tcx> Visitor<'tcx> for FindPlaceUses<'a, 'b, 'tcx> {
     }
 }
 
-
 impl<'a, 'gcx, 'tcx> BitDenotation for Reservations<'a, 'gcx, 'tcx> {
     type Idx = ReserveOrActivateIndex;
-    fn name() -> &'static str { "reservations" }
+    fn name() -> &'static str {
+        "reservations"
+    }
     fn bits_per_block(&self) -> usize {
         self.0.borrows.len() * 2
     }
-    fn start_block_effect(&self, _entry_set: &mut IdxSet<ReserveOrActivateIndex>)  {
+    fn start_block_effect(&self, _entry_set: &mut IdxSet<ReserveOrActivateIndex>) {
         // no borrows of code region_scopes have been taken prior to
         // function execution, so this method has no effect on
         // `_sets`.
     }
 
-    fn before_statement_effect(&self,
-                               sets: &mut BlockSets<ReserveOrActivateIndex>,
-                               location: Location) {
-        debug!("Reservations::before_statement_effect sets: {:?} location: {:?}", sets, location);
-        self.0.kill_loans_out_of_scope_at_location(sets, location, false);
+    fn before_statement_effect(
+        &self,
+        sets: &mut BlockSets<ReserveOrActivateIndex>,
+        location: Location,
+    ) {
+        debug!(
+            "Reservations::before_statement_effect sets: {:?} location: {:?}",
+            sets, location
+        );
+        self.0
+            .kill_loans_out_of_scope_at_location(sets, location, false);
     }
 
-    fn statement_effect(&self,
-                        sets: &mut BlockSets<ReserveOrActivateIndex>,
-                        location: Location) {
-        debug!("Reservations::statement_effect sets: {:?} location: {:?}", sets, location);
+    fn statement_effect(&self, sets: &mut BlockSets<ReserveOrActivateIndex>, location: Location) {
+        debug!(
+            "Reservations::statement_effect sets: {:?} location: {:?}",
+            sets, location
+        );
         self.0.statement_effect_on_borrows(sets, location, false);
     }
 
-    fn before_terminator_effect(&self,
-                                sets: &mut BlockSets<ReserveOrActivateIndex>,
-                                location: Location) {
-        debug!("Reservations::before_terminator_effect sets: {:?} location: {:?}", sets, location);
-        self.0.kill_loans_out_of_scope_at_location(sets, location, false);
+    fn before_terminator_effect(
+        &self,
+        sets: &mut BlockSets<ReserveOrActivateIndex>,
+        location: Location,
+    ) {
+        debug!(
+            "Reservations::before_terminator_effect sets: {:?} location: {:?}",
+            sets, location
+        );
+        self.0
+            .kill_loans_out_of_scope_at_location(sets, location, false);
     }
 
-    fn terminator_effect(&self,
-                         sets: &mut BlockSets<ReserveOrActivateIndex>,
-                         location: Location) {
-        debug!("Reservations::terminator_effect sets: {:?} location: {:?}", sets, location);
+    fn terminator_effect(&self, sets: &mut BlockSets<ReserveOrActivateIndex>, location: Location) {
+        debug!(
+            "Reservations::terminator_effect sets: {:?} location: {:?}",
+            sets, location
+        );
         self.0.terminator_effect_on_borrows(sets, location, false);
     }
 
-    fn propagate_call_return(&self,
-                             _in_out: &mut IdxSet<ReserveOrActivateIndex>,
-                             _call_bb: mir::BasicBlock,
-                             _dest_bb: mir::BasicBlock,
-                             _dest_place: &mir::Place) {
+    fn propagate_call_return(
+        &self,
+        _in_out: &mut IdxSet<ReserveOrActivateIndex>,
+        _call_bb: mir::BasicBlock,
+        _dest_bb: mir::BasicBlock,
+        _dest_place: &mir::Place,
+    ) {
         // there are no effects on borrows from method call return...
         //
         // ... but if overwriting a place can affect flow state, then
@@ -692,57 +796,77 @@ impl<'a, 'gcx, 'tcx> BitDenotation for Reservations<'a, 'gcx, 'tcx> {
 
 impl<'a, 'gcx, 'tcx> BitDenotation for ActiveBorrows<'a, 'gcx, 'tcx> {
     type Idx = ReserveOrActivateIndex;
-    fn name() -> &'static str { "active_borrows" }
+    fn name() -> &'static str {
+        "active_borrows"
+    }
 
     /// Overriding this method; `ActiveBorrows` uses the intrablock
     /// state in `on_entry` to track the current reservations (which
     /// then affect the construction of the gen/kill sets for
     /// activations).
-    fn accumulates_intrablock_state() -> bool { true }
+    fn accumulates_intrablock_state() -> bool {
+        true
+    }
 
     fn bits_per_block(&self) -> usize {
         self.0.borrows.len() * 2
     }
 
-    fn start_block_effect(&self, _entry_sets: &mut IdxSet<ReserveOrActivateIndex>)  {
+    fn start_block_effect(&self, _entry_sets: &mut IdxSet<ReserveOrActivateIndex>) {
         // no borrows of code region_scopes have been taken prior to
         // function execution, so this method has no effect on
         // `_sets`.
     }
 
-    fn before_statement_effect(&self,
-                               sets: &mut BlockSets<ReserveOrActivateIndex>,
-                               location: Location) {
-        debug!("ActiveBorrows::before_statement_effect sets: {:?} location: {:?}", sets, location);
-        self.0.kill_loans_out_of_scope_at_location(sets, location, true);
+    fn before_statement_effect(
+        &self,
+        sets: &mut BlockSets<ReserveOrActivateIndex>,
+        location: Location,
+    ) {
+        debug!(
+            "ActiveBorrows::before_statement_effect sets: {:?} location: {:?}",
+            sets, location
+        );
+        self.0
+            .kill_loans_out_of_scope_at_location(sets, location, true);
     }
 
-    fn statement_effect(&self,
-                        sets: &mut BlockSets<ReserveOrActivateIndex>,
-                        location: Location) {
-        debug!("ActiveBorrows::statement_effect sets: {:?} location: {:?}", sets, location);
+    fn statement_effect(&self, sets: &mut BlockSets<ReserveOrActivateIndex>, location: Location) {
+        debug!(
+            "ActiveBorrows::statement_effect sets: {:?} location: {:?}",
+            sets, location
+        );
         self.0.statement_effect_on_borrows(sets, location, true);
     }
 
-    fn before_terminator_effect(&self,
-                                sets: &mut BlockSets<ReserveOrActivateIndex>,
-                                location: Location) {
-        debug!("ActiveBorrows::before_terminator_effect sets: {:?} location: {:?}", sets, location);
-        self.0.kill_loans_out_of_scope_at_location(sets, location, true);
+    fn before_terminator_effect(
+        &self,
+        sets: &mut BlockSets<ReserveOrActivateIndex>,
+        location: Location,
+    ) {
+        debug!(
+            "ActiveBorrows::before_terminator_effect sets: {:?} location: {:?}",
+            sets, location
+        );
+        self.0
+            .kill_loans_out_of_scope_at_location(sets, location, true);
     }
 
-    fn terminator_effect(&self,
-                         sets: &mut BlockSets<ReserveOrActivateIndex>,
-                         location: Location) {
-        debug!("ActiveBorrows::terminator_effect sets: {:?} location: {:?}", sets, location);
+    fn terminator_effect(&self, sets: &mut BlockSets<ReserveOrActivateIndex>, location: Location) {
+        debug!(
+            "ActiveBorrows::terminator_effect sets: {:?} location: {:?}",
+            sets, location
+        );
         self.0.terminator_effect_on_borrows(sets, location, true);
     }
 
-    fn propagate_call_return(&self,
-                             _in_out: &mut IdxSet<ReserveOrActivateIndex>,
-                             _call_bb: mir::BasicBlock,
-                             _dest_bb: mir::BasicBlock,
-                             _dest_place: &mir::Place) {
+    fn propagate_call_return(
+        &self,
+        _in_out: &mut IdxSet<ReserveOrActivateIndex>,
+        _call_bb: mir::BasicBlock,
+        _dest_bb: mir::BasicBlock,
+        _dest_place: &mir::Place,
+    ) {
         // there are no effects on borrows from method call return...
         //
         // ... but If overwriting a place can affect flow state, then
@@ -775,7 +899,7 @@ impl<'a, 'gcx, 'tcx> InitialFlow for Reservations<'a, 'gcx, 'tcx> {
 fn is_unsafe_place<'a, 'gcx: 'tcx, 'tcx: 'a>(
     tcx: TyCtxt<'a, 'gcx, 'tcx>,
     mir: &'a Mir<'tcx>,
-    place: &mir::Place<'tcx>
+    place: &mir::Place<'tcx>,
 ) -> bool {
     use self::mir::Place::*;
     use self::mir::ProjectionElem;
@@ -783,23 +907,19 @@ fn is_unsafe_place<'a, 'gcx: 'tcx, 'tcx: 'a>(
     match *place {
         Local(_) => false,
         Static(ref static_) => tcx.is_static_mut(static_.def_id),
-        Projection(ref proj) => {
-            match proj.elem {
-                ProjectionElem::Field(..) |
-                ProjectionElem::Downcast(..) |
-                ProjectionElem::Subslice { .. } |
-                ProjectionElem::ConstantIndex { .. } |
-                ProjectionElem::Index(_) => {
-                    is_unsafe_place(tcx, mir, &proj.base)
-                }
-                ProjectionElem::Deref => {
-                    let ty = proj.base.ty(mir, tcx).to_ty(tcx);
-                    match ty.sty {
-                        ty::TyRawPtr(..) => true,
-                        _ => is_unsafe_place(tcx, mir, &proj.base),
-                    }
+        Projection(ref proj) => match proj.elem {
+            ProjectionElem::Field(..)
+            | ProjectionElem::Downcast(..)
+            | ProjectionElem::Subslice { .. }
+            | ProjectionElem::ConstantIndex { .. }
+            | ProjectionElem::Index(_) => is_unsafe_place(tcx, mir, &proj.base),
+            ProjectionElem::Deref => {
+                let ty = proj.base.ty(mir, tcx).to_ty(tcx);
+                match ty.sty {
+                    ty::TyRawPtr(..) => true,
+                    _ => is_unsafe_place(tcx, mir, &proj.base),
                 }
             }
-        }
+        },
     }
 }

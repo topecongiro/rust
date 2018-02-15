@@ -239,9 +239,7 @@ impl<'cx, 'gcx, 'tcx> LexicalResolver<'cx, 'gcx, 'tcx> {
 
                 debug!(
                     "Expanding value of {:?} from {:?} to {:?}",
-                    b_vid,
-                    cur_region,
-                    lub
+                    b_vid, cur_region, lub
                 );
 
                 *b_data = VarValue::Value(lub);
@@ -254,16 +252,15 @@ impl<'cx, 'gcx, 'tcx> LexicalResolver<'cx, 'gcx, 'tcx> {
         }
     }
 
-
     fn lub_concrete_regions(&self, a: Region<'tcx>, b: Region<'tcx>) -> Region<'tcx> {
         let tcx = self.region_rels.tcx;
         match (a, b) {
-            (&ty::ReClosureBound(..), _) |
-            (_, &ty::ReClosureBound(..)) |
-            (&ReLateBound(..), _) |
-            (_, &ReLateBound(..)) |
-            (&ReErased, _) |
-            (_, &ReErased) => {
+            (&ty::ReClosureBound(..), _)
+            | (_, &ty::ReClosureBound(..))
+            | (&ReLateBound(..), _)
+            | (_, &ReLateBound(..))
+            | (&ReErased, _)
+            | (_, &ReErased) => {
                 bug!("cannot relate region: LUB({:?}, {:?})", a, b);
             }
 
@@ -285,10 +282,10 @@ impl<'cx, 'gcx, 'tcx> LexicalResolver<'cx, 'gcx, 'tcx> {
                 );
             }
 
-            (&ReEarlyBound(_), &ReScope(s_id)) |
-            (&ReScope(s_id), &ReEarlyBound(_)) |
-            (&ReFree(_), &ReScope(s_id)) |
-            (&ReScope(s_id), &ReFree(_)) => {
+            (&ReEarlyBound(_), &ReScope(s_id))
+            | (&ReScope(s_id), &ReEarlyBound(_))
+            | (&ReFree(_), &ReScope(s_id))
+            | (&ReScope(s_id), &ReFree(_)) => {
                 // A "free" region can be interpreted as "some region
                 // at least as big as fr.scope".  So, we can
                 // reasonably compare free regions and scopes:
@@ -330,10 +327,10 @@ impl<'cx, 'gcx, 'tcx> LexicalResolver<'cx, 'gcx, 'tcx> {
                 tcx.mk_region(ReScope(lub))
             }
 
-            (&ReEarlyBound(_), &ReEarlyBound(_)) |
-            (&ReFree(_), &ReEarlyBound(_)) |
-            (&ReEarlyBound(_), &ReFree(_)) |
-            (&ReFree(_), &ReFree(_)) => self.region_rels.lub_free_regions(a, b),
+            (&ReEarlyBound(_), &ReEarlyBound(_))
+            | (&ReFree(_), &ReEarlyBound(_))
+            | (&ReEarlyBound(_), &ReFree(_))
+            | (&ReFree(_), &ReFree(_)) => self.region_rels.lub_free_regions(a, b),
 
             // For these types, we cannot define any additional
             // relationship:
@@ -356,8 +353,7 @@ impl<'cx, 'gcx, 'tcx> LexicalResolver<'cx, 'gcx, 'tcx> {
         for (constraint, origin) in &self.data.constraints {
             debug!(
                 "collect_errors: constraint={:?} origin={:?}",
-                constraint,
-                origin
+                constraint, origin
             );
             match *constraint {
                 Constraint::RegSubVar(..) | Constraint::VarSubVar(..) => {
@@ -372,9 +368,7 @@ impl<'cx, 'gcx, 'tcx> LexicalResolver<'cx, 'gcx, 'tcx> {
                     debug!(
                         "collect_errors: region error at {:?}: \
                          cannot verify that {:?} <= {:?}",
-                        origin,
-                        sub,
-                        sup
+                        origin, sub, sup
                     );
 
                     errors.push(RegionResolutionError::ConcreteFailure(
@@ -400,10 +394,7 @@ impl<'cx, 'gcx, 'tcx> LexicalResolver<'cx, 'gcx, 'tcx> {
                         debug!(
                             "collect_errors: region error at {:?}: \
                              cannot verify that {:?}={:?} <= {:?}",
-                            origin,
-                            a_vid,
-                            a_region,
-                            b_region
+                            origin, a_vid, a_region, b_region
                         );
                         *a_data = VarValue::ErrorValue;
                     }
@@ -428,9 +419,7 @@ impl<'cx, 'gcx, 'tcx> LexicalResolver<'cx, 'gcx, 'tcx> {
             debug!(
                 "collect_errors: region error at {:?}: \
                  cannot verify that {:?} <= {:?}",
-                verify.origin,
-                verify.region,
-                verify.bound
+                verify.origin, verify.region, verify.bound
             );
 
             errors.push(RegionResolutionError::GenericBoundFailure(
@@ -578,10 +567,7 @@ impl<'cx, 'gcx, 'tcx> LexicalResolver<'cx, 'gcx, 'tcx> {
                     debug!(
                         "region inference error at {:?} for {:?}: SubSupConflict sub: {:?} \
                          sup: {:?}",
-                        origin,
-                        node_idx,
-                        lower_bound.region,
-                        upper_bound.region
+                        origin, node_idx, lower_bound.region, upper_bound.region
                     );
                     errors.push(RegionResolutionError::SubSupConflict(
                         origin,
@@ -643,8 +629,7 @@ impl<'cx, 'gcx, 'tcx> LexicalResolver<'cx, 'gcx, 'tcx> {
 
             debug!(
                 "collect_concrete_regions(orig_node_idx={:?}, node_idx={:?})",
-                orig_node_idx,
-                node_idx
+                orig_node_idx, node_idx
             );
 
             process_edges(&self.data, &mut state, graph, node_idx, dir);
@@ -742,7 +727,6 @@ impl<'tcx> fmt::Debug for RegionAndOrigin<'tcx> {
         write!(f, "RegionAndOrigin({:?},{:?})", self.region, self.origin)
     }
 }
-
 
 impl<'tcx> LexicalRegionResolutions<'tcx> {
     fn normalize(&self, r: ty::Region<'tcx>) -> ty::Region<'tcx> {

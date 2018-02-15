@@ -16,7 +16,7 @@ use self::CombineMapType::*;
 use super::{MiscVariable, RegionVariableOrigin, SubregionOrigin};
 use super::unify_key;
 
-use rustc_data_structures::indexed_vec::{IndexVec, Idx};
+use rustc_data_structures::indexed_vec::{Idx, IndexVec};
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_data_structures::unify::{self, UnificationTable};
 use ty::{self, Ty, TyCtxt};
@@ -436,8 +436,7 @@ impl<'tcx> RegionConstraintCollector<'tcx> {
         }
         debug!(
             "created new region variable {:?} with origin {:?}",
-            vid,
-            origin
+            vid, origin
         );
         return vid;
     }
@@ -675,9 +674,7 @@ impl<'tcx> RegionConstraintCollector<'tcx> {
         // cannot add constraints once regions are resolved
         debug!(
             "RegionConstraintCollector: make_subregion({:?}, {:?}) due to {:?}",
-            sub,
-            sup,
-            origin
+            sub, sup, origin
         );
 
         match (sub, sup) {
@@ -838,9 +835,7 @@ impl<'tcx> RegionConstraintCollector<'tcx> {
     ) -> FxHashSet<ty::Region<'tcx>> {
         debug!(
             "tainted(mark={:?}, r0={:?}, directions={:?})",
-            mark,
-            r0,
-            directions
+            mark, r0, directions
         );
 
         // `result_set` acts as a worklist: we explore all outgoing
@@ -858,8 +853,7 @@ impl fmt::Debug for RegionSnapshot {
         write!(
             f,
             "RegionSnapshot(length={},skolemization={})",
-            self.length,
-            self.skolemization_count
+            self.length, self.skolemization_count
         )
     }
 }

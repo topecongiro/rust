@@ -10,10 +10,10 @@
 
 pub use self::SyntaxExtension::*;
 
-use ast::{self, Attribute, Name, PatKind, MetaItem};
+use ast::{self, Attribute, MetaItem, Name, PatKind};
 use attr::HasAttrs;
-use codemap::{self, CodeMap, Spanned, respan};
-use syntax_pos::{Span, MultiSpan, DUMMY_SP};
+use codemap::{self, respan, CodeMap, Spanned};
+use syntax_pos::{MultiSpan, Span, DUMMY_SP};
 use errors::DiagnosticBuilder;
 use ext::expand::{self, Expansion, Invocation};
 use ext::hygiene::{Mark, SyntaxContext};
@@ -31,8 +31,7 @@ use std::rc::Rc;
 use std::default::Default;
 use tokenstream::{self, TokenStream};
 
-
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub enum Annotatable {
     Item(P<ast::Item>),
     TraitItem(P<ast::TraitItem>),
@@ -69,40 +68,41 @@ impl Annotatable {
     pub fn expect_item(self) -> P<ast::Item> {
         match self {
             Annotatable::Item(i) => i,
-            _ => panic!("expected Item")
+            _ => panic!("expected Item"),
         }
     }
 
     pub fn map_item_or<F, G>(self, mut f: F, mut or: G) -> Annotatable
-        where F: FnMut(P<ast::Item>) -> P<ast::Item>,
-              G: FnMut(Annotatable) -> Annotatable
+    where
+        F: FnMut(P<ast::Item>) -> P<ast::Item>,
+        G: FnMut(Annotatable) -> Annotatable,
     {
         match self {
             Annotatable::Item(i) => Annotatable::Item(f(i)),
-            _ => or(self)
+            _ => or(self),
         }
     }
 
     pub fn expect_trait_item(self) -> ast::TraitItem {
         match self {
             Annotatable::TraitItem(i) => i.into_inner(),
-            _ => panic!("expected Item")
+            _ => panic!("expected Item"),
         }
     }
 
     pub fn expect_impl_item(self) -> ast::ImplItem {
         match self {
             Annotatable::ImplItem(i) => i.into_inner(),
-            _ => panic!("expected Item")
+            _ => panic!("expected Item"),
         }
     }
 
     pub fn derive_allowed(&self) -> bool {
         match *self {
             Annotatable::Item(ref item) => match item.node {
-                ast::ItemKind::Struct(..) |
-                ast::ItemKind::Enum(..) |
-                ast::ItemKind::Union(..) => true,
+                ast::ItemKind::Struct(..) | ast::ItemKind::Enum(..) | ast::ItemKind::Union(..) => {
+                    true
+                }
                 _ => false,
             },
             _ => false,
@@ -112,23 +112,28 @@ impl Annotatable {
 
 // A more flexible ItemDecorator.
 pub trait MultiItemDecorator {
-    fn expand(&self,
-              ecx: &mut ExtCtxt,
-              sp: Span,
-              meta_item: &ast::MetaItem,
-              item: &Annotatable,
-              push: &mut FnMut(Annotatable));
+    fn expand(
+        &self,
+        ecx: &mut ExtCtxt,
+        sp: Span,
+        meta_item: &ast::MetaItem,
+        item: &Annotatable,
+        push: &mut FnMut(Annotatable),
+    );
 }
 
 impl<F> MultiItemDecorator for F
-    where F : Fn(&mut ExtCtxt, Span, &ast::MetaItem, &Annotatable, &mut FnMut(Annotatable))
+where
+    F: Fn(&mut ExtCtxt, Span, &ast::MetaItem, &Annotatable, &mut FnMut(Annotatable)),
 {
-    fn expand(&self,
-              ecx: &mut ExtCtxt,
-              sp: Span,
-              meta_item: &ast::MetaItem,
-              item: &Annotatable,
-              push: &mut FnMut(Annotatable)) {
+    fn expand(
+        &self,
+        ecx: &mut ExtCtxt,
+        sp: Span,
+        meta_item: &ast::MetaItem,
+        item: &Annotatable,
+        push: &mut FnMut(Annotatable),
+    ) {
         (*self)(ecx, sp, meta_item, item, push)
     }
 }
@@ -136,24 +141,27 @@ impl<F> MultiItemDecorator for F
 // `meta_item` is the annotation, and `item` is the item being modified.
 // FIXME Decorators should follow the same pattern too.
 pub trait MultiItemModifier {
-    fn expand(&self,
-              ecx: &mut ExtCtxt,
-              span: Span,
-              meta_item: &ast::MetaItem,
-              item: Annotatable)
-              -> Vec<Annotatable>;
+    fn expand(
+        &self,
+        ecx: &mut ExtCtxt,
+        span: Span,
+        meta_item: &ast::MetaItem,
+        item: Annotatable,
+    ) -> Vec<Annotatable>;
 }
 
 impl<F, T> MultiItemModifier for F
-    where F: Fn(&mut ExtCtxt, Span, &ast::MetaItem, Annotatable) -> T,
-          T: Into<Vec<Annotatable>>,
+where
+    F: Fn(&mut ExtCtxt, Span, &ast::MetaItem, Annotatable) -> T,
+    T: Into<Vec<Annotatable>>,
 {
-    fn expand(&self,
-              ecx: &mut ExtCtxt,
-              span: Span,
-              meta_item: &ast::MetaItem,
-              item: Annotatable)
-              -> Vec<Annotatable> {
+    fn expand(
+        &self,
+        ecx: &mut ExtCtxt,
+        span: Span,
+        meta_item: &ast::MetaItem,
+        item: Annotatable,
+    ) -> Vec<Annotatable> {
         (*self)(ecx, span, meta_item, item).into()
     }
 }
@@ -165,44 +173,40 @@ impl Into<Vec<Annotatable>> for Annotatable {
 }
 
 pub trait ProcMacro {
-    fn expand<'cx>(&self,
-                   ecx: &'cx mut ExtCtxt,
-                   span: Span,
-                   ts: TokenStream)
-                   -> TokenStream;
+    fn expand<'cx>(&self, ecx: &'cx mut ExtCtxt, span: Span, ts: TokenStream) -> TokenStream;
 }
 
 impl<F> ProcMacro for F
-    where F: Fn(TokenStream) -> TokenStream
+where
+    F: Fn(TokenStream) -> TokenStream,
 {
-    fn expand<'cx>(&self,
-                   _ecx: &'cx mut ExtCtxt,
-                   _span: Span,
-                   ts: TokenStream)
-                   -> TokenStream {
+    fn expand<'cx>(&self, _ecx: &'cx mut ExtCtxt, _span: Span, ts: TokenStream) -> TokenStream {
         // FIXME setup implicit context in TLS before calling self.
         (*self)(ts)
     }
 }
 
 pub trait AttrProcMacro {
-    fn expand<'cx>(&self,
-                   ecx: &'cx mut ExtCtxt,
-                   span: Span,
-                   annotation: TokenStream,
-                   annotated: TokenStream)
-                   -> TokenStream;
+    fn expand<'cx>(
+        &self,
+        ecx: &'cx mut ExtCtxt,
+        span: Span,
+        annotation: TokenStream,
+        annotated: TokenStream,
+    ) -> TokenStream;
 }
 
 impl<F> AttrProcMacro for F
-    where F: Fn(TokenStream, TokenStream) -> TokenStream
+where
+    F: Fn(TokenStream, TokenStream) -> TokenStream,
 {
-    fn expand<'cx>(&self,
-                   _ecx: &'cx mut ExtCtxt,
-                   _span: Span,
-                   annotation: TokenStream,
-                   annotated: TokenStream)
-                   -> TokenStream {
+    fn expand<'cx>(
+        &self,
+        _ecx: &'cx mut ExtCtxt,
+        _span: Span,
+        annotation: TokenStream,
+        annotated: TokenStream,
+    ) -> TokenStream {
         // FIXME setup implicit context in TLS before calling self.
         (*self)(annotation, annotated)
     }
@@ -210,19 +214,27 @@ impl<F> AttrProcMacro for F
 
 /// Represents a thing that maps token trees to Macro Results
 pub trait TTMacroExpander {
-    fn expand<'cx>(&self, ecx: &'cx mut ExtCtxt, span: Span, input: TokenStream)
-                   -> Box<MacResult+'cx>;
+    fn expand<'cx>(
+        &self,
+        ecx: &'cx mut ExtCtxt,
+        span: Span,
+        input: TokenStream,
+    ) -> Box<MacResult + 'cx>;
 }
 
 pub type MacroExpanderFn =
-    for<'cx> fn(&'cx mut ExtCtxt, Span, &[tokenstream::TokenTree])
-                -> Box<MacResult+'cx>;
+    for<'cx> fn(&'cx mut ExtCtxt, Span, &[tokenstream::TokenTree]) -> Box<MacResult + 'cx>;
 
 impl<F> TTMacroExpander for F
-    where F: for<'cx> Fn(&'cx mut ExtCtxt, Span, &[tokenstream::TokenTree]) -> Box<MacResult+'cx>
+where
+    F: for<'cx> Fn(&'cx mut ExtCtxt, Span, &[tokenstream::TokenTree]) -> Box<MacResult + 'cx>,
 {
-    fn expand<'cx>(&self, ecx: &'cx mut ExtCtxt, span: Span, input: TokenStream)
-                   -> Box<MacResult+'cx> {
+    fn expand<'cx>(
+        &self,
+        ecx: &'cx mut ExtCtxt,
+        span: Span,
+        input: TokenStream,
+    ) -> Box<MacResult + 'cx> {
         struct AvoidInterpolatedIdents;
 
         impl Folder for AvoidInterpolatedIdents {
@@ -240,36 +252,40 @@ impl<F> TTMacroExpander for F
             }
         }
 
-        let input: Vec<_> =
-            input.trees().map(|tt| AvoidInterpolatedIdents.fold_tt(tt)).collect();
+        let input: Vec<_> = input
+            .trees()
+            .map(|tt| AvoidInterpolatedIdents.fold_tt(tt))
+            .collect();
         (*self)(ecx, span, &input)
     }
 }
 
 pub trait IdentMacroExpander {
-    fn expand<'cx>(&self,
-                   cx: &'cx mut ExtCtxt,
-                   sp: Span,
-                   ident: ast::Ident,
-                   token_tree: Vec<tokenstream::TokenTree>)
-                   -> Box<MacResult+'cx>;
+    fn expand<'cx>(
+        &self,
+        cx: &'cx mut ExtCtxt,
+        sp: Span,
+        ident: ast::Ident,
+        token_tree: Vec<tokenstream::TokenTree>,
+    ) -> Box<MacResult + 'cx>;
 }
 
 pub type IdentMacroExpanderFn =
     for<'cx> fn(&'cx mut ExtCtxt, Span, ast::Ident, Vec<tokenstream::TokenTree>)
-                -> Box<MacResult+'cx>;
+        -> Box<MacResult + 'cx>;
 
 impl<F> IdentMacroExpander for F
-    where F : for<'cx> Fn(&'cx mut ExtCtxt, Span, ast::Ident,
-                          Vec<tokenstream::TokenTree>) -> Box<MacResult+'cx>
+where
+    F: for<'cx> Fn(&'cx mut ExtCtxt, Span, ast::Ident, Vec<tokenstream::TokenTree>)
+        -> Box<MacResult + 'cx>,
 {
-    fn expand<'cx>(&self,
-                   cx: &'cx mut ExtCtxt,
-                   sp: Span,
-                   ident: ast::Ident,
-                   token_tree: Vec<tokenstream::TokenTree>)
-                   -> Box<MacResult+'cx>
-    {
+    fn expand<'cx>(
+        &self,
+        cx: &'cx mut ExtCtxt,
+        sp: Span,
+        ident: ast::Ident,
+        token_tree: Vec<tokenstream::TokenTree>,
+    ) -> Box<MacResult + 'cx> {
         (*self)(cx, sp, ident, token_tree)
     }
 }
@@ -409,7 +425,7 @@ impl MacResult for MacEager {
 #[derive(Copy, Clone)]
 pub struct DummyResult {
     expr_only: bool,
-    span: Span
+    span: Span,
 }
 
 impl DummyResult {
@@ -417,8 +433,11 @@ impl DummyResult {
     ///
     /// Use this as a return value after hitting any errors and
     /// calling `span_err`.
-    pub fn any(sp: Span) -> Box<MacResult+'static> {
-        Box::new(DummyResult { expr_only: false, span: sp })
+    pub fn any(sp: Span) -> Box<MacResult + 'static> {
+        Box::new(DummyResult {
+            expr_only: false,
+            span: sp,
+        })
     }
 
     /// Create a default MacResult that can only be an expression.
@@ -426,8 +445,11 @@ impl DummyResult {
     /// Use this for macros that must expand to an expression, so even
     /// if an error is encountered internally, the user will receive
     /// an error that they also used it in the wrong place.
-    pub fn expr(sp: Span) -> Box<MacResult+'static> {
-        Box::new(DummyResult { expr_only: true, span: sp })
+    pub fn expr(sp: Span) -> Box<MacResult + 'static> {
+        Box::new(DummyResult {
+            expr_only: true,
+            span: sp,
+        })
     }
 
     /// A plain dummy expression.
@@ -453,7 +475,7 @@ impl DummyResult {
         P(ast::Ty {
             id: ast::DUMMY_NODE_ID,
             node: ast::TyKind::Infer,
-            span: sp
+            span: sp,
         })
     }
 }
@@ -565,7 +587,10 @@ pub enum SyntaxExtension {
     /// The input is the annotated item.
     /// Allows generating code to implement a Trait for a given struct
     /// or enum item.
-    ProcMacroDerive(Box<MultiItemModifier>, Vec<Symbol> /* inert attribute names */),
+    ProcMacroDerive(
+        Box<MultiItemModifier>,
+        Vec<Symbol>, /* inert attribute names */
+    ),
 
     /// An attribute-like procedural macro that derives a builtin trait.
     BuiltinDerive(BuiltinDeriveFn),
@@ -580,27 +605,25 @@ impl SyntaxExtension {
     /// Return which kind of macro calls this syntax extension.
     pub fn kind(&self) -> MacroKind {
         match *self {
-            SyntaxExtension::DeclMacro(..) |
-            SyntaxExtension::NormalTT { .. } |
-            SyntaxExtension::IdentTT(..) |
-            SyntaxExtension::ProcMacro(..) =>
-                MacroKind::Bang,
-            SyntaxExtension::MultiDecorator(..) |
-            SyntaxExtension::MultiModifier(..) |
-            SyntaxExtension::AttrProcMacro(..) =>
-                MacroKind::Attr,
-            SyntaxExtension::ProcMacroDerive(..) |
-            SyntaxExtension::BuiltinDerive(..) =>
-                MacroKind::Derive,
+            SyntaxExtension::DeclMacro(..)
+            | SyntaxExtension::NormalTT { .. }
+            | SyntaxExtension::IdentTT(..)
+            | SyntaxExtension::ProcMacro(..) => MacroKind::Bang,
+            SyntaxExtension::MultiDecorator(..)
+            | SyntaxExtension::MultiModifier(..)
+            | SyntaxExtension::AttrProcMacro(..) => MacroKind::Attr,
+            SyntaxExtension::ProcMacroDerive(..) | SyntaxExtension::BuiltinDerive(..) => {
+                MacroKind::Derive
+            }
         }
     }
 
     pub fn is_modern(&self) -> bool {
         match *self {
-            SyntaxExtension::DeclMacro(..) |
-            SyntaxExtension::ProcMacro(..) |
-            SyntaxExtension::AttrProcMacro(..) |
-            SyntaxExtension::ProcMacroDerive(..) => true,
+            SyntaxExtension::DeclMacro(..)
+            | SyntaxExtension::ProcMacro(..)
+            | SyntaxExtension::AttrProcMacro(..)
+            | SyntaxExtension::ProcMacroDerive(..) => true,
             _ => false,
         }
     }
@@ -620,10 +643,19 @@ pub trait Resolver {
     fn resolve_imports(&mut self);
     // Resolves attribute and derive legacy macros from `#![plugin(..)]`.
     fn find_legacy_attr_invoc(&mut self, attrs: &mut Vec<Attribute>) -> Option<Attribute>;
-    fn resolve_invoc(&mut self, invoc: &mut Invocation, scope: Mark, force: bool)
-                     -> Result<Option<Rc<SyntaxExtension>>, Determinacy>;
-    fn resolve_macro(&mut self, scope: Mark, path: &ast::Path, kind: MacroKind, force: bool)
-                     -> Result<Rc<SyntaxExtension>, Determinacy>;
+    fn resolve_invoc(
+        &mut self,
+        invoc: &mut Invocation,
+        scope: Mark,
+        force: bool,
+    ) -> Result<Option<Rc<SyntaxExtension>>, Determinacy>;
+    fn resolve_macro(
+        &mut self,
+        scope: Mark,
+        path: &ast::Path,
+        kind: MacroKind,
+        force: bool,
+    ) -> Result<Rc<SyntaxExtension>, Determinacy>;
     fn check_unused_macros(&self);
 }
 
@@ -636,22 +668,41 @@ pub enum Determinacy {
 pub struct DummyResolver;
 
 impl Resolver for DummyResolver {
-    fn next_node_id(&mut self) -> ast::NodeId { ast::DUMMY_NODE_ID }
-    fn get_module_scope(&mut self, _id: ast::NodeId) -> Mark { Mark::root() }
-    fn eliminate_crate_var(&mut self, item: P<ast::Item>) -> P<ast::Item> { item }
-    fn is_whitelisted_legacy_custom_derive(&self, _name: Name) -> bool { false }
+    fn next_node_id(&mut self) -> ast::NodeId {
+        ast::DUMMY_NODE_ID
+    }
+    fn get_module_scope(&mut self, _id: ast::NodeId) -> Mark {
+        Mark::root()
+    }
+    fn eliminate_crate_var(&mut self, item: P<ast::Item>) -> P<ast::Item> {
+        item
+    }
+    fn is_whitelisted_legacy_custom_derive(&self, _name: Name) -> bool {
+        false
+    }
 
     fn visit_expansion(&mut self, _invoc: Mark, _expansion: &Expansion, _derives: &[Mark]) {}
     fn add_builtin(&mut self, _ident: ast::Ident, _ext: Rc<SyntaxExtension>) {}
 
     fn resolve_imports(&mut self) {}
-    fn find_legacy_attr_invoc(&mut self, _attrs: &mut Vec<Attribute>) -> Option<Attribute> { None }
-    fn resolve_invoc(&mut self, _invoc: &mut Invocation, _scope: Mark, _force: bool)
-                     -> Result<Option<Rc<SyntaxExtension>>, Determinacy> {
+    fn find_legacy_attr_invoc(&mut self, _attrs: &mut Vec<Attribute>) -> Option<Attribute> {
+        None
+    }
+    fn resolve_invoc(
+        &mut self,
+        _invoc: &mut Invocation,
+        _scope: Mark,
+        _force: bool,
+    ) -> Result<Option<Rc<SyntaxExtension>>, Determinacy> {
         Err(Determinacy::Determined)
     }
-    fn resolve_macro(&mut self, _scope: Mark, _path: &ast::Path, _kind: MacroKind,
-                     _force: bool) -> Result<Rc<SyntaxExtension>, Determinacy> {
+    fn resolve_macro(
+        &mut self,
+        _scope: Mark,
+        _path: &ast::Path,
+        _kind: MacroKind,
+        _force: bool,
+    ) -> Result<Rc<SyntaxExtension>, Determinacy> {
         Err(Determinacy::Determined)
     }
     fn check_unused_macros(&self) {}
@@ -685,10 +736,11 @@ pub struct ExtCtxt<'a> {
 }
 
 impl<'a> ExtCtxt<'a> {
-    pub fn new(parse_sess: &'a parse::ParseSess,
-               ecfg: expand::ExpansionConfig<'a>,
-               resolver: &'a mut Resolver)
-               -> ExtCtxt<'a> {
+    pub fn new(
+        parse_sess: &'a parse::ParseSess,
+        ecfg: expand::ExpansionConfig<'a>,
+        resolver: &'a mut Resolver,
+    ) -> ExtCtxt<'a> {
         ExtCtxt {
             parse_sess,
             ecfg,
@@ -698,7 +750,10 @@ impl<'a> ExtCtxt<'a> {
             current_expansion: ExpansionData {
                 mark: Mark::root(),
                 depth: 0,
-                module: Rc::new(ModuleData { mod_path: Vec::new(), directory: PathBuf::new() }),
+                module: Rc::new(ModuleData {
+                    mod_path: Vec::new(),
+                    directory: PathBuf::new(),
+                }),
                 directory_ownership: DirectoryOwnership::Owned { relative: None },
             },
             expansions: HashMap::new(),
@@ -719,9 +774,15 @@ impl<'a> ExtCtxt<'a> {
     pub fn new_parser_from_tts(&self, tts: &[tokenstream::TokenTree]) -> parser::Parser<'a> {
         parse::stream_to_parser(self.parse_sess, tts.iter().cloned().collect())
     }
-    pub fn codemap(&self) -> &'a CodeMap { self.parse_sess.codemap() }
-    pub fn parse_sess(&self) -> &'a parse::ParseSess { self.parse_sess }
-    pub fn cfg(&self) -> &ast::CrateConfig { &self.parse_sess.config }
+    pub fn codemap(&self) -> &'a CodeMap {
+        self.parse_sess.codemap()
+    }
+    pub fn parse_sess(&self) -> &'a parse::ParseSess {
+        self.parse_sess
+    }
+    pub fn cfg(&self) -> &ast::CrateConfig {
+        &self.parse_sess.config
+    }
     pub fn call_site(&self) -> Span {
         match self.current_expansion.mark.expn_info() {
             Some(expn_info) => expn_info.call_site,
@@ -739,37 +800,32 @@ impl<'a> ExtCtxt<'a> {
         let mut ctxt = self.backtrace();
         let mut last_macro = None;
         loop {
-            if ctxt.outer().expn_info().map_or(None, |info| {
-                if info.callee.name() == "include" {
-                    // Stop going up the backtrace once include! is encountered
-                    return None;
-                }
-                ctxt = info.call_site.ctxt();
-                last_macro = Some(info.call_site);
-                Some(())
-            }).is_none() {
-                break
+            if ctxt.outer()
+                .expn_info()
+                .map_or(None, |info| {
+                    if info.callee.name() == "include" {
+                        // Stop going up the backtrace once include! is encountered
+                        return None;
+                    }
+                    ctxt = info.call_site.ctxt();
+                    last_macro = Some(info.call_site);
+                    Some(())
+                })
+                .is_none()
+            {
+                break;
             }
         }
         last_macro
     }
 
-    pub fn struct_span_warn<S: Into<MultiSpan>>(&self,
-                                                sp: S,
-                                                msg: &str)
-                                                -> DiagnosticBuilder<'a> {
+    pub fn struct_span_warn<S: Into<MultiSpan>>(&self, sp: S, msg: &str) -> DiagnosticBuilder<'a> {
         self.parse_sess.span_diagnostic.struct_span_warn(sp, msg)
     }
-    pub fn struct_span_err<S: Into<MultiSpan>>(&self,
-                                               sp: S,
-                                               msg: &str)
-                                               -> DiagnosticBuilder<'a> {
+    pub fn struct_span_err<S: Into<MultiSpan>>(&self, sp: S, msg: &str) -> DiagnosticBuilder<'a> {
         self.parse_sess.span_diagnostic.struct_span_err(sp, msg)
     }
-    pub fn struct_span_fatal<S: Into<MultiSpan>>(&self,
-                                                 sp: S,
-                                                 msg: &str)
-                                                 -> DiagnosticBuilder<'a> {
+    pub fn struct_span_fatal<S: Into<MultiSpan>>(&self, sp: S, msg: &str) -> DiagnosticBuilder<'a> {
         self.parse_sess.span_diagnostic.struct_span_fatal(sp, msg)
     }
 
@@ -797,8 +853,7 @@ impl<'a> ExtCtxt<'a> {
     pub fn span_err<S: Into<MultiSpan>>(&self, sp: S, msg: &str) {
         self.parse_sess.span_diagnostic.span_err(sp, msg);
     }
-    pub fn mut_span_err<S: Into<MultiSpan>>(&self, sp: S, msg: &str)
-                        -> DiagnosticBuilder<'a> {
+    pub fn mut_span_err<S: Into<MultiSpan>>(&self, sp: S, msg: &str) -> DiagnosticBuilder<'a> {
         self.parse_sess.span_diagnostic.mut_span_err(sp, msg)
     }
     pub fn span_warn<S: Into<MultiSpan>>(&self, sp: S, msg: &str) {
@@ -812,7 +867,9 @@ impl<'a> ExtCtxt<'a> {
     }
     pub fn trace_macros_diag(&mut self) {
         for (sp, notes) in self.expansions.iter() {
-            let mut db = self.parse_sess.span_diagnostic.span_note_diag(*sp, "trace_macro");
+            let mut db = self.parse_sess
+                .span_diagnostic
+                .span_note_diag(*sp, "trace_macro");
             for note in notes {
                 db.note(note);
             }
@@ -835,8 +892,10 @@ impl<'a> ExtCtxt<'a> {
     }
     pub fn std_path(&self, components: &[&str]) -> Vec<ast::Ident> {
         let def_site = SyntaxContext::empty().apply_mark(self.current_expansion.mark);
-        iter::once(Ident { ctxt: def_site, ..keywords::DollarCrate.ident() })
-            .chain(components.iter().map(|s| self.ident_of(s)))
+        iter::once(Ident {
+            ctxt: def_site,
+            ..keywords::DollarCrate.ident()
+        }).chain(components.iter().map(|s| self.ident_of(s)))
             .collect()
     }
     pub fn name_of(&self, st: &str) -> ast::Name {
@@ -851,11 +910,15 @@ impl<'a> ExtCtxt<'a> {
 /// Extract a string literal from the macro expanded version of `expr`,
 /// emitting `err_msg` if `expr` is not a string literal. This does not stop
 /// compilation on error, merely emits a non-fatal error and returns None.
-pub fn expr_to_spanned_string(cx: &mut ExtCtxt, expr: P<ast::Expr>, err_msg: &str)
-                              -> Option<Spanned<(Symbol, ast::StrStyle)>> {
+pub fn expr_to_spanned_string(
+    cx: &mut ExtCtxt,
+    expr: P<ast::Expr>,
+    err_msg: &str,
+) -> Option<Spanned<(Symbol, ast::StrStyle)>> {
     // Update `expr.span`'s ctxt now in case expr is an `include!` macro invocation.
     let expr = expr.map(|mut expr| {
-        expr.span = expr.span.with_ctxt(expr.span.ctxt().apply_mark(cx.current_expansion.mark));
+        expr.span = expr.span
+            .with_ctxt(expr.span.ctxt().apply_mark(cx.current_expansion.mark));
         expr
     });
 
@@ -864,15 +927,18 @@ pub fn expr_to_spanned_string(cx: &mut ExtCtxt, expr: P<ast::Expr>, err_msg: &st
     match expr.node {
         ast::ExprKind::Lit(ref l) => match l.node {
             ast::LitKind::Str(s, style) => return Some(respan(expr.span, (s, style))),
-            _ => cx.span_err(l.span, err_msg)
+            _ => cx.span_err(l.span, err_msg),
         },
-        _ => cx.span_err(expr.span, err_msg)
+        _ => cx.span_err(expr.span, err_msg),
     }
     None
 }
 
-pub fn expr_to_string(cx: &mut ExtCtxt, expr: P<ast::Expr>, err_msg: &str)
-                      -> Option<(Symbol, ast::StrStyle)> {
+pub fn expr_to_string(
+    cx: &mut ExtCtxt,
+    expr: P<ast::Expr>,
+    err_msg: &str,
+) -> Option<(Symbol, ast::StrStyle)> {
     expr_to_spanned_string(cx, expr, err_msg).map(|s| s.node)
 }
 
@@ -881,10 +947,7 @@ pub fn expr_to_string(cx: &mut ExtCtxt, expr: P<ast::Expr>, err_msg: &str)
 /// compilation should call
 /// `cx.parse_sess.span_diagnostic.abort_if_errors()` (this should be
 /// done as rarely as possible).
-pub fn check_zero_tts(cx: &ExtCtxt,
-                      sp: Span,
-                      tts: &[tokenstream::TokenTree],
-                      name: &str) {
+pub fn check_zero_tts(cx: &ExtCtxt, sp: Span, tts: &[tokenstream::TokenTree], name: &str) {
     if !tts.is_empty() {
         cx.span_err(sp, &format!("{} takes no arguments", name));
     }
@@ -892,30 +955,31 @@ pub fn check_zero_tts(cx: &ExtCtxt,
 
 /// Extract the string literal from the first token of `tts`. If this
 /// is not a string literal, emit an error and return None.
-pub fn get_single_str_from_tts(cx: &mut ExtCtxt,
-                               sp: Span,
-                               tts: &[tokenstream::TokenTree],
-                               name: &str)
-                               -> Option<String> {
+pub fn get_single_str_from_tts(
+    cx: &mut ExtCtxt,
+    sp: Span,
+    tts: &[tokenstream::TokenTree],
+    name: &str,
+) -> Option<String> {
     let mut p = cx.new_parser_from_tts(tts);
     if p.token == token::Eof {
         cx.span_err(sp, &format!("{} takes 1 argument", name));
-        return None
+        return None;
     }
     let ret = panictry!(p.parse_expr());
     if p.token != token::Eof {
         cx.span_err(sp, &format!("{} takes 1 argument", name));
     }
-    expr_to_string(cx, ret, "argument must be a string literal").map(|(s, _)| {
-        s.to_string()
-    })
+    expr_to_string(cx, ret, "argument must be a string literal").map(|(s, _)| s.to_string())
 }
 
 /// Extract comma-separated expressions from `tts`. If there is a
 /// parsing error, emit a non-fatal error and return None.
-pub fn get_exprs_from_tts(cx: &mut ExtCtxt,
-                          sp: Span,
-                          tts: &[tokenstream::TokenTree]) -> Option<Vec<P<ast::Expr>>> {
+pub fn get_exprs_from_tts(
+    cx: &mut ExtCtxt,
+    sp: Span,
+    tts: &[tokenstream::TokenTree],
+) -> Option<Vec<P<ast::Expr>>> {
     let mut p = cx.new_parser_from_tts(tts);
     let mut es = Vec::new();
     while p.token != token::Eof {

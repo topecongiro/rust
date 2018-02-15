@@ -43,7 +43,6 @@ use rustc::hir::def::Def;
 use syntax::ast::{self, NodeId};
 use syntax::print::pprust;
 
-
 pub fn item_signature(item: &ast::Item, scx: &SaveContext) -> Option<Signature> {
     if !scx.config.signatures {
         return None;
@@ -317,11 +316,11 @@ impl Sig for ast::Ty {
                 let text = format!("[{}; {}]", nested_ty.text, expr);
                 Ok(replace_text(nested_ty, text))
             }
-            ast::TyKind::Typeof(_) |
-            ast::TyKind::Infer |
-            ast::TyKind::Err |
-            ast::TyKind::ImplicitSelf |
-            ast::TyKind::Mac(_) => Err("Ty"),
+            ast::TyKind::Typeof(_)
+            | ast::TyKind::Infer
+            | ast::TyKind::Err
+            | ast::TyKind::ImplicitSelf
+            | ast::TyKind::Mac(_) => Err("Ty"),
         }
     }
 }
@@ -495,12 +494,7 @@ impl Sig for ast::Item {
             ast::ItemKind::TraitAlias(ref generics, ref bounds) => {
                 let mut text = String::new();
                 text.push_str("trait ");
-                let mut sig = name_and_generics(text,
-                                                offset,
-                                                generics,
-                                                self.id,
-                                                self.ident,
-                                                scx)?;
+                let mut sig = name_and_generics(text, offset, generics, self.id, self.ident, scx)?;
 
                 if !bounds.is_empty() {
                     sig.text.push_str(" = ");
@@ -689,7 +683,6 @@ impl Sig for ast::StructField {
     }
 }
 
-
 impl Sig for ast::Variant_ {
     fn make(&self, offset: usize, _parent_id: Option<NodeId>, scx: &SaveContext) -> Result {
         let mut text = self.name.to_string();
@@ -846,7 +839,6 @@ fn name_and_generics(
     let text = format!("{}{}", text, generics.text);
     Ok(extend_sig(generics, text, vec![def], vec![]))
 }
-
 
 fn make_assoc_type_signature(
     id: NodeId,

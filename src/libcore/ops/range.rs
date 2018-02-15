@@ -74,7 +74,7 @@ impl fmt::Debug for RangeFull {
 /// assert_eq!(arr[1.. ], [  1,2,3]);
 /// assert_eq!(arr[1..3], [  1,2  ]);  // Range
 /// ```
-#[derive(Clone, PartialEq, Eq, Hash)]  // not Copy -- see #27186
+#[derive(Clone, PartialEq, Eq, Hash)] // not Copy -- see #27186
 #[stable(feature = "rust1", since = "1.0.0")]
 pub struct Range<Idx> {
     /// The lower bound of the range (inclusive).
@@ -137,7 +137,7 @@ impl<Idx: PartialOrd<Idx>> Range<Idx> {
 /// ```
 ///
 /// [`Iterator`]: ../iter/trait.IntoIterator.html
-#[derive(Clone, PartialEq, Eq, Hash)]  // not Copy -- see #27186
+#[derive(Clone, PartialEq, Eq, Hash)] // not Copy -- see #27186
 #[stable(feature = "rust1", since = "1.0.0")]
 pub struct RangeFrom<Idx> {
     /// The lower bound of the range (inclusive).
@@ -258,17 +258,15 @@ impl<Idx: PartialOrd<Idx>> RangeTo<Idx> {
 /// assert_eq!(arr[ ..=2], [0,1,2  ]);
 /// assert_eq!(arr[1..=2], [  1,2  ]);  // RangeInclusive
 /// ```
-#[derive(Clone, PartialEq, Eq, Hash)]  // not Copy -- see #27186
+#[derive(Clone, PartialEq, Eq, Hash)] // not Copy -- see #27186
 #[unstable(feature = "inclusive_range", reason = "recently added, follows RFC", issue = "28237")]
 pub struct RangeInclusive<Idx> {
     /// The lower bound of the range (inclusive).
-    #[unstable(feature = "inclusive_range",
-               reason = "recently added, follows RFC",
+    #[unstable(feature = "inclusive_range", reason = "recently added, follows RFC",
                issue = "28237")]
     pub start: Idx,
     /// The upper bound of the range (inclusive).
-    #[unstable(feature = "inclusive_range",
-               reason = "recently added, follows RFC",
+    #[unstable(feature = "inclusive_range", reason = "recently added, follows RFC",
                issue = "28237")]
     pub end: Idx,
 }
@@ -348,8 +346,7 @@ impl<Idx: PartialOrd<Idx>> RangeInclusive<Idx> {
 #[unstable(feature = "inclusive_range", reason = "recently added, follows RFC", issue = "28237")]
 pub struct RangeToInclusive<Idx> {
     /// The upper bound of the range (inclusive)
-    #[unstable(feature = "inclusive_range",
-               reason = "recently added, follows RFC",
+    #[unstable(feature = "inclusive_range", reason = "recently added, follows RFC",
                issue = "28237")]
     pub end: Idx,
 }

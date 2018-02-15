@@ -14,17 +14,14 @@ extern crate build_helper;
 
 use std::env;
 use std::process::Command;
-use build_helper::{run, native_lib_boilerplate};
+use build_helper::{native_lib_boilerplate, run};
 
 fn main() {
     let target = env::var("TARGET").expect("TARGET was not set");
     let host = env::var("HOST").expect("HOST was not set");
-    if cfg!(feature = "backtrace") &&
-        !target.contains("cloudabi") &&
-        !target.contains("emscripten") &&
-        !target.contains("fuchsia") &&
-        !target.contains("msvc") &&
-        !target.contains("wasm32")
+    if cfg!(feature = "backtrace") && !target.contains("cloudabi") && !target.contains("emscripten")
+        && !target.contains("fuchsia") && !target.contains("msvc")
+        && !target.contains("wasm32")
     {
         let _ = build_libbacktrace(&host, &target);
     }
@@ -42,8 +39,9 @@ fn main() {
     } else if target.contains("freebsd") {
         println!("cargo:rustc-link-lib=execinfo");
         println!("cargo:rustc-link-lib=pthread");
-    } else if target.contains("dragonfly") || target.contains("bitrig") ||
-              target.contains("netbsd") || target.contains("openbsd") {
+    } else if target.contains("dragonfly") || target.contains("bitrig") || target.contains("netbsd")
+        || target.contains("openbsd")
+    {
         println!("cargo:rustc-link-lib=pthread");
     } else if target.contains("solaris") {
         println!("cargo:rustc-link-lib=socket");
@@ -88,21 +86,31 @@ fn build_libbacktrace(host: &str, target: &str) -> Result<(), ()> {
     let native = native_lib_boilerplate("libbacktrace", "libbacktrace", "backtrace", ".libs")?;
 
     run(Command::new("sh")
-                .current_dir(&native.out_dir)
-                .arg(native.src_dir.join("configure").to_str().unwrap()
-                                   .replace("C:\\", "/c/")
-                                   .replace("\\", "/"))
-                .arg("--with-pic")
-                .arg("--disable-multilib")
-                .arg("--disable-shared")
-                .arg("--disable-host-shared")
-                .arg(format!("--host={}", build_helper::gnu_target(target)))
-                .arg(format!("--build={}", build_helper::gnu_target(host)))
-                .env("CFLAGS", env::var("CFLAGS").unwrap_or_default() + " -fvisibility=hidden"));
+        .current_dir(&native.out_dir)
+        .arg(
+            native
+                .src_dir
+                .join("configure")
+                .to_str()
+                .unwrap()
+                .replace("C:\\", "/c/")
+                .replace("\\", "/"),
+        )
+        .arg("--with-pic")
+        .arg("--disable-multilib")
+        .arg("--disable-shared")
+        .arg("--disable-host-shared")
+        .arg(format!("--host={}", build_helper::gnu_target(target)))
+        .arg(format!("--build={}", build_helper::gnu_target(host)))
+        .env(
+            "CFLAGS",
+            env::var("CFLAGS").unwrap_or_default() + " -fvisibility=hidden",
+        ));
 
     run(Command::new(build_helper::make(host))
-                .current_dir(&native.out_dir)
-                .arg(format!("INCDIR={}", native.src_dir.display()))
-                .arg("-j").arg(env::var("NUM_JOBS").expect("NUM_JOBS was not set")));
+        .current_dir(&native.out_dir)
+        .arg(format!("INCDIR={}", native.src_dir.display()))
+        .arg("-j")
+        .arg(env::var("NUM_JOBS").expect("NUM_JOBS was not set")));
     Ok(())
 }

@@ -15,16 +15,19 @@ use syntax::symbol::keywords;
 use syntax_pos::Span;
 use syntax::tokenstream::TokenTree;
 
-pub fn expand_trace_macros(cx: &mut ExtCtxt,
-                           sp: Span,
-                           tt: &[TokenTree])
-                           -> Box<base::MacResult + 'static> {
+pub fn expand_trace_macros(
+    cx: &mut ExtCtxt,
+    sp: Span,
+    tt: &[TokenTree],
+) -> Box<base::MacResult + 'static> {
     if !cx.ecfg.enable_trace_macros() {
-        feature_gate::emit_feature_err(&cx.parse_sess,
-                                       "trace_macros",
-                                       sp,
-                                       feature_gate::GateIssue::Language,
-                                       feature_gate::EXPLAIN_TRACE_MACROS);
+        feature_gate::emit_feature_err(
+            &cx.parse_sess,
+            "trace_macros",
+            sp,
+            feature_gate::GateIssue::Language,
+            feature_gate::EXPLAIN_TRACE_MACROS,
+        );
         return base::DummyResult::any(sp);
     }
 

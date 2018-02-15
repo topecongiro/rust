@@ -36,7 +36,7 @@ use flate2::write::DeflateEncoder;
 
 use syntax::symbol::Symbol;
 use rustc::hir::def_id::LOCAL_CRATE;
-use rustc::session::{Session, CompileIncomplete};
+use rustc::session::{CompileIncomplete, Session};
 use rustc::session::config::{CrateType, OutputFilenames, PrintRequest};
 use rustc::ty::TyCtxt;
 use rustc::ty::maps::Providers;
@@ -50,10 +50,14 @@ use link::{build_link_meta, out_filename};
 pub trait TransCrate {
     fn init(&self, _sess: &Session) {}
     fn print(&self, _req: PrintRequest, _sess: &Session) {}
-    fn target_features(&self, _sess: &Session) -> Vec<Symbol> { vec![] }
+    fn target_features(&self, _sess: &Session) -> Vec<Symbol> {
+        vec![]
+    }
     fn print_passes(&self) {}
     fn print_version(&self) {}
-    fn diagnostics(&self) -> &[(&'static str, &'static str)] { &[] }
+    fn diagnostics(&self) -> &[(&'static str, &'static str)] {
+        &[]
+    }
 
     fn metadata_loader(&self) -> Box<MetadataLoader>;
     fn provide(&self, _providers: &mut Providers);
@@ -61,7 +65,7 @@ pub trait TransCrate {
     fn trans_crate<'a, 'tcx>(
         &self,
         tcx: TyCtxt<'a, 'tcx, 'tcx>,
-        rx: mpsc::Receiver<Box<Any + Send>>
+        rx: mpsc::Receiver<Box<Any + Send>>,
     ) -> Box<Any>;
 
     /// This is called on the returned `Box<Any>` from `trans_crate`
@@ -96,7 +100,7 @@ impl TransCrate for DummyTransCrate {
     fn trans_crate<'a, 'tcx>(
         &self,
         _tcx: TyCtxt<'a, 'tcx, 'tcx>,
-        _rx: mpsc::Receiver<Box<Any + Send>>
+        _rx: mpsc::Receiver<Box<Any + Send>>,
     ) -> Box<Any> {
         bug!("DummyTransCrate::trans_crate");
     }
@@ -118,7 +122,7 @@ impl MetadataLoader for DummyMetadataLoader {
     fn get_rlib_metadata(
         &self,
         _target: &Target,
-        _filename: &Path
+        _filename: &Path,
     ) -> Result<ErasedBoxRef<[u8]>, String> {
         bug!("DummyMetadataLoader::get_rlib_metadata");
     }
@@ -126,7 +130,7 @@ impl MetadataLoader for DummyMetadataLoader {
     fn get_dylib_metadata(
         &self,
         _target: &Target,
-        _filename: &Path
+        _filename: &Path,
     ) -> Result<ErasedBoxRef<[u8]>, String> {
         bug!("DummyMetadataLoader::get_dylib_metadata");
     }
@@ -136,13 +140,12 @@ pub struct NoLlvmMetadataLoader;
 
 impl MetadataLoader for NoLlvmMetadataLoader {
     fn get_rlib_metadata(&self, _: &Target, filename: &Path) -> Result<ErasedBoxRef<[u8]>, String> {
-        let file = File::open(filename)
-            .map_err(|e| format!("metadata file open err: {:?}", e))?;
+        let file = File::open(filename).map_err(|e| format!("metadata file open err: {:?}", e))?;
         let mut archive = Archive::new(file);
 
         while let Some(entry_result) = archive.next_entry() {
-            let mut entry = entry_result
-                .map_err(|e| format!("metadata section read err: {:?}", e))?;
+            let mut entry =
+                entry_result.map_err(|e| format!("metadata section read err: {:?}", e))?;
             if entry.header().identifier() == "rust.metadata.bin" {
                 let mut buf = Vec::new();
                 io::copy(&mut entry, &mut buf).unwrap();
@@ -181,13 +184,15 @@ impl TransCrate for MetadataOnlyTransCrate {
     fn init(&self, sess: &Session) {
         for cty in sess.opts.crate_types.iter() {
             match *cty {
-                CrateType::CrateTypeRlib | CrateType::CrateTypeDylib |
-                CrateType::CrateTypeExecutable => {},
+                CrateType::CrateTypeRlib
+                | CrateType::CrateTypeDylib
+                | CrateType::CrateTypeExecutable => {}
                 _ => {
-                    sess.parse_sess.span_diagnostic.warn(
-                        &format!("LLVM unsupported, so output type {} is not supported", cty)
-                    );
-                },
+                    sess.parse_sess.span_diagnostic.warn(&format!(
+                        "LLVM unsupported, so output type {} is not supported",
+                        cty
+                    ));
+                }
             }
         }
     }
@@ -207,7 +212,7 @@ impl TransCrate for MetadataOnlyTransCrate {
     fn trans_crate<'a, 'tcx>(
         &self,
         tcx: TyCtxt<'a, 'tcx, 'tcx>,
-        _rx: mpsc::Receiver<Box<Any + Send>>
+        _rx: mpsc::Receiver<Box<Any + Send>>,
     ) -> Box<Any> {
         use rustc_mir::monomorphize::item::MonoItem;
 
@@ -215,24 +220,22 @@ impl TransCrate for MetadataOnlyTransCrate {
         ::symbol_names_test::report_symbol_names(tcx);
         ::rustc_incremental::assert_dep_graph(tcx);
         ::rustc_incremental::assert_module_sources::assert_module_sources(tcx);
-        ::rustc_mir::monomorphize::assert_symbols_are_distinct(tcx,
-            collector::collect_crate_mono_items(
-                tcx,
-                collector::MonoItemCollectionMode::Eager
-            ).0.iter()
+        ::rustc_mir::monomorphize::assert_symbols_are_distinct(
+            tcx,
+            collector::collect_crate_mono_items(tcx, collector::MonoItemCollectionMode::Eager)
+                .0
+                .iter(),
         );
         ::rustc::middle::dependency_format::calculate(tcx);
         let _ = tcx.link_args(LOCAL_CRATE);
         let _ = tcx.native_libraries(LOCAL_CRATE);
         for trans_item in
-            collector::collect_crate_mono_items(
-                tcx,
-                collector::MonoItemCollectionMode::Eager
-            ).0 {
+            collector::collect_crate_mono_items(tcx, collector::MonoItemCollectionMode::Eager).0
+        {
             match trans_item {
                 MonoItem::Fn(inst) => {
                     let def_id = inst.def_id();
-                    if def_id.is_local()  {
+                    if def_id.is_local() {
                         let _ = tcx.export_name(def_id);
                         let _ = tcx.contains_extern_indicator(def_id);
                         let _ = inst.def.is_inline(tcx);
@@ -264,14 +267,14 @@ impl TransCrate for MetadataOnlyTransCrate {
         _dep_graph: &DepGraph,
         outputs: &OutputFilenames,
     ) -> Result<(), CompileIncomplete> {
-        let trans = trans.downcast::<OngoingCrateTranslation>()
+        let trans = trans
+            .downcast::<OngoingCrateTranslation>()
             .expect("Expected MetadataOnlyTransCrate's OngoingCrateTranslation, found Box<Any>");
         for &crate_type in sess.opts.crate_types.iter() {
             if crate_type != CrateType::CrateTypeRlib && crate_type != CrateType::CrateTypeDylib {
                 continue;
             }
-            let output_name =
-                out_filename(sess, crate_type, &outputs, &trans.crate_name.as_str());
+            let output_name = out_filename(sess, crate_type, &outputs, &trans.crate_name.as_str());
             let mut compressed = trans.metadata_version.clone();
             let metadata = if crate_type == CrateType::CrateTypeDylib {
                 DeflateEncoder::new(&mut compressed, Compression::fast())

@@ -44,7 +44,7 @@ use html::highlight;
 use html::escape::Escape;
 use test;
 
-use pulldown_cmark::{html, Event, Tag, Parser};
+use pulldown_cmark::{html, Event, Parser, Tag};
 use pulldown_cmark::{Options, OPTION_ENABLE_FOOTNOTES, OPTION_ENABLE_TABLES};
 
 #[derive(PartialEq, Debug, Clone, Copy)]
@@ -85,8 +85,7 @@ impl<'a> Line<'a> {
 
     fn for_code(self) -> &'a str {
         match self {
-            Line::Shown(l) |
-            Line::Hidden(l) => l,
+            Line::Shown(l) | Line::Hidden(l) => l,
         }
     }
 }
@@ -149,9 +148,7 @@ struct CodeBlocks<'a, I: Iterator<Item = Event<'a>>> {
 
 impl<'a, I: Iterator<Item = Event<'a>>> CodeBlocks<'a, I> {
     fn new(iter: I) -> Self {
-        CodeBlocks {
-            inner: iter,
-        }
+        CodeBlocks { inner: iter }
     }
 }
 
@@ -193,12 +190,13 @@ impl<'a, I: Iterator<Item = Event<'a>>> Iterator for CodeBlocks<'a, I> {
                 if url.is_empty() {
                     return None;
                 }
-                let test = origtext.lines()
+                let test = origtext
+                    .lines()
                     .map(|l| map_line(l).for_code())
-                    .collect::<Vec<&str>>().join("\n");
+                    .collect::<Vec<&str>>()
+                    .join("\n");
                 let krate = krate.as_ref().map(|s| &**s);
-                let (test, _) = test::make_test(&test, krate, false,
-                                           &Default::default());
+                let (test, _) = test::make_test(&test, krate, false, &Default::default());
                 let channel = if test.contains("#![feature(") {
                     "&amp;version=nightly"
                 } else {
@@ -207,12 +205,10 @@ impl<'a, I: Iterator<Item = Event<'a>>> Iterator for CodeBlocks<'a, I> {
                 // These characters don't need to be escaped in a URI.
                 // FIXME: use a library function for percent encoding.
                 fn dont_escape(c: u8) -> bool {
-                    (b'a' <= c && c <= b'z') ||
-                    (b'A' <= c && c <= b'Z') ||
-                    (b'0' <= c && c <= b'9') ||
-                    c == b'-' || c == b'_' || c == b'.' ||
-                    c == b'~' || c == b'!' || c == b'\'' ||
-                    c == b'(' || c == b')' || c == b'*'
+                    (b'a' <= c && c <= b'z') || (b'A' <= c && c <= b'Z') || (b'0' <= c && c <= b'9')
+                        || c == b'-' || c == b'_' || c == b'.' || c == b'~'
+                        || c == b'!' || c == b'\'' || c == b'(' || c == b')'
+                        || c == b'*'
                 }
                 let mut test_escaped = String::new();
                 for b in test.bytes() {
@@ -235,14 +231,21 @@ impl<'a, I: Iterator<Item = Event<'a>>> Iterator for CodeBlocks<'a, I> {
                 None
             };
             s.push_str(&highlight::render_with_highlighting(
-                        &text,
-                        Some(&format!("rust-example-rendered{}",
-                                      if ignore { " ignore" }
-                                      else if compile_fail { " compile_fail" }
-                                      else { "" })),
-                        None,
-                        playground_button.as_ref().map(String::as_str),
-                        tooltip));
+                &text,
+                Some(&format!(
+                    "rust-example-rendered{}",
+                    if ignore {
+                        " ignore"
+                    } else if compile_fail {
+                        " compile_fail"
+                    } else {
+                        ""
+                    }
+                )),
+                None,
+                playground_button.as_ref().map(String::as_str),
+                tooltip,
+            ));
             Some(Event::Html(s.into()))
         })
     }
@@ -251,15 +254,12 @@ impl<'a, I: Iterator<Item = Event<'a>>> Iterator for CodeBlocks<'a, I> {
 /// Make headings links with anchor ids and build up TOC.
 struct LinkReplacer<'a, 'b, I: Iterator<Item = Event<'a>>> {
     inner: I,
-    links: &'b [(String, String)]
+    links: &'b [(String, String)],
 }
 
 impl<'a, 'b, I: Iterator<Item = Event<'a>>> LinkReplacer<'a, 'b, I> {
     fn new(iter: I, links: &'b [(String, String)]) -> Self {
-        LinkReplacer {
-            inner: iter,
-            links
-        }
+        LinkReplacer { inner: iter, links }
     }
 }
 
@@ -313,7 +313,7 @@ impl<'a, 'b, I: Iterator<Item = Event<'a>>> Iterator for HeadingLinks<'a, 'b, I>
                 match event {
                     Event::End(Tag::Header(..)) => break,
                     Event::Text(ref text) => id.extend(text.chars().filter_map(slugify)),
-                    _ => {},
+                    _ => {}
                 }
                 self.buf.push_back(event);
             }
@@ -323,15 +323,19 @@ impl<'a, 'b, I: Iterator<Item = Event<'a>>> Iterator for HeadingLinks<'a, 'b, I>
                 let mut html_header = String::new();
                 html::push_html(&mut html_header, self.buf.iter().cloned());
                 let sec = builder.push(level as u32, html_header, id.clone());
-                self.buf.push_front(Event::InlineHtml(format!("{} ", sec).into()));
+                self.buf
+                    .push_front(Event::InlineHtml(format!("{} ", sec).into()));
             }
 
-            self.buf.push_back(Event::InlineHtml(format!("</a></h{}>", level).into()));
+            self.buf
+                .push_back(Event::InlineHtml(format!("</a></h{}>", level).into()));
 
-            let start_tags = format!("<h{level} id=\"{id}\" class=\"section-header\">\
-                                      <a href=\"#{id}\">",
-                                     id = id,
-                                     level = level);
+            let start_tags = format!(
+                "<h{level} id=\"{id}\" class=\"section-header\">\
+                 <a href=\"#{id}\">",
+                id = id,
+                level = level
+            );
             return Some(Event::InlineHtml(start_tags.into()));
         }
         event
@@ -392,7 +396,9 @@ impl<'a, I: Iterator<Item = Event<'a>>> Footnotes<'a, I> {
     fn get_entry(&mut self, key: &str) -> &mut (Vec<Event<'a>>, u16) {
         let new_id = self.footnotes.keys().count() + 1;
         let key = key.to_owned();
-        self.footnotes.entry(key).or_insert((Vec::new(), new_id as u16))
+        self.footnotes
+            .entry(key)
+            .or_insert((Vec::new(), new_id as u16))
     }
 }
 
@@ -404,9 +410,11 @@ impl<'a, I: Iterator<Item = Event<'a>>> Iterator for Footnotes<'a, I> {
             match self.inner.next() {
                 Some(Event::FootnoteReference(ref reference)) => {
                     let entry = self.get_entry(&reference);
-                    let reference = format!("<sup id=\"fnref{0}\"><a href=\"#fn{0}\">{0}\
-                                             </a></sup>",
-                                            (*entry).1);
+                    let reference = format!(
+                        "<sup id=\"fnref{0}\"><a href=\"#fn{0}\">{0}\
+                         </a></sup>",
+                        (*entry).1
+                    );
                     return Some(Event::Html(reference.into()));
                 }
                 Some(Event::Start(Tag::FootnoteDefinition(def))) => {
@@ -434,9 +442,11 @@ impl<'a, I: Iterator<Item = Event<'a>>> Iterator for Footnotes<'a, I> {
                                 is_paragraph = true;
                             }
                             html::push_html(&mut ret, content.into_iter());
-                            write!(ret,
-                                   "&nbsp;<a href=\"#fnref{}\" rev=\"footnote\">↩</a>",
-                                   id).unwrap();
+                            write!(
+                                ret,
+                                "&nbsp;<a href=\"#fnref{}\" rev=\"footnote\">↩</a>",
+                                id
+                            ).unwrap();
                             if is_paragraph {
                                 ret.push_str("</p>");
                             }
@@ -463,40 +473,72 @@ const HOEDOWN_EXT_SUPERSCRIPT: libc::c_uint = 1 << 8;
 const HOEDOWN_EXT_FOOTNOTES: libc::c_uint = 1 << 2;
 const HOEDOWN_HTML_ESCAPE: libc::c_uint = 1 << 1;
 
-const HOEDOWN_EXTENSIONS: libc::c_uint =
-    HOEDOWN_EXT_NO_INTRA_EMPHASIS | HOEDOWN_EXT_TABLES |
-    HOEDOWN_EXT_FENCED_CODE | HOEDOWN_EXT_AUTOLINK |
-    HOEDOWN_EXT_STRIKETHROUGH | HOEDOWN_EXT_SUPERSCRIPT |
-    HOEDOWN_EXT_FOOTNOTES;
+const HOEDOWN_EXTENSIONS: libc::c_uint = HOEDOWN_EXT_NO_INTRA_EMPHASIS | HOEDOWN_EXT_TABLES
+    | HOEDOWN_EXT_FENCED_CODE | HOEDOWN_EXT_AUTOLINK
+    | HOEDOWN_EXT_STRIKETHROUGH | HOEDOWN_EXT_SUPERSCRIPT
+    | HOEDOWN_EXT_FOOTNOTES;
 
 enum hoedown_document {}
 
-type blockcodefn = extern "C" fn(*mut hoedown_buffer, *const hoedown_buffer,
-                                 *const hoedown_buffer, *const hoedown_renderer_data,
-                                 libc::size_t);
+type blockcodefn = extern "C" fn(
+    *mut hoedown_buffer,
+    *const hoedown_buffer,
+    *const hoedown_buffer,
+    *const hoedown_renderer_data,
+    libc::size_t,
+);
 
-type blockquotefn = extern "C" fn(*mut hoedown_buffer, *const hoedown_buffer,
-                                  *const hoedown_renderer_data, libc::size_t);
+type blockquotefn = extern "C" fn(
+    *mut hoedown_buffer,
+    *const hoedown_buffer,
+    *const hoedown_renderer_data,
+    libc::size_t,
+);
 
-type headerfn = extern "C" fn(*mut hoedown_buffer, *const hoedown_buffer,
-                              libc::c_int, *const hoedown_renderer_data,
-                              libc::size_t);
+type headerfn = extern "C" fn(
+    *mut hoedown_buffer,
+    *const hoedown_buffer,
+    libc::c_int,
+    *const hoedown_renderer_data,
+    libc::size_t,
+);
 
-type blockhtmlfn = extern "C" fn(*mut hoedown_buffer, *const hoedown_buffer,
-                                 *const hoedown_renderer_data, libc::size_t);
+type blockhtmlfn = extern "C" fn(
+    *mut hoedown_buffer,
+    *const hoedown_buffer,
+    *const hoedown_renderer_data,
+    libc::size_t,
+);
 
-type codespanfn = extern "C" fn(*mut hoedown_buffer, *const hoedown_buffer,
-                                *const hoedown_renderer_data, libc::size_t) -> libc::c_int;
+type codespanfn = extern "C" fn(
+    *mut hoedown_buffer,
+    *const hoedown_buffer,
+    *const hoedown_renderer_data,
+    libc::size_t,
+) -> libc::c_int;
 
-type linkfn = extern "C" fn (*mut hoedown_buffer, *const hoedown_buffer,
-                             *const hoedown_buffer, *const hoedown_buffer,
-                             *const hoedown_renderer_data, libc::size_t) -> libc::c_int;
+type linkfn = extern "C" fn(
+    *mut hoedown_buffer,
+    *const hoedown_buffer,
+    *const hoedown_buffer,
+    *const hoedown_buffer,
+    *const hoedown_renderer_data,
+    libc::size_t,
+) -> libc::c_int;
 
-type entityfn = extern "C" fn (*mut hoedown_buffer, *const hoedown_buffer,
-                               *const hoedown_renderer_data, libc::size_t);
+type entityfn = extern "C" fn(
+    *mut hoedown_buffer,
+    *const hoedown_buffer,
+    *const hoedown_renderer_data,
+    libc::size_t,
+);
 
-type normaltextfn = extern "C" fn(*mut hoedown_buffer, *const hoedown_buffer,
-                                  *const hoedown_renderer_data, libc::size_t);
+type normaltextfn = extern "C" fn(
+    *mut hoedown_buffer,
+    *const hoedown_buffer,
+    *const hoedown_renderer_data,
+    libc::size_t,
+);
 
 #[repr(C)]
 struct hoedown_renderer_data {
@@ -535,9 +577,9 @@ struct hoedown_html_renderer_state {
     opaque: *mut libc::c_void,
     toc_data: html_toc_data,
     flags: libc::c_uint,
-    link_attributes: Option<extern "C" fn(*mut hoedown_buffer,
-                                          *const hoedown_buffer,
-                                          *const hoedown_renderer_data)>,
+    link_attributes: Option<
+        extern "C" fn(*mut hoedown_buffer, *const hoedown_buffer, *const hoedown_renderer_data),
+    >,
 }
 
 #[repr(C)]
@@ -557,27 +599,36 @@ struct hoedown_buffer {
 }
 
 struct MyOpaque {
-    dfltblk: extern "C" fn(*mut hoedown_buffer, *const hoedown_buffer,
-                           *const hoedown_buffer, *const hoedown_renderer_data,
-                           libc::size_t),
+    dfltblk: extern "C" fn(
+        *mut hoedown_buffer,
+        *const hoedown_buffer,
+        *const hoedown_buffer,
+        *const hoedown_renderer_data,
+        libc::size_t,
+    ),
     toc_builder: Option<TocBuilder>,
     links_out: Option<Vec<String>>,
     links_replace: Vec<(String, String)>,
 }
 
-extern {
-    fn hoedown_html_renderer_new(render_flags: libc::c_uint,
-                                 nesting_level: libc::c_int)
-        -> *mut hoedown_renderer;
+extern "C" {
+    fn hoedown_html_renderer_new(
+        render_flags: libc::c_uint,
+        nesting_level: libc::c_int,
+    ) -> *mut hoedown_renderer;
     fn hoedown_html_renderer_free(renderer: *mut hoedown_renderer);
 
-    fn hoedown_document_new(rndr: *const hoedown_renderer,
-                            extensions: libc::c_uint,
-                            max_nesting: libc::size_t) -> *mut hoedown_document;
-    fn hoedown_document_render(doc: *mut hoedown_document,
-                               ob: *mut hoedown_buffer,
-                               document: *const u8,
-                               doc_size: libc::size_t);
+    fn hoedown_document_new(
+        rndr: *const hoedown_renderer,
+        extensions: libc::c_uint,
+        max_nesting: libc::size_t,
+    ) -> *mut hoedown_document;
+    fn hoedown_document_render(
+        doc: *mut hoedown_document,
+        ob: *mut hoedown_buffer,
+        document: *const u8,
+        doc_size: libc::size_t,
+    );
     fn hoedown_document_free(md: *mut hoedown_document);
 
     fn hoedown_buffer_new(unit: libc::size_t) -> *mut hoedown_buffer;
@@ -591,11 +642,17 @@ impl hoedown_buffer {
     }
 }
 
-extern fn hoedown_block(ob: *mut hoedown_buffer, orig_text: *const hoedown_buffer,
-                        lang: *const hoedown_buffer, data: *const hoedown_renderer_data,
-                        line: libc::size_t) {
+extern "C" fn hoedown_block(
+    ob: *mut hoedown_buffer,
+    orig_text: *const hoedown_buffer,
+    lang: *const hoedown_buffer,
+    data: *const hoedown_renderer_data,
+    line: libc::size_t,
+) {
     unsafe {
-        if orig_text.is_null() { return }
+        if orig_text.is_null() {
+            return;
+        }
 
         let opaque = (*data).opaque as *mut hoedown_html_renderer_state;
         let my_opaque: &MyOpaque = &*((*opaque).opaque as *const MyOpaque);
@@ -615,9 +672,13 @@ extern fn hoedown_block(ob: *mut hoedown_buffer, orig_text: *const hoedown_buffe
             compile_fail = parse_result.compile_fail;
             ignore = parse_result.ignore;
             if !parse_result.rust {
-                (my_opaque.dfltblk)(ob, orig_text, lang,
-                                    opaque as *const hoedown_renderer_data,
-                                    line);
+                (my_opaque.dfltblk)(
+                    ob,
+                    orig_text,
+                    lang,
+                    opaque as *const hoedown_renderer_data,
+                    line,
+                );
                 true
             } else {
                 false
@@ -626,7 +687,9 @@ extern fn hoedown_block(ob: *mut hoedown_buffer, orig_text: *const hoedown_buffe
 
         let lines = origtext.lines().filter_map(|l| map_line(l).for_html());
         let text = lines.collect::<Vec<&str>>().join("\n");
-        if rendered { return }
+        if rendered {
+            return;
+        }
         PLAYGROUND.with(|play| {
             // insert newline to clearly separate it from the
             // previous block so we can shorten the html output
@@ -635,12 +698,13 @@ extern fn hoedown_block(ob: *mut hoedown_buffer, orig_text: *const hoedown_buffe
                 if url.is_empty() {
                     return None;
                 }
-                let test = origtext.lines()
+                let test = origtext
+                    .lines()
                     .map(|l| map_line(l).for_code())
-                    .collect::<Vec<&str>>().join("\n");
+                    .collect::<Vec<&str>>()
+                    .join("\n");
                 let krate = krate.as_ref().map(|s| &**s);
-                let (test, _) = test::make_test(&test, krate, false,
-                                                &Default::default());
+                let (test, _) = test::make_test(&test, krate, false, &Default::default());
                 let channel = if test.contains("#![feature(") {
                     "&amp;version=nightly"
                 } else {
@@ -649,12 +713,10 @@ extern fn hoedown_block(ob: *mut hoedown_buffer, orig_text: *const hoedown_buffe
                 // These characters don't need to be escaped in a URI.
                 // FIXME: use a library function for percent encoding.
                 fn dont_escape(c: u8) -> bool {
-                    (b'a' <= c && c <= b'z') ||
-                    (b'A' <= c && c <= b'Z') ||
-                    (b'0' <= c && c <= b'9') ||
-                    c == b'-' || c == b'_' || c == b'.' ||
-                    c == b'~' || c == b'!' || c == b'\'' ||
-                    c == b'(' || c == b')' || c == b'*'
+                    (b'a' <= c && c <= b'z') || (b'A' <= c && c <= b'Z') || (b'0' <= c && c <= b'9')
+                        || c == b'-' || c == b'_' || c == b'.' || c == b'~'
+                        || c == b'!' || c == b'\'' || c == b'(' || c == b')'
+                        || c == b'*'
                 }
                 let mut test_escaped = String::new();
                 for b in test.bytes() {
@@ -677,24 +739,37 @@ extern fn hoedown_block(ob: *mut hoedown_buffer, orig_text: *const hoedown_buffe
                 None
             };
             s.push_str(&highlight::render_with_highlighting(
-                           &text,
-                           Some(&format!("rust-example-rendered{}",
-                                         if ignore { " ignore" }
-                                         else if compile_fail { " compile_fail" }
-                                         else { "" })),
-                           None,
-                           playground_button.as_ref().map(String::as_str),
-                           tooltip));
+                &text,
+                Some(&format!(
+                    "rust-example-rendered{}",
+                    if ignore {
+                        " ignore"
+                    } else if compile_fail {
+                        " compile_fail"
+                    } else {
+                        ""
+                    }
+                )),
+                None,
+                playground_button.as_ref().map(String::as_str),
+                tooltip,
+            ));
             hoedown_buffer_put(ob, s.as_ptr(), s.len());
         })
     }
 }
 
-extern fn hoedown_header(ob: *mut hoedown_buffer, text: *const hoedown_buffer,
-                         level: libc::c_int, data: *const hoedown_renderer_data,
-                         _: libc::size_t) {
+extern "C" fn hoedown_header(
+    ob: *mut hoedown_buffer,
+    text: *const hoedown_buffer,
+    level: libc::c_int,
+    data: *const hoedown_renderer_data,
+    _: libc::size_t,
+) {
     // hoedown does this, we may as well too
-    unsafe { hoedown_buffer_put(ob, "\n".as_ptr(), 1); }
+    unsafe {
+        hoedown_buffer_put(ob, "\n".as_ptr(), 1);
+    }
 
     // Extract the text provided
     let s = if text.is_null() {
@@ -711,48 +786,70 @@ extern fn hoedown_header(ob: *mut hoedown_buffer, text: *const hoedown_buffer,
     // This is a terrible hack working around how hoedown gives us rendered
     // html for text rather than the raw text.
     let mut id = s.clone();
-    let repl_sub = vec!["<em>", "</em>", "<code>", "</code>",
-                        "<strong>", "</strong>",
-                        "&lt;", "&gt;", "&amp;", "&#39;", "&quot;"];
+    let repl_sub = vec![
+        "<em>",
+        "</em>",
+        "<code>",
+        "</code>",
+        "<strong>",
+        "</strong>",
+        "&lt;",
+        "&gt;",
+        "&amp;",
+        "&#39;",
+        "&quot;",
+    ];
     for sub in repl_sub {
         id = id.replace(sub, "");
     }
-    let id = id.chars().filter_map(|c| {
-        if c.is_alphanumeric() || c == '-' || c == '_' {
-            if c.is_ascii() {
-                Some(c.to_ascii_lowercase())
+    let id = id.chars()
+        .filter_map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' {
+                if c.is_ascii() {
+                    Some(c.to_ascii_lowercase())
+                } else {
+                    Some(c)
+                }
+            } else if c.is_whitespace() && c.is_ascii() {
+                Some('-')
             } else {
-                Some(c)
+                None
             }
-        } else if c.is_whitespace() && c.is_ascii() {
-            Some('-')
-        } else {
-            None
-        }
-    }).collect::<String>();
+        })
+        .collect::<String>();
 
     let opaque = unsafe { (*data).opaque as *mut hoedown_html_renderer_state };
     let opaque = unsafe { &mut *((*opaque).opaque as *mut MyOpaque) };
 
     let id = derive_id(id);
 
-    let sec = opaque.toc_builder.as_mut().map_or("".to_owned(), |builder| {
-        format!("{} ", builder.push(level as u32, s.clone(), id.clone()))
-    });
+    let sec = opaque
+        .toc_builder
+        .as_mut()
+        .map_or("".to_owned(), |builder| {
+            format!("{} ", builder.push(level as u32, s.clone(), id.clone()))
+        });
 
     // Render the HTML
-    let text = format!("<h{lvl} id='{id}' class='section-header'>\
-                       <a href='#{id}'>{sec}{}</a></h{lvl}>",
-                       s, lvl = level, id = id, sec = sec);
+    let text = format!(
+        "<h{lvl} id='{id}' class='section-header'>\
+         <a href='#{id}'>{sec}{}</a></h{lvl}>",
+        s,
+        lvl = level,
+        id = id,
+        sec = sec
+    );
 
-    unsafe { hoedown_buffer_put(ob, text.as_ptr(), text.len()); }
+    unsafe {
+        hoedown_buffer_put(ob, text.as_ptr(), text.len());
+    }
 }
 
-extern fn hoedown_codespan(
+extern "C" fn hoedown_codespan(
     ob: *mut hoedown_buffer,
     text: *const hoedown_buffer,
     _: *const hoedown_renderer_data,
-    _: libc::size_t
+    _: libc::size_t,
 ) -> libc::c_int {
     let content = if text.is_null() {
         "".to_owned()
@@ -770,24 +867,23 @@ extern fn hoedown_codespan(
     1
 }
 
-pub fn render(w: &mut fmt::Formatter,
-              s: &str,
-              links: &[(String, String)],
-              print_toc: bool,
-              html_flags: libc::c_uint) -> fmt::Result {
+pub fn render(
+    w: &mut fmt::Formatter,
+    s: &str,
+    links: &[(String, String)],
+    print_toc: bool,
+    html_flags: libc::c_uint,
+) -> fmt::Result {
     // copied from pulldown-cmark (MIT license, Google)
     // https://github.com/google/pulldown-cmark
     // this is temporary till we remove the hoedown renderer
     static HREF_SAFE: [u8; 128] = [
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1,
-            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1,
-            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1,
-            0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
-        ];
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 0, 0, 0, 0, 0,
+    ];
 
     static HEX_CHARS: &'static [u8] = b"0123456789ABCDEF";
 
@@ -805,10 +901,10 @@ pub fn render(w: &mut fmt::Formatter,
                 match c {
                     b'&' => {
                         ob.push_str("&amp;");
-                    },
+                    }
                     b'\'' => {
                         ob.push_str("&#x27;");
-                    },
+                    }
                     _ => {
                         let mut buf = [0u8; 3];
                         buf[0] = b'%';
@@ -817,20 +913,20 @@ pub fn render(w: &mut fmt::Formatter,
                         ob.push_str(str::from_utf8(&buf).unwrap());
                     }
                 }
-                mark = i + 1;  // all escaped characters are ASCII
+                mark = i + 1; // all escaped characters are ASCII
             }
         }
         ob.push_str(&s[mark..]);
     }
     // end code copied from pulldown-cmark
 
-    extern fn hoedown_link(
+    extern "C" fn hoedown_link(
         ob: *mut hoedown_buffer,
         content: *const hoedown_buffer,
         link: *const hoedown_buffer,
         title: *const hoedown_buffer,
         data: *const hoedown_renderer_data,
-        _line: libc::size_t
+        _line: libc::size_t,
     ) -> libc::c_int {
         if link.is_null() {
             return 0;
@@ -844,9 +940,9 @@ pub fn render(w: &mut fmt::Formatter,
             str::from_utf8(s).unwrap().to_owned()
         };
 
-        let link = if let Some(&(_, ref new_target)) = opaque.links_replace
-                                                             .iter()
-                                                             .find(|t| &*t.0 == &*link) {
+        let link = if let Some(&(_, ref new_target)) =
+            opaque.links_replace.iter().find(|t| &*t.0 == &*link)
+        {
             new_target.to_owned()
         } else {
             link
@@ -869,13 +965,16 @@ pub fn render(w: &mut fmt::Formatter,
             })
         };
 
-        let link_out = format!("<a href=\"{link}\"{title}>{content}</a>",
-                               link = link_buf,
-                               title = title.map_or(String::new(),
-                                                    |t| format!(" title=\"{}\"", Escape(&t))),
-                               content = content.unwrap_or(String::new()));
+        let link_out = format!(
+            "<a href=\"{link}\"{title}>{content}</a>",
+            link = link_buf,
+            title = title.map_or(String::new(), |t| format!(" title=\"{}\"", Escape(&t))),
+            content = content.unwrap_or(String::new())
+        );
 
-        unsafe { hoedown_buffer_put(ob, link_out.as_ptr(), link_out.len()); }
+        unsafe {
+            hoedown_buffer_put(ob, link_out.as_ptr(), link_out.len());
+        }
 
         //return "anything but 0" to show we've written the link in
         1
@@ -886,20 +985,23 @@ pub fn render(w: &mut fmt::Formatter,
         let renderer = hoedown_html_renderer_new(html_flags, 0);
         let mut opaque = MyOpaque {
             dfltblk: (*renderer).blockcode.unwrap(),
-            toc_builder: if print_toc {Some(TocBuilder::new())} else {None},
+            toc_builder: if print_toc {
+                Some(TocBuilder::new())
+            } else {
+                None
+            },
             links_out: None,
             links_replace: links.to_vec(),
         };
-        (*((*renderer).opaque as *mut hoedown_html_renderer_state)).opaque
-                = &mut opaque as *mut _ as *mut libc::c_void;
+        (*((*renderer).opaque as *mut hoedown_html_renderer_state)).opaque =
+            &mut opaque as *mut _ as *mut libc::c_void;
         (*renderer).blockcode = Some(hoedown_block);
         (*renderer).header = Some(hoedown_header);
         (*renderer).codespan = Some(hoedown_codespan);
         (*renderer).link = Some(hoedown_link);
 
         let document = hoedown_document_new(renderer, HOEDOWN_EXTENSIONS, 16);
-        hoedown_document_render(document, ob, s.as_ptr(),
-                                s.len() as libc::size_t);
+        hoedown_document_render(document, ob, s.as_ptr(), s.len() as libc::size_t);
         hoedown_document_free(document);
 
         hoedown_html_renderer_free(renderer);
@@ -918,13 +1020,17 @@ pub fn render(w: &mut fmt::Formatter,
 }
 
 pub fn old_find_testable_code(doc: &str, tests: &mut ::test::Collector, position: Span) {
-    extern fn block(_ob: *mut hoedown_buffer,
-                    text: *const hoedown_buffer,
-                    lang: *const hoedown_buffer,
-                    data: *const hoedown_renderer_data,
-                    line: libc::size_t) {
+    extern "C" fn block(
+        _ob: *mut hoedown_buffer,
+        text: *const hoedown_buffer,
+        lang: *const hoedown_buffer,
+        data: *const hoedown_renderer_data,
+        line: libc::size_t,
+    ) {
         unsafe {
-            if text.is_null() { return }
+            if text.is_null() {
+                return;
+            }
             let block_info = if lang.is_null() {
                 LangString::all_false()
             } else {
@@ -932,7 +1038,9 @@ pub fn old_find_testable_code(doc: &str, tests: &mut ::test::Collector, position
                 let s = str::from_utf8(lang).unwrap();
                 LangString::parse(s)
             };
-            if !block_info.rust { return }
+            if !block_info.rust {
+                return;
+            }
             let text = (*text).as_bytes();
             let opaque = (*data).opaque as *mut hoedown_html_renderer_state;
             let tests = &mut *((*opaque).opaque as *mut ::test::Collector);
@@ -943,21 +1051,31 @@ pub fn old_find_testable_code(doc: &str, tests: &mut ::test::Collector, position
 
             if tests.render_type == RenderType::Hoedown {
                 let line = tests.get_line() + line;
-                tests.add_test(text.to_owned(),
-                               block_info.should_panic, block_info.no_run,
-                               block_info.ignore, block_info.test_harness,
-                               block_info.compile_fail, block_info.error_codes,
-                               line, filename, block_info.allow_fail);
+                tests.add_test(
+                    text.to_owned(),
+                    block_info.should_panic,
+                    block_info.no_run,
+                    block_info.ignore,
+                    block_info.test_harness,
+                    block_info.compile_fail,
+                    block_info.error_codes,
+                    line,
+                    filename,
+                    block_info.allow_fail,
+                );
             } else {
                 tests.add_old_test(text, filename);
             }
         }
     }
 
-    extern fn header(_ob: *mut hoedown_buffer,
-                     text: *const hoedown_buffer,
-                     level: libc::c_int, data: *const hoedown_renderer_data,
-                     _: libc::size_t) {
+    extern "C" fn header(
+        _ob: *mut hoedown_buffer,
+        text: *const hoedown_buffer,
+        level: libc::c_int,
+        data: *const hoedown_renderer_data,
+        _: libc::size_t,
+    ) {
         unsafe {
             let opaque = (*data).opaque as *mut hoedown_html_renderer_state;
             let tests = &mut *((*opaque).opaque as *mut ::test::Collector);
@@ -977,12 +1095,11 @@ pub fn old_find_testable_code(doc: &str, tests: &mut ::test::Collector, position
         let renderer = hoedown_html_renderer_new(0, 0);
         (*renderer).blockcode = Some(block);
         (*renderer).header = Some(header);
-        (*((*renderer).opaque as *mut hoedown_html_renderer_state)).opaque
-                = tests as *mut _ as *mut libc::c_void;
+        (*((*renderer).opaque as *mut hoedown_html_renderer_state)).opaque =
+            tests as *mut _ as *mut libc::c_void;
 
         let document = hoedown_document_new(renderer, HOEDOWN_EXTENSIONS, 16);
-        hoedown_document_render(document, ob, doc.as_ptr(),
-                                doc.len() as libc::size_t);
+        hoedown_document_render(document, ob, doc.as_ptr(), doc.len() as libc::size_t);
         hoedown_document_free(document);
 
         hoedown_html_renderer_free(renderer);
@@ -1006,7 +1123,7 @@ pub fn find_testable_code(doc: &str, tests: &mut ::test::Collector, position: Sp
                     LangString::parse(&*s)
                 };
                 if !block_info.rust {
-                    continue
+                    continue;
                 }
                 let mut test_s = String::new();
                 let mut offset = None;
@@ -1033,11 +1150,18 @@ pub fn find_testable_code(doc: &str, tests: &mut ::test::Collector, position: Sp
                 nb_lines += doc[prev_offset..offset].lines().count();
                 let line = tests.get_line() + (nb_lines - 1);
                 let filename = tests.get_filename();
-                tests.add_test(text.to_owned(),
-                               block_info.should_panic, block_info.no_run,
-                               block_info.ignore, block_info.test_harness,
-                               block_info.compile_fail, block_info.error_codes,
-                               line, filename, block_info.allow_fail);
+                tests.add_test(
+                    text.to_owned(),
+                    block_info.should_panic,
+                    block_info.no_run,
+                    block_info.ignore,
+                    block_info.test_harness,
+                    block_info.compile_fail,
+                    block_info.error_codes,
+                    line,
+                    filename,
+                    block_info.allow_fail,
+                );
                 prev_offset = offset;
             }
             Event::Start(Tag::Header(level)) => {
@@ -1077,7 +1201,7 @@ impl LangString {
             should_panic: false,
             no_run: false,
             ignore: false,
-            rust: true,  // NB This used to be `notrust = false`
+            rust: true, // NB This used to be `notrust = false`
             test_harness: false,
             compile_fail: false,
             error_codes: Vec::new(),
@@ -1095,21 +1219,31 @@ impl LangString {
         }
 
         data.original = string.to_owned();
-        let tokens = string.split(|c: char|
-            !(c == '_' || c == '-' || c.is_alphanumeric())
-        );
+        let tokens = string.split(|c: char| !(c == '_' || c == '-' || c.is_alphanumeric()));
 
         for token in tokens {
             match token.trim() {
-                "" => {},
+                "" => {}
                 "should_panic" => {
                     data.should_panic = true;
                     seen_rust_tags = seen_other_tags == false;
                 }
-                "no_run" => { data.no_run = true; seen_rust_tags = !seen_other_tags; }
-                "ignore" => { data.ignore = true; seen_rust_tags = !seen_other_tags; }
-                "allow_fail" => { data.allow_fail = true; seen_rust_tags = !seen_other_tags; }
-                "rust" => { data.rust = true; seen_rust_tags = true; }
+                "no_run" => {
+                    data.no_run = true;
+                    seen_rust_tags = !seen_other_tags;
+                }
+                "ignore" => {
+                    data.ignore = true;
+                    seen_rust_tags = !seen_other_tags;
+                }
+                "allow_fail" => {
+                    data.allow_fail = true;
+                    seen_rust_tags = !seen_other_tags;
+                }
+                "rust" => {
+                    data.rust = true;
+                    seen_rust_tags = true;
+                }
                 "test_harness" => {
                     data.test_harness = true;
                     seen_rust_tags = !seen_other_tags || seen_rust_tags;
@@ -1127,7 +1261,7 @@ impl LangString {
                         seen_other_tags = true;
                     }
                 }
-                _ => { seen_other_tags = true }
+                _ => seen_other_tags = true,
             }
         }
 
@@ -1142,7 +1276,9 @@ impl<'a> fmt::Display for Markdown<'a> {
         let Markdown(md, links, render_type) = *self;
 
         // This is actually common enough to special-case
-        if md.is_empty() { return Ok(()) }
+        if md.is_empty() {
+            return Ok(());
+        }
         if render_type == RenderType::Hoedown {
             render(fmt, md, links, false, 0)
         } else {
@@ -1154,12 +1290,13 @@ impl<'a> fmt::Display for Markdown<'a> {
 
             let mut s = String::with_capacity(md.len() * 3 / 2);
 
-            html::push_html(&mut s,
-                            Footnotes::new(
-                                CodeBlocks::new(
-                                    LinkReplacer::new(
-                                        HeadingLinks::new(p, None),
-                                        links))));
+            html::push_html(
+                &mut s,
+                Footnotes::new(CodeBlocks::new(LinkReplacer::new(
+                    HeadingLinks::new(p, None),
+                    links,
+                ))),
+            );
 
             fmt.write_str(&s)
         }
@@ -1183,8 +1320,10 @@ impl<'a> fmt::Display for MarkdownWithToc<'a> {
 
             let mut toc = TocBuilder::new();
 
-            html::push_html(&mut s,
-                            Footnotes::new(CodeBlocks::new(HeadingLinks::new(p, Some(&mut toc)))));
+            html::push_html(
+                &mut s,
+                Footnotes::new(CodeBlocks::new(HeadingLinks::new(p, Some(&mut toc)))),
+            );
 
             write!(fmt, "<nav id=\"TOC\">{}</nav>", toc.into_toc())?;
 
@@ -1198,7 +1337,9 @@ impl<'a> fmt::Display for MarkdownHtml<'a> {
         let MarkdownHtml(md, render_type) = *self;
 
         // This is actually common enough to special-case
-        if md.is_empty() { return Ok(()) }
+        if md.is_empty() {
+            return Ok(());
+        }
         if render_type == RenderType::Hoedown {
             render(fmt, md, &[], false, HOEDOWN_HTML_ESCAPE)
         } else {
@@ -1211,13 +1352,15 @@ impl<'a> fmt::Display for MarkdownHtml<'a> {
             // Treat inline HTML as plain text.
             let p = p.map(|event| match event {
                 Event::Html(text) | Event::InlineHtml(text) => Event::Text(text),
-                _ => event
+                _ => event,
             });
 
             let mut s = String::with_capacity(md.len() * 3 / 2);
 
-            html::push_html(&mut s,
-                            Footnotes::new(CodeBlocks::new(HeadingLinks::new(p, None))));
+            html::push_html(
+                &mut s,
+                Footnotes::new(CodeBlocks::new(HeadingLinks::new(p, None))),
+            );
 
             fmt.write_str(&s)
         }
@@ -1228,7 +1371,9 @@ impl<'a> fmt::Display for MarkdownSummaryLine<'a> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         let MarkdownSummaryLine(md, links) = *self;
         // This is actually common enough to special-case
-        if md.is_empty() { return Ok(()) }
+        if md.is_empty() {
+            return Ok(());
+        }
 
         let p = Parser::new(md);
 
@@ -1253,7 +1398,7 @@ pub fn plain_summary_line(md: &str) -> String {
         fn next(&mut self) -> Option<String> {
             let next_event = self.inner.next();
             if next_event.is_none() {
-                return None
+                return None;
             }
             let next_event = next_event.unwrap();
             let (ret, is_in) = match next_event {
@@ -1297,13 +1442,13 @@ pub fn markdown_links(md: &str, render_type: RenderType) -> Vec<String> {
 
     match render_type {
         RenderType::Hoedown => {
-            extern fn hoedown_link(
+            extern "C" fn hoedown_link(
                 _ob: *mut hoedown_buffer,
                 _content: *const hoedown_buffer,
                 link: *const hoedown_buffer,
                 _title: *const hoedown_buffer,
                 data: *const hoedown_renderer_data,
-                _line: libc::size_t
+                _line: libc::size_t,
             ) -> libc::c_int {
                 if link.is_null() {
                     return 0;
@@ -1335,15 +1480,14 @@ pub fn markdown_links(md: &str, render_type: RenderType) -> Vec<String> {
                     links_out: Some(vec![]),
                     links_replace: vec![],
                 };
-                (*((*renderer).opaque as *mut hoedown_html_renderer_state)).opaque
-                        = &mut opaque as *mut _ as *mut libc::c_void;
+                (*((*renderer).opaque as *mut hoedown_html_renderer_state)).opaque =
+                    &mut opaque as *mut _ as *mut libc::c_void;
                 (*renderer).header = Some(hoedown_header);
                 (*renderer).codespan = Some(hoedown_codespan);
                 (*renderer).link = Some(hoedown_link);
 
                 let document = hoedown_document_new(renderer, HOEDOWN_EXTENSIONS, 16);
-                hoedown_document_render(document, ob, md.as_ptr(),
-                                        md.len() as libc::size_t);
+                hoedown_document_render(document, ob, md.as_ptr(), md.len() as libc::size_t);
                 hoedown_document_free(document);
 
                 hoedown_html_renderer_free(renderer);
@@ -1383,20 +1527,31 @@ mod tests {
 
     #[test]
     fn test_lang_string_parse() {
-        fn t(s: &str,
-            should_panic: bool, no_run: bool, ignore: bool, rust: bool, test_harness: bool,
-            compile_fail: bool, allow_fail: bool, error_codes: Vec<String>) {
-            assert_eq!(LangString::parse(s), LangString {
-                should_panic,
-                no_run,
-                ignore,
-                rust,
-                test_harness,
-                compile_fail,
-                error_codes,
-                original: s.to_owned(),
-                allow_fail,
-            })
+        fn t(
+            s: &str,
+            should_panic: bool,
+            no_run: bool,
+            ignore: bool,
+            rust: bool,
+            test_harness: bool,
+            compile_fail: bool,
+            allow_fail: bool,
+            error_codes: Vec<String>,
+        ) {
+            assert_eq!(
+                LangString::parse(s),
+                LangString {
+                    should_panic,
+                    no_run,
+                    ignore,
+                    rust,
+                    test_harness,
+                    compile_fail,
+                    error_codes,
+                    original: s.to_owned(),
+                    allow_fail,
+                }
+            )
         }
 
         fn v() -> Vec<String> {
@@ -1405,21 +1560,121 @@ mod tests {
 
         // marker                | should_panic| no_run| ignore| rust | test_harness| compile_fail
         //                       | allow_fail | error_codes
-        t("",                      false,        false,  false,  true,  false, false, false, v());
-        t("rust",                  false,        false,  false,  true,  false, false, false, v());
-        t("sh",                    false,        false,  false,  false, false, false, false, v());
-        t("ignore",                false,        false,  true,   true,  false, false, false, v());
-        t("should_panic",          true,         false,  false,  true,  false, false, false, v());
-        t("no_run",                false,        true,   false,  true,  false, false, false, v());
-        t("test_harness",          false,        false,  false,  true,  true,  false, false, v());
-        t("compile_fail",          false,        true,   false,  true,  false, true,  false, v());
-        t("allow_fail",            false,        false,  false,  true,  false, false, true,  v());
-        t("{.no_run .example}",    false,        true,   false,  true,  false, false, false, v());
-        t("{.sh .should_panic}",   true,         false,  false,  false, false, false, false, v());
-        t("{.example .rust}",      false,        false,  false,  true,  false, false, false, v());
-        t("{.test_harness .rust}", false,        false,  false,  true,  true,  false, false, v());
-        t("text, no_run",          false,        true,   false,  false, false, false, false, v());
-        t("text,no_run",           false,        true,   false,  false, false, false, false, v());
+        t("", false, false, false, true, false, false, false, v());
+        t("rust", false, false, false, true, false, false, false, v());
+        t("sh", false, false, false, false, false, false, false, v());
+        t("ignore", false, false, true, true, false, false, false, v());
+        t(
+            "should_panic",
+            true,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            v(),
+        );
+        t("no_run", false, true, false, true, false, false, false, v());
+        t(
+            "test_harness",
+            false,
+            false,
+            false,
+            true,
+            true,
+            false,
+            false,
+            v(),
+        );
+        t(
+            "compile_fail",
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            v(),
+        );
+        t(
+            "allow_fail",
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            true,
+            v(),
+        );
+        t(
+            "{.no_run .example}",
+            false,
+            true,
+            false,
+            true,
+            false,
+            false,
+            false,
+            v(),
+        );
+        t(
+            "{.sh .should_panic}",
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            v(),
+        );
+        t(
+            "{.example .rust}",
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            v(),
+        );
+        t(
+            "{.test_harness .rust}",
+            false,
+            false,
+            false,
+            true,
+            true,
+            false,
+            false,
+            v(),
+        );
+        t(
+            "text, no_run",
+            false,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            v(),
+        );
+        t(
+            "text,no_run",
+            false,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            v(),
+        );
     }
 
     #[test]
@@ -1437,18 +1692,28 @@ mod tests {
             reset_ids(true);
         }
 
-        t("# Foo bar", "<h1 id=\"foo-bar\" class=\"section-header\">\
-          <a href=\"#foo-bar\">Foo bar</a></h1>");
-        t("## Foo-bar_baz qux", "<h2 id=\"foo-bar_baz-qux\" class=\"section-\
-          header\"><a href=\"#foo-bar_baz-qux\">Foo-bar_baz qux</a></h2>");
-        t("### **Foo** *bar* baz!?!& -_qux_-%",
-          "<h3 id=\"foo-bar-baz--qux-\" class=\"section-header\">\
-          <a href=\"#foo-bar-baz--qux-\"><strong>Foo</strong> \
-          <em>bar</em> baz!?!&amp; -<em>qux</em>-%</a></h3>");
-        t("#### **Foo?** & \\*bar?!*  _`baz`_ ❤ #qux",
-          "<h4 id=\"foo--bar--baz--qux\" class=\"section-header\">\
-          <a href=\"#foo--bar--baz--qux\"><strong>Foo?</strong> &amp; *bar?!*  \
-          <em><code>baz</code></em> ❤ #qux</a></h4>");
+        t(
+            "# Foo bar",
+            "<h1 id=\"foo-bar\" class=\"section-header\">\
+             <a href=\"#foo-bar\">Foo bar</a></h1>",
+        );
+        t(
+            "## Foo-bar_baz qux",
+            "<h2 id=\"foo-bar_baz-qux\" class=\"section-\
+             header\"><a href=\"#foo-bar_baz-qux\">Foo-bar_baz qux</a></h2>",
+        );
+        t(
+            "### **Foo** *bar* baz!?!& -_qux_-%",
+            "<h3 id=\"foo-bar-baz--qux-\" class=\"section-header\">\
+             <a href=\"#foo-bar-baz--qux-\"><strong>Foo</strong> \
+             <em>bar</em> baz!?!&amp; -<em>qux</em>-%</a></h3>",
+        );
+        t(
+            "#### **Foo?** & \\*bar?!*  _`baz`_ ❤ #qux",
+            "<h4 id=\"foo--bar--baz--qux\" class=\"section-header\">\
+             <a href=\"#foo--bar--baz--qux\"><strong>Foo?</strong> &amp; *bar?!*  \
+             <em><code>baz</code></em> ❤ #qux</a></h4>",
+        );
     }
 
     #[test]
@@ -1459,18 +1724,36 @@ mod tests {
         }
 
         let test = || {
-            t("# Example", "<h1 id=\"example\" class=\"section-header\">\
-              <a href=\"#example\">Example</a></h1>");
-            t("# Panics", "<h1 id=\"panics\" class=\"section-header\">\
-              <a href=\"#panics\">Panics</a></h1>");
-            t("# Example", "<h1 id=\"example-1\" class=\"section-header\">\
-              <a href=\"#example-1\">Example</a></h1>");
-            t("# Main", "<h1 id=\"main-1\" class=\"section-header\">\
-              <a href=\"#main-1\">Main</a></h1>");
-            t("# Example", "<h1 id=\"example-2\" class=\"section-header\">\
-              <a href=\"#example-2\">Example</a></h1>");
-            t("# Panics", "<h1 id=\"panics-1\" class=\"section-header\">\
-              <a href=\"#panics-1\">Panics</a></h1>");
+            t(
+                "# Example",
+                "<h1 id=\"example\" class=\"section-header\">\
+                 <a href=\"#example\">Example</a></h1>",
+            );
+            t(
+                "# Panics",
+                "<h1 id=\"panics\" class=\"section-header\">\
+                 <a href=\"#panics\">Panics</a></h1>",
+            );
+            t(
+                "# Example",
+                "<h1 id=\"example-1\" class=\"section-header\">\
+                 <a href=\"#example-1\">Example</a></h1>",
+            );
+            t(
+                "# Main",
+                "<h1 id=\"main-1\" class=\"section-header\">\
+                 <a href=\"#main-1\">Main</a></h1>",
+            );
+            t(
+                "# Example",
+                "<h1 id=\"example-2\" class=\"section-header\">\
+                 <a href=\"#example-2\">Example</a></h1>",
+            );
+            t(
+                "# Panics",
+                "<h1 id=\"panics-1\" class=\"section-header\">\
+                 <a href=\"#panics-1\">Panics</a></h1>",
+            );
         };
         test();
         reset_ids(true);
@@ -1484,8 +1767,14 @@ mod tests {
             assert_eq!(output, expect, "original: {}", input);
         }
 
-        t("hello [Rust](https://www.rust-lang.org) :)", "hello Rust :)");
-        t("hello [Rust](https://www.rust-lang.org \"Rust\") :)", "hello Rust :)");
+        t(
+            "hello [Rust](https://www.rust-lang.org) :)",
+            "hello Rust :)",
+        );
+        t(
+            "hello [Rust](https://www.rust-lang.org \"Rust\") :)",
+            "hello Rust :)",
+        );
         t("code `let x = i32;` ...", "code `let x = i32;` ...");
         t("type `Type<'static>` ...", "type `Type<'static>` ...");
         t("# top header", "top header");
@@ -1499,7 +1788,10 @@ mod tests {
             assert_eq!(output, expect, "original: {}", input);
         }
 
-        t("`Struct<'a, T>`", "<p><code>Struct&lt;'a, T&gt;</code></p>\n");
+        t(
+            "`Struct<'a, T>`",
+            "<p><code>Struct&lt;'a, T&gt;</code></p>\n",
+        );
         t("Struct<'a, T>", "<p>Struct&lt;'a, T&gt;</p>\n");
         t("Struct<br>", "<p>Struct&lt;br&gt;</p>\n");
     }

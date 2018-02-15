@@ -125,7 +125,7 @@ pub trait InPlace<Data: ?Sized>: Place<Data> {
 #[unstable(feature = "placement_new_protocol", issue = "27779")]
 pub trait Boxed {
     /// The kind of data that is stored in this kind of box.
-    type Data;  /* (`Data` unused b/c cannot yet express below bound.) */
+    type Data; /* (`Data` unused b/c cannot yet express below bound.) */
     /// The place that will negotiate the storage of the data.
     type Place: BoxPlace<Self::Data>;
 
@@ -137,7 +137,7 @@ pub trait Boxed {
 
 /// Specialization of `Place` trait supporting `box EXPR`.
 #[unstable(feature = "placement_new_protocol", issue = "27779")]
-pub trait BoxPlace<Data: ?Sized> : Place<Data> {
+pub trait BoxPlace<Data: ?Sized>: Place<Data> {
     /// Creates a globally fresh place.
     fn make_place() -> Self;
 }

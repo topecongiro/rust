@@ -9,17 +9,20 @@
 // except according to those terms.
 
 use LinkerFlavor;
-use target::{LinkArgs, TargetOptions, RelroLevel};
+use target::{LinkArgs, RelroLevel, TargetOptions};
 use std::default::Default;
 
 pub fn opts() -> TargetOptions {
     let mut args = LinkArgs::new();
-    args.insert(LinkerFlavor::Gcc, vec![
-        "-Wl,-Bstatic".to_string(),
-        "-Wl,--no-dynamic-linker".to_string(),
-        "-Wl,--eh-frame-hdr".to_string(),
-        "-Wl,--gc-sections".to_string(),
-    ]);
+    args.insert(
+        LinkerFlavor::Gcc,
+        vec![
+            "-Wl,-Bstatic".to_string(),
+            "-Wl,--no-dynamic-linker".to_string(),
+            "-Wl,--eh-frame-hdr".to_string(),
+            "-Wl,--gc-sections".to_string(),
+        ],
+    );
 
     TargetOptions {
         executables: true,
@@ -41,6 +44,6 @@ pub fn opts() -> TargetOptions {
         tls_model: "local-exec".to_string(),
         relro_level: RelroLevel::Full,
         exe_allocation_crate: super::maybe_jemalloc(),
-        .. Default::default()
+        ..Default::default()
     }
 }

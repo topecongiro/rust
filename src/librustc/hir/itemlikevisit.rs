@@ -8,7 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use super::{Item, ImplItem, TraitItem};
+use super::{ImplItem, Item, TraitItem};
 use super::intravisit::Visitor;
 
 /// The "item-like visitor" visitor defines only the top-level methods
@@ -66,7 +66,8 @@ pub struct DeepVisitor<'v, V: 'v> {
 }
 
 impl<'v, 'hir, V> DeepVisitor<'v, V>
-    where V: Visitor<'hir> + 'v
+where
+    V: Visitor<'hir> + 'v,
 {
     pub fn new(base: &'v mut V) -> Self {
         DeepVisitor { visitor: base }
@@ -74,7 +75,8 @@ impl<'v, 'hir, V> DeepVisitor<'v, V>
 }
 
 impl<'v, 'hir, V> ItemLikeVisitor<'hir> for DeepVisitor<'v, V>
-    where V: Visitor<'hir>
+where
+    V: Visitor<'hir>,
 {
     fn visit_item(&mut self, item: &'hir Item) {
         self.visitor.visit_item(item);

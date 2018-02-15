@@ -68,10 +68,12 @@ macro_rules! quote {
 }
 
 impl ProcMacro for Quoter {
-    fn expand<'cx>(&self, cx: &'cx mut ExtCtxt,
-                   _: ::syntax_pos::Span,
-                   stream: tokenstream::TokenStream)
-                   -> tokenstream::TokenStream {
+    fn expand<'cx>(
+        &self,
+        cx: &'cx mut ExtCtxt,
+        _: ::syntax_pos::Span,
+        stream: tokenstream::TokenStream,
+    ) -> tokenstream::TokenStream {
         let mut info = cx.current_expansion.mark.expn_info().unwrap();
         info.callee.allow_internal_unstable = true;
         cx.current_expansion.mark.set_expn_info(info);
@@ -94,23 +96,25 @@ impl Quote for TokenStream {
             return quote!(::TokenStream::empty());
         }
         let mut after_dollar = false;
-        let tokens = self.into_iter().filter_map(|tree| {
-            if after_dollar {
-                after_dollar = false;
-                match tree.kind {
-                    TokenNode::Term(_) => {
-                        return Some(quote!(::__internal::unquote(&(unquote tree)),));
+        let tokens = self.into_iter()
+            .filter_map(|tree| {
+                if after_dollar {
+                    after_dollar = false;
+                    match tree.kind {
+                        TokenNode::Term(_) => {
+                            return Some(quote!(::__internal::unquote(&(unquote tree)),));
+                        }
+                        TokenNode::Op('$', _) => {}
+                        _ => panic!("`$` must be followed by an ident or `$` in `quote!`"),
                     }
-                    TokenNode::Op('$', _) => {}
-                    _ => panic!("`$` must be followed by an ident or `$` in `quote!`"),
+                } else if let TokenNode::Op('$', _) = tree.kind {
+                    after_dollar = true;
+                    return None;
                 }
-            } else if let TokenNode::Op('$', _) = tree.kind {
-                after_dollar = true;
-                return None;
-            }
 
-            Some(quote!(::TokenStream::from((quote tree)),))
-        }).collect::<TokenStream>();
+                Some(quote!(::TokenStream::from((quote tree)),))
+            })
+            .collect::<TokenStream>();
 
         if after_dollar {
             panic!("unexpected trailing `$` in `quote!`");

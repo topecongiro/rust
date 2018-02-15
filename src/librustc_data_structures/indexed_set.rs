@@ -16,7 +16,7 @@ use std::mem;
 use std::ops::{Deref, DerefMut, Range};
 use std::slice;
 use bitslice::{BitSlice, Word};
-use bitslice::{bitwise, Union, Subtract, Intersect};
+use bitslice::{bitwise, Intersect, Subtract, Union};
 use indexed_vec::Idx;
 use rustc_serialize;
 
@@ -33,14 +33,15 @@ pub struct IdxSetBuf<T: Idx> {
 
 impl<T: Idx> Clone for IdxSetBuf<T> {
     fn clone(&self) -> Self {
-        IdxSetBuf { _pd: PhantomData, bits: self.bits.clone() }
+        IdxSetBuf {
+            _pd: PhantomData,
+            bits: self.bits.clone(),
+        }
     }
 }
 
 impl<T: Idx> rustc_serialize::Encodable for IdxSetBuf<T> {
-    fn encode<E: rustc_serialize::Encoder>(&self,
-                                     encoder: &mut E)
-                                     -> Result<(), E::Error> {
+    fn encode<E: rustc_serialize::Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         self.bits.encode(encoder)
     }
 }
@@ -55,7 +56,6 @@ impl<T: Idx> rustc_serialize::Decodable for IdxSetBuf<T> {
         })
     }
 }
-
 
 // pnkfelix wants to have this be `IdxSet<T>([Word]) and then pass
 // around `&mut IdxSet<T>` or `&IdxSet<T>`.
@@ -95,17 +95,13 @@ impl<T: Idx> ToOwned for IdxSet<T> {
 
 impl<T: Idx> fmt::Debug for IdxSetBuf<T> {
     fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
-        w.debug_list()
-         .entries(self.iter())
-         .finish()
+        w.debug_list().entries(self.iter()).finish()
     }
 }
 
 impl<T: Idx> fmt::Debug for IdxSet<T> {
     fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
-        w.debug_list()
-         .entries(self.iter())
-         .finish()
+        w.debug_list().entries(self.iter()).finish()
     }
 }
 
@@ -227,26 +223,41 @@ impl<T: Idx> IdxSet<T> {
 
     /// Calls `f` on each index value held in this set, up to the
     /// bound `max_bits` on the size of universe of indexes.
-    pub fn each_bit<F>(&self, max_bits: usize, f: F) where F: FnMut(T) {
+    pub fn each_bit<F>(&self, max_bits: usize, f: F)
+    where
+        F: FnMut(T),
+    {
         each_bit(self, max_bits, f)
     }
 
     /// Removes all elements from this set.
     pub fn reset_to_empty(&mut self) {
-        for word in self.words_mut() { *word = 0; }
+        for word in self.words_mut() {
+            *word = 0;
+        }
     }
 
     pub fn elems(&self, universe_size: usize) -> Elems<T> {
-        Elems { i: 0, set: self, universe_size: universe_size }
+        Elems {
+            i: 0,
+            set: self,
+            universe_size: universe_size,
+        }
     }
 }
 
-pub struct Elems<'a, T: Idx> { i: usize, set: &'a IdxSet<T>, universe_size: usize }
+pub struct Elems<'a, T: Idx> {
+    i: usize,
+    set: &'a IdxSet<T>,
+    universe_size: usize,
+}
 
 impl<'a, T: Idx> Iterator for Elems<'a, T> {
     type Item = T;
     fn next(&mut self) -> Option<T> {
-        if self.i >= self.universe_size { return None; }
+        if self.i >= self.universe_size {
+            return None;
+        }
         let mut i = self.i;
         loop {
             if i >= self.universe_size {
@@ -262,7 +273,10 @@ impl<'a, T: Idx> Iterator for Elems<'a, T> {
     }
 }
 
-fn each_bit<T: Idx, F>(words: &IdxSet<T>, max_bits: usize, mut f: F) where F: FnMut(T) {
+fn each_bit<T: Idx, F>(words: &IdxSet<T>, max_bits: usize, mut f: F)
+where
+    F: FnMut(T),
+{
     let usize_bits: usize = mem::size_of::<usize>() * 8;
 
     for (word_index, &word) in words.words().iter().enumerate() {
@@ -307,7 +321,7 @@ impl<'a, T: Idx> Iterator for Iter<'a, T> {
                 if bit_pos != word_bits {
                     let bit = 1 << bit_pos;
                     *word ^= bit;
-                    return Some(T::new(bit_pos + offset))
+                    return Some(T::new(bit_pos + offset));
                 }
             }
 

@@ -29,14 +29,13 @@ impl PreviousDepGraph {
     }
 
     #[inline]
-    pub fn edges_from(&self,
-                      dep_node: &DepNode)
-                      -> Option<(&[SerializedDepNodeIndex], SerializedDepNodeIndex)> {
+    pub fn edges_from(
+        &self,
+        dep_node: &DepNode,
+    ) -> Option<(&[SerializedDepNodeIndex], SerializedDepNodeIndex)> {
         self.index
             .get(dep_node)
-            .map(|&node_index| {
-                (self.data.edge_targets_from(node_index), node_index)
-            })
+            .map(|&node_index| (self.data.edge_targets_from(node_index), node_index))
     }
 
     #[inline]
@@ -57,9 +56,7 @@ impl PreviousDepGraph {
     }
 
     #[inline]
-    pub fn fingerprint_by_index(&self,
-                                dep_node_index: SerializedDepNodeIndex)
-                                -> Fingerprint {
+    pub fn fingerprint_by_index(&self, dep_node_index: SerializedDepNodeIndex) -> Fingerprint {
         self.data.nodes[dep_node_index].1
     }
 

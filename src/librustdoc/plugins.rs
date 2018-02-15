@@ -19,12 +19,12 @@ use std::path::PathBuf;
 use rustc_metadata::dynamic_lib as dl;
 
 pub type PluginResult = clean::Crate;
-pub type PluginCallback = fn (clean::Crate) -> PluginResult;
+pub type PluginCallback = fn(clean::Crate) -> PluginResult;
 
 /// Manages loading and running of plugins
 pub struct PluginManager {
-    dylibs: Vec<dl::DynamicLibrary> ,
-    callbacks: Vec<PluginCallback> ,
+    dylibs: Vec<dl::DynamicLibrary>,
+    callbacks: Vec<PluginCallback>,
     /// The directory plugins will be loaded from
     pub prefix: PathBuf,
 }
@@ -50,7 +50,8 @@ impl PluginManager {
         let lib = lib_result.unwrap();
         unsafe {
             let plugin = lib.symbol("rustdoc_plugin_entrypoint").unwrap();
-            self.callbacks.push(mem::transmute::<*mut u8,PluginCallback>(plugin));
+            self.callbacks
+                .push(mem::transmute::<*mut u8, PluginCallback>(plugin));
         }
         self.dylibs.push(lib);
     }
@@ -77,13 +78,13 @@ fn libname(mut n: String) -> String {
     n
 }
 
-#[cfg(target_os="macos")]
+#[cfg(target_os = "macos")]
 fn libname(mut n: String) -> String {
     n.push_str(".dylib");
     n
 }
 
-#[cfg(all(not(target_os="windows"), not(target_os="macos")))]
+#[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
 fn libname(n: String) -> String {
     let mut i = String::from("lib");
     i.push_str(&n);

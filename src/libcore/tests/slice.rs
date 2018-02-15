@@ -8,8 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use core::result::Result::{Ok, Err};
-
+use core::result::Result::{Err, Ok};
 
 #[test]
 fn test_position() {
@@ -61,8 +60,14 @@ fn test_binary_search() {
     assert_eq!(b.binary_search(&0), Err(0));
     assert_eq!(b.binary_search(&1), Ok(0));
     assert_eq!(b.binary_search(&2), Err(1));
-    assert!(match b.binary_search(&3) { Ok(1...3) => true, _ => false });
-    assert!(match b.binary_search(&3) { Ok(1...3) => true, _ => false });
+    assert!(match b.binary_search(&3) {
+        Ok(1...3) => true,
+        _ => false,
+    });
+    assert!(match b.binary_search(&3) {
+        Ok(1...3) => true,
+        _ => false,
+    });
     assert_eq!(b.binary_search(&4), Err(4));
     assert_eq!(b.binary_search(&5), Err(4));
     assert_eq!(b.binary_search(&6), Err(4));
@@ -416,7 +421,7 @@ fn get_unchecked_mut_range() {
         let v: &mut [i32] = &mut [0, 1, 2, 3, 4, 5];
         assert_eq!(v.get_unchecked_mut(..), &mut [0, 1, 2, 3, 4, 5][..]);
         assert_eq!(v.get_unchecked_mut(..2), &mut [0, 1][..]);
-        assert_eq!(v.get_unchecked_mut(2..), &mut[2, 3, 4, 5][..]);
+        assert_eq!(v.get_unchecked_mut(2..), &mut [2, 3, 4, 5][..]);
         assert_eq!(v.get_unchecked_mut(1..4), &mut [1, 2, 3][..]);
     }
 }
@@ -437,8 +442,8 @@ fn test_find_rfind() {
 #[test]
 fn test_iter_folds() {
     let a = [1, 2, 3, 4, 5]; // len>4 so the unroll is used
-    assert_eq!(a.iter().fold(0, |acc, &x| 2*acc + x), 57);
-    assert_eq!(a.iter().rfold(0, |acc, &x| 2*acc + x), 129);
+    assert_eq!(a.iter().fold(0, |acc, &x| 2 * acc + x), 57);
+    assert_eq!(a.iter().rfold(0, |acc, &x| 2 * acc + x), 129);
     let fold = |acc: i32, &x| acc.checked_mul(2)?.checked_add(x);
     assert_eq!(a.iter().try_fold(0, &fold), Some(57));
     assert_eq!(a.iter().try_rfold(0, &fold), Some(129));

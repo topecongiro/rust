@@ -28,7 +28,9 @@ impl<'tcx> RegionInferenceContext<'tcx> {
 
         for region in self.regions() {
             if self.definitions[region].is_universal {
-                let classification = self.universal_regions.region_classification(region).unwrap();
+                let classification = self.universal_regions
+                    .region_classification(region)
+                    .unwrap();
                 let outlived_by = self.universal_regions.regions_outlived_by(region);
                 writeln!(
                     out,
@@ -65,10 +67,7 @@ impl<'tcx> RegionInferenceContext<'tcx> {
     /// our internal region constraints.  These are dumped into the
     /// -Zdump-mir file so that we can figure out why the region
     /// inference resulted in the values that it did when debugging.
-    fn for_each_constraint(
-        &self,
-        with_msg: &mut FnMut(&str) -> io::Result<()>,
-    ) -> io::Result<()> {
+    fn for_each_constraint(&self, with_msg: &mut FnMut(&str) -> io::Result<()>) -> io::Result<()> {
         for region in self.definitions.indices() {
             let value = self.liveness_constraints.region_value_str(region);
             if value != "{}" {
@@ -87,14 +86,10 @@ impl<'tcx> RegionInferenceContext<'tcx> {
             } = constraint;
             with_msg(&format!(
                 "{:?}: {:?} @ {:?} due to {:?}",
-                sup,
-                sub,
-                point,
-                span
+                sup, sub, point, span
             ))?;
         }
 
         Ok(())
     }
 }
-

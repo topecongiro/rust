@@ -23,14 +23,14 @@ use mir::operand::OperandValue;
 
 use std::ffi::CString;
 use syntax::ast::AsmDialect;
-use libc::{c_uint, c_char};
+use libc::{c_char, c_uint};
 
 // Take an inline assembly expression and splat it out via LLVM
 pub fn trans_inline_asm<'a, 'tcx>(
     bx: &Builder<'a, 'tcx>,
     ia: &hir::InlineAsm,
     outputs: Vec<PlaceRef<'tcx>>,
-    mut inputs: Vec<ValueRef>
+    mut inputs: Vec<ValueRef>,
 ) {
     let mut ext_constraints = vec![];
     let mut output_types = vec![];
@@ -53,24 +53,25 @@ pub fn trans_inline_asm<'a, 'tcx>(
         inputs = indirect_outputs;
     }
 
-    let clobbers = ia.clobbers.iter()
-                              .map(|s| format!("~{{{}}}", &s));
+    let clobbers = ia.clobbers.iter().map(|s| format!("~{{{}}}", &s));
 
     // Default per-arch clobbers
     // Basically what clang does
     let arch_clobbers = match &bx.sess().target.target.arch[..] {
-        "x86" | "x86_64"  => vec!["~{dirflag}", "~{fpsr}", "~{flags}"],
+        "x86" | "x86_64" => vec!["~{dirflag}", "~{fpsr}", "~{flags}"],
         "mips" | "mips64" => vec!["~{$1}"],
-        _                 => Vec::new()
+        _ => Vec::new(),
     };
 
-    let all_constraints =
-        ia.outputs.iter().map(|out| out.constraint.to_string())
-          .chain(ia.inputs.iter().map(|s| s.to_string()))
-          .chain(ext_constraints)
-          .chain(clobbers)
-          .chain(arch_clobbers.iter().map(|s| s.to_string()))
-          .collect::<Vec<String>>().join(",");
+    let all_constraints = ia.outputs
+        .iter()
+        .map(|out| out.constraint.to_string())
+        .chain(ia.inputs.iter().map(|s| s.to_string()))
+        .chain(ext_constraints)
+        .chain(clobbers)
+        .chain(arch_clobbers.iter().map(|s| s.to_string()))
+        .collect::<Vec<String>>()
+        .join(",");
 
     debug!("Asm Constraints: {}", &all_constraints);
 
@@ -79,11 +80,11 @@ pub fn trans_inline_asm<'a, 'tcx>(
     let output_type = match num_outputs {
         0 => Type::void(bx.cx),
         1 => output_types[0],
-        _ => Type::struct_(bx.cx, &output_types, false)
+        _ => Type::struct_(bx.cx, &output_types, false),
     };
 
     let dialect = match ia.dialect {
-        AsmDialect::Att   => llvm::AsmDialect::Att,
+        AsmDialect::Att => llvm::AsmDialect::Att,
         AsmDialect::Intel => llvm::AsmDialect::Intel,
     };
 
@@ -96,13 +97,20 @@ pub fn trans_inline_asm<'a, 'tcx>(
         output_type,
         ia.volatile,
         ia.alignstack,
-        dialect
+        dialect,
     );
 
     // Again, based on how many outputs we have
-    let outputs = ia.outputs.iter().zip(&outputs).filter(|&(ref o, _)| !o.is_indirect);
+    let outputs = ia.outputs
+        .iter()
+        .zip(&outputs)
+        .filter(|&(ref o, _)| !o.is_indirect);
     for (i, (_, &place)) in outputs.enumerate() {
-        let v = if num_outputs == 1 { r } else { bx.extract_value(r, i as u64) };
+        let v = if num_outputs == 1 {
+            r
+        } else {
+            bx.extract_value(r, i as u64)
+        };
         OperandValue::Immediate(v).store(bx, place);
     }
 
@@ -110,18 +118,19 @@ pub fn trans_inline_asm<'a, 'tcx>(
     // back to source locations.  See #17552.
     unsafe {
         let key = "srcloc";
-        let kind = llvm::LLVMGetMDKindIDInContext(bx.cx.llcx,
-            key.as_ptr() as *const c_char, key.len() as c_uint);
+        let kind = llvm::LLVMGetMDKindIDInContext(
+            bx.cx.llcx,
+            key.as_ptr() as *const c_char,
+            key.len() as c_uint,
+        );
 
         let val: llvm::ValueRef = C_i32(bx.cx, ia.ctxt.outer().as_u32() as i32);
 
-        llvm::LLVMSetMetadata(r, kind,
-            llvm::LLVMMDNodeInContext(bx.cx.llcx, &val, 1));
+        llvm::LLVMSetMetadata(r, kind, llvm::LLVMMDNodeInContext(bx.cx.llcx, &val, 1));
     }
 }
 
-pub fn trans_global_asm<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>,
-                                  ga: &hir::GlobalAsm) {
+pub fn trans_global_asm<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>, ga: &hir::GlobalAsm) {
     let asm = CString::new(ga.asm.as_str().as_bytes()).unwrap();
     unsafe {
         llvm::LLVMRustAppendModuleInlineAsm(cx.llmod, asm.as_ptr());

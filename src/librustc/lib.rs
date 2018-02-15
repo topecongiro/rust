@@ -39,7 +39,6 @@
        html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
        html_root_url = "https://doc.rust-lang.org/nightly/")]
 #![deny(warnings)]
-
 #![feature(box_patterns)]
 #![feature(box_syntax)]
 #![feature(conservative_impl_trait)]
@@ -71,32 +70,35 @@
 #![feature(trace_macros)]
 #![feature(catch_expr)]
 #![feature(test)]
-
-#![recursion_limit="512"]
+#![recursion_limit = "512"]
 
 extern crate arena;
-#[macro_use] extern crate bitflags;
+#[macro_use]
+extern crate bitflags;
 extern crate core;
 extern crate fmt_macros;
 extern crate getopts;
 extern crate graphviz;
+extern crate jobserver;
 #[cfg(windows)]
 extern crate libc;
+#[macro_use]
+extern crate log;
 extern crate rustc_back;
-#[macro_use] extern crate rustc_data_structures;
-extern crate serialize;
 extern crate rustc_const_math;
+#[macro_use]
+extern crate rustc_data_structures;
 extern crate rustc_errors as errors;
-#[macro_use] extern crate log;
-#[macro_use] extern crate syntax;
+extern crate serialize;
+#[macro_use]
+extern crate syntax;
 extern crate syntax_pos;
-extern crate jobserver;
 
 extern crate serialize as rustc_serialize; // used by deriving
 
-extern crate rustc_apfloat;
-extern crate byteorder;
 extern crate backtrace;
+extern crate byteorder;
+extern crate rustc_apfloat;
 
 // Note that librustc doesn't actually depend on these crates, see the note in
 // `Cargo.toml` for this crate about why these are here.
@@ -176,7 +178,6 @@ mod rustc {
 fn noop() {
     rustc_data_structures::__noop_fix_for_27438();
 }
-
 
 // Build the diagnostics array at the end so that the metadata includes error use sites.
 #[cfg(not(stage0))] // remove after the next snapshot

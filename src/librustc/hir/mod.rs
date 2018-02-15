@@ -25,20 +25,20 @@ pub use self::Ty_::*;
 pub use self::TyParamBound::*;
 pub use self::UnOp::*;
 pub use self::UnsafeSource::*;
-pub use self::Visibility::{Public, Inherited};
+pub use self::Visibility::{Inherited, Public};
 
 use hir::def::Def;
 use hir::def_id::{DefId, DefIndex, LocalDefId, CRATE_DEF_INDEX};
-use util::nodemap::{NodeMap, FxHashSet};
+use util::nodemap::{FxHashSet, NodeMap};
 
 use syntax_pos::{Span, DUMMY_SP};
 use syntax::codemap::{self, Spanned};
 use syntax::abi::Abi;
-use syntax::ast::{self, Name, NodeId, DUMMY_NODE_ID, AsmDialect};
-use syntax::ast::{Attribute, Lit, StrStyle, FloatTy, IntTy, UintTy, MetaItem};
+use syntax::ast::{self, AsmDialect, Name, NodeId, DUMMY_NODE_ID};
+use syntax::ast::{Attribute, FloatTy, IntTy, Lit, MetaItem, StrStyle, UintTy};
 use syntax::ext::hygiene::SyntaxContext;
 use syntax::ptr::P;
-use syntax::symbol::{Symbol, keywords};
+use syntax::symbol::{keywords, Symbol};
 use syntax::tokenstream::TokenStream;
 use syntax::util::ThinVec;
 use syntax::util::parser::ExprPrecedence;
@@ -46,7 +46,7 @@ use ty::AdtKind;
 
 use rustc_data_structures::indexed_vec;
 
-use serialize::{self, Encoder, Encodable, Decoder, Decodable};
+use serialize::{self, Decodable, Decoder, Encodable, Encoder};
 use std::collections::BTreeMap;
 use std::fmt;
 use std::iter;
@@ -107,10 +107,7 @@ impl HirId {
 
 impl serialize::UseSpecializedEncodable for HirId {
     fn default_encode<S: Encoder>(&self, s: &mut S) -> Result<(), S::Error> {
-        let HirId {
-            owner,
-            local_id,
-        } = *self;
+        let HirId { owner, local_id } = *self;
 
         owner.encode(s)?;
         local_id.encode(s)
@@ -122,13 +119,9 @@ impl serialize::UseSpecializedDecodable for HirId {
         let owner = DefIndex::decode(d)?;
         let local_id = ItemLocalId::decode(d)?;
 
-        Ok(HirId {
-            owner,
-            local_id
-        })
+        Ok(HirId { owner, local_id })
     }
 }
-
 
 /// An `ItemLocalId` uniquely identifies something within a given "item-like",
 /// that is within a hir::Item, hir::TraitItem, or hir::ImplItem. There is no
@@ -138,8 +131,7 @@ impl serialize::UseSpecializedDecodable for HirId {
 /// integers starting at zero, so a mapping that maps all or most nodes within
 /// an "item-like" to something else can be implement by a `Vec` instead of a
 /// tree or hash map.
-#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug,
-         RustcEncodable, RustcDecodable)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug, RustcEncodable, RustcDecodable)]
 pub struct ItemLocalId(pub u32);
 
 impl ItemLocalId {
@@ -162,7 +154,7 @@ impl indexed_vec::Idx for ItemLocalId {
 /// The `HirId` corresponding to CRATE_NODE_ID and CRATE_DEF_INDEX
 pub const CRATE_HIR_ID: HirId = HirId {
     owner: CRATE_DEF_INDEX,
-    local_id: ItemLocalId(0)
+    local_id: ItemLocalId(0),
 };
 
 pub const DUMMY_HIR_ID: HirId = HirId {
@@ -220,10 +212,12 @@ impl LifetimeName {
 
 impl fmt::Debug for Lifetime {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,
-               "lifetime({}: {})",
-               self.id,
-               print::to_string(print::NO_ANN, |s| s.print_lifetime(self)))
+        write!(
+            f,
+            "lifetime({}: {})",
+            self.id,
+            print::to_string(print::NO_ANN, |s| s.print_lifetime(self))
+        )
     }
 }
 
@@ -273,13 +267,21 @@ impl Path {
 
 impl fmt::Debug for Path {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "path({})", print::to_string(print::NO_ANN, |s| s.print_path(self, false)))
+        write!(
+            f,
+            "path({})",
+            print::to_string(print::NO_ANN, |s| s.print_path(self, false))
+        )
     }
 }
 
 impl fmt::Display for Path {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", print::to_string(print::NO_ANN, |s| s.print_path(self, false)))
+        write!(
+            f,
+            "{}",
+            print::to_string(print::NO_ANN, |s| s.print_path(self, false))
+        )
     }
 }
 
@@ -310,7 +312,7 @@ impl PathSegment {
         PathSegment {
             name,
             infer_types: true,
-            parameters: None
+            parameters: None,
         }
     }
 
@@ -322,14 +324,15 @@ impl PathSegment {
                 None
             } else {
                 Some(P(parameters))
-            }
+            },
         }
     }
 
     // FIXME: hack required because you can't create a static
     // PathParameters, so you can't just return a &PathParameters.
     pub fn with_parameters<F, R>(&self, f: F) -> R
-        where F: FnOnce(&PathParameters) -> R
+    where
+        F: FnOnce(&PathParameters) -> R,
     {
         let dummy = PathParameters::none();
         f(if let Some(ref params) = self.parameters {
@@ -366,8 +369,8 @@ impl PathParameters {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.lifetimes.is_empty() && self.types.is_empty() &&
-            self.bindings.is_empty() && !self.parenthesized
+        self.lifetimes.is_empty() && self.types.is_empty() && self.bindings.is_empty()
+            && !self.parenthesized
     }
 
     pub fn inputs(&self) -> &[P<Ty>] {
@@ -436,32 +439,28 @@ impl GenericParam {
 }
 
 pub trait GenericParamsExt {
-    fn lifetimes<'a>(&'a self) -> iter::FilterMap<
-        slice::Iter<GenericParam>,
-        fn(&GenericParam) -> Option<&LifetimeDef>,
-    >;
+    fn lifetimes<'a>(
+        &'a self,
+    ) -> iter::FilterMap<slice::Iter<GenericParam>, fn(&GenericParam) -> Option<&LifetimeDef>>;
 
-    fn ty_params<'a>(&'a self) -> iter::FilterMap<
-        slice::Iter<GenericParam>,
-        fn(&GenericParam) -> Option<&TyParam>,
-    >;
+    fn ty_params<'a>(
+        &'a self,
+    ) -> iter::FilterMap<slice::Iter<GenericParam>, fn(&GenericParam) -> Option<&TyParam>>;
 }
 
 impl GenericParamsExt for [GenericParam] {
-    fn lifetimes<'a>(&'a self) -> iter::FilterMap<
-        slice::Iter<GenericParam>,
-        fn(&GenericParam) -> Option<&LifetimeDef>,
-    > {
+    fn lifetimes<'a>(
+        &'a self,
+    ) -> iter::FilterMap<slice::Iter<GenericParam>, fn(&GenericParam) -> Option<&LifetimeDef>> {
         self.iter().filter_map(|param| match *param {
             GenericParam::Lifetime(ref l) => Some(l),
             _ => None,
         })
     }
 
-    fn ty_params<'a>(&'a self) -> iter::FilterMap<
-        slice::Iter<GenericParam>,
-        fn(&GenericParam) -> Option<&TyParam>,
-    > {
+    fn ty_params<'a>(
+        &'a self,
+    ) -> iter::FilterMap<slice::Iter<GenericParam>, fn(&GenericParam) -> Option<&TyParam>> {
         self.iter().filter_map(|param| match *param {
             GenericParam::Type(ref t) => Some(t),
             _ => None,
@@ -546,7 +545,7 @@ impl Generics {
 /// to track the original form they had. Usefull for error messages.
 #[derive(Copy, Clone, PartialEq, Eq, RustcEncodable, RustcDecodable, Hash, Debug)]
 pub enum SyntheticTyParamKind {
-    ImplTrait
+    ImplTrait,
 }
 
 /// A `where` clause in a definition
@@ -654,7 +653,8 @@ impl Crate {
     /// approach. You should override `visit_nested_item` in your
     /// visitor and then call `intravisit::walk_crate` instead.
     pub fn visit_all_item_likes<'hir, V>(&'hir self, visitor: &mut V)
-        where V: itemlikevisit::ItemLikeVisitor<'hir>
+    where
+        V: itemlikevisit::ItemLikeVisitor<'hir>,
     {
         for (_, item) in &self.items {
             visitor.visit_item(item);
@@ -722,15 +722,20 @@ pub struct Pat {
 
 impl fmt::Debug for Pat {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "pat({}: {})", self.id,
-               print::to_string(print::NO_ANN, |s| s.print_pat(self)))
+        write!(
+            f,
+            "pat({}: {})",
+            self.id,
+            print::to_string(print::NO_ANN, |s| s.print_pat(self))
+        )
     }
 }
 
 impl Pat {
     // FIXME(#19596) this is a workaround, but there should be a better way
     fn walk_<G>(&self, it: &mut G) -> bool
-        where G: FnMut(&Pat) -> bool
+    where
+        G: FnMut(&Pat) -> bool,
     {
         if !it(self) {
             return false;
@@ -744,26 +749,22 @@ impl Pat {
             PatKind::TupleStruct(_, ref s, _) | PatKind::Tuple(ref s, _) => {
                 s.iter().all(|p| p.walk_(it))
             }
-            PatKind::Box(ref s) | PatKind::Ref(ref s, _) => {
-                s.walk_(it)
-            }
+            PatKind::Box(ref s) | PatKind::Ref(ref s, _) => s.walk_(it),
             PatKind::Slice(ref before, ref slice, ref after) => {
-                before.iter().all(|p| p.walk_(it)) &&
-                slice.iter().all(|p| p.walk_(it)) &&
-                after.iter().all(|p| p.walk_(it))
+                before.iter().all(|p| p.walk_(it)) && slice.iter().all(|p| p.walk_(it))
+                    && after.iter().all(|p| p.walk_(it))
             }
-            PatKind::Wild |
-            PatKind::Lit(_) |
-            PatKind::Range(..) |
-            PatKind::Binding(..) |
-            PatKind::Path(_) => {
-                true
-            }
+            PatKind::Wild
+            | PatKind::Lit(_)
+            | PatKind::Range(..)
+            | PatKind::Binding(..)
+            | PatKind::Path(_) => true,
         }
     }
 
     pub fn walk<F>(&self, mut it: F) -> bool
-        where F: FnMut(&Pat) -> bool
+    where
+        F: FnMut(&Pat) -> bool,
     {
         self.walk_(&mut it)
     }
@@ -788,23 +789,23 @@ pub struct FieldPat {
 /// inference.
 #[derive(Clone, PartialEq, Eq, RustcEncodable, RustcDecodable, Hash, Debug, Copy)]
 pub enum BindingAnnotation {
-  /// No binding annotation given: this means that the final binding mode
-  /// will depend on whether we have skipped through a `&` reference
-  /// when matching. For example, the `x` in `Some(x)` will have binding
-  /// mode `None`; if you do `let Some(x) = &Some(22)`, it will
-  /// ultimately be inferred to be by-reference.
-  ///
-  /// Note that implicit reference skipping is not implemented yet (#42640).
-  Unannotated,
+    /// No binding annotation given: this means that the final binding mode
+    /// will depend on whether we have skipped through a `&` reference
+    /// when matching. For example, the `x` in `Some(x)` will have binding
+    /// mode `None`; if you do `let Some(x) = &Some(22)`, it will
+    /// ultimately be inferred to be by-reference.
+    ///
+    /// Note that implicit reference skipping is not implemented yet (#42640).
+    Unannotated,
 
-  /// Annotated with `mut x` -- could be either ref or not, similar to `None`.
-  Mutable,
+    /// Annotated with `mut x` -- could be either ref or not, similar to `None`.
+    Mutable,
 
-  /// Annotated as `ref`, like `ref x`
-  Ref,
+    /// Annotated as `ref`, like `ref x`
+    Ref,
 
-  /// Annotated as `ref mut x`.
-  RefMut,
+    /// Annotated as `ref mut x`.
+    RefMut,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, RustcEncodable, RustcDecodable, Hash, Debug)]
@@ -950,18 +951,8 @@ impl BinOp_ {
     pub fn is_comparison(self) -> bool {
         match self {
             BiEq | BiLt | BiLe | BiNe | BiGt | BiGe => true,
-            BiAnd |
-            BiOr |
-            BiAdd |
-            BiSub |
-            BiMul |
-            BiDiv |
-            BiRem |
-            BiBitXor |
-            BiBitAnd |
-            BiBitOr |
-            BiShl |
-            BiShr => false,
+            BiAnd | BiOr | BiAdd | BiSub | BiMul | BiDiv | BiRem | BiBitXor | BiBitAnd
+            | BiBitOr | BiShl | BiShr => false,
         }
     }
 
@@ -1033,10 +1024,12 @@ impl fmt::Debug for Stmt_ {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // Sadness.
         let spanned = codemap::dummy_spanned(self.clone());
-        write!(f,
-               "stmt({}: {})",
-               spanned.node.id(),
-               print::to_string(print::NO_ANN, |s| s.print_stmt(&spanned)))
+        write!(
+            f,
+            "stmt({}: {})",
+            spanned.node.id(),
+            print::to_string(print::NO_ANN, |s| s.print_stmt(&spanned))
+        )
     }
 }
 
@@ -1056,8 +1049,7 @@ impl Stmt_ {
     pub fn attrs(&self) -> &[Attribute] {
         match *self {
             StmtDecl(ref d, _) => d.node.attrs(),
-            StmtExpr(ref e, _) |
-            StmtSemi(ref e, _) => &e.attrs,
+            StmtExpr(ref e, _) | StmtSemi(ref e, _) => &e.attrs,
         }
     }
 
@@ -1098,7 +1090,7 @@ impl Decl_ {
     pub fn attrs(&self) -> &[Attribute] {
         match *self {
             DeclLocal(ref l) => &l.attrs,
-            DeclItem(_) => &[]
+            DeclItem(_) => &[],
         }
     }
 
@@ -1177,7 +1169,7 @@ pub struct Body {
 impl Body {
     pub fn id(&self) -> BodyId {
         BodyId {
-            node_id: self.value.id
+            node_id: self.value.id,
         }
     }
 }
@@ -1242,8 +1234,12 @@ impl Expr {
 
 impl fmt::Debug for Expr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "expr({}: {})", self.id,
-               print::to_string(print::NO_ANN, |s| s.print_expr(self)))
+        write!(
+            f,
+            "expr({}: {})",
+            self.id,
+            print::to_string(print::NO_ANN, |s| s.print_expr(self))
+        )
     }
 }
 
@@ -1302,7 +1298,13 @@ pub enum Expr_ {
     ///
     /// This may also be a generator literal, indicated by the final boolean,
     /// in that case there is an GeneratorClause.
-    ExprClosure(CaptureClause, P<FnDecl>, BodyId, Span, Option<GeneratorMovability>),
+    ExprClosure(
+        CaptureClause,
+        P<FnDecl>,
+        BodyId,
+        Span,
+        Option<GeneratorMovability>,
+    ),
     /// A block (`{ ... }`)
     ExprBlock(P<Block>),
 
@@ -1369,7 +1371,7 @@ pub enum QPath {
     /// UFCS source paths can desugar into this, with `Vec::new` turning into
     /// `<Vec>::new`, and `T::X::Y::method` into `<<<T>::X>::Y>::method`,
     /// the `X` and `Y` nodes each being a `TyPath(QPath::TypeRelative(..))`.
-    TypeRelative(P<Ty>, P<PathSegment>)
+    TypeRelative(P<Ty>, P<PathSegment>),
 }
 
 /// Hints at the original code for a let statement
@@ -1387,9 +1389,7 @@ pub enum MatchSource {
     /// A `match _ { .. }`
     Normal,
     /// An `if let _ = _ { .. }` (optionally with `else { .. }`)
-    IfLetDesugar {
-        contains_else_clause: bool,
-    },
+    IfLetDesugar { contains_else_clause: bool },
     /// A `while let _ = _ { .. }` (which was desugared to a
     /// `loop { match _ { .. } }`)
     WhileLetDesugar,
@@ -1419,12 +1419,16 @@ pub enum LoopIdError {
 
 impl fmt::Display for LoopIdError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(match *self {
-            LoopIdError::OutsideLoopScope => "not inside loop scope",
-            LoopIdError::UnlabeledCfInWhileCondition =>
-                "unlabeled control flow (break or continue) in while condition",
-            LoopIdError::UnresolvedLabel => "label not found",
-        }, f)
+        fmt::Display::fmt(
+            match *self {
+                LoopIdError::OutsideLoopScope => "not inside loop scope",
+                LoopIdError::UnlabeledCfInWhileCondition => {
+                    "unlabeled control flow (break or continue) in while condition"
+                }
+                LoopIdError::UnresolvedLabel => "label not found",
+            },
+            f,
+        )
     }
 }
 
@@ -1461,8 +1465,9 @@ pub enum ScopeTarget {
 impl ScopeTarget {
     pub fn opt_id(self) -> Option<NodeId> {
         match self {
-            ScopeTarget::Block(node_id) |
-            ScopeTarget::Loop(LoopIdResult::Ok(node_id)) => Some(node_id),
+            ScopeTarget::Block(node_id) | ScopeTarget::Loop(LoopIdResult::Ok(node_id)) => {
+                Some(node_id)
+            }
             ScopeTarget::Loop(LoopIdResult::Err(_)) => None,
         }
     }
@@ -1596,7 +1601,6 @@ pub struct TypeBinding {
     pub span: Span,
 }
 
-
 #[derive(Clone, PartialEq, Eq, RustcEncodable, RustcDecodable, Hash)]
 pub struct Ty {
     pub id: NodeId,
@@ -1607,8 +1611,11 @@ pub struct Ty {
 
 impl fmt::Debug for Ty {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "type({})",
-               print::to_string(print::NO_ANN, |s| s.print_type(self)))
+        write!(
+            f,
+            "type({})",
+            print::to_string(print::NO_ANN, |s| s.print_type(self))
+        )
     }
 }
 
@@ -1727,7 +1734,7 @@ pub struct FnDecl {
 #[derive(Copy, Clone, PartialEq, Eq, RustcEncodable, RustcDecodable, Hash, Debug)]
 pub enum IsAuto {
     Yes,
-    No
+    No,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, RustcEncodable, RustcDecodable, Hash, Debug)]
@@ -1770,11 +1777,13 @@ impl Defaultness {
 
 impl fmt::Display for Unsafety {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(match *self {
-                              Unsafety::Normal => "normal",
-                              Unsafety::Unsafe => "unsafe",
-                          },
-                          f)
+        fmt::Display::fmt(
+            match *self {
+                Unsafety::Normal => "normal",
+                Unsafety::Unsafe => "unsafe",
+            },
+            f,
+        )
     }
 }
 
@@ -1794,7 +1803,6 @@ impl fmt::Debug for ImplPolarity {
         }
     }
 }
-
 
 #[derive(Clone, PartialEq, Eq, RustcEncodable, RustcDecodable, Hash, Debug)]
 pub enum FunctionRetTy {
@@ -1905,10 +1913,8 @@ impl Visibility {
     pub fn is_pub_restricted(&self) -> bool {
         use self::Visibility::*;
         match self {
-            &Public |
-            &Inherited => false,
-            &Crate |
-            &Restricted { .. } => true,
+            &Public | &Inherited => false,
+            &Crate | &Restricted { .. } => true,
         }
     }
 }
@@ -2041,18 +2047,26 @@ pub enum Item_ {
     /// A union definition, e.g. `union Foo<A, B> {x: A, y: B}`
     ItemUnion(VariantData, Generics),
     /// Represents a Trait Declaration
-    ItemTrait(IsAuto, Unsafety, Generics, TyParamBounds, HirVec<TraitItemRef>),
+    ItemTrait(
+        IsAuto,
+        Unsafety,
+        Generics,
+        TyParamBounds,
+        HirVec<TraitItemRef>,
+    ),
     /// Represents a Trait Alias Declaration
     ItemTraitAlias(Generics, TyParamBounds),
 
     /// An implementation, eg `impl<A> Trait for Foo { .. }`
-    ItemImpl(Unsafety,
-             ImplPolarity,
-             Defaultness,
-             Generics,
-             Option<TraitRef>, // (optional) trait this impl implements
-             P<Ty>, // self
-             HirVec<ImplItemRef>),
+    ItemImpl(
+        Unsafety,
+        ImplPolarity,
+        Defaultness,
+        Generics,
+        Option<TraitRef>, // (optional) trait this impl implements
+        P<Ty>,            // self
+        HirVec<ImplItemRef>,
+    ),
 }
 
 impl Item_ {
@@ -2087,14 +2101,14 @@ impl Item_ {
 
     pub fn generics(&self) -> Option<&Generics> {
         Some(match *self {
-            ItemFn(_, _, _, _, ref generics, _) |
-            ItemTy(_, ref generics) |
-            ItemEnum(_, ref generics) |
-            ItemStruct(_, ref generics) |
-            ItemUnion(_, ref generics) |
-            ItemTrait(_, _, ref generics, _, _) |
-            ItemImpl(_, _, _, ref generics, _, _, _)=> generics,
-            _ => return None
+            ItemFn(_, _, _, _, ref generics, _)
+            | ItemTy(_, ref generics)
+            | ItemEnum(_, ref generics)
+            | ItemStruct(_, ref generics)
+            | ItemUnion(_, ref generics)
+            | ItemTrait(_, _, ref generics, _, _)
+            | ItemImpl(_, _, _, ref generics, _, _, _) => generics,
+            _ => return None,
         })
     }
 }
@@ -2176,14 +2190,14 @@ pub struct Freevar {
     pub def: Def,
 
     // First span where it is accessed (there can be multiple).
-    pub span: Span
+    pub span: Span,
 }
 
 impl Freevar {
     pub fn var_id(&self) -> NodeId {
         match self.def {
             Def::Local(id) | Def::Upvar(id, ..) => id,
-            _ => bug!("Freevar::var_id: bad def ({:?})", self.def)
+            _ => bug!("Freevar::var_id: bad def ({:?})", self.def),
         }
     }
 }

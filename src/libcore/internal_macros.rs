@@ -8,7 +8,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-
 // implements the unary operator "op &T"
 // based on "op T" where T is expected to be `Copy`able
 macro_rules! forward_ref_unop {
@@ -86,4 +85,3 @@ macro_rules! forward_ref_op_assign {
         }
     }
 }
-

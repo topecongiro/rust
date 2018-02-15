@@ -13,7 +13,7 @@
 
 use build::Builder;
 
-use rustc_const_math::{ConstInt, ConstUsize, ConstIsize};
+use rustc_const_math::{ConstInt, ConstIsize, ConstUsize};
 use rustc::middle::const_val::ConstVal;
 use rustc::ty::{self, Ty};
 
@@ -30,21 +30,20 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
     pub fn temp(&mut self, ty: Ty<'tcx>, span: Span) -> Place<'tcx> {
         let temp = self.local_decls.push(LocalDecl::new_temp(ty, span));
         let place = Place::Local(temp);
-        debug!("temp: created temp {:?} with type {:?}",
-               place, self.local_decls[temp].ty);
+        debug!(
+            "temp: created temp {:?} with type {:?}",
+            place, self.local_decls[temp].ty
+        );
         place
     }
 
-    pub fn literal_operand(&mut self,
-                           span: Span,
-                           ty: Ty<'tcx>,
-                           literal: Literal<'tcx>)
-                           -> Operand<'tcx> {
-        let constant = box Constant {
-            span,
-            ty,
-            literal,
-        };
+    pub fn literal_operand(
+        &mut self,
+        span: Span,
+        ty: Ty<'tcx>,
+        literal: Literal<'tcx>,
+    ) -> Operand<'tcx> {
+        let constant = box Constant { span, ty, literal };
         Operand::Constant(constant)
     }
 
@@ -56,20 +55,16 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
     // bool, char and integers.
     pub fn zero_literal(&mut self, span: Span, ty: Ty<'tcx>) -> Operand<'tcx> {
         let literal = match ty.sty {
-            ty::TyBool => {
-                self.hir.false_literal()
-            }
-            ty::TyChar => {
-                Literal::Value {
-                    value: self.hir.tcx().mk_const(ty::Const {
-                        val: ConstVal::Char('\0'),
-                        ty
-                    })
-                }
-            }
+            ty::TyBool => self.hir.false_literal(),
+            ty::TyChar => Literal::Value {
+                value: self.hir.tcx().mk_const(ty::Const {
+                    val: ConstVal::Char('\0'),
+                    ty,
+                }),
+            },
             ty::TyUint(ity) => {
                 let val = match ity {
-                    ast::UintTy::U8  => ConstInt::U8(0),
+                    ast::UintTy::U8 => ConstInt::U8(0),
                     ast::UintTy::U16 => ConstInt::U16(0),
                     ast::UintTy::U32 => ConstInt::U32(0),
                     ast::UintTy::U64 => ConstInt::U64(0),
@@ -84,13 +79,13 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
                 Literal::Value {
                     value: self.hir.tcx().mk_const(ty::Const {
                         val: ConstVal::Integral(val),
-                        ty
-                    })
+                        ty,
+                    }),
                 }
             }
             ty::TyInt(ity) => {
                 let val = match ity {
-                    ast::IntTy::I8  => ConstInt::I8(0),
+                    ast::IntTy::I8 => ConstInt::I8(0),
                     ast::IntTy::I16 => ConstInt::I16(0),
                     ast::IntTy::I32 => ConstInt::I32(0),
                     ast::IntTy::I64 => ConstInt::I64(0),
@@ -105,32 +100,34 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
                 Literal::Value {
                     value: self.hir.tcx().mk_const(ty::Const {
                         val: ConstVal::Integral(val),
-                        ty
-                    })
+                        ty,
+                    }),
                 }
             }
-            _ => {
-                span_bug!(span, "Invalid type for zero_literal: `{:?}`", ty)
-            }
+            _ => span_bug!(span, "Invalid type for zero_literal: `{:?}`", ty),
         };
 
         self.literal_operand(span, ty, literal)
     }
 
-    pub fn push_usize(&mut self,
-                      block: BasicBlock,
-                      source_info: SourceInfo,
-                      value: u64)
-                      -> Place<'tcx> {
+    pub fn push_usize(
+        &mut self,
+        block: BasicBlock,
+        source_info: SourceInfo,
+        value: u64,
+    ) -> Place<'tcx> {
         let usize_ty = self.hir.usize_ty();
         let temp = self.temp(usize_ty, source_info.span);
         self.cfg.push_assign_constant(
-            block, source_info, &temp,
+            block,
+            source_info,
+            &temp,
             Constant {
                 span: source_info.span,
                 ty: self.hir.usize_ty(),
                 literal: self.hir.usize_literal(value),
-            });
+            },
+        );
         temp
     }
 

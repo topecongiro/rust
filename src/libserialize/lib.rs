@@ -20,17 +20,16 @@ Core encoding and decoding interfaces.
        html_playground_url = "https://play.rust-lang.org/",
        test(attr(allow(unused_variables), deny(warnings))))]
 #![deny(warnings)]
-
 #![feature(box_syntax)]
 #![feature(core_intrinsics)]
 #![feature(i128_type)]
 #![feature(specialization)]
 #![cfg_attr(test, feature(test))]
 
-pub use self::serialize::{Decoder, Encoder, Decodable, Encodable};
+pub use self::serialize::{Decodable, Decoder, Encodable, Encoder};
 
-pub use self::serialize::{SpecializationError, SpecializedEncoder, SpecializedDecoder};
-pub use self::serialize::{UseSpecializedEncodable, UseSpecializedDecodable};
+pub use self::serialize::{SpecializationError, SpecializedDecoder, SpecializedEncoder};
+pub use self::serialize::{UseSpecializedDecodable, UseSpecializedEncodable};
 
 mod serialize;
 mod collection_impls;
