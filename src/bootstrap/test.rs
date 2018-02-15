@@ -585,14 +585,14 @@ fn testdir(build: &Build, host: Interned<String>) -> PathBuf {
 }
 
 macro_rules! default_test {
-    ($name:ident { path: $path:expr, mode: $mode:expr, suite: $suite:expr }) => {
-        test!($name { path: $path, mode: $mode, suite: $suite, default: true, host: false });
+    ($name:ident { path: $path:expr, mode: $mode:expr, suite: $suite:expr, }) => {
+        test!($name { path: $path, mode: $mode, suite: $suite, default: true, host: false, });
     }
 }
 
 macro_rules! host_test {
-    ($name:ident { path: $path:expr, mode: $mode:expr, suite: $suite:expr }) => {
-        test!($name { path: $path, mode: $mode, suite: $suite, default: true, host: true });
+    ($name:ident { path: $path:expr, mode: $mode:expr, suite: $suite:expr, }) => {
+        test!($name { path: $path, mode: $mode, suite: $suite, default: true, host: true, });
     }
 }
 
@@ -602,7 +602,7 @@ macro_rules! test {
         mode: $mode:expr,
         suite: $suite:expr,
         default: $default:expr,
-        host: $host:expr
+        host: $host:expr,
     }) => {
         #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
         pub struct $name {
