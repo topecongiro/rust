@@ -33,9 +33,9 @@
 use rustc_data_structures::fx::FxHashSet;
 
 use rustc::middle::region;
+use rustc::mir::visit::{MutVisitor, TyContext, Visitor};
 use rustc::mir::{BasicBlock, Location, Mir, Rvalue, Statement, StatementKind};
-use rustc::mir::visit::{MutVisitor, Visitor, TyContext};
-use rustc::ty::{Ty, RegionKind, TyCtxt};
+use rustc::ty::{RegionKind, Ty, TyCtxt};
 use transform::{MirPass, MirSource};
 
 pub struct CleanEndRegions;
@@ -49,26 +49,30 @@ struct DeleteTrivialEndRegions<'a> {
 }
 
 impl MirPass for CleanEndRegions {
-    fn run_pass<'a, 'tcx>(&self,
-                          tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                          _source: MirSource,
-                          mir: &mut Mir<'tcx>) {
-        if !tcx.emit_end_regions() { return; }
+    fn run_pass<'a, 'tcx>(
+        &self,
+        tcx: TyCtxt<'a, 'tcx, 'tcx>,
+        _source: MirSource,
+        mir: &mut Mir<'tcx>,
+    ) {
+        if !tcx.emit_end_regions() {
+            return;
+        }
 
         let mut gather = GatherBorrowedRegions {
-            seen_regions: FxHashSet()
+            seen_regions: FxHashSet(),
         };
         gather.visit_mir(mir);
 
-        let mut delete = DeleteTrivialEndRegions { seen_regions: &mut gather.seen_regions };
+        let mut delete = DeleteTrivialEndRegions {
+            seen_regions: &mut gather.seen_regions,
+        };
         delete.visit_mir(mir);
     }
 }
 
 impl<'tcx> Visitor<'tcx> for GatherBorrowedRegions {
-    fn visit_rvalue(&mut self,
-                    rvalue: &Rvalue<'tcx>,
-                    location: Location) {
+    fn visit_rvalue(&mut self, rvalue: &Rvalue<'tcx>, location: Location) {
         // Gather regions that are used for borrows
         if let Rvalue::Ref(r, _, _) = *rvalue {
             if let RegionKind::ReScope(ce) = *r {
@@ -82,8 +86,10 @@ impl<'tcx> Visitor<'tcx> for GatherBorrowedRegions {
         // Gather regions that occur in types
         for re in ty.walk().flat_map(|t| t.regions()) {
             match *re {
-                RegionKind::ReScope(ce) => { self.seen_regions.insert(ce); }
-                _ => {},
+                RegionKind::ReScope(ce) => {
+                    self.seen_regions.insert(ce);
+                }
+                _ => {}
             }
         }
         self.super_ty(ty);
@@ -91,10 +97,12 @@ impl<'tcx> Visitor<'tcx> for GatherBorrowedRegions {
 }
 
 impl<'a, 'tcx> MutVisitor<'tcx> for DeleteTrivialEndRegions<'a> {
-    fn visit_statement(&mut self,
-                       block: BasicBlock,
-                       statement: &mut Statement<'tcx>,
-                       location: Location) {
+    fn visit_statement(
+        &mut self,
+        block: BasicBlock,
+        statement: &mut Statement<'tcx>,
+        location: Location,
+    ) {
         let mut delete_it = false;
 
         if let StatementKind::EndRegion(ref region_scope) = statement.kind {
@@ -115,20 +123,24 @@ pub struct CleanUserAssertTy;
 pub struct DeleteUserAssertTy;
 
 impl MirPass for CleanUserAssertTy {
-    fn run_pass<'a, 'tcx>(&self,
-                          _tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                          _source: MirSource,
-                          mir: &mut Mir<'tcx>) {
+    fn run_pass<'a, 'tcx>(
+        &self,
+        _tcx: TyCtxt<'a, 'tcx, 'tcx>,
+        _source: MirSource,
+        mir: &mut Mir<'tcx>,
+    ) {
         let mut delete = DeleteUserAssertTy;
         delete.visit_mir(mir);
     }
 }
 
 impl<'tcx> MutVisitor<'tcx> for DeleteUserAssertTy {
-    fn visit_statement(&mut self,
-                       block: BasicBlock,
-                       statement: &mut Statement<'tcx>,
-                       location: Location) {
+    fn visit_statement(
+        &mut self,
+        block: BasicBlock,
+        statement: &mut Statement<'tcx>,
+        location: Location,
+    ) {
         if let StatementKind::UserAssertTy(..) = statement.kind {
             statement.make_nop();
         }

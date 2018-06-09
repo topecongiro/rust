@@ -27,18 +27,21 @@
 //! the HIR doesn't change as a result of the annotations, which might
 //! perturb the reuse results.
 
-use rustc::dep_graph::{DepNode, DepConstructor};
+use rustc::dep_graph::{DepConstructor, DepNode};
+use rustc::ich::{ATTR_PARTITION_CODEGENED, ATTR_PARTITION_REUSED};
 use rustc::mir::mono::CodegenUnit;
 use rustc::ty::TyCtxt;
 use syntax::ast;
 use syntax_pos::symbol::Symbol;
-use rustc::ich::{ATTR_PARTITION_REUSED, ATTR_PARTITION_CODEGENED};
 
 const MODULE: &'static str = "module";
 const CFG: &'static str = "cfg";
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-enum Disposition { Reused, Codegened }
+enum Disposition {
+    Reused,
+    Codegened,
+}
 
 pub fn assert_module_sources<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>) {
     tcx.dep_graph.with_ignore(|| {
@@ -54,7 +57,7 @@ pub fn assert_module_sources<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>) {
 }
 
 struct AssertModuleSource<'a, 'tcx: 'a> {
-    tcx: TyCtxt<'a, 'tcx, 'tcx>
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
 }
 
 impl<'a, 'tcx> AssertModuleSource<'a, 'tcx> {
@@ -76,30 +79,39 @@ impl<'a, 'tcx> AssertModuleSource<'a, 'tcx> {
         let mangled_cgu_name = CodegenUnit::mangle_name(&mname.as_str());
         let mangled_cgu_name = Symbol::intern(&mangled_cgu_name).as_interned_str();
 
-        let dep_node = DepNode::new(self.tcx,
-                                    DepConstructor::CompileCodegenUnit(mangled_cgu_name));
+        let dep_node = DepNode::new(
+            self.tcx,
+            DepConstructor::CompileCodegenUnit(mangled_cgu_name),
+        );
 
         if let Some(loaded_from_cache) = self.tcx.dep_graph.was_loaded_from_cache(&dep_node) {
             match (disposition, loaded_from_cache) {
                 (Disposition::Reused, false) => {
                     self.tcx.sess.span_err(
                         attr.span,
-                        &format!("expected module named `{}` to be Reused but is Codegened",
-                                 mname));
+                        &format!(
+                            "expected module named `{}` to be Reused but is Codegened",
+                            mname
+                        ),
+                    );
                 }
                 (Disposition::Codegened, true) => {
                     self.tcx.sess.span_err(
                         attr.span,
-                        &format!("expected module named `{}` to be Codegened but is Reused",
-                                 mname));
+                        &format!(
+                            "expected module named `{}` to be Codegened but is Reused",
+                            mname
+                        ),
+                    );
                 }
-                (Disposition::Reused, true) |
-                (Disposition::Codegened, false) => {
+                (Disposition::Reused, true) | (Disposition::Codegened, false) => {
                     // These are what we would expect.
                 }
             }
         } else {
-            self.tcx.sess.span_err(attr.span, &format!("no module named `{}`", mname));
+            self.tcx
+                .sess
+                .span_err(attr.span, &format!("no module named `{}`", mname));
         }
     }
 
@@ -111,14 +123,15 @@ impl<'a, 'tcx> AssertModuleSource<'a, 'tcx> {
                 } else {
                     self.tcx.sess.span_fatal(
                         item.span,
-                        &format!("associated value expected for `{}`", name));
+                        &format!("associated value expected for `{}`", name),
+                    );
                 }
             }
         }
 
-        self.tcx.sess.span_fatal(
-            attr.span,
-            &format!("no field `{}`", name));
+        self.tcx
+            .sess
+            .span_fatal(attr.span, &format!("no field `{}`", name));
     }
 
     /// Scan for a `cfg="foo"` attribute and check whether we have a
@@ -134,5 +147,4 @@ impl<'a, 'tcx> AssertModuleSource<'a, 'tcx> {
         debug!("check_config: no match found");
         return false;
     }
-
 }

@@ -18,16 +18,16 @@
 //! This crate implements `TypedArena`, a simple arena that can only hold
 //! objects of a single type.
 
-#![doc(html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
-       html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
-       html_root_url = "https://doc.rust-lang.org/nightly/",
-       test(no_crate_inject, attr(deny(warnings))))]
-
+#![doc(
+    html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
+    html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
+    html_root_url = "https://doc.rust-lang.org/nightly/",
+    test(no_crate_inject, attr(deny(warnings)))
+)]
 #![feature(alloc)]
 #![feature(core_intrinsics)]
 #![feature(dropck_eyepatch)]
 #![cfg_attr(test, feature(test))]
-
 #![allow(deprecated)]
 
 extern crate alloc;
@@ -136,8 +136,7 @@ impl<T> TypedArena<T> {
         unsafe {
             if mem::size_of::<T>() == 0 {
                 self.ptr
-                    .set(intrinsics::arith_offset(self.ptr.get() as *mut u8, 1)
-                        as *mut T);
+                    .set(intrinsics::arith_offset(self.ptr.get() as *mut u8, 1) as *mut T);
                 let ptr = mem::align_of::<T>() as *mut T;
                 // Don't drop the object. This `write` is equivalent to `forget`.
                 ptr::write(ptr, object);
@@ -367,9 +366,8 @@ impl DroplessArena {
 
             let ptr = self.ptr.get();
             // Set the pointer past ourselves
-            self.ptr.set(
-                intrinsics::arith_offset(self.ptr.get(), bytes as isize) as *mut u8,
-            );
+            self.ptr
+                .set(intrinsics::arith_offset(self.ptr.get(), bytes as isize) as *mut u8);
             slice::from_raw_parts_mut(ptr, bytes)
         }
     }
@@ -378,9 +376,7 @@ impl DroplessArena {
     pub fn alloc<T>(&self, object: T) -> &mut T {
         assert!(!mem::needs_drop::<T>());
 
-        let mem = self.alloc_raw(
-            mem::size_of::<T>(),
-            mem::align_of::<T>()) as *mut _ as *mut T;
+        let mem = self.alloc_raw(mem::size_of::<T>(), mem::align_of::<T>()) as *mut _ as *mut T;
 
         unsafe {
             // Write into uninitialized memory.
@@ -405,9 +401,8 @@ impl DroplessArena {
         assert!(mem::size_of::<T>() != 0);
         assert!(slice.len() != 0);
 
-        let mem = self.alloc_raw(
-            slice.len() * mem::size_of::<T>(),
-            mem::align_of::<T>()) as *mut _ as *mut T;
+        let mem = self.alloc_raw(slice.len() * mem::size_of::<T>(), mem::align_of::<T>()) as *mut _
+            as *mut T;
 
         unsafe {
             let arena_slice = slice::from_raw_parts_mut(mem, slice.len());
@@ -425,7 +420,7 @@ impl<T> SyncTypedArena<T> {
     #[inline(always)]
     pub fn new() -> SyncTypedArena<T> {
         SyncTypedArena {
-            lock: MTLock::new(TypedArena::new())
+            lock: MTLock::new(TypedArena::new()),
         }
     }
 
@@ -458,7 +453,7 @@ impl SyncDroplessArena {
     #[inline(always)]
     pub fn new() -> SyncDroplessArena {
         SyncDroplessArena {
-            lock: MTLock::new(DroplessArena::new())
+            lock: MTLock::new(DroplessArena::new()),
         }
     }
 

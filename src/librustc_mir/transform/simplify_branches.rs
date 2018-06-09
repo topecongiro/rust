@@ -10,17 +10,21 @@
 
 //! A pass that simplifies branches when their condition is known.
 
-use rustc::ty::{TyCtxt, ParamEnv};
 use rustc::mir::*;
+use rustc::ty::{ParamEnv, TyCtxt};
 use transform::{MirPass, MirSource};
 
 use std::borrow::Cow;
 
-pub struct SimplifyBranches { label: String }
+pub struct SimplifyBranches {
+    label: String,
+}
 
 impl SimplifyBranches {
     pub fn new(label: &str) -> Self {
-        SimplifyBranches { label: format!("SimplifyBranches-{}", label) }
+        SimplifyBranches {
+            label: format!("SimplifyBranches-{}", label),
+        }
     }
 }
 
@@ -29,16 +33,26 @@ impl MirPass for SimplifyBranches {
         Cow::Borrowed(&self.label)
     }
 
-    fn run_pass<'a, 'tcx>(&self,
-                          tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                          _src: MirSource,
-                          mir: &mut Mir<'tcx>) {
+    fn run_pass<'a, 'tcx>(
+        &self,
+        tcx: TyCtxt<'a, 'tcx, 'tcx>,
+        _src: MirSource,
+        mir: &mut Mir<'tcx>,
+    ) {
         for block in mir.basic_blocks_mut() {
             let terminator = block.terminator_mut();
             terminator.kind = match terminator.kind {
-                TerminatorKind::SwitchInt { discr: Operand::Constant(box Constant {
-                    literal: Literal::Value { ref value }, ..
-                }), switch_ty, ref values, ref targets, .. } => {
+                TerminatorKind::SwitchInt {
+                    discr:
+                        Operand::Constant(box Constant {
+                            literal: Literal::Value { ref value },
+                            ..
+                        }),
+                    switch_ty,
+                    ref values,
+                    ref targets,
+                    ..
+                } => {
                     let switch_ty = ParamEnv::empty().and(switch_ty);
                     if let Some(constint) = value.assert_bits(tcx, switch_ty) {
                         let (otherwise, targets) = targets.split_last().unwrap();
@@ -51,23 +65,29 @@ impl MirPass for SimplifyBranches {
                         }
                         ret
                     } else {
-                        continue
+                        continue;
                     }
-                },
-                TerminatorKind::Assert { target, cond: Operand::Constant(box Constant {
-                    literal: Literal::Value {
-                        value
-                    }, ..
-                }), expected, .. } if (value.assert_bool(tcx) == Some(true)) == expected => {
+                }
+                TerminatorKind::Assert {
+                    target,
+                    cond:
+                        Operand::Constant(box Constant {
+                            literal: Literal::Value { value },
+                            ..
+                        }),
+                    expected,
+                    ..
+                } if (value.assert_bool(tcx) == Some(true)) == expected =>
+                {
                     TerminatorKind::Goto { target: target }
+                }
+                TerminatorKind::FalseEdges { real_target, .. } => TerminatorKind::Goto {
+                    target: real_target,
                 },
-                TerminatorKind::FalseEdges { real_target, .. } => {
-                    TerminatorKind::Goto { target: real_target }
+                TerminatorKind::FalseUnwind { real_target, .. } => TerminatorKind::Goto {
+                    target: real_target,
                 },
-                TerminatorKind::FalseUnwind { real_target, .. } => {
-                    TerminatorKind::Goto { target: real_target }
-                },
-                _ => continue
+                _ => continue,
             };
         }
     }

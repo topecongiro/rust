@@ -11,37 +11,37 @@
 
 use std::ffi::{CStr, CString};
 
-use rustc::hir::{self, CodegenFnAttrFlags};
 use rustc::hir::def_id::{DefId, LOCAL_CRATE};
 use rustc::hir::itemlikevisit::ItemLikeVisitor;
-use rustc::session::Session;
+use rustc::hir::{self, CodegenFnAttrFlags};
 use rustc::session::config::Sanitizer;
-use rustc::ty::TyCtxt;
+use rustc::session::Session;
 use rustc::ty::maps::Providers;
-use rustc_data_structures::sync::Lrc;
+use rustc::ty::TyCtxt;
 use rustc_data_structures::fx::FxHashMap;
+use rustc_data_structures::sync::Lrc;
 use rustc_target::spec::PanicStrategy;
 
 use attributes;
-use llvm::{self, Attribute, ValueRef};
+use context::CodegenCx;
 use llvm::AttributePlace::Function;
+use llvm::{self, Attribute, ValueRef};
 use llvm_util;
 pub use syntax::attr::{self, InlineAttr};
-use context::CodegenCx;
 
 /// Mark LLVM function to use provided inline heuristic.
 #[inline]
 pub fn inline(val: ValueRef, inline: InlineAttr) {
     use self::InlineAttr::*;
     match inline {
-        Hint   => Attribute::InlineHint.apply_llfn(Function, val),
+        Hint => Attribute::InlineHint.apply_llfn(Function, val),
         Always => Attribute::AlwaysInline.apply_llfn(Function, val),
-        Never  => Attribute::NoInline.apply_llfn(Function, val),
-        None   => {
+        Never => Attribute::NoInline.apply_llfn(Function, val),
+        None => {
             Attribute::InlineHint.unapply_llfn(Function, val);
             Attribute::AlwaysInline.unapply_llfn(Function, val);
             Attribute::NoInline.unapply_llfn(Function, val);
-        },
+        }
     };
 }
 
@@ -73,8 +73,11 @@ pub fn naked(val: ValueRef, is_naked: bool) {
 pub fn set_frame_pointer_elimination(cx: &CodegenCx, llfn: ValueRef) {
     if cx.sess().must_not_eliminate_frame_pointers() {
         llvm::AddFunctionAttrStringValue(
-            llfn, llvm::AttributePlace::Function,
-            cstr("no-frame-pointer-elim\0"), cstr("true\0"));
+            llfn,
+            llvm::AttributePlace::Function,
+            cstr("no-frame-pointer-elim\0"),
+            cstr("true\0"),
+        );
     }
 }
 
@@ -82,7 +85,7 @@ pub fn set_probestack(cx: &CodegenCx, llfn: ValueRef) {
     // Only use stack probes if the target specification indicates that we
     // should be using stack probes
     if !cx.sess().target.target.options.stack_probes {
-        return
+        return;
     }
 
     // Currently stack probes seem somewhat incompatible with the address
@@ -101,18 +104,27 @@ pub fn set_probestack(cx: &CodegenCx, llfn: ValueRef) {
     // Flag our internal `__rust_probestack` function as the stack probe symbol.
     // This is defined in the `compiler-builtins` crate for each architecture.
     llvm::AddFunctionAttrStringValue(
-        llfn, llvm::AttributePlace::Function,
-        cstr("probe-stack\0"), cstr("__rust_probestack\0"));
+        llfn,
+        llvm::AttributePlace::Function,
+        cstr("probe-stack\0"),
+        cstr("__rust_probestack\0"),
+    );
 }
 
 pub fn llvm_target_features(sess: &Session) -> impl Iterator<Item = &str> {
-    const RUSTC_SPECIFIC_FEATURES: &[&str] = &[
-        "crt-static",
-    ];
+    const RUSTC_SPECIFIC_FEATURES: &[&str] = &["crt-static"];
 
-    let cmdline = sess.opts.cg.target_feature.split(',')
+    let cmdline = sess
+        .opts
+        .cg
+        .target_feature
+        .split(',')
         .filter(|f| !RUSTC_SPECIFIC_FEATURES.iter().any(|s| f.contains(s)));
-    sess.target.target.options.features.split(',')
+    sess.target
+        .target
+        .options
+        .features
+        .split(',')
         .chain(cmdline)
         .filter(|l| !l.is_empty())
 }
@@ -133,14 +145,19 @@ pub fn from_fn_attrs(cx: &CodegenCx, llfn: ValueRef, id: DefId) {
     if codegen_fn_attrs.flags.contains(CodegenFnAttrFlags::NAKED) {
         naked(llfn, true);
     }
-    if codegen_fn_attrs.flags.contains(CodegenFnAttrFlags::ALLOCATOR) {
-        Attribute::NoAlias.apply_llfn(
-            llvm::AttributePlace::ReturnValue, llfn);
+    if codegen_fn_attrs
+        .flags
+        .contains(CodegenFnAttrFlags::ALLOCATOR)
+    {
+        Attribute::NoAlias.apply_llfn(llvm::AttributePlace::ReturnValue, llfn);
     }
 
     let can_unwind = if codegen_fn_attrs.flags.contains(CodegenFnAttrFlags::UNWIND) {
         Some(true)
-    } else if codegen_fn_attrs.flags.contains(CodegenFnAttrFlags::RUSTC_ALLOCATOR_NOUNWIND) {
+    } else if codegen_fn_attrs
+        .flags
+        .contains(CodegenFnAttrFlags::RUSTC_ALLOCATOR_NOUNWIND)
+    {
         Some(false)
 
     // Perhaps questionable, but we assume that anything defined
@@ -163,22 +180,21 @@ pub fn from_fn_attrs(cx: &CodegenCx, llfn: ValueRef, id: DefId) {
 
     let features = llvm_target_features(cx.tcx.sess)
         .map(|s| s.to_string())
-        .chain(
-            codegen_fn_attrs.target_features
-                .iter()
-                .map(|f| {
-                    let feature = &*f.as_str();
-                    format!("+{}", llvm_util::to_llvm_feature(cx.tcx.sess, feature))
-                })
-        )
+        .chain(codegen_fn_attrs.target_features.iter().map(|f| {
+            let feature = &*f.as_str();
+            format!("+{}", llvm_util::to_llvm_feature(cx.tcx.sess, feature))
+        }))
         .collect::<Vec<String>>()
         .join(",");
 
     if !features.is_empty() {
         let val = CString::new(features).unwrap();
         llvm::AddFunctionAttrStringValue(
-            llfn, llvm::AttributePlace::Function,
-            cstr("target-features\0"), &val);
+            llfn,
+            llvm::AttributePlace::Function,
+            cstr("target-features\0"),
+            &val,
+        );
     }
 
     // Note that currently the `wasm-import-module` doesn't do anything, but
@@ -206,20 +222,27 @@ pub fn provide(providers: &mut Providers) {
         if tcx.sess.opts.actually_rustdoc {
             // rustdoc needs to be able to document functions that use all the features, so
             // whitelist them all
-            Lrc::new(llvm_util::all_known_features()
-                .map(|(a, b)| (a.to_string(), b.map(|s| s.to_string())))
-                .collect())
+            Lrc::new(
+                llvm_util::all_known_features()
+                    .map(|(a, b)| (a.to_string(), b.map(|s| s.to_string())))
+                    .collect(),
+            )
         } else {
-            Lrc::new(llvm_util::target_feature_whitelist(tcx.sess)
-                .iter()
-                .map(|&(a, b)| (a.to_string(), b.map(|s| s.to_string())))
-                .collect())
+            Lrc::new(
+                llvm_util::target_feature_whitelist(tcx.sess)
+                    .iter()
+                    .map(|&(a, b)| (a.to_string(), b.map(|s| s.to_string())))
+                    .collect(),
+            )
         }
     };
 
     providers.wasm_custom_sections = |tcx, cnum| {
         assert_eq!(cnum, LOCAL_CRATE);
-        let mut finder = WasmSectionFinder { tcx, list: Vec::new() };
+        let mut finder = WasmSectionFinder {
+            tcx,
+            list: Vec::new(),
+        };
         tcx.hir.krate().visit_all_item_likes(&mut finder);
         Lrc::new(finder.list)
     };

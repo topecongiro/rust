@@ -15,7 +15,7 @@
 
 use std::env;
 use std::fs;
-use std::path::{Path, PathBuf, Component};
+use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 
 use dist::{self, pkgname, sanitize_sh, tmpdir};
@@ -60,7 +60,7 @@ fn install_sh(
     package: &str,
     name: &str,
     stage: u32,
-    host: Option<Interned<String>>
+    host: Option<Interned<String>>,
 ) {
     builder.info(&format!("Install {} stage{} ({:?})", package, stage, host));
 
@@ -74,7 +74,11 @@ fn install_sh(
     let prefix = builder.config.prefix.as_ref().map_or(prefix_default, |p| {
         fs::canonicalize(p).expect(&format!("could not canonicalize {}", p.display()))
     });
-    let sysconfdir = builder.config.sysconfdir.as_ref().unwrap_or(&sysconfdir_default);
+    let sysconfdir = builder
+        .config
+        .sysconfdir
+        .as_ref()
+        .unwrap_or(&sysconfdir_default);
     let datadir = builder.config.datadir.as_ref().unwrap_or(&datadir_default);
     let docdir = builder.config.docdir.as_ref().unwrap_or(&docdir_default);
     let bindir = builder.config.bindir.as_ref().unwrap_or(&bindir_default);
@@ -109,7 +113,9 @@ fn install_sh(
 
     let mut cmd = Command::new("sh");
     cmd.current_dir(&empty_dir)
-        .arg(sanitize_sh(&tmpdir(builder).join(&package_name).join("install.sh")))
+        .arg(sanitize_sh(
+            &tmpdir(builder).join(&package_name).join("install.sh"),
+        ))
         .arg(format!("--prefix={}", sanitize_sh(&prefix)))
         .arg(format!("--sysconfdir={}", sanitize_sh(&sysconfdir)))
         .arg(format!("--datadir={}", sanitize_sh(&datadir)))
@@ -252,8 +258,7 @@ impl Step for Src {
 
     fn should_run(run: ShouldRun) -> ShouldRun {
         let config = &run.builder.config;
-        let cond = config.extended &&
-            config.tools.as_ref().map_or(true, |t| t.contains("src"));
+        let cond = config.extended && config.tools.as_ref().map_or(true, |t| t.contains("src"));
         run.path("src").default_condition(cond)
     }
 

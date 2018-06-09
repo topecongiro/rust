@@ -33,7 +33,7 @@ macro_rules! impl_tuple_slice {
                 }
             }
         }
-    }
+    };
 }
 
 impl_tuple_slice!((T, T), 2);
@@ -66,5 +66,4 @@ fn test_sliced_tuples() {
 
     let t8 = (127, 128, 129, 130, 131, 132, 133, 134);
     assert_eq!(t8.as_slice(), &[127, 128, 129, 130, 131, 132, 133, 134]);
-
 }

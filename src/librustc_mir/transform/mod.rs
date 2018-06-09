@@ -10,41 +10,41 @@
 
 use borrow_check::nll::type_check;
 use build;
+use rustc::hir;
 use rustc::hir::def_id::{CrateNum, DefId, LOCAL_CRATE};
+use rustc::hir::intravisit::{self, NestedVisitorMap, Visitor};
 use rustc::mir::{Mir, Promoted};
-use rustc::ty::TyCtxt;
 use rustc::ty::maps::Providers;
 use rustc::ty::steal::Steal;
-use rustc::hir;
-use rustc::hir::intravisit::{self, Visitor, NestedVisitorMap};
+use rustc::ty::TyCtxt;
 use rustc::util::nodemap::DefIdSet;
 use rustc_data_structures::sync::Lrc;
 use std::borrow::Cow;
 use syntax::ast;
 use syntax_pos::Span;
 
-pub mod add_validation;
-pub mod add_moves_for_packed_drops;
-pub mod cleanup_post_borrowck;
-pub mod check_unsafety;
-pub mod simplify_branches;
-pub mod simplify;
-pub mod erase_regions;
-pub mod no_landing_pads;
-pub mod rustc_peek;
-pub mod elaborate_drops;
 pub mod add_call_guards;
+pub mod add_moves_for_packed_drops;
+pub mod add_validation;
+pub mod check_unsafety;
+pub mod cleanup_post_borrowck;
+pub mod const_prop;
+pub mod copy_prop;
+pub mod deaggregator;
+pub mod dump_mir;
+pub mod elaborate_drops;
+pub mod erase_regions;
+pub mod generator;
+pub mod inline;
+pub mod instcombine;
+pub mod lower_128bit;
+pub mod no_landing_pads;
 pub mod promote_consts;
 pub mod qualify_consts;
 pub mod remove_noop_landing_pads;
-pub mod dump_mir;
-pub mod deaggregator;
-pub mod instcombine;
-pub mod copy_prop;
-pub mod const_prop;
-pub mod generator;
-pub mod inline;
-pub mod lower_128bit;
+pub mod rustc_peek;
+pub mod simplify;
+pub mod simplify_branches;
 pub mod uniform_array_move_out;
 
 pub(crate) fn provide(providers: &mut Providers) {
@@ -67,8 +67,7 @@ fn is_mir_available<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, def_id: DefId) -> boo
 
 /// Finds the full set of def-ids within the current crate that have
 /// MIR associated with them.
-fn mir_keys<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, krate: CrateNum)
-                      -> Lrc<DefIdSet> {
+fn mir_keys<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, krate: CrateNum) -> Lrc<DefIdSet> {
     assert_eq!(krate, LOCAL_CRATE);
 
     let mut set = DefIdSet();
@@ -83,12 +82,14 @@ fn mir_keys<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, krate: CrateNum)
         set: &'a mut DefIdSet,
     }
     impl<'a, 'tcx> Visitor<'tcx> for GatherCtors<'a, 'tcx> {
-        fn visit_variant_data(&mut self,
-                              v: &'tcx hir::VariantData,
-                              _: ast::Name,
-                              _: &'tcx hir::Generics,
-                              _: ast::NodeId,
-                              _: Span) {
+        fn visit_variant_data(
+            &mut self,
+            v: &'tcx hir::VariantData,
+            _: ast::Name,
+            _: &'tcx hir::Generics,
+            _: ast::NodeId,
+            _: Span,
+        ) {
             if let hir::VariantData::Tuple(_, node_id) = *v {
                 self.set.insert(self.tcx.hir.local_def_id(node_id));
             }
@@ -98,10 +99,9 @@ fn mir_keys<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>, krate: CrateNum)
             NestedVisitorMap::None
         }
     }
-    tcx.hir.krate().visit_all_item_likes(&mut GatherCtors {
-        tcx,
-        set: &mut set,
-    }.as_deep_visitor());
+    tcx.hir
+        .krate()
+        .visit_all_item_likes(&mut GatherCtors { tcx, set: &mut set }.as_deep_visitor());
 
     Lrc::new(set)
 }
@@ -124,7 +124,7 @@ impl MirSource {
     pub fn item(def_id: DefId) -> Self {
         MirSource {
             def_id,
-            promoted: None
+            promoted: None,
         }
     }
 }
@@ -134,7 +134,7 @@ impl MirSource {
 pub fn default_name<T: ?Sized>() -> Cow<'static, str> {
     let name = unsafe { ::std::intrinsics::type_name::<T>() };
     if let Some(tail) = name.rfind(":") {
-        Cow::from(&name[tail+1..])
+        Cow::from(&name[tail + 1..])
     } else {
         Cow::from(name)
     }
@@ -148,10 +148,12 @@ pub trait MirPass {
         default_name::<Self>()
     }
 
-    fn run_pass<'a, 'tcx>(&self,
-                          tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                          source: MirSource,
-                          mir: &mut Mir<'tcx>);
+    fn run_pass<'a, 'tcx>(
+        &self,
+        tcx: TyCtxt<'a, 'tcx, 'tcx>,
+        source: MirSource,
+        mir: &mut Mir<'tcx>,
+    );
 }
 
 pub macro run_passes($tcx:ident, $mir:ident, $def_id:ident, $suite_index:expr; $($pass:expr,)*) {{

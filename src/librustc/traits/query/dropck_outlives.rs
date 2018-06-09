@@ -11,11 +11,11 @@
 use infer::at::At;
 use infer::canonical::{Canonical, Canonicalize, QueryResult};
 use infer::InferOk;
+use rustc_data_structures::sync::Lrc;
 use std::iter::FromIterator;
 use traits::query::CanonicalTyGoal;
-use ty::{self, Ty, TyCtxt};
 use ty::subst::Kind;
-use rustc_data_structures::sync::Lrc;
+use ty::{self, Ty, TyCtxt};
 
 impl<'cx, 'gcx, 'tcx> At<'cx, 'gcx, 'tcx> {
     /// Given a type `ty` of some value being dropped, computes a set
@@ -45,7 +45,10 @@ impl<'cx, 'gcx, 'tcx> At<'cx, 'gcx, 'tcx> {
         // any destructor.
         let tcx = self.infcx.tcx;
         if trivial_dropck_outlives(tcx, ty) {
-            return InferOk { value: vec![], obligations: vec![] };
+            return InferOk {
+                value: vec![],
+                obligations: vec![],
+            };
         }
 
         let gcx = tcx.global_tcx();

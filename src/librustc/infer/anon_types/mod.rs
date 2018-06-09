@@ -9,15 +9,15 @@
 // except according to those terms.
 
 use hir::def_id::DefId;
-use infer::{self, InferCtxt, InferOk, TypeVariableOrigin};
 use infer::outlives::free_region_map::FreeRegionRelations;
+use infer::{self, InferCtxt, InferOk, TypeVariableOrigin};
 use rustc_data_structures::fx::FxHashMap;
 use syntax::ast;
 use traits::{self, PredicateObligation};
-use ty::{self, Ty, TyCtxt, GenericParamDefKind};
 use ty::fold::{BottomUpFolder, TypeFoldable, TypeFolder};
 use ty::outlives::Component;
 use ty::subst::{Kind, Substs, UnpackedKind};
+use ty::{self, GenericParamDefKind, Ty, TyCtxt};
 use util::nodemap::DefIdMap;
 
 pub type AnonTypeMap<'tcx> = DefIdMap<AnonTypeDecl<'tcx>>;
@@ -316,7 +316,7 @@ impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
         for param in &abstract_type_generics.params {
             match param.kind {
                 GenericParamDefKind::Lifetime => {}
-                _ => continue
+                _ => continue,
             }
             // Get the value supplied for this region from the substs.
             let subst_arg = anon_defn.substs.region_at(param.index as usize);
@@ -456,14 +456,13 @@ impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
         // Convert the type from the function into a type valid outside
         // the function, by replacing invalid regions with 'static,
         // after producing an error for each of them.
-        let definition_ty =
-            instantiated_ty.fold_with(&mut ReverseMapper::new(
-                self.tcx,
-                self.is_tainted_by_errors(),
-                def_id,
-                map,
-                instantiated_ty,
-            ));
+        let definition_ty = instantiated_ty.fold_with(&mut ReverseMapper::new(
+            self.tcx,
+            self.is_tainted_by_errors(),
+            def_id,
+            map,
+            instantiated_ty,
+        ));
         debug!(
             "infer_anon_definition_from_instantiation: definition_ty={:?}",
             definition_ty
@@ -578,14 +577,14 @@ impl<'cx, 'gcx, 'tcx> TypeFolder<'gcx, 'tcx> for ReverseMapper<'cx, 'gcx, 'tcx> 
                             &mut err,
                             &format!("hidden type `{}` captures ", hidden_ty),
                             r,
-                            ""
+                            "",
                         );
 
                         err.emit();
                     }
                 }
                 self.tcx.types.re_empty
-            },
+            }
         }
     }
 

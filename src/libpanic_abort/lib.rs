@@ -15,13 +15,14 @@
 
 #![no_std]
 #![unstable(feature = "panic_abort", issue = "32837")]
-#![doc(html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
-       html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
-       html_root_url = "https://doc.rust-lang.org/nightly/",
-       issue_tracker_base_url = "https://github.com/rust-lang/rust/issues/")]
+#![doc(
+    html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
+    html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
+    html_root_url = "https://doc.rust-lang.org/nightly/",
+    issue_tracker_base_url = "https://github.com/rust-lang/rust/issues/"
+)]
 #![panic_runtime]
 #![allow(unused_features)]
-
 #![feature(core_intrinsics)]
 #![feature(libc)]
 #![feature(panic_runtime)]
@@ -32,10 +33,12 @@
 // function as there's nothing else we need to do here.
 #[no_mangle]
 #[rustc_std_internal_symbol]
-pub unsafe extern fn __rust_maybe_catch_panic(f: fn(*mut u8),
-                                              data: *mut u8,
-                                              _data_ptr: *mut usize,
-                                              _vtable_ptr: *mut usize) -> u32 {
+pub unsafe extern "C" fn __rust_maybe_catch_panic(
+    f: fn(*mut u8),
+    data: *mut u8,
+    _data_ptr: *mut usize,
+    _vtable_ptr: *mut usize,
+) -> u32 {
     f(data);
     0
 }
@@ -52,7 +55,7 @@ pub unsafe extern fn __rust_maybe_catch_panic(f: fn(*mut u8),
 // now hopefully.
 #[no_mangle]
 #[rustc_std_internal_symbol]
-pub unsafe extern fn __rust_start_panic(_payload: usize) -> u32 {
+pub unsafe extern "C" fn __rust_start_panic(_payload: usize) -> u32 {
     abort();
 
     #[cfg(any(unix, target_os = "cloudabi"))]
@@ -61,9 +64,11 @@ pub unsafe extern fn __rust_start_panic(_payload: usize) -> u32 {
         libc::abort();
     }
 
-    #[cfg(any(target_os = "redox",
-              windows,
-              all(target_arch = "wasm32", not(target_os = "emscripten"))))]
+    #[cfg(
+        any(
+            target_os = "redox", windows, all(target_arch = "wasm32", not(target_os = "emscripten"))
+        )
+    )]
     unsafe fn abort() -> ! {
         core::intrinsics::abort();
     }
@@ -97,21 +102,19 @@ pub unsafe extern fn __rust_start_panic(_payload: usize) -> u32 {
 // runtime at all.
 pub mod personalities {
     #[no_mangle]
-    #[cfg(not(all(target_os = "windows",
-                  target_env = "gnu",
-                  target_arch = "x86_64")))]
-    pub extern fn rust_eh_personality() {}
+    #[cfg(not(all(target_os = "windows", target_env = "gnu", target_arch = "x86_64")))]
+    pub extern "C" fn rust_eh_personality() {}
 
     // On x86_64-pc-windows-gnu we use our own personality function that needs
     // to return `ExceptionContinueSearch` as we're passing on all our frames.
     #[no_mangle]
-    #[cfg(all(target_os = "windows",
-              target_env = "gnu",
-              target_arch = "x86_64"))]
-    pub extern fn rust_eh_personality(_record: usize,
-                                      _frame: usize,
-                                      _context: usize,
-                                      _dispatcher: usize) -> u32 {
+    #[cfg(all(target_os = "windows", target_env = "gnu", target_arch = "x86_64"))]
+    pub extern "C" fn rust_eh_personality(
+        _record: usize,
+        _frame: usize,
+        _context: usize,
+        _dispatcher: usize,
+    ) -> u32 {
         1 // `ExceptionContinueSearch`
     }
 
@@ -122,14 +125,14 @@ pub mod personalities {
     // body is empty.
     #[no_mangle]
     #[cfg(all(target_os = "windows", target_env = "gnu"))]
-    pub extern fn rust_eh_unwind_resume() {}
+    pub extern "C" fn rust_eh_unwind_resume() {}
 
     // These two are called by our startup objects on i686-pc-windows-gnu, but
     // they don't need to do anything so the bodies are nops.
     #[no_mangle]
     #[cfg(all(target_os = "windows", target_env = "gnu", target_arch = "x86"))]
-    pub extern fn rust_eh_register_frames() {}
+    pub extern "C" fn rust_eh_register_frames() {}
     #[no_mangle]
     #[cfg(all(target_os = "windows", target_env = "gnu", target_arch = "x86"))]
-    pub extern fn rust_eh_unregister_frames() {}
+    pub extern "C" fn rust_eh_unregister_frames() {}
 }

@@ -1,10 +1,10 @@
-use rustc::ty::Ty;
 use rustc::ty::layout::LayoutOf;
+use rustc::ty::Ty;
 use syntax::ast::{FloatTy, IntTy, UintTy};
 
-use rustc_apfloat::ieee::{Single, Double};
 use super::{EvalContext, Machine};
-use rustc::mir::interpret::{Scalar, EvalResult, Pointer, PointerArithmetic};
+use rustc::mir::interpret::{EvalResult, Pointer, PointerArithmetic, Scalar};
+use rustc_apfloat::ieee::{Double, Single};
 use rustc_apfloat::Float;
 
 impl<'a, 'mir, 'tcx, M: Machine<'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> {
@@ -70,29 +70,37 @@ impl<'a, 'mir, 'tcx, M: Machine<'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> {
                 defined: 64,
             }),
 
-            TyChar if v as u8 as u128 == v => Ok(Scalar::Bits { bits: v, defined: 32 }),
+            TyChar if v as u8 as u128 == v => Ok(Scalar::Bits {
+                bits: v,
+                defined: 32,
+            }),
             TyChar => err!(InvalidChar(v)),
 
             // No alignment check needed for raw pointers.  But we have to truncate to target ptr size.
-            TyRawPtr(_) => {
-                Ok(Scalar::Bits {
-                    bits: self.memory.truncate_to_ptr(v).0 as u128,
-                    defined: self.memory.pointer_size().bits() as u8,
-                })
-            },
+            TyRawPtr(_) => Ok(Scalar::Bits {
+                bits: self.memory.truncate_to_ptr(v).0 as u128,
+                defined: self.memory.pointer_size().bits() as u8,
+            }),
 
             // Casts to bool are not permitted by rustc, no need to handle them here.
             _ => err!(Unimplemented(format!("int to {:?} cast", dest_ty))),
         }
     }
 
-    fn cast_from_float(&self, bits: u128, fty: FloatTy, dest_ty: Ty<'tcx>) -> EvalResult<'tcx, Scalar> {
+    fn cast_from_float(
+        &self,
+        bits: u128,
+        fty: FloatTy,
+        dest_ty: Ty<'tcx>,
+    ) -> EvalResult<'tcx, Scalar> {
         use rustc::ty::TypeVariants::*;
         use rustc_apfloat::FloatConvert;
         match dest_ty.sty {
             // float -> uint
             TyUint(t) => {
-                let width = t.bit_width().unwrap_or(self.memory.pointer_size().bits() as usize);
+                let width = t
+                    .bit_width()
+                    .unwrap_or(self.memory.pointer_size().bits() as usize);
                 match fty {
                     FloatTy::F32 => Ok(Scalar::Bits {
                         bits: Single::from_bits(bits).to_u128(width).value,
@@ -103,10 +111,12 @@ impl<'a, 'mir, 'tcx, M: Machine<'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> {
                         defined: width as u8,
                     }),
                 }
-            },
+            }
             // float -> int
             TyInt(t) => {
-                let width = t.bit_width().unwrap_or(self.memory.pointer_size().bits() as usize);
+                let width = t
+                    .bit_width()
+                    .unwrap_or(self.memory.pointer_size().bits() as usize);
                 match fty {
                     FloatTy::F32 => Ok(Scalar::Bits {
                         bits: Single::from_bits(bits).to_i128(width).value as u128,
@@ -117,30 +127,20 @@ impl<'a, 'mir, 'tcx, M: Machine<'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> {
                         defined: width as u8,
                     }),
                 }
-            },
+            }
             // f64 -> f32
-            TyFloat(FloatTy::F32) if fty == FloatTy::F64 => {
-                Ok(Scalar::Bits {
-                    bits: Single::to_bits(Double::from_bits(bits).convert(&mut false).value),
-                    defined: 32,
-                })
-            },
-            // f32 -> f64
-            TyFloat(FloatTy::F64) if fty == FloatTy::F32 => {
-                Ok(Scalar::Bits {
-                    bits: Double::to_bits(Single::from_bits(bits).convert(&mut false).value),
-                    defined: 64,
-                })
-            },
-            // identity cast
-            TyFloat(FloatTy:: F64) => Ok(Scalar::Bits {
-                bits,
-                defined: 64,
-            }),
-            TyFloat(FloatTy:: F32) => Ok(Scalar::Bits {
-                bits,
+            TyFloat(FloatTy::F32) if fty == FloatTy::F64 => Ok(Scalar::Bits {
+                bits: Single::to_bits(Double::from_bits(bits).convert(&mut false).value),
                 defined: 32,
             }),
+            // f32 -> f64
+            TyFloat(FloatTy::F64) if fty == FloatTy::F32 => Ok(Scalar::Bits {
+                bits: Double::to_bits(Single::from_bits(bits).convert(&mut false).value),
+                defined: 64,
+            }),
+            // identity cast
+            TyFloat(FloatTy::F64) => Ok(Scalar::Bits { bits, defined: 64 }),
+            TyFloat(FloatTy::F32) => Ok(Scalar::Bits { bits, defined: 32 }),
             _ => err!(Unimplemented(format!("float to {:?} cast", dest_ty))),
         }
     }
@@ -149,9 +149,7 @@ impl<'a, 'mir, 'tcx, M: Machine<'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> {
         use rustc::ty::TypeVariants::*;
         match ty.sty {
             // Casting to a reference or fn pointer is not permitted by rustc, no need to support it here.
-            TyRawPtr(_) |
-            TyInt(IntTy::Isize) |
-            TyUint(UintTy::Usize) => Ok(ptr.into()),
+            TyRawPtr(_) | TyInt(IntTy::Isize) | TyUint(UintTy::Usize) => Ok(ptr.into()),
             TyInt(_) | TyUint(_) => err!(ReadPointerAsBytes),
             _ => err!(Unimplemented(format!("ptr to {:?} cast", ty))),
         }

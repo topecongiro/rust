@@ -8,9 +8,9 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use borrow_check::borrow_set::BorrowData;
 use borrow_check::nll::region_infer::{Cause, RegionInferenceContext};
 use borrow_check::{Context, MirBorrowckCtxt};
-use borrow_check::borrow_set::BorrowData;
 use rustc::mir::visit::{MirVisitable, PlaceContext, Visitor};
 use rustc::mir::{Local, Location, Mir};
 use rustc_data_structures::fx::FxHashSet;
@@ -35,58 +35,52 @@ impl<'cx, 'gcx, 'tcx> MirBorrowckCtxt<'cx, 'gcx, 'tcx> {
         let borrow_region_vid = regioncx.to_region_vid(borrow.region);
         if let Some(cause) = regioncx.why_region_contains_point(borrow_region_vid, context.loc) {
             match cause {
-                Cause::LiveVar(local, location) => {
-                    match find_regular_use(mir, regioncx, borrow, location, local) {
-                        Some(p) => {
+                Cause::LiveVar(local, location) => match find_regular_use(
+                    mir, regioncx, borrow, location, local,
+                ) {
+                    Some(p) => {
+                        err.span_label(mir.source_info(p).span, format!("borrow later used here"));
+                    }
+
+                    None => {
+                        span_bug!(
+                            mir.source_info(context.loc).span,
+                            "Cause should end in a LiveVar"
+                        );
+                    }
+                },
+
+                Cause::DropVar(local, location) => match find_drop_use(
+                    mir, regioncx, borrow, location, local,
+                ) {
+                    Some(p) => match &mir.local_decls[local].name {
+                        Some(local_name) => {
                             err.span_label(
                                 mir.source_info(p).span,
-                                format!("borrow later used here"),
+                                format!("borrow later used here, when `{}` is dropped", local_name),
                             );
                         }
-
                         None => {
-                            span_bug!(
-                                mir.source_info(context.loc).span,
-                                "Cause should end in a LiveVar"
+                            err.span_label(
+                                mir.local_decls[local].source_info.span,
+                                "borrow may end up in a temporary, created here",
+                            );
+
+                            err.span_label(
+                                mir.source_info(p).span,
+                                "temporary later dropped here, \
+                                 potentially using the reference",
                             );
                         }
+                    },
+
+                    None => {
+                        span_bug!(
+                            mir.source_info(context.loc).span,
+                            "Cause should end in a DropVar"
+                        );
                     }
-                }
-
-                Cause::DropVar(local, location) => {
-                    match find_drop_use(mir, regioncx, borrow, location, local) {
-                        Some(p) => match &mir.local_decls[local].name {
-                            Some(local_name) => {
-                                err.span_label(
-                                    mir.source_info(p).span,
-                                    format!(
-                                        "borrow later used here, when `{}` is dropped",
-                                        local_name
-                                    ),
-                                );
-                            }
-                            None => {
-                                err.span_label(
-                                    mir.local_decls[local].source_info.span,
-                                    "borrow may end up in a temporary, created here",
-                                );
-
-                                err.span_label(
-                                    mir.source_info(p).span,
-                                    "temporary later dropped here, \
-                                     potentially using the reference",
-                                );
-                            }
-                        },
-
-                        None => {
-                            span_bug!(
-                                mir.source_info(context.loc).span,
-                                "Cause should end in a DropVar"
-                            );
-                        }
-                    }
-                }
+                },
 
                 Cause::UniversalRegion(region_vid) => {
                     if let Some(region) = regioncx.to_error_region(region_vid) {
@@ -185,15 +179,12 @@ impl<'gcx, 'tcx> UseFinder<'gcx, 'tcx> {
                         ..p
                     });
                 } else {
-                    stack.extend(
-                        block_data
-                            .terminator()
-                            .successors()
-                            .map(|&basic_block| Location {
-                                statement_index: 0,
-                                block: basic_block,
-                            }),
-                    );
+                    stack.extend(block_data.terminator().successors().map(|&basic_block| {
+                        Location {
+                            statement_index: 0,
+                            block: basic_block,
+                        }
+                    }));
                 }
             }
         }

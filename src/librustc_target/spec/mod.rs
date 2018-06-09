@@ -45,12 +45,12 @@
 //! to the list specified by the target, rather than replace.
 
 use serialize::json::{Json, ToJson};
+use spec::abi::{lookup as lookup_abi, Abi};
 use std::collections::BTreeMap;
 use std::default::Default;
-use std::{fmt, io};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use spec::abi::{Abi, lookup as lookup_abi};
+use std::{fmt, io};
 
 pub mod abi;
 mod android_base;
@@ -61,21 +61,21 @@ mod bitrig_base;
 mod cloudabi_base;
 mod dragonfly_base;
 mod freebsd_base;
+mod fuchsia_base;
 mod haiku_base;
+mod l4re_base;
 mod linux_base;
 mod linux_musl_base;
-mod openbsd_base;
 mod netbsd_base;
+mod openbsd_base;
+mod redox_base;
 mod solaris_base;
+mod thumb_base;
 mod windows_base;
 mod windows_msvc_base;
-mod thumb_base;
-mod l4re_base;
-mod fuchsia_base;
-mod redox_base;
 
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Hash,
-         RustcEncodable, RustcDecodable)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Hash, RustcEncodable,
+         RustcDecodable)]
 pub enum LinkerFlavor {
     Em,
     Gcc,
@@ -84,8 +84,8 @@ pub enum LinkerFlavor {
     Lld(LldFlavor),
 }
 
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Hash,
-         RustcEncodable, RustcDecodable)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Hash, RustcEncodable,
+         RustcDecodable)]
 pub enum LldFlavor {
     Wasm,
     Ld64,
@@ -120,7 +120,6 @@ macro_rules! flavor_mappings {
         }
     )
 }
-
 
 flavor_mappings! {
     ((LinkerFlavor::Em), "em"),
@@ -722,8 +721,8 @@ impl Target {
                 } else {
                     Abi::C
                 }
-            },
-            abi => abi
+            }
+            abi => abi,
         }
     }
 
@@ -736,7 +735,9 @@ impl Target {
     /// Maximum integer size in bits that this target can perform atomic
     /// operations on.
     pub fn max_atomic_width(&self) -> u64 {
-        self.options.max_atomic_width.unwrap_or(self.target_pointer_width.parse().unwrap())
+        self.options
+            .max_atomic_width
+            .unwrap_or(self.target_pointer_width.parse().unwrap())
     }
 
     pub fn is_abi_supported(&self, abi: Abi) -> bool {
@@ -752,21 +753,25 @@ impl Target {
         // are round-tripped through this code to catch cases where
         // the JSON parser is not updated to match the structs.
 
-        let get_req_field = |name: &str| {
-            match obj.find(name)
-                     .map(|s| s.as_string())
-                     .and_then(|os| os.map(|s| s.to_string())) {
-                Some(val) => Ok(val),
-                None => {
-                    return Err(format!("Field {} in target specification is required", name))
-                }
+        let get_req_field = |name: &str| match obj
+            .find(name)
+            .map(|s| s.as_string())
+            .and_then(|os| os.map(|s| s.to_string()))
+        {
+            Some(val) => Ok(val),
+            None => {
+                return Err(format!(
+                    "Field {} in target specification is required",
+                    name
+                ))
             }
         };
 
         let get_opt_field = |name: &str, default: &str| {
-            obj.find(name).and_then(|s| s.as_string())
-               .map(|s| s.to_string())
-               .unwrap_or(default.to_string())
+            obj.find(name)
+                .and_then(|s| s.as_string())
+                .map(|s| s.to_string())
+                .unwrap_or(default.to_string())
         };
 
         let mut base = Target {
@@ -780,104 +785,131 @@ impl Target {
             target_env: get_opt_field("env", ""),
             target_vendor: get_opt_field("vendor", "unknown"),
             linker_flavor: LinkerFlavor::from_str(&*get_req_field("linker-flavor")?)
-                .ok_or_else(|| {
-                    format!("linker flavor must be {}", LinkerFlavor::one_of())
-                })?,
+                .ok_or_else(|| format!("linker flavor must be {}", LinkerFlavor::one_of()))?,
             options: Default::default(),
         };
 
         macro_rules! key {
-            ($key_name:ident) => ( {
+            ($key_name:ident) => {{
                 let name = (stringify!($key_name)).replace("_", "-");
-                obj.find(&name[..]).map(|o| o.as_string()
-                                    .map(|s| base.options.$key_name = s.to_string()));
-            } );
-            ($key_name:ident, bool) => ( {
-                let name = (stringify!($key_name)).replace("_", "-");
-                obj.find(&name[..])
-                    .map(|o| o.as_boolean()
-                         .map(|s| base.options.$key_name = s));
-            } );
-            ($key_name:ident, Option<u64>) => ( {
+                obj.find(&name[..]).map(|o| {
+                    o.as_string()
+                        .map(|s| base.options.$key_name = s.to_string())
+                });
+            }};
+            ($key_name:ident,bool) => {{
                 let name = (stringify!($key_name)).replace("_", "-");
                 obj.find(&name[..])
-                    .map(|o| o.as_u64()
-                         .map(|s| base.options.$key_name = Some(s)));
-            } );
-            ($key_name:ident, PanicStrategy) => ( {
+                    .map(|o| o.as_boolean().map(|s| base.options.$key_name = s));
+            }};
+            ($key_name:ident,Option < u64 >) => {{
                 let name = (stringify!($key_name)).replace("_", "-");
-                obj.find(&name[..]).and_then(|o| o.as_string().and_then(|s| {
-                    match s {
-                        "unwind" => base.options.$key_name = PanicStrategy::Unwind,
-                        "abort" => base.options.$key_name = PanicStrategy::Abort,
-                        _ => return Some(Err(format!("'{}' is not a valid value for \
-                                                      panic-strategy. Use 'unwind' or 'abort'.",
-                                                     s))),
-                }
-                Some(Ok(()))
-            })).unwrap_or(Ok(()))
-            } );
-            ($key_name:ident, RelroLevel) => ( {
+                obj.find(&name[..])
+                    .map(|o| o.as_u64().map(|s| base.options.$key_name = Some(s)));
+            }};
+            ($key_name:ident,PanicStrategy) => {{
                 let name = (stringify!($key_name)).replace("_", "-");
-                obj.find(&name[..]).and_then(|o| o.as_string().and_then(|s| {
-                    match s.parse::<RelroLevel>() {
-                        Ok(level) => base.options.$key_name = level,
-                        _ => return Some(Err(format!("'{}' is not a valid value for \
-                                                      relro-level. Use 'full', 'partial, or 'off'.",
-                                                      s))),
-                    }
-                    Some(Ok(()))
-                })).unwrap_or(Ok(()))
-            } );
-            ($key_name:ident, list) => ( {
+                obj.find(&name[..])
+                    .and_then(|o| {
+                        o.as_string().and_then(|s| {
+                            match s {
+                                "unwind" => base.options.$key_name = PanicStrategy::Unwind,
+                                "abort" => base.options.$key_name = PanicStrategy::Abort,
+                                _ => {
+                                    return Some(Err(format!(
+                                        "'{}' is not a valid value for \
+                                         panic-strategy. Use 'unwind' or 'abort'.",
+                                        s
+                                    )))
+                                }
+                            }
+                            Some(Ok(()))
+                        })
+                    })
+                    .unwrap_or(Ok(()))
+            }};
+            ($key_name:ident,RelroLevel) => {{
                 let name = (stringify!($key_name)).replace("_", "-");
-                obj.find(&name[..]).map(|o| o.as_array()
-                    .map(|v| base.options.$key_name = v.iter()
-                        .map(|a| a.as_string().unwrap().to_string()).collect()
-                        )
-                    );
-            } );
-            ($key_name:ident, optional) => ( {
+                obj.find(&name[..])
+                    .and_then(|o| {
+                        o.as_string().and_then(|s| {
+                            match s.parse::<RelroLevel>() {
+                                Ok(level) => base.options.$key_name = level,
+                                _ => {
+                                    return Some(Err(format!(
+                                        "'{}' is not a valid value for \
+                                         relro-level. Use 'full', 'partial, or 'off'.",
+                                        s
+                                    )))
+                                }
+                            }
+                            Some(Ok(()))
+                        })
+                    })
+                    .unwrap_or(Ok(()))
+            }};
+            ($key_name:ident,list) => {{
+                let name = (stringify!($key_name)).replace("_", "-");
+                obj.find(&name[..]).map(|o| {
+                    o.as_array().map(|v| {
+                        base.options.$key_name = v
+                            .iter()
+                            .map(|a| a.as_string().unwrap().to_string())
+                            .collect()
+                    })
+                });
+            }};
+            ($key_name:ident,optional) => {{
                 let name = (stringify!($key_name)).replace("_", "-");
                 if let Some(o) = obj.find(&name[..]) {
-                    base.options.$key_name = o
-                        .as_string()
-                        .map(|s| s.to_string() );
+                    base.options.$key_name = o.as_string().map(|s| s.to_string());
                 }
-            } );
-            ($key_name:ident, LinkerFlavor) => ( {
+            }};
+            ($key_name:ident,LinkerFlavor) => {{
                 let name = (stringify!($key_name)).replace("_", "-");
-                obj.find(&name[..]).and_then(|o| o.as_string().map(|s| {
-                    LinkerFlavor::from_str(&s).ok_or_else(|| {
-                        Err(format!("'{}' is not a valid value for linker-flavor. \
-                                     Use 'em', 'gcc', 'ld' or 'msvc.", s))
+                obj.find(&name[..])
+                    .and_then(|o| {
+                        o.as_string().map(|s| {
+                            LinkerFlavor::from_str(&s).ok_or_else(|| {
+                                Err(format!(
+                                    "'{}' is not a valid value for linker-flavor. \
+                                     Use 'em', 'gcc', 'ld' or 'msvc.",
+                                    s
+                                ))
+                            })
+                        })
                     })
-                })).unwrap_or(Ok(()))
-            } );
-            ($key_name:ident, link_args) => ( {
+                    .unwrap_or(Ok(()))
+            }};
+            ($key_name:ident,link_args) => {{
                 let name = (stringify!($key_name)).replace("_", "-");
                 if let Some(obj) = obj.find(&name[..]).and_then(|o| o.as_object()) {
                     let mut args = LinkArgs::new();
                     for (k, v) in obj {
                         let k = LinkerFlavor::from_str(&k).ok_or_else(|| {
-                            format!("{}: '{}' is not a valid value for linker-flavor. \
-                                     Use 'em', 'gcc', 'ld' or 'msvc'", name, k)
+                            format!(
+                                "{}: '{}' is not a valid value for linker-flavor. \
+                                 Use 'em', 'gcc', 'ld' or 'msvc'",
+                                name, k
+                            )
                         })?;
 
-                        let v = v.as_array().map(|a| {
-                            a
-                                .iter()
-                                .filter_map(|o| o.as_string())
-                                .map(|s| s.to_owned())
-                                .collect::<Vec<_>>()
-                        }).unwrap_or(vec![]);
+                        let v = v
+                            .as_array()
+                            .map(|a| {
+                                a.iter()
+                                    .filter_map(|o| o.as_string())
+                                    .map(|s| s.to_owned())
+                                    .collect::<Vec<_>>()
+                            })
+                            .unwrap_or(vec![]);
 
                         args.insert(k, v);
                     }
                     base.options.$key_name = args;
                 }
-            } );
-            ($key_name:ident, env) => ( {
+            }};
+            ($key_name:ident,env) => {{
                 let name = (stringify!($key_name)).replace("_", "-");
                 if let Some(a) = obj.find(&name[..]).and_then(|o| o.as_array()) {
                     for o in a {
@@ -891,7 +923,7 @@ impl Target {
                         }
                     }
                 }
-            } );
+            }};
         }
 
         key!(is_builtin, bool);
@@ -968,13 +1000,16 @@ impl Target {
                 match lookup_abi(name) {
                     Some(abi) => {
                         if abi.generic() {
-                            return Err(format!("The ABI \"{}\" is considered to be supported on \
-                                                all targets and cannot be blacklisted", abi))
+                            return Err(format!(
+                                "The ABI \"{}\" is considered to be supported on \
+                                 all targets and cannot be blacklisted",
+                                abi
+                            ));
                         }
 
                         base.options.abi_blacklist.push(abi)
                     }
-                    None => return Err(format!("Unknown ABI \"{}\" in target specification", name))
+                    None => return Err(format!("Unknown ABI \"{}\" in target specification", name)),
                 }
             }
         }
@@ -990,15 +1025,14 @@ impl Target {
     /// The error string could come from any of the APIs called, including
     /// filesystem access and JSON decoding.
     pub fn search(target_triple: &TargetTriple) -> Result<Target, String> {
+        use serialize::json;
         use std::env;
         use std::ffi::OsString;
         use std::fs;
-        use serialize::json;
 
         fn load_file(path: &Path) -> Result<Target, String> {
             let contents = fs::read(path).map_err(|e| e.to_string())?;
-            let obj = json::from_reader(&mut &contents[..])
-                           .map_err(|e| e.to_string())?;
+            let obj = json::from_reader(&mut &contents[..]).map_err(|e| e.to_string())?;
             Target::from_json(obj)
         }
 
@@ -1006,7 +1040,7 @@ impl Target {
             &TargetTriple::TargetTriple(ref target_triple) => {
                 // check if triple is in list of supported targets
                 if let Ok(t) = load_specific(target_triple) {
-                    return Ok(t)
+                    return Ok(t);
                 }
 
                 // search for a file named `target_triple`.json in RUST_TARGET_PATH
@@ -1016,18 +1050,20 @@ impl Target {
                     PathBuf::from(target)
                 };
 
-                let target_path = env::var_os("RUST_TARGET_PATH")
-                                    .unwrap_or(OsString::new());
+                let target_path = env::var_os("RUST_TARGET_PATH").unwrap_or(OsString::new());
 
                 // FIXME 16351: add a sane default search path?
 
                 for dir in env::split_paths(&target_path) {
-                    let p =  dir.join(&path);
+                    let p = dir.join(&path);
                     if p.is_file() {
                         return load_file(&p);
                     }
                 }
-                Err(format!("Could not find specification for target {:?}", target_triple))
+                Err(format!(
+                    "Could not find specification for target {:?}",
+                    target_triple
+                ))
             }
             &TargetTriple::TargetPath(ref target_path) => {
                 if target_path.is_file() {
@@ -1045,50 +1081,53 @@ impl ToJson for Target {
         let default: TargetOptions = Default::default();
 
         macro_rules! target_val {
-            ($attr:ident) => ( {
+            ($attr:ident) => {{
                 let name = (stringify!($attr)).replace("_", "-");
                 d.insert(name.to_string(), self.$attr.to_json());
-            } );
-            ($attr:ident, $key_name:expr) => ( {
+            }};
+            ($attr:ident, $key_name:expr) => {{
                 let name = $key_name;
                 d.insert(name.to_string(), self.$attr.to_json());
-            } );
+            }};
         }
 
         macro_rules! target_option_val {
-            ($attr:ident) => ( {
+            ($attr:ident) => {{
                 let name = (stringify!($attr)).replace("_", "-");
                 if default.$attr != self.options.$attr {
                     d.insert(name.to_string(), self.options.$attr.to_json());
                 }
-            } );
-            ($attr:ident, $key_name:expr) => ( {
+            }};
+            ($attr:ident, $key_name:expr) => {{
                 let name = $key_name;
                 if default.$attr != self.options.$attr {
                     d.insert(name.to_string(), self.options.$attr.to_json());
                 }
-            } );
-            (link_args - $attr:ident) => ( {
+            }};
+            (link_args - $attr:ident) => {{
                 let name = (stringify!($attr)).replace("_", "-");
                 if default.$attr != self.options.$attr {
-                    let obj = self.options.$attr
+                    let obj = self
+                        .options
+                        .$attr
                         .iter()
                         .map(|(k, v)| (k.desc().to_owned(), v.clone()))
                         .collect::<BTreeMap<_, _>>();
                     d.insert(name.to_string(), obj.to_json());
                 }
-            } );
-            (env - $attr:ident) => ( {
+            }};
+            (env - $attr:ident) => {{
                 let name = (stringify!($attr)).replace("_", "-");
                 if default.$attr != self.options.$attr {
-                    let obj = self.options.$attr
+                    let obj = self
+                        .options
+                        .$attr
                         .iter()
                         .map(|&(ref k, ref v)| k.clone() + "=" + &v)
                         .collect::<Vec<_>>();
                     d.insert(name.to_string(), obj.to_json());
                 }
-            } );
-
+            }};
         }
 
         target_val!(llvm_target);
@@ -1172,9 +1211,16 @@ impl ToJson for Target {
         target_option_val!(requires_uwtable);
 
         if default.abi_blacklist != self.options.abi_blacklist {
-            d.insert("abi-blacklist".to_string(), self.options.abi_blacklist.iter()
-                .map(Abi::name).map(|name| name.to_json())
-                .collect::<Vec<_>>().to_json());
+            d.insert(
+                "abi-blacklist".to_string(),
+                self.options
+                    .abi_blacklist
+                    .iter()
+                    .map(Abi::name)
+                    .map(|name| name.to_json())
+                    .collect::<Vec<_>>()
+                    .to_json(),
+            );
         }
 
         Json::Object(d)
@@ -1214,10 +1260,11 @@ impl TargetTriple {
     pub fn triple(&self) -> &str {
         match self {
             &TargetTriple::TargetTriple(ref triple) => triple,
-            &TargetTriple::TargetPath(ref path) => {
-                path.file_stem().expect("target path must not be empty").to_str()
-                    .expect("target path must be valid unicode")
-            }
+            &TargetTriple::TargetPath(ref path) => path
+                .file_stem()
+                .expect("target path must not be empty")
+                .to_str()
+                .expect("target path must be valid unicode"),
         }
     }
 
@@ -1226,8 +1273,8 @@ impl TargetTriple {
     /// If this target is a path, a hash of the path is appended to the triple returned
     /// by `triple()`.
     pub fn debug_triple(&self) -> String {
-        use std::hash::{Hash, Hasher};
         use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
 
         let triple = self.triple();
         if let &TargetTriple::TargetPath(ref path) = self {

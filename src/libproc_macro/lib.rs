@@ -23,43 +23,43 @@
 
 #![stable(feature = "proc_macro_lib", since = "1.15.0")]
 #![deny(missing_docs)]
-#![doc(html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
-       html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
-       html_root_url = "https://doc.rust-lang.org/nightly/",
-       html_playground_url = "https://play.rust-lang.org/",
-       issue_tracker_base_url = "https://github.com/rust-lang/rust/issues/",
-       test(no_crate_inject, attr(deny(warnings))),
-       test(attr(allow(dead_code, deprecated, unused_variables, unused_mut))))]
-
+#![doc(
+    html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
+    html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
+    html_root_url = "https://doc.rust-lang.org/nightly/",
+    html_playground_url = "https://play.rust-lang.org/",
+    issue_tracker_base_url = "https://github.com/rust-lang/rust/issues/",
+    test(no_crate_inject, attr(deny(warnings))),
+    test(attr(allow(dead_code, deprecated, unused_variables, unused_mut)))
+)]
 #![feature(rustc_private)]
 #![feature(staged_api)]
 #![feature(lang_items)]
 #![feature(optin_builtin_traits)]
+#![recursion_limit = "256"]
 
-#![recursion_limit="256"]
-
+extern crate rustc_data_structures;
+extern crate rustc_errors;
 extern crate syntax;
 extern crate syntax_pos;
-extern crate rustc_errors;
-extern crate rustc_data_structures;
 
 mod diagnostic;
 
 #[unstable(feature = "proc_macro", issue = "38356")]
 pub use diagnostic::{Diagnostic, Level};
 
-use std::{ascii, fmt, iter};
 use rustc_data_structures::sync::Lrc;
 use std::str::FromStr;
+use std::{ascii, fmt, iter};
 
 use syntax::ast;
 use syntax::errors::DiagnosticBuilder;
+use syntax::parse::lexer::{self, comments};
 use syntax::parse::{self, token};
 use syntax::symbol::{keywords, Symbol};
 use syntax::tokenstream;
-use syntax::parse::lexer::{self, comments};
-use syntax_pos::{FileMap, Pos, SyntaxContext, FileName};
 use syntax_pos::hygiene::Mark;
+use syntax_pos::{FileMap, FileName, Pos, SyntaxContext};
 
 /// The main type provided by this crate, representing an abstract stream of
 /// tokens, or, more specifically, a sequence of token trees.
@@ -186,7 +186,7 @@ pub mod token_stream {
     use syntax::tokenstream;
     use syntax_pos::DUMMY_SP;
 
-    use {TokenTree, TokenStream, Delimiter};
+    use {Delimiter, TokenStream, TokenTree};
 
     /// An iterator over `TokenStream`'s `TokenTree`s.
     /// The iteration is "shallow", e.g. the iterator doesn't recurse into delimited groups,
@@ -218,7 +218,7 @@ pub mod token_stream {
                     if let TokenTree::Group(ref group) = tree {
                         if group.delimiter() == Delimiter::None {
                             self.cursor.insert(group.stream.clone().0);
-                            continue
+                            continue;
                         }
                     }
                 }
@@ -233,7 +233,10 @@ pub mod token_stream {
         type IntoIter = IntoIter;
 
         fn into_iter(self) -> IntoIter {
-            IntoIter { cursor: self.0.trees(), stack: Vec::new() }
+            IntoIter {
+                cursor: self.0.trees(),
+                stack: Vec::new(),
+            }
         }
     }
 }
@@ -246,7 +249,9 @@ pub mod token_stream {
 /// To quote `$` itself, use `$$`.
 #[unstable(feature = "proc_macro", issue = "38356")]
 #[macro_export]
-macro_rules! quote { () => {} }
+macro_rules! quote {
+    () => {};
+}
 
 #[unstable(feature = "proc_macro_internals", issue = "27812")]
 #[doc(hidden)]
@@ -328,7 +333,7 @@ impl Span {
         let loc = __internal::lookup_char_pos(self.0.lo());
         LineColumn {
             line: loc.line,
-            column: loc.col.to_usize()
+            column: loc.col.to_usize(),
         }
     }
 
@@ -338,7 +343,7 @@ impl Span {
         let loc = __internal::lookup_char_pos(self.0.hi());
         LineColumn {
             line: loc.line,
-            column: loc.col.to_usize()
+            column: loc.col.to_usize(),
         }
     }
 
@@ -350,7 +355,9 @@ impl Span {
         let self_loc = __internal::lookup_char_pos(self.0.lo());
         let other_loc = __internal::lookup_char_pos(other.0.lo());
 
-        if self_loc.file.name != other_loc.file.name { return None }
+        if self_loc.file.name != other_loc.file.name {
+            return None;
+        }
 
         Some(Span(self.0.to(other.0)))
     }
@@ -385,10 +392,13 @@ impl Span {
 #[unstable(feature = "proc_macro", issue = "38356")]
 impl fmt::Debug for Span {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?} bytes({}..{})",
-               self.0.ctxt(),
-               self.0.lo().0,
-               self.0.hi().0)
+        write!(
+            f,
+            "{:?} bytes({}..{})",
+            self.0.ctxt(),
+            self.0.lo().0,
+            self.0.hi().0
+        )
     }
 }
 
@@ -402,7 +412,7 @@ pub struct LineColumn {
     /// The 0-indexed column (in UTF-8 characters) in the source file on which
     /// the span starts or ends (inclusive).
     #[unstable(feature = "proc_macro", issue = "38356")]
-    pub column: usize
+    pub column: usize,
 }
 
 #[unstable(feature = "proc_macro", issue = "38356")]
@@ -433,7 +443,7 @@ impl SourceFile {
     /// the command line, the path as given may not actually be valid.
     ///
     /// [`is_real`]: #method.is_real
-    # [unstable(feature = "proc_macro", issue = "38356")]
+    #[unstable(feature = "proc_macro", issue = "38356")]
     pub fn path(&self) -> &FileName {
         &self.filemap.name
     }
@@ -720,8 +730,10 @@ impl Punct {
     /// which can be further configured with the `set_span` method below.
     #[unstable(feature = "proc_macro", issue = "38356")]
     pub fn new(ch: char, spacing: Spacing) -> Punct {
-        const LEGAL_CHARS: &[char] = &['=', '<', '>', '!', '~', '+', '-', '*', '/', '%', '^',
-                                       '&', '|', '@', '.', ',', ';', ':', '#', '$', '?', '\''];
+        const LEGAL_CHARS: &[char] = &[
+            '=', '<', '>', '!', '~', '+', '-', '*', '/', '%', '^', '&', '|', '@', '.', ',', ';',
+            ':', '#', '$', '?', '\'',
+        ];
         if !LEGAL_CHARS.contains(&ch) {
             panic!("unsupported character `{:?}`", ch)
         }
@@ -819,8 +831,9 @@ impl Ident {
     #[unstable(feature = "proc_macro", issue = "38356")]
     pub fn new_raw(string: &str, span: Span) -> Ident {
         let mut ident = Ident::new(string, span);
-        if ident.sym == keywords::Underscore.name() ||
-           ast::Ident::with_empty_ctxt(ident.sym).is_path_segment_keyword() {
+        if ident.sym == keywords::Underscore.name()
+            || ast::Ident::with_empty_ctxt(ident.sym).is_path_segment_keyword()
+        {
             panic!("`{:?}` is not a valid raw identifier", string)
         }
         ident.is_raw = true;
@@ -1078,8 +1091,12 @@ impl Literal {
     /// Byte string literal.
     #[unstable(feature = "proc_macro", issue = "38356")]
     pub fn byte_string(bytes: &[u8]) -> Literal {
-        let string = bytes.iter().cloned().flat_map(ascii::escape_default)
-            .map(Into::<char>::into).collect::<String>();
+        let string = bytes
+            .iter()
+            .cloned()
+            .flat_map(ascii::escape_default)
+            .map(Into::<char>::into)
+            .collect::<String>();
         Literal {
             lit: token::Lit::ByteStr(Symbol::intern(&string)),
             suffix: None,
@@ -1130,8 +1147,7 @@ impl Delimiter {
 }
 
 impl TokenTree {
-    fn from_internal(stream: tokenstream::TokenStream, stack: &mut Vec<TokenTree>)
-                -> TokenTree {
+    fn from_internal(stream: tokenstream::TokenStream, stack: &mut Vec<TokenTree>) -> TokenTree {
         use syntax::parse::token::*;
 
         let (tree, is_joint) = stream.as_tree();
@@ -1141,29 +1157,35 @@ impl TokenTree {
                 let delimiter = Delimiter::from_internal(delimed.delim);
                 let mut g = Group::new(delimiter, TokenStream(delimed.tts.into()));
                 g.set_span(Span(span));
-                return g.into()
+                return g.into();
             }
         };
 
-        let op_kind = if is_joint { Spacing::Joint } else { Spacing::Alone };
+        let op_kind = if is_joint {
+            Spacing::Joint
+        } else {
+            Spacing::Alone
+        };
         macro_rules! tt {
-            ($e:expr) => ({
+            ($e:expr) => {{
                 let mut x = TokenTree::from($e);
                 x.set_span(Span(span));
                 x
-            })
+            }};
         }
         macro_rules! op {
-            ($a:expr) => (tt!(Punct::new($a, op_kind)));
-            ($a:expr, $b:expr) => ({
+            ($a:expr) => {
+                tt!(Punct::new($a, op_kind))
+            };
+            ($a:expr, $b:expr) => {{
                 stack.push(tt!(Punct::new($b, op_kind)));
                 tt!(Punct::new($a, Spacing::Joint))
-            });
-            ($a:expr, $b:expr, $c:expr) => ({
+            }};
+            ($a:expr, $b:expr, $c:expr) => {{
                 stack.push(tt!(Punct::new($c, op_kind)));
                 stack.push(tt!(Punct::new($b, Spacing::Joint)));
                 tt!(Punct::new($a, Spacing::Joint))
-            })
+            }};
         }
 
         match token {
@@ -1215,18 +1237,18 @@ impl TokenTree {
             Question => op!('?'),
             SingleQuote => op!('\''),
 
-            Ident(ident, false) => {
-                tt!(self::Ident::new(&ident.as_str(), Span(span)))
-            }
-            Ident(ident, true) => {
-                tt!(self::Ident::new_raw(&ident.as_str(), Span(span)))
-            }
+            Ident(ident, false) => tt!(self::Ident::new(&ident.as_str(), Span(span))),
+            Ident(ident, true) => tt!(self::Ident::new_raw(&ident.as_str(), Span(span))),
             Lifetime(ident) => {
                 let ident = ident.without_first_quote();
                 stack.push(tt!(self::Ident::new(&ident.as_str(), Span(span))));
                 tt!(Punct::new('\'', Spacing::Joint))
             }
-            Literal(lit, suffix) => tt!(self::Literal { lit, suffix, span: Span(span) }),
+            Literal(lit, suffix) => tt!(self::Literal {
+                lit,
+                suffix,
+                span: Span(span)
+            }),
             DocComment(c) => {
                 let style = comments::doc_comment_style(&c.as_str());
                 let stripped = comments::strip_doc_comment_decoration(&c.as_str());
@@ -1234,7 +1256,8 @@ impl TokenTree {
                     tt!(self::Ident::new("doc", Span(span))),
                     tt!(Punct::new('=', Spacing::Alone)),
                     tt!(self::Literal::string(&stripped)),
-                ].into_iter().collect();
+                ].into_iter()
+                    .collect();
                 stack.push(tt!(Group::new(Delimiter::Bracket, stream)));
                 if style == ast::AttrStyle::Inner {
                     stack.push(tt!(Punct::new('!', Spacing::Alone)));
@@ -1242,12 +1265,10 @@ impl TokenTree {
                 tt!(Punct::new('#', Spacing::Alone))
             }
 
-            Interpolated(_) => {
-                __internal::with_sess(|(sess, _)| {
-                    let tts = token.interpolated_to_tokenstream(sess, span);
-                    tt!(Group::new(Delimiter::None, TokenStream(tts)))
-                })
-            }
+            Interpolated(_) => __internal::with_sess(|(sess, _)| {
+                let tts = token.interpolated_to_tokenstream(sess, span);
+                tt!(Group::new(Delimiter::None, TokenStream(tts)))
+            }),
 
             DotEq => op!('.', '='),
             OpenDelim(..) | CloseDelim(..) => unreachable!(),
@@ -1257,16 +1278,19 @@ impl TokenTree {
 
     fn to_internal(self) -> tokenstream::TokenStream {
         use syntax::parse::token::*;
-        use syntax::tokenstream::{TokenTree, Delimited};
+        use syntax::tokenstream::{Delimited, TokenTree};
 
         let (ch, kind, span) = match self {
             self::TokenTree::Punct(tt) => (tt.as_char(), tt.spacing(), tt.span()),
             self::TokenTree::Group(tt) => {
-                return TokenTree::Delimited(tt.span.0, Delimited {
-                    delim: tt.delimiter.to_internal(),
-                    tts: tt.stream.0.into(),
-                }).into();
-            },
+                return TokenTree::Delimited(
+                    tt.span.0,
+                    Delimited {
+                        delim: tt.delimiter.to_internal(),
+                        tts: tt.stream.0.into(),
+                    },
+                ).into();
+            }
             self::TokenTree::Ident(tt) => {
                 let token = Ident(ast::Ident::new(tt.sym, tt.span.0), tt.is_raw);
                 return TokenTree::Token(tt.span.0, token).into();
@@ -1275,33 +1299,31 @@ impl TokenTree {
                 lit: Lit::Integer(ref a),
                 suffix,
                 span,
-            })
-                if a.as_str().starts_with("-") =>
+            }) if a.as_str().starts_with("-") =>
             {
                 let minus = BinOp(BinOpToken::Minus);
                 let integer = Symbol::intern(&a.as_str()[1..]);
                 let integer = Literal(Lit::Integer(integer), suffix);
                 let a = TokenTree::Token(span.0, minus);
                 let b = TokenTree::Token(span.0, integer);
-                return vec![a, b].into_iter().collect()
+                return vec![a, b].into_iter().collect();
             }
             self::TokenTree::Literal(self::Literal {
                 lit: Lit::Float(ref a),
                 suffix,
                 span,
-            })
-                if a.as_str().starts_with("-") =>
+            }) if a.as_str().starts_with("-") =>
             {
                 let minus = BinOp(BinOpToken::Minus);
                 let float = Symbol::intern(&a.as_str()[1..]);
                 let float = Literal(Lit::Float(float), suffix);
                 let a = TokenTree::Token(span.0, minus);
                 let b = TokenTree::Token(span.0, float);
-                return vec![a, b].into_iter().collect()
+                return vec![a, b].into_iter().collect();
             }
             self::TokenTree::Literal(tt) => {
                 let token = Literal(tt.lit, tt.suffix);
-                return TokenTree::Token(tt.span.0, token).into()
+                return TokenTree::Token(tt.span.0, token).into();
             }
         };
 
@@ -1351,20 +1373,20 @@ impl TokenTree {
 #[unstable(feature = "proc_macro_internals", issue = "27812")]
 #[doc(hidden)]
 pub mod __internal {
-    pub use quote::{LiteralKind, SpannedSymbol, Quoter, unquote};
+    pub use quote::{unquote, LiteralKind, Quoter, SpannedSymbol};
 
     use std::cell::Cell;
 
     use syntax::ast;
     use syntax::ext::base::ExtCtxt;
     use syntax::ext::hygiene::Mark;
-    use syntax::ptr::P;
-    use syntax::parse::{self, ParseSess};
     use syntax::parse::token::{self, Token};
+    use syntax::parse::{self, ParseSess};
+    use syntax::ptr::P;
     use syntax::tokenstream;
     use syntax_pos::{BytePos, Loc, DUMMY_SP};
 
-    use super::{TokenStream, LexError};
+    use super::{LexError, TokenStream};
 
     pub fn lookup_char_pos(pos: BytePos) -> Loc {
         with_sess(|(sess, _)| sess.codemap().lookup_char_pos(pos))
@@ -1397,18 +1419,20 @@ pub mod __internal {
     }
 
     pub trait Registry {
-        fn register_custom_derive(&mut self,
-                                  trait_name: &str,
-                                  expand: fn(TokenStream) -> TokenStream,
-                                  attributes: &[&'static str]);
+        fn register_custom_derive(
+            &mut self,
+            trait_name: &str,
+            expand: fn(TokenStream) -> TokenStream,
+            attributes: &[&'static str],
+        );
 
-        fn register_attr_proc_macro(&mut self,
-                                    name: &str,
-                                    expand: fn(TokenStream, TokenStream) -> TokenStream);
+        fn register_attr_proc_macro(
+            &mut self,
+            name: &str,
+            expand: fn(TokenStream, TokenStream) -> TokenStream,
+        );
 
-        fn register_bang_proc_macro(&mut self,
-                                    name: &str,
-                                    expand: fn(TokenStream) -> TokenStream);
+        fn register_bang_proc_macro(&mut self, name: &str, expand: fn(TokenStream) -> TokenStream);
     }
 
     // Emulate scoped_thread_local!() here essentially
@@ -1418,9 +1442,12 @@ pub mod __internal {
     }
 
     pub fn set_sess<F, R>(cx: &ExtCtxt, f: F) -> R
-        where F: FnOnce() -> R
+    where
+        F: FnOnce() -> R,
     {
-        struct Reset { prev: (*const ParseSess, Mark) }
+        struct Reset {
+            prev: (*const ParseSess, Mark),
+        }
 
         impl Drop for Reset {
             fn drop(&mut self) {
@@ -1435,18 +1462,21 @@ pub mod __internal {
         })
     }
 
-    pub fn in_sess() -> bool
-    {
+    pub fn in_sess() -> bool {
         let p = CURRENT_SESS.with(|p| p.get());
         !p.0.is_null()
     }
 
     pub fn with_sess<F, R>(f: F) -> R
-        where F: FnOnce((&ParseSess, Mark)) -> R
+    where
+        F: FnOnce((&ParseSess, Mark)) -> R,
     {
         let p = CURRENT_SESS.with(|p| p.get());
-        assert!(!p.0.is_null(), "proc_macro::__internal::with_sess() called \
-                                 before set_parse_sess()!");
+        assert!(
+            !p.0.is_null(),
+            "proc_macro::__internal::with_sess() called \
+             before set_parse_sess()!"
+        );
         f(unsafe { (&*p.0, p.1) })
     }
 }

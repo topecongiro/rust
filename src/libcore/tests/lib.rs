@@ -48,8 +48,8 @@
 #![feature(slice_internals)]
 
 extern crate core;
-extern crate test;
 extern crate rand;
+extern crate test;
 
 mod any;
 mod array;

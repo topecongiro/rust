@@ -8,28 +8,27 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use borrow_check::borrow_set::{BorrowData, BorrowSet, TwoPhaseUse};
 /// Returns true if the borrow represented by `kind` is
 /// allowed to be split into separate Reservation and
 /// Activation phases.
 use borrow_check::ArtificialField;
-use borrow_check::borrow_set::{BorrowSet, BorrowData, TwoPhaseUse};
 use borrow_check::{Context, Overlap};
-use borrow_check::{ShallowOrDeep, Deep, Shallow};
+use borrow_check::{Deep, Shallow, ShallowOrDeep};
 use dataflow::indexes::BorrowIndex;
 use rustc::hir;
 use rustc::mir::{BasicBlock, Location, Mir, Place};
-use rustc::mir::{Projection, ProjectionElem, BorrowKind};
+use rustc::mir::{BorrowKind, Projection, ProjectionElem};
 use rustc::ty::{self, TyCtxt};
 use rustc_data_structures::control_flow_graph::dominators::Dominators;
 use std::iter;
 
 pub(super) fn allow_two_phase_borrow<'a, 'tcx, 'gcx: 'tcx>(
     tcx: &TyCtxt<'a, 'gcx, 'tcx>,
-    kind: BorrowKind
+    kind: BorrowKind,
 ) -> bool {
     tcx.two_phase_borrows()
-        && (kind.allows_two_phase_borrow()
-            || tcx.sess.opts.debugging_opts.two_phase_beyond_autoref)
+        && (kind.allows_two_phase_borrow() || tcx.sess.opts.debugging_opts.two_phase_beyond_autoref)
 }
 
 /// Control for the path borrow checking code
@@ -40,7 +39,7 @@ pub(super) enum Control {
 }
 
 /// Encapsulates the idea of iterating over every borrow that involves a particular path
-pub(super) fn each_borrow_involving_path<'a, 'tcx, 'gcx: 'tcx, F, I, S> (
+pub(super) fn each_borrow_involving_path<'a, 'tcx, 'gcx: 'tcx, F, I, S>(
     s: &mut S,
     tcx: TyCtxt<'a, 'gcx, 'tcx>,
     mir: &Mir<'tcx>,
@@ -51,7 +50,7 @@ pub(super) fn each_borrow_involving_path<'a, 'tcx, 'gcx: 'tcx, F, I, S> (
     mut op: F,
 ) where
     F: FnMut(&mut S, BorrowIndex, &BorrowData<'tcx>) -> Control,
-    I: Iterator<Item=BorrowIndex>
+    I: Iterator<Item = BorrowIndex>,
 {
     let (access, place) = access_place;
 
@@ -174,19 +173,19 @@ pub(super) fn places_conflict<'a, 'gcx: 'tcx, 'tcx>(
 
                 match (elem, &base_ty.sty, access) {
                     (_, _, Shallow(Some(ArtificialField::Discriminant)))
-                        | (_, _, Shallow(Some(ArtificialField::ArrayLength))) => {
-                            // The discriminant and array length are like
-                            // additional fields on the type; they do not
-                            // overlap any existing data there. Furthermore,
-                            // they cannot actually be a prefix of any
-                            // borrowed place (at least in MIR as it is
-                            // currently.)
-                            //
-                            // e.g. a (mutable) borrow of `a[5]` while we read the
-                            // array length of `a`.
-                            debug!("places_conflict: implicit field");
-                            return false;
-                        }
+                    | (_, _, Shallow(Some(ArtificialField::ArrayLength))) => {
+                        // The discriminant and array length are like
+                        // additional fields on the type; they do not
+                        // overlap any existing data there. Furthermore,
+                        // they cannot actually be a prefix of any
+                        // borrowed place (at least in MIR as it is
+                        // currently.)
+                        //
+                        // e.g. a (mutable) borrow of `a[5]` while we read the
+                        // array length of `a`.
+                        debug!("places_conflict: implicit field");
+                        return false;
+                    }
 
                     (ProjectionElem::Deref, _, Shallow(None)) => {
                         // e.g. a borrow of `*x.y` while we shallowly access `x.y` or some
@@ -195,11 +194,7 @@ pub(super) fn places_conflict<'a, 'gcx: 'tcx, 'tcx>(
                         debug!("places_conflict: shallow access behind ptr");
                         return false;
                     }
-                    (
-                        ProjectionElem::Deref,
-                        ty::TyRef( _, _, hir::MutImmutable),
-                        _,
-                    ) => {
+                    (ProjectionElem::Deref, ty::TyRef(_, _, hir::MutImmutable), _) => {
                         // the borrow goes through a dereference of a shared reference.
                         //
                         // I'm not sure why we are tracking these borrows - shared
@@ -210,16 +205,16 @@ pub(super) fn places_conflict<'a, 'gcx: 'tcx, 'tcx>(
                     }
 
                     (ProjectionElem::Deref, _, Deep)
-                        | (ProjectionElem::Field { .. }, _, _)
-                        | (ProjectionElem::Index { .. }, _, _)
-                        | (ProjectionElem::ConstantIndex { .. }, _, _)
-                        | (ProjectionElem::Subslice { .. }, _, _)
-                        | (ProjectionElem::Downcast { .. }, _, _) => {
-                            // Recursive case. This can still be disjoint on a
-                            // further iteration if this a shallow access and
-                            // there's a deref later on, e.g. a borrow
-                            // of `*x.y` while accessing `x`.
-                        }
+                    | (ProjectionElem::Field { .. }, _, _)
+                    | (ProjectionElem::Index { .. }, _, _)
+                    | (ProjectionElem::ConstantIndex { .. }, _, _)
+                    | (ProjectionElem::Subslice { .. }, _, _)
+                    | (ProjectionElem::Downcast { .. }, _, _) => {
+                        // Recursive case. This can still be disjoint on a
+                        // further iteration if this a shallow access and
+                        // there's a deref later on, e.g. a borrow
+                        // of `*x.y` while accessing `x`.
+                    }
                 }
             }
             (Some(borrow_c), Some(access_c)) => {
@@ -283,7 +278,7 @@ fn place_element_conflict<'a, 'gcx: 'tcx, 'tcx>(
     tcx: TyCtxt<'a, 'gcx, 'tcx>,
     mir: &Mir<'tcx>,
     elem1: &Place<'tcx>,
-    elem2: &Place<'tcx>
+    elem2: &Place<'tcx>,
 ) -> Overlap {
     match (elem1, elem2) {
         (Place::Local(l1), Place::Local(l2)) => {
@@ -301,8 +296,7 @@ fn place_element_conflict<'a, 'gcx: 'tcx, 'tcx>(
             if static1.def_id != static2.def_id {
                 debug!("place_element_conflict: DISJOINT-STATIC");
                 Overlap::Disjoint
-            } else if tcx.is_static(static1.def_id) ==
-                        Some(hir::Mutability::MutMutable) {
+            } else if tcx.is_static(static1.def_id) == Some(hir::Mutability::MutMutable) {
                 // We ignore mutable statics - they can only be unsafe code.
                 debug!("place_element_conflict: IGNORE-STATIC-MUT");
                 Overlap::Disjoint
@@ -380,10 +374,7 @@ fn place_element_conflict<'a, 'gcx: 'tcx, 'tcx>(
                 | (ProjectionElem::Index(..), ProjectionElem::ConstantIndex { .. })
                 | (ProjectionElem::Index(..), ProjectionElem::Subslice { .. })
                 | (ProjectionElem::ConstantIndex { .. }, ProjectionElem::Index(..))
-                | (
-                    ProjectionElem::ConstantIndex { .. },
-                    ProjectionElem::ConstantIndex { .. },
-                )
+                | (ProjectionElem::ConstantIndex { .. }, ProjectionElem::ConstantIndex { .. })
                 | (ProjectionElem::ConstantIndex { .. }, ProjectionElem::Subslice { .. })
                 | (ProjectionElem::Subslice { .. }, ProjectionElem::Index(..))
                 | (ProjectionElem::Subslice { .. }, ProjectionElem::ConstantIndex { .. })
@@ -427,9 +418,12 @@ fn place_element_conflict<'a, 'gcx: 'tcx, 'tcx>(
 pub(super) fn is_active<'tcx>(
     dominators: &Dominators<BasicBlock>,
     borrow_data: &BorrowData<'tcx>,
-    location: Location
+    location: Location,
 ) -> bool {
-    debug!("is_active(borrow_data={:?}, location={:?})", borrow_data, location);
+    debug!(
+        "is_active(borrow_data={:?}, location={:?})",
+        borrow_data, location
+    );
 
     let activation_location = match borrow_data.activation_location {
         // If this is not a 2-phase borrow, it is always active.
@@ -500,8 +494,8 @@ pub(super) fn borrow_of_local_data<'tcx>(place: &Place<'tcx>) -> bool {
 
                 // For interior references and downcasts, find out if the base is local
                 ProjectionElem::Field(..)
-                    | ProjectionElem::Index(..)
-                    | ProjectionElem::ConstantIndex { .. }
+                | ProjectionElem::Index(..)
+                | ProjectionElem::ConstantIndex { .. }
                 | ProjectionElem::Subslice { .. }
                 | ProjectionElem::Downcast(..) => borrow_of_local_data(&proj.base),
             }

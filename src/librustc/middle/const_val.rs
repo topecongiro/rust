@@ -8,23 +8,24 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use hir::def_id::DefId;
-use ty;
-use ty::subst::Substs;
-use ty::maps::TyCtxtAt;
-use mir::interpret::ConstValue;
 use errors::DiagnosticBuilder;
+use hir::def_id::DefId;
+use mir::interpret::ConstValue;
+use ty;
+use ty::maps::TyCtxtAt;
+use ty::subst::Substs;
 
 use graphviz::IntoCow;
-use syntax_pos::Span;
 use syntax::ast;
+use syntax_pos::Span;
 
-use std::borrow::Cow;
 use rustc_data_structures::sync::Lrc;
+use std::borrow::Cow;
 
 pub type EvalResult<'tcx> = Result<&'tcx ty::Const<'tcx>, ConstEvalErr<'tcx>>;
 
-#[derive(Copy, Clone, Debug, Hash, RustcEncodable, RustcDecodable, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Copy, Clone, Debug, Hash, RustcEncodable, RustcDecodable, Eq, PartialEq, Ord,
+         PartialOrd)]
 pub enum ConstVal<'tcx> {
     Unevaluated(DefId, &'tcx Substs<'tcx>),
     Value(ConstValue<'tcx>),
@@ -38,7 +39,6 @@ pub struct ConstEvalErr<'tcx> {
 
 #[derive(Clone, Debug, RustcEncodable, RustcDecodable)]
 pub enum ErrKind<'tcx> {
-
     CouldNotResolve,
     TypeckError,
     CheckMatchError,
@@ -70,8 +70,8 @@ impl<'a, 'tcx> ConstEvalErrDescription<'a, 'tcx> {
 
 impl<'a, 'gcx, 'tcx> ConstEvalErr<'tcx> {
     pub fn description(&'a self) -> ConstEvalErrDescription<'a, 'tcx> {
-        use self::ErrKind::*;
         use self::ConstEvalErrDescription::*;
+        use self::ErrKind::*;
 
         macro_rules! simple {
             ($msg:expr) => ({ Simple($msg.into_cow()) });
@@ -88,35 +88,28 @@ impl<'a, 'gcx, 'tcx> ConstEvalErr<'tcx> {
         }
     }
 
-    pub fn struct_error(&self,
+    pub fn struct_error(
+        &self,
         tcx: TyCtxtAt<'a, 'gcx, 'tcx>,
-        message: &str)
-        -> Option<DiagnosticBuilder<'tcx>>
-    {
+        message: &str,
+    ) -> Option<DiagnosticBuilder<'tcx>> {
         self.struct_generic(tcx, message, None, true)
     }
 
-    pub fn report_as_error(&self,
-        tcx: TyCtxtAt<'a, 'gcx, 'tcx>,
-        message: &str
-    ) {
+    pub fn report_as_error(&self, tcx: TyCtxtAt<'a, 'gcx, 'tcx>, message: &str) {
         let err = self.struct_generic(tcx, message, None, true);
         if let Some(mut err) = err {
             err.emit();
         }
     }
 
-    pub fn report_as_lint(&self,
+    pub fn report_as_lint(
+        &self,
         tcx: TyCtxtAt<'a, 'gcx, 'tcx>,
         message: &str,
         lint_root: ast::NodeId,
     ) {
-        let lint = self.struct_generic(
-            tcx,
-            message,
-            Some(lint_root),
-            false,
-        );
+        let lint = self.struct_generic(tcx, message, Some(lint_root), false);
         if let Some(mut lint) = lint {
             lint.emit();
         }
@@ -131,17 +124,17 @@ impl<'a, 'gcx, 'tcx> ConstEvalErr<'tcx> {
     ) -> Option<DiagnosticBuilder<'tcx>> {
         let (msg, frames): (_, &[_]) = match *self.kind {
             ErrKind::TypeckError | ErrKind::CheckMatchError => return None,
-            ErrKind::Miri(ref miri, ref frames) => {
-                match miri.kind {
-                    ::mir::interpret::EvalErrorKind::TypeckError |
-                    ::mir::interpret::EvalErrorKind::Layout(_) => return None,
-                    ::mir::interpret::EvalErrorKind::ReferencedConstant(ref inner) => {
-                        inner.struct_generic(tcx, "referenced constant", lint_root, as_err)?.emit();
-                        (miri.to_string(), frames)
-                    },
-                    _ => (miri.to_string(), frames),
+            ErrKind::Miri(ref miri, ref frames) => match miri.kind {
+                ::mir::interpret::EvalErrorKind::TypeckError
+                | ::mir::interpret::EvalErrorKind::Layout(_) => return None,
+                ::mir::interpret::EvalErrorKind::ReferencedConstant(ref inner) => {
+                    inner
+                        .struct_generic(tcx, "referenced constant", lint_root, as_err)?
+                        .emit();
+                    (miri.to_string(), frames)
                 }
-            }
+                _ => (miri.to_string(), frames),
+            },
             _ => (self.description().into_oneline().to_string(), &[]),
         };
         trace!("reporting const eval failure at {:?}", self.span);

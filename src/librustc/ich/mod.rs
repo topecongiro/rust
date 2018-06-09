@@ -10,20 +10,22 @@
 
 //! ICH - Incremental Compilation Hash
 
-pub use self::fingerprint::Fingerprint;
 pub use self::caching_codemap_view::CachingCodemapView;
-pub use self::hcx::{StableHashingContextProvider, StableHashingContext, NodeIdHashingMode,
-                    hash_stable_trait_impls, compute_ignored_attr_names};
-mod fingerprint;
+pub use self::fingerprint::Fingerprint;
+pub use self::hcx::{
+    compute_ignored_attr_names, hash_stable_trait_impls, NodeIdHashingMode, StableHashingContext,
+    StableHashingContextProvider,
+};
 mod caching_codemap_view;
+mod fingerprint;
 mod hcx;
 
 mod impls_cstore;
 mod impls_hir;
 mod impls_mir;
 mod impls_misc;
-mod impls_ty;
 mod impls_syntax;
+mod impls_ty;
 
 pub const ATTR_DIRTY: &'static str = "rustc_dirty";
 pub const ATTR_CLEAN: &'static str = "rustc_clean";
@@ -31,7 +33,6 @@ pub const ATTR_IF_THIS_CHANGED: &'static str = "rustc_if_this_changed";
 pub const ATTR_THEN_THIS_WOULD_NEED: &'static str = "rustc_then_this_would_need";
 pub const ATTR_PARTITION_REUSED: &'static str = "rustc_partition_reused";
 pub const ATTR_PARTITION_CODEGENED: &'static str = "rustc_partition_codegened";
-
 
 pub const DEP_GRAPH_ASSERT_ATTRS: &'static [&'static str] = &[
     ATTR_IF_THIS_CHANGED,

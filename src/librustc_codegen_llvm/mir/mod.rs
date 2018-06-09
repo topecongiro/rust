@@ -8,30 +8,30 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use common::{C_i32, C_null};
-use libc::c_uint;
-use llvm::{self, ValueRef, BasicBlockRef};
-use llvm::debuginfo::DIScope;
-use rustc::ty::{self, Ty, TypeFoldable, UpvarSubsts};
-use rustc::ty::layout::{LayoutOf, TyLayout};
-use rustc::mir::{self, Mir};
-use rustc::ty::subst::Substs;
-use rustc::session::config::FullDebugInfo;
+use abi::{ArgAttribute, ArgTypeExt, FnType, FnTypeExt, PassMode};
 use base;
 use builder::Builder;
+use common::{C_i32, C_null};
 use common::{CodegenCx, Funclet};
-use debuginfo::{self, declare_local, VariableAccess, VariableKind, FunctionDebugContext};
+use debuginfo::{self, declare_local, FunctionDebugContext, VariableAccess, VariableKind};
+use libc::c_uint;
+use llvm::debuginfo::DIScope;
+use llvm::{self, BasicBlockRef, ValueRef};
 use monomorphize::Instance;
-use abi::{ArgAttribute, ArgTypeExt, FnType, FnTypeExt, PassMode};
+use rustc::mir::{self, Mir};
+use rustc::session::config::FullDebugInfo;
+use rustc::ty::layout::{LayoutOf, TyLayout};
+use rustc::ty::subst::Substs;
+use rustc::ty::{self, Ty, TypeFoldable, UpvarSubsts};
 use type_::Type;
 
-use syntax_pos::{DUMMY_SP, NO_EXPANSION, BytePos, Span};
 use syntax::symbol::keywords;
+use syntax_pos::{BytePos, Span, DUMMY_SP, NO_EXPANSION};
 
 use std::iter;
 
 use rustc_data_structures::bitvec::BitVector;
-use rustc_data_structures::indexed_vec::{IndexVec, Idx};
+use rustc_data_structures::indexed_vec::{Idx, IndexVec};
 
 pub use self::constant::codegen_static_initializer;
 
@@ -42,7 +42,7 @@ use rustc::mir::traversal;
 use self::operand::{OperandRef, OperandValue};
 
 /// Master context for codegenning from MIR.
-pub struct FunctionCx<'a, 'tcx:'a> {
+pub struct FunctionCx<'a, 'tcx: 'a> {
     instance: Instance<'tcx>,
 
     mir: &'a mir::Mir<'tcx>,
@@ -107,7 +107,8 @@ pub struct FunctionCx<'a, 'tcx:'a> {
 
 impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
     pub fn monomorphize<T>(&self, value: &T) -> T
-        where T: TypeFoldable<'tcx>
+    where
+        T: TypeFoldable<'tcx>,
     {
         self.cx.tcx.subst_and_normalize_erasing_regions(
             self.param_substs,
@@ -124,18 +125,22 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
     pub fn debug_loc(&mut self, source_info: mir::SourceInfo) -> (DIScope, Span) {
         // Bail out if debug info emission is not enabled.
         match self.debug_context {
-            FunctionDebugContext::DebugInfoDisabled |
-            FunctionDebugContext::FunctionWithoutDebugInfo => {
-                return (self.scopes[source_info.scope].scope_metadata, source_info.span);
+            FunctionDebugContext::DebugInfoDisabled
+            | FunctionDebugContext::FunctionWithoutDebugInfo => {
+                return (
+                    self.scopes[source_info.scope].scope_metadata,
+                    source_info.span,
+                );
             }
-            FunctionDebugContext::RegularContext(_) =>{}
+            FunctionDebugContext::RegularContext(_) => {}
         }
 
         // In order to have a good line stepping behavior in debugger, we overwrite debug
         // locations of macro expansions with that of the outermost expansion site
         // (unless the crate is being compiled with `-Z debug-macros`).
-        if source_info.span.ctxt() == NO_EXPANSION ||
-           self.cx.sess().opts.debugging_opts.debug_macros {
+        if source_info.span.ctxt() == NO_EXPANSION
+            || self.cx.sess().opts.debugging_opts.debug_macros
+        {
             let scope = self.scope_metadata_for_loc(source_info.scope, source_info.span.lo());
             (scope, source_info.span)
         } else {
@@ -160,17 +165,21 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
     // it may so happen that the current span belongs to a different file than the DIScope
     // corresponding to span's containing source scope.  If so, we need to create a DIScope
     // "extension" into that file.
-    fn scope_metadata_for_loc(&self, scope_id: mir::SourceScope, pos: BytePos)
-                               -> llvm::debuginfo::DIScope {
+    fn scope_metadata_for_loc(
+        &self,
+        scope_id: mir::SourceScope,
+        pos: BytePos,
+    ) -> llvm::debuginfo::DIScope {
         let scope_metadata = self.scopes[scope_id].scope_metadata;
-        if pos < self.scopes[scope_id].file_start_pos ||
-           pos >= self.scopes[scope_id].file_end_pos {
+        if pos < self.scopes[scope_id].file_start_pos || pos >= self.scopes[scope_id].file_end_pos {
             let cm = self.cx.sess().codemap();
             let defining_crate = self.debug_context.get_ref(DUMMY_SP).defining_crate;
-            debuginfo::extend_scope_to_file(self.cx,
-                                            scope_metadata,
-                                            &cm.lookup_char_pos(pos).file,
-                                            defining_crate)
+            debuginfo::extend_scope_to_file(
+                self.cx,
+                scope_metadata,
+                &cm.lookup_char_pos(pos).file,
+                defining_crate,
+            )
         } else {
             scope_metadata
         }
@@ -206,8 +215,7 @@ pub fn codegen_mir<'a, 'tcx: 'a>(
 ) {
     let fn_ty = FnType::new(cx, sig, &[]);
     debug!("fn_ty: {:?}", fn_ty);
-    let debug_context =
-        debuginfo::create_function_debug_context(cx, instance, sig, llfn, mir);
+    let debug_context = debuginfo::create_function_debug_context(cx, instance, sig, llfn, mir);
     let bx = Builder::new_block(cx, llfn, "start");
 
     if mir.basic_blocks().iter().any(|bb| bb.is_cleanup) {
@@ -218,14 +226,17 @@ pub fn codegen_mir<'a, 'tcx: 'a>(
     // Allocate a `Block` for every basic block, except
     // the start block, if nothing loops back to it.
     let reentrant_start_block = !mir.predecessors_for(mir::START_BLOCK).is_empty();
-    let block_bxs: IndexVec<mir::BasicBlock, BasicBlockRef> =
-        mir.basic_blocks().indices().map(|bb| {
+    let block_bxs: IndexVec<mir::BasicBlock, BasicBlockRef> = mir
+        .basic_blocks()
+        .indices()
+        .map(|bb| {
             if bb == mir::START_BLOCK && !reentrant_start_block {
                 bx.llbb()
             } else {
                 bx.build_sibling_block(&format!("{:?}", bb)).llbb()
             }
-        }).collect();
+        })
+        .collect();
 
     // Compute debuginfo scopes from MIR scopes.
     let scopes = debuginfo::create_mir_scopes(cx, mir, &debug_context);
@@ -280,9 +291,18 @@ pub fn codegen_mir<'a, 'tcx: 'a>(
                         span: decl.source_info.span,
                         scope: decl.visibility_scope,
                     });
-                    declare_local(&bx, &fx.debug_context, name, layout.ty, scope,
-                        VariableAccess::DirectVariable { alloca: place.llval },
-                        VariableKind::LocalVariable, span);
+                    declare_local(
+                        &bx,
+                        &fx.debug_context,
+                        name,
+                        layout.ty,
+                        scope,
+                        VariableAccess::DirectVariable {
+                            alloca: place.llval,
+                        },
+                        VariableKind::LocalVariable,
+                        span,
+                    );
                 }
                 LocalRef::Place(place)
             } else {
@@ -347,76 +367,82 @@ fn create_funclets<'a, 'tcx>(
     mir: &'a Mir<'tcx>,
     bx: &Builder<'a, 'tcx>,
     cleanup_kinds: &IndexVec<mir::BasicBlock, CleanupKind>,
-    block_bxs: &IndexVec<mir::BasicBlock, BasicBlockRef>)
-    -> (IndexVec<mir::BasicBlock, Option<BasicBlockRef>>,
-        IndexVec<mir::BasicBlock, Option<Funclet>>)
-{
-    block_bxs.iter_enumerated().zip(cleanup_kinds).map(|((bb, &llbb), cleanup_kind)| {
-        match *cleanup_kind {
-            CleanupKind::Funclet if base::wants_msvc_seh(bx.sess()) => {}
-            _ => return (None, None)
-        }
-
-        let cleanup;
-        let ret_llbb;
-        match mir[bb].terminator.as_ref().map(|t| &t.kind) {
-            // This is a basic block that we're aborting the program for,
-            // notably in an `extern` function. These basic blocks are inserted
-            // so that we assert that `extern` functions do indeed not panic,
-            // and if they do we abort the process.
-            //
-            // On MSVC these are tricky though (where we're doing funclets). If
-            // we were to do a cleanuppad (like below) the normal functions like
-            // `longjmp` would trigger the abort logic, terminating the
-            // program. Instead we insert the equivalent of `catch(...)` for C++
-            // which magically doesn't trigger when `longjmp` files over this
-            // frame.
-            //
-            // Lots more discussion can be found on #48251 but this codegen is
-            // modeled after clang's for:
-            //
-            //      try {
-            //          foo();
-            //      } catch (...) {
-            //          bar();
-            //      }
-            Some(&mir::TerminatorKind::Abort) => {
-                let cs_bx = bx.build_sibling_block(&format!("cs_funclet{:?}", bb));
-                let cp_bx = bx.build_sibling_block(&format!("cp_funclet{:?}", bb));
-                ret_llbb = cs_bx.llbb();
-
-                let cs = cs_bx.catch_switch(None, None, 1);
-                cs_bx.add_handler(cs, cp_bx.llbb());
-
-                // The "null" here is actually a RTTI type descriptor for the
-                // C++ personality function, but `catch (...)` has no type so
-                // it's null. The 64 here is actually a bitfield which
-                // represents that this is a catch-all block.
-                let null = C_null(Type::i8p(bx.cx));
-                let sixty_four = C_i32(bx.cx, 64);
-                cleanup = cp_bx.catch_pad(cs, &[null, sixty_four, null]);
-                cp_bx.br(llbb);
+    block_bxs: &IndexVec<mir::BasicBlock, BasicBlockRef>,
+) -> (
+    IndexVec<mir::BasicBlock, Option<BasicBlockRef>>,
+    IndexVec<mir::BasicBlock, Option<Funclet>>,
+) {
+    block_bxs
+        .iter_enumerated()
+        .zip(cleanup_kinds)
+        .map(|((bb, &llbb), cleanup_kind)| {
+            match *cleanup_kind {
+                CleanupKind::Funclet if base::wants_msvc_seh(bx.sess()) => {}
+                _ => return (None, None),
             }
-            _ => {
-                let cleanup_bx = bx.build_sibling_block(&format!("funclet_{:?}", bb));
-                ret_llbb = cleanup_bx.llbb();
-                cleanup = cleanup_bx.cleanup_pad(None, &[]);
-                cleanup_bx.br(llbb);
-            }
-        };
 
-        (Some(ret_llbb), Some(Funclet::new(cleanup)))
-    }).unzip()
+            let cleanup;
+            let ret_llbb;
+            match mir[bb].terminator.as_ref().map(|t| &t.kind) {
+                // This is a basic block that we're aborting the program for,
+                // notably in an `extern` function. These basic blocks are inserted
+                // so that we assert that `extern` functions do indeed not panic,
+                // and if they do we abort the process.
+                //
+                // On MSVC these are tricky though (where we're doing funclets). If
+                // we were to do a cleanuppad (like below) the normal functions like
+                // `longjmp` would trigger the abort logic, terminating the
+                // program. Instead we insert the equivalent of `catch(...)` for C++
+                // which magically doesn't trigger when `longjmp` files over this
+                // frame.
+                //
+                // Lots more discussion can be found on #48251 but this codegen is
+                // modeled after clang's for:
+                //
+                //      try {
+                //          foo();
+                //      } catch (...) {
+                //          bar();
+                //      }
+                Some(&mir::TerminatorKind::Abort) => {
+                    let cs_bx = bx.build_sibling_block(&format!("cs_funclet{:?}", bb));
+                    let cp_bx = bx.build_sibling_block(&format!("cp_funclet{:?}", bb));
+                    ret_llbb = cs_bx.llbb();
+
+                    let cs = cs_bx.catch_switch(None, None, 1);
+                    cs_bx.add_handler(cs, cp_bx.llbb());
+
+                    // The "null" here is actually a RTTI type descriptor for the
+                    // C++ personality function, but `catch (...)` has no type so
+                    // it's null. The 64 here is actually a bitfield which
+                    // represents that this is a catch-all block.
+                    let null = C_null(Type::i8p(bx.cx));
+                    let sixty_four = C_i32(bx.cx, 64);
+                    cleanup = cp_bx.catch_pad(cs, &[null, sixty_four, null]);
+                    cp_bx.br(llbb);
+                }
+                _ => {
+                    let cleanup_bx = bx.build_sibling_block(&format!("funclet_{:?}", bb));
+                    ret_llbb = cleanup_bx.llbb();
+                    cleanup = cleanup_bx.cleanup_pad(None, &[]);
+                    cleanup_bx.br(llbb);
+                }
+            };
+
+            (Some(ret_llbb), Some(Funclet::new(cleanup)))
+        })
+        .unzip()
 }
 
 /// Produce, for each argument, a `ValueRef` pointing at the
 /// argument's value. As arguments are places, these are always
 /// indirect.
-fn arg_local_refs<'a, 'tcx>(bx: &Builder<'a, 'tcx>,
-                            fx: &FunctionCx<'a, 'tcx>,
-                            scopes: &IndexVec<mir::SourceScope, debuginfo::MirDebugScope>,
-                            memory_locals: &BitVector)
-                            -> Vec<LocalRef<'tcx>> {
+fn arg_local_refs<'a, 'tcx>(
+    bx: &Builder<'a, 'tcx>,
+    fx: &FunctionCx<'a, 'tcx>,
+    scopes: &IndexVec<mir::SourceScope, debuginfo::MirDebugScope>,
+    memory_locals: &BitVector,
+) -> Vec<LocalRef<'tcx>> {
     let mir = fx.mir;
     let tcx = bx.tcx();
     let mut idx = 0;
@@ -430,206 +456,215 @@ fn arg_local_refs<'a, 'tcx>(bx: &Builder<'a, 'tcx>,
         None
     };
 
-    let deref_op = unsafe {
-        [llvm::LLVMRustDIBuilderCreateOpDeref()]
-    };
+    let deref_op = unsafe { [llvm::LLVMRustDIBuilderCreateOpDeref()] };
 
-    mir.args_iter().enumerate().map(|(arg_index, local)| {
-        let arg_decl = &mir.local_decls[local];
+    mir.args_iter()
+        .enumerate()
+        .map(|(arg_index, local)| {
+            let arg_decl = &mir.local_decls[local];
 
-        let name = if let Some(name) = arg_decl.name {
-            name.as_str().to_string()
-        } else {
-            format!("arg{}", arg_index)
-        };
-
-        if Some(local) == mir.spread_arg {
-            // This argument (e.g. the last argument in the "rust-call" ABI)
-            // is a tuple that was spread at the ABI level and now we have
-            // to reconstruct it into a tuple local variable, from multiple
-            // individual LLVM function arguments.
-
-            let arg_ty = fx.monomorphize(&arg_decl.ty);
-            let tupled_arg_tys = match arg_ty.sty {
-                ty::TyTuple(ref tys) => tys,
-                _ => bug!("spread argument isn't a tuple?!")
+            let name = if let Some(name) = arg_decl.name {
+                name.as_str().to_string()
+            } else {
+                format!("arg{}", arg_index)
             };
 
-            let place = PlaceRef::alloca(bx, bx.cx.layout_of(arg_ty), &name);
-            for i in 0..tupled_arg_tys.len() {
-                let arg = &fx.fn_ty.args[idx];
-                idx += 1;
-                if arg.pad.is_some() {
-                    llarg_idx += 1;
+            if Some(local) == mir.spread_arg {
+                // This argument (e.g. the last argument in the "rust-call" ABI)
+                // is a tuple that was spread at the ABI level and now we have
+                // to reconstruct it into a tuple local variable, from multiple
+                // individual LLVM function arguments.
+
+                let arg_ty = fx.monomorphize(&arg_decl.ty);
+                let tupled_arg_tys = match arg_ty.sty {
+                    ty::TyTuple(ref tys) => tys,
+                    _ => bug!("spread argument isn't a tuple?!"),
+                };
+
+                let place = PlaceRef::alloca(bx, bx.cx.layout_of(arg_ty), &name);
+                for i in 0..tupled_arg_tys.len() {
+                    let arg = &fx.fn_ty.args[idx];
+                    idx += 1;
+                    if arg.pad.is_some() {
+                        llarg_idx += 1;
+                    }
+                    arg.store_fn_arg(bx, &mut llarg_idx, place.project_field(bx, i));
                 }
-                arg.store_fn_arg(bx, &mut llarg_idx, place.project_field(bx, i));
+
+                // Now that we have one alloca that contains the aggregate value,
+                // we can create one debuginfo entry for the argument.
+                arg_scope.map(|scope| {
+                    let variable_access = VariableAccess::DirectVariable {
+                        alloca: place.llval,
+                    };
+                    declare_local(
+                        bx,
+                        &fx.debug_context,
+                        arg_decl.name.unwrap_or(keywords::Invalid.name()),
+                        arg_ty,
+                        scope,
+                        variable_access,
+                        VariableKind::ArgumentVariable(arg_index + 1),
+                        DUMMY_SP,
+                    );
+                });
+
+                return LocalRef::Place(place);
             }
 
-            // Now that we have one alloca that contains the aggregate value,
-            // we can create one debuginfo entry for the argument.
+            let arg = &fx.fn_ty.args[idx];
+            idx += 1;
+            if arg.pad.is_some() {
+                llarg_idx += 1;
+            }
+
+            if arg_scope.is_none() && !memory_locals.contains(local.index()) {
+                // We don't have to cast or keep the argument in the alloca.
+                // FIXME(eddyb): We should figure out how to use llvm.dbg.value instead
+                // of putting everything in allocas just so we can use llvm.dbg.declare.
+                let local = |op| LocalRef::Operand(Some(op));
+                match arg.mode {
+                    PassMode::Ignore => {
+                        return local(OperandRef::new_zst(bx.cx, arg.layout));
+                    }
+                    PassMode::Direct(_) => {
+                        let llarg = llvm::get_param(bx.llfn(), llarg_idx as c_uint);
+                        bx.set_value_name(llarg, &name);
+                        llarg_idx += 1;
+                        return local(OperandRef::from_immediate_or_packed_pair(
+                            bx, llarg, arg.layout,
+                        ));
+                    }
+                    PassMode::Pair(..) => {
+                        let a = llvm::get_param(bx.llfn(), llarg_idx as c_uint);
+                        bx.set_value_name(a, &(name.clone() + ".0"));
+                        llarg_idx += 1;
+
+                        let b = llvm::get_param(bx.llfn(), llarg_idx as c_uint);
+                        bx.set_value_name(b, &(name + ".1"));
+                        llarg_idx += 1;
+
+                        return local(OperandRef {
+                            val: OperandValue::Pair(a, b),
+                            layout: arg.layout,
+                        });
+                    }
+                    _ => {}
+                }
+            }
+
+            let place = if arg.is_indirect() {
+                // Don't copy an indirect argument to an alloca, the caller
+                // already put it in a temporary alloca and gave it up.
+                // FIXME: lifetimes
+                let llarg = llvm::get_param(bx.llfn(), llarg_idx as c_uint);
+                bx.set_value_name(llarg, &name);
+                llarg_idx += 1;
+                PlaceRef::new_sized(llarg, arg.layout, arg.layout.align)
+            } else {
+                let tmp = PlaceRef::alloca(bx, arg.layout, &name);
+                arg.store_fn_arg(bx, &mut llarg_idx, tmp);
+                tmp
+            };
             arg_scope.map(|scope| {
-                let variable_access = VariableAccess::DirectVariable {
-                    alloca: place.llval
-                };
-                declare_local(
-                    bx,
-                    &fx.debug_context,
-                    arg_decl.name.unwrap_or(keywords::Invalid.name()),
-                    arg_ty, scope,
-                    variable_access,
-                    VariableKind::ArgumentVariable(arg_index + 1),
-                    DUMMY_SP
-                );
-            });
-
-            return LocalRef::Place(place);
-        }
-
-        let arg = &fx.fn_ty.args[idx];
-        idx += 1;
-        if arg.pad.is_some() {
-            llarg_idx += 1;
-        }
-
-        if arg_scope.is_none() && !memory_locals.contains(local.index()) {
-            // We don't have to cast or keep the argument in the alloca.
-            // FIXME(eddyb): We should figure out how to use llvm.dbg.value instead
-            // of putting everything in allocas just so we can use llvm.dbg.declare.
-            let local = |op| LocalRef::Operand(Some(op));
-            match arg.mode {
-                PassMode::Ignore => {
-                    return local(OperandRef::new_zst(bx.cx, arg.layout));
-                }
-                PassMode::Direct(_) => {
-                    let llarg = llvm::get_param(bx.llfn(), llarg_idx as c_uint);
-                    bx.set_value_name(llarg, &name);
-                    llarg_idx += 1;
-                    return local(
-                        OperandRef::from_immediate_or_packed_pair(bx, llarg, arg.layout));
-                }
-                PassMode::Pair(..) => {
-                    let a = llvm::get_param(bx.llfn(), llarg_idx as c_uint);
-                    bx.set_value_name(a, &(name.clone() + ".0"));
-                    llarg_idx += 1;
-
-                    let b = llvm::get_param(bx.llfn(), llarg_idx as c_uint);
-                    bx.set_value_name(b, &(name + ".1"));
-                    llarg_idx += 1;
-
-                    return local(OperandRef {
-                        val: OperandValue::Pair(a, b),
-                        layout: arg.layout
-                    });
-                }
-                _ => {}
-            }
-        }
-
-        let place = if arg.is_indirect() {
-            // Don't copy an indirect argument to an alloca, the caller
-            // already put it in a temporary alloca and gave it up.
-            // FIXME: lifetimes
-            let llarg = llvm::get_param(bx.llfn(), llarg_idx as c_uint);
-            bx.set_value_name(llarg, &name);
-            llarg_idx += 1;
-            PlaceRef::new_sized(llarg, arg.layout, arg.layout.align)
-        } else {
-            let tmp = PlaceRef::alloca(bx, arg.layout, &name);
-            arg.store_fn_arg(bx, &mut llarg_idx, tmp);
-            tmp
-        };
-        arg_scope.map(|scope| {
-            // Is this a regular argument?
-            if arg_index > 0 || mir.upvar_decls.is_empty() {
-                // The Rust ABI passes indirect variables using a pointer and a manual copy, so we
-                // need to insert a deref here, but the C ABI uses a pointer and a copy using the
-                // byval attribute, for which LLVM does the deref itself, so we must not add it.
-                // Starting with D31439 in LLVM 5, it *always* does the deref itself.
-                let mut variable_access = VariableAccess::DirectVariable {
-                    alloca: place.llval
-                };
-                if unsafe { llvm::LLVMRustVersionMajor() < 5 } {
-                    if let PassMode::Indirect(ref attrs) = arg.mode {
-                        if !attrs.contains(ArgAttribute::ByVal) {
-                            variable_access = VariableAccess::IndirectVariable {
-                                alloca: place.llval,
-                                address_operations: &deref_op,
-                            };
+                // Is this a regular argument?
+                if arg_index > 0 || mir.upvar_decls.is_empty() {
+                    // The Rust ABI passes indirect variables using a pointer and a manual copy, so we
+                    // need to insert a deref here, but the C ABI uses a pointer and a copy using the
+                    // byval attribute, for which LLVM does the deref itself, so we must not add it.
+                    // Starting with D31439 in LLVM 5, it *always* does the deref itself.
+                    let mut variable_access = VariableAccess::DirectVariable {
+                        alloca: place.llval,
+                    };
+                    if unsafe { llvm::LLVMRustVersionMajor() < 5 } {
+                        if let PassMode::Indirect(ref attrs) = arg.mode {
+                            if !attrs.contains(ArgAttribute::ByVal) {
+                                variable_access = VariableAccess::IndirectVariable {
+                                    alloca: place.llval,
+                                    address_operations: &deref_op,
+                                };
+                            }
                         }
                     }
+
+                    declare_local(
+                        bx,
+                        &fx.debug_context,
+                        arg_decl.name.unwrap_or(keywords::Invalid.name()),
+                        arg.layout.ty,
+                        scope,
+                        variable_access,
+                        VariableKind::ArgumentVariable(arg_index + 1),
+                        DUMMY_SP,
+                    );
+                    return;
                 }
 
-                declare_local(
-                    bx,
-                    &fx.debug_context,
-                    arg_decl.name.unwrap_or(keywords::Invalid.name()),
-                    arg.layout.ty,
-                    scope,
-                    variable_access,
-                    VariableKind::ArgumentVariable(arg_index + 1),
-                    DUMMY_SP
-                );
-                return;
-            }
-
-            // Or is it the closure environment?
-            let (closure_layout, env_ref) = match arg.layout.ty.sty {
-                ty::TyRawPtr(ty::TypeAndMut { ty, .. }) |
-                ty::TyRef(_, ty, _)  => (bx.cx.layout_of(ty), true),
-                _ => (arg.layout, false)
-            };
-
-            let (def_id, upvar_substs) = match closure_layout.ty.sty {
-                ty::TyClosure(def_id, substs) => (def_id, UpvarSubsts::Closure(substs)),
-                ty::TyGenerator(def_id, substs, _) => (def_id, UpvarSubsts::Generator(substs)),
-                _ => bug!("upvar_decls with non-closure arg0 type `{}`", closure_layout.ty)
-            };
-            let upvar_tys = upvar_substs.upvar_tys(def_id, tcx);
-
-            for (i, (decl, ty)) in mir.upvar_decls.iter().zip(upvar_tys).enumerate() {
-                let byte_offset_of_var_in_env = closure_layout.fields.offset(i).bytes();
-
-                let ops = unsafe {
-                    [llvm::LLVMRustDIBuilderCreateOpDeref(),
-                     llvm::LLVMRustDIBuilderCreateOpPlusUconst(),
-                     byte_offset_of_var_in_env as i64,
-                     llvm::LLVMRustDIBuilderCreateOpDeref()]
+                // Or is it the closure environment?
+                let (closure_layout, env_ref) = match arg.layout.ty.sty {
+                    ty::TyRawPtr(ty::TypeAndMut { ty, .. }) | ty::TyRef(_, ty, _) => {
+                        (bx.cx.layout_of(ty), true)
+                    }
+                    _ => (arg.layout, false),
                 };
 
-                // The environment and the capture can each be indirect.
-                let mut ops = if env_ref { &ops[..] } else { &ops[1..] };
-
-                let ty = if let (true, &ty::TyRef(_, ty, _)) = (decl.by_ref, &ty.sty) {
-                    ty
-                } else {
-                    ops = &ops[..ops.len() - 1];
-                    ty
+                let (def_id, upvar_substs) = match closure_layout.ty.sty {
+                    ty::TyClosure(def_id, substs) => (def_id, UpvarSubsts::Closure(substs)),
+                    ty::TyGenerator(def_id, substs, _) => (def_id, UpvarSubsts::Generator(substs)),
+                    _ => bug!(
+                        "upvar_decls with non-closure arg0 type `{}`",
+                        closure_layout.ty
+                    ),
                 };
+                let upvar_tys = upvar_substs.upvar_tys(def_id, tcx);
 
-                let variable_access = VariableAccess::IndirectVariable {
-                    alloca: place.llval,
-                    address_operations: &ops
-                };
-                declare_local(
-                    bx,
-                    &fx.debug_context,
-                    decl.debug_name,
-                    ty,
-                    scope,
-                    variable_access,
-                    VariableKind::LocalVariable,
-                    DUMMY_SP
-                );
-            }
-        });
-        LocalRef::Place(place)
-    }).collect()
+                for (i, (decl, ty)) in mir.upvar_decls.iter().zip(upvar_tys).enumerate() {
+                    let byte_offset_of_var_in_env = closure_layout.fields.offset(i).bytes();
+
+                    let ops = unsafe {
+                        [
+                            llvm::LLVMRustDIBuilderCreateOpDeref(),
+                            llvm::LLVMRustDIBuilderCreateOpPlusUconst(),
+                            byte_offset_of_var_in_env as i64,
+                            llvm::LLVMRustDIBuilderCreateOpDeref(),
+                        ]
+                    };
+
+                    // The environment and the capture can each be indirect.
+                    let mut ops = if env_ref { &ops[..] } else { &ops[1..] };
+
+                    let ty = if let (true, &ty::TyRef(_, ty, _)) = (decl.by_ref, &ty.sty) {
+                        ty
+                    } else {
+                        ops = &ops[..ops.len() - 1];
+                        ty
+                    };
+
+                    let variable_access = VariableAccess::IndirectVariable {
+                        alloca: place.llval,
+                        address_operations: &ops,
+                    };
+                    declare_local(
+                        bx,
+                        &fx.debug_context,
+                        decl.debug_name,
+                        ty,
+                        scope,
+                        variable_access,
+                        VariableKind::LocalVariable,
+                        DUMMY_SP,
+                    );
+                }
+            });
+            LocalRef::Place(place)
+        })
+        .collect()
 }
 
 mod analyze;
 mod block;
 mod constant;
-pub mod place;
 pub mod operand;
+pub mod place;
 mod rvalue;
 mod statement;

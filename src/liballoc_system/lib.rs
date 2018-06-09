@@ -10,10 +10,12 @@
 
 #![no_std]
 #![allow(unused_attributes)]
-#![unstable(feature = "alloc_system",
-            reason = "this library is unlikely to be stabilized in its current \
-                      form or name",
-            issue = "32838")]
+#![unstable(
+    feature = "alloc_system",
+    reason = "this library is unlikely to be stabilized in its current \
+              form or name",
+    issue = "32838"
+)]
 #![feature(global_allocator)]
 #![feature(allocator_api)]
 #![feature(core_intrinsics)]
@@ -24,24 +26,36 @@
 
 // The minimum alignment guaranteed by the architecture. This value is used to
 // add fast paths for low alignment values.
-#[cfg(all(any(target_arch = "x86",
-              target_arch = "arm",
-              target_arch = "mips",
-              target_arch = "powerpc",
-              target_arch = "powerpc64",
-              target_arch = "asmjs",
-              target_arch = "wasm32")))]
+#[cfg(
+    all(
+        any(
+            target_arch = "x86",
+            target_arch = "arm",
+            target_arch = "mips",
+            target_arch = "powerpc",
+            target_arch = "powerpc64",
+            target_arch = "asmjs",
+            target_arch = "wasm32"
+        )
+    )
+)]
 #[allow(dead_code)]
 const MIN_ALIGN: usize = 8;
-#[cfg(all(any(target_arch = "x86_64",
-              target_arch = "aarch64",
-              target_arch = "mips64",
-              target_arch = "s390x",
-              target_arch = "sparc64")))]
+#[cfg(
+    all(
+        any(
+            target_arch = "x86_64",
+            target_arch = "aarch64",
+            target_arch = "mips64",
+            target_arch = "s390x",
+            target_arch = "sparc64"
+        )
+    )
+)]
 #[allow(dead_code)]
 const MIN_ALIGN: usize = 16;
 
-use core::alloc::{Alloc, GlobalAlloc, AllocErr, Layout, Opaque};
+use core::alloc::{Alloc, AllocErr, GlobalAlloc, Layout, Opaque};
 use core::ptr::NonNull;
 
 #[unstable(feature = "allocator_api", issue = "32838")]
@@ -65,23 +79,29 @@ unsafe impl Alloc for System {
     }
 
     #[inline]
-    unsafe fn realloc(&mut self,
-                      ptr: NonNull<Opaque>,
-                      layout: Layout,
-                      new_size: usize) -> Result<NonNull<Opaque>, AllocErr> {
+    unsafe fn realloc(
+        &mut self,
+        ptr: NonNull<Opaque>,
+        layout: Layout,
+        new_size: usize,
+    ) -> Result<NonNull<Opaque>, AllocErr> {
         NonNull::new(GlobalAlloc::realloc(self, ptr.as_ptr(), layout, new_size)).ok_or(AllocErr)
     }
 }
 
 #[cfg(any(windows, unix, target_os = "cloudabi", target_os = "redox"))]
 mod realloc_fallback {
-    use core::alloc::{GlobalAlloc, Opaque, Layout};
+    use core::alloc::{GlobalAlloc, Layout, Opaque};
     use core::cmp;
     use core::ptr;
 
     impl super::System {
-        pub(crate) unsafe fn realloc_fallback(&self, ptr: *mut Opaque, old_layout: Layout,
-                                              new_size: usize) -> *mut Opaque {
+        pub(crate) unsafe fn realloc_fallback(
+            &self,
+            ptr: *mut Opaque,
+            old_layout: Layout,
+            new_size: usize,
+        ) -> *mut Opaque {
             // Docs for GlobalAlloc::realloc require this to be valid:
             let new_layout = Layout::from_size_align_unchecked(new_size, old_layout.align());
 
@@ -102,9 +122,9 @@ mod platform {
 
     use core::ptr;
 
-    use MIN_ALIGN;
-    use System;
     use core::alloc::{GlobalAlloc, Layout, Opaque};
+    use System;
+    use MIN_ALIGN;
 
     #[unstable(feature = "allocator_api", issue = "32838")]
     unsafe impl GlobalAlloc for System {
@@ -118,7 +138,7 @@ mod platform {
                     if layout.align() > (1 << 31) {
                         // FIXME: use Opaque::null_mut
                         // https://github.com/rust-lang/rust/issues/49659
-                        return 0 as *mut Opaque
+                        return 0 as *mut Opaque;
                     }
                 }
                 aligned_malloc(&layout)
@@ -193,9 +213,9 @@ mod platform {
 #[cfg(windows)]
 #[allow(bad_style)]
 mod platform {
-    use MIN_ALIGN;
+    use core::alloc::{GlobalAlloc, Layout, Opaque};
     use System;
-    use core::alloc::{GlobalAlloc, Opaque, Layout};
+    use MIN_ALIGN;
 
     type LPVOID = *mut u8;
     type HANDLE = LPVOID;
@@ -258,13 +278,11 @@ mod platform {
         unsafe fn dealloc(&self, ptr: *mut Opaque, layout: Layout) {
             if layout.align() <= MIN_ALIGN {
                 let err = HeapFree(GetProcessHeap(), 0, ptr as LPVOID);
-                debug_assert!(err != 0, "Failed to free heap memory: {}",
-                              GetLastError());
+                debug_assert!(err != 0, "Failed to free heap memory: {}", GetLastError());
             } else {
                 let header = get_header(ptr as *mut u8);
                 let err = HeapFree(GetProcessHeap(), 0, header.0 as LPVOID);
-                debug_assert!(err != 0, "Failed to free heap memory: {}",
-                              GetLastError());
+                debug_assert!(err != 0, "Failed to free heap memory: {}", GetLastError());
             }
         }
 

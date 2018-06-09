@@ -13,24 +13,24 @@ use hir::map::definitions::DefPathData;
 use middle::const_val::ConstVal;
 use middle::region::{self, BlockRemainder};
 use ty::subst::{self, Subst};
+use ty::{self, GenericParamCount, GenericParamDefKind, Ty, TyCtxt, TypeFoldable};
 use ty::{BrAnon, BrEnv, BrFresh, BrNamed};
-use ty::{TyBool, TyChar, TyAdt};
-use ty::{TyError, TyStr, TyArray, TySlice, TyFloat, TyFnDef, TyFnPtr};
-use ty::{TyParam, TyRawPtr, TyRef, TyNever, TyTuple};
-use ty::{TyClosure, TyGenerator, TyGeneratorWitness, TyForeign, TyProjection, TyAnon};
-use ty::{TyDynamic, TyInt, TyUint, TyInfer};
-use ty::{self, Ty, TyCtxt, TypeFoldable, GenericParamCount, GenericParamDefKind};
+use ty::{TyAdt, TyBool, TyChar};
+use ty::{TyAnon, TyClosure, TyForeign, TyGenerator, TyGeneratorWitness, TyProjection};
+use ty::{TyArray, TyError, TyFloat, TyFnDef, TyFnPtr, TySlice, TyStr};
+use ty::{TyDynamic, TyInfer, TyInt, TyUint};
+use ty::{TyNever, TyParam, TyRawPtr, TyRef, TyTuple};
 use util::nodemap::FxHashSet;
 
 use std::cell::Cell;
 use std::fmt;
 use std::usize;
 
+use hir;
 use rustc_data_structures::indexed_vec::Idx;
 use rustc_target::spec::abi::Abi;
 use syntax::ast::CRATE_NODE_ID;
-use syntax::symbol::{Symbol, InternedString};
-use hir;
+use syntax::symbol::{InternedString, Symbol};
 
 macro_rules! gen_display_debug_body {
     ( $with:path ) => {
@@ -88,22 +88,18 @@ macro_rules! gen_print_impl {
     }
 }
 macro_rules! define_print {
-    ( $generic:tt $target:ty,
-      $vars:tt { display $disp:block debug $dbg:block } ) => {
+    ($generic:tt $target:ty, $vars:tt { display $disp:block debug $dbg:block }) => {
         gen_print_impl! { $generic $target, $vars yes $disp yes $dbg }
     };
-    ( $generic:tt $target:ty,
-      $vars:tt { debug $dbg:block display $disp:block } ) => {
+    ($generic:tt $target:ty, $vars:tt { debug $dbg:block display $disp:block }) => {
         gen_print_impl! { $generic $target, $vars yes $disp yes $dbg }
     };
-    ( $generic:tt $target:ty,
-      $vars:tt { debug $dbg:block } ) => {
+    ($generic:tt $target:ty, $vars:tt { debug $dbg:block }) => {
         gen_print_impl! { $generic $target, $vars no {
             bug!(concat!("display not implemented for ", stringify!($target)));
         } yes $dbg }
     };
-    ( $generic:tt $target:ty,
-      ($self:ident, $f:ident, $cx:ident) { display $disp:block } ) => {
+    ($generic:tt $target:ty,($self:ident, $f:ident, $cx:ident) { display $disp:block }) => {
         gen_print_impl! { $generic $target, ($self, $f, $cx) yes $disp no {
             write!($f, "{:?}", $self)
         } }
@@ -128,15 +124,14 @@ macro_rules! print {
     };
 }
 
-
 struct LateBoundRegionNameCollector(FxHashSet<InternedString>);
 impl<'tcx> ty::fold::TypeVisitor<'tcx> for LateBoundRegionNameCollector {
     fn visit_region(&mut self, r: ty::Region<'tcx>) -> bool {
         match *r {
             ty::ReLateBound(_, ty::BrNamed(_, name)) => {
                 self.0.insert(name);
-            },
-            _ => {},
+            }
+            _ => {}
         }
         r.super_visit_with(self)
     }
@@ -154,9 +149,13 @@ pub struct PrintContext {
 impl PrintContext {
     fn new() -> Self {
         ty::tls::with_opt(|tcx| {
-            let (is_verbose, identify_regions) = tcx.map(
-                |tcx| (tcx.sess.verbose(), tcx.sess.opts.debugging_opts.identify_regions)
-            ).unwrap_or((false, false));
+            let (is_verbose, identify_regions) =
+                tcx.map(|tcx| {
+                    (
+                        tcx.sess.verbose(),
+                        tcx.sess.opts.debugging_opts.identify_regions,
+                    )
+                }).unwrap_or((false, false));
             PrintContext {
                 is_debug: false,
                 is_verbose: is_verbose,
@@ -168,7 +167,8 @@ impl PrintContext {
         })
     }
     fn prepare_late_bound_region_info<'tcx, T>(&mut self, value: &ty::Binder<T>)
-    where T: TypeFoldable<'tcx>
+    where
+        T: TypeFoldable<'tcx>,
     {
         let mut collector = LateBoundRegionNameCollector(FxHashSet());
         value.visit_with(&mut collector);
@@ -211,12 +211,13 @@ pub trait Print {
 }
 
 impl PrintContext {
-    fn fn_sig<F: fmt::Write>(&mut self,
-                             f: &mut F,
-                             inputs: &[Ty],
-                             variadic: bool,
-                             output: Ty)
-                             -> fmt::Result {
+    fn fn_sig<F: fmt::Write>(
+        &mut self,
+        f: &mut F,
+        inputs: &[Ty],
+        variadic: bool,
+        output: Ty,
+    ) -> fmt::Result {
         write!(f, "(")?;
         let mut inputs = inputs.iter();
         if let Some(&ty) = inputs.next() {
@@ -236,19 +237,24 @@ impl PrintContext {
         Ok(())
     }
 
-    fn parameterized<F: fmt::Write>(&mut self,
-                                    f: &mut F,
-                                    substs: &subst::Substs,
-                                    mut did: DefId,
-                                    projections: &[ty::ProjectionPredicate])
-                                    -> fmt::Result {
+    fn parameterized<F: fmt::Write>(
+        &mut self,
+        f: &mut F,
+        substs: &subst::Substs,
+        mut did: DefId,
+        projections: &[ty::ProjectionPredicate],
+    ) -> fmt::Result {
         let key = ty::tls::with(|tcx| tcx.def_key(did));
         let mut item_name = if let Some(name) = key.disambiguated_data.data.get_opt_name() {
             Some(name)
         } else {
-            did.index = key.parent.unwrap_or_else(
-                || bug!("finding type for {:?}, encountered def-id {:?} with no parent",
-                        did, did));
+            did.index = key.parent.unwrap_or_else(|| {
+                bug!(
+                    "finding type for {:?}, encountered def-id {:?} with no parent",
+                    did,
+                    did
+                )
+            });
             self.parameterized(f, substs, did, projections)?;
             return write!(f, "::{}", key.disambiguated_data.data.as_interned_str());
         };
@@ -269,36 +275,39 @@ impl PrintContext {
             loop {
                 let key = tcx.def_key(item_def_id);
                 match key.disambiguated_data.data {
-                    DefPathData::AssocTypeInTrait(_) |
-                    DefPathData::AssocTypeInImpl(_) |
-                    DefPathData::Trait(_) |
-                    DefPathData::TypeNs(_) => {
+                    DefPathData::AssocTypeInTrait(_)
+                    | DefPathData::AssocTypeInImpl(_)
+                    | DefPathData::Trait(_)
+                    | DefPathData::TypeNs(_) => {
                         break;
                     }
-                    DefPathData::ValueNs(_) |
-                    DefPathData::EnumVariant(_) => {
+                    DefPathData::ValueNs(_) | DefPathData::EnumVariant(_) => {
                         is_value_path = true;
                         break;
                     }
-                    DefPathData::CrateRoot |
-                    DefPathData::Misc |
-                    DefPathData::Impl |
-                    DefPathData::Module(_) |
-                    DefPathData::MacroDef(_) |
-                    DefPathData::ClosureExpr |
-                    DefPathData::TypeParam(_) |
-                    DefPathData::LifetimeDef(_) |
-                    DefPathData::Field(_) |
-                    DefPathData::StructCtor |
-                    DefPathData::AnonConst |
-                    DefPathData::ImplTrait |
-                    DefPathData::GlobalMetaData(_) => {
+                    DefPathData::CrateRoot
+                    | DefPathData::Misc
+                    | DefPathData::Impl
+                    | DefPathData::Module(_)
+                    | DefPathData::MacroDef(_)
+                    | DefPathData::ClosureExpr
+                    | DefPathData::TypeParam(_)
+                    | DefPathData::LifetimeDef(_)
+                    | DefPathData::Field(_)
+                    | DefPathData::StructCtor
+                    | DefPathData::AnonConst
+                    | DefPathData::ImplTrait
+                    | DefPathData::GlobalMetaData(_) => {
                         // if we're making a symbol for something, there ought
                         // to be a value or type-def or something in there
                         // *somewhere*
                         item_def_id.index = key.parent.unwrap_or_else(|| {
-                            bug!("finding type for {:?}, encountered def-id {:?} with no \
-                                 parent", did, item_def_id);
+                            bug!(
+                                "finding type for {:?}, encountered def-id {:?} with no \
+                                 parent",
+                                did,
+                                item_def_id
+                            );
                         });
                     }
                 }
@@ -317,7 +326,13 @@ impl PrintContext {
                 own_counts = generics.own_counts();
 
                 if has_self {
-                    print!(f, self, write("<"), print_display(substs.type_at(0)), write(" as "))?;
+                    print!(
+                        f,
+                        self,
+                        write("<"),
+                        print_display(substs.type_at(0)),
+                        write(" as ")
+                    )?;
                 }
 
                 path_def_id = def_id;
@@ -334,15 +349,17 @@ impl PrintContext {
             }
 
             if !verbose {
-                let mut type_params =
-                    generics.params.iter().rev().filter_map(|param| {
-                        match param.kind {
-                            GenericParamDefKind::Type { has_default, .. } => {
-                                Some((param.def_id, has_default))
-                            }
-                            GenericParamDefKind::Lifetime => None,
+                let mut type_params = generics
+                    .params
+                    .iter()
+                    .rev()
+                    .filter_map(|param| match param.kind {
+                        GenericParamDefKind::Type { has_default, .. } => {
+                            Some((param.def_id, has_default))
                         }
-                    }).peekable();
+                        GenericParamDefKind::Lifetime => None,
+                    })
+                    .peekable();
                 let has_default = {
                     let has_default = type_params.peek().map(|(_, has_default)| has_default);
                     *has_default.unwrap_or(&false)
@@ -416,9 +433,10 @@ impl PrintContext {
 
         print_regions(f, "<", 0, own_counts.lifetimes)?;
 
-        let tps = substs.types()
-                        .take(own_counts.types - num_supplied_defaults)
-                        .skip(has_self as usize);
+        let tps = substs
+            .types()
+            .take(own_counts.types - num_supplied_defaults)
+            .skip(has_self as usize);
 
         for ty in tps {
             start_or_continue(f, "<", ", ")?;
@@ -427,12 +445,18 @@ impl PrintContext {
 
         for projection in projections {
             start_or_continue(f, "<", ", ")?;
-            ty::tls::with(|tcx|
-                print!(f, self,
-                       write("{}=",
-                             tcx.associated_item(projection.projection_ty.item_def_id).name),
-                       print_display(projection.ty))
-            )?;
+            ty::tls::with(|tcx| {
+                print!(
+                    f,
+                    self,
+                    write(
+                        "{}=",
+                        tcx.associated_item(projection.projection_ty.item_def_id)
+                            .name
+                    ),
+                    print_display(projection.ty)
+                )
+            })?;
         }
 
         start_or_continue(f, "", ">")?;
@@ -463,18 +487,23 @@ impl PrintContext {
         Ok(())
     }
 
-    fn in_binder<'a, 'gcx, 'tcx, T, U, F>(&mut self,
-                                          f: &mut F,
-                                          tcx: TyCtxt<'a, 'gcx, 'tcx>,
-                                          original: &ty::Binder<T>,
-                                          lifted: Option<ty::Binder<U>>) -> fmt::Result
-        where T: Print, U: Print + TypeFoldable<'tcx>, F: fmt::Write
+    fn in_binder<'a, 'gcx, 'tcx, T, U, F>(
+        &mut self,
+        f: &mut F,
+        tcx: TyCtxt<'a, 'gcx, 'tcx>,
+        original: &ty::Binder<T>,
+        lifted: Option<ty::Binder<U>>,
+    ) -> fmt::Result
+    where
+        T: Print,
+        U: Print + TypeFoldable<'tcx>,
+        F: fmt::Write,
     {
         fn name_by_region_index(index: usize) -> InternedString {
             match index {
                 0 => Symbol::intern("'r"),
                 1 => Symbol::intern("'s"),
-                i => Symbol::intern(&format!("'t{}", i-2)),
+                i => Symbol::intern(&format!("'t{}", i - 2)),
             }.as_interned_str()
         }
 
@@ -505,29 +534,28 @@ impl PrintContext {
 
         let old_region_index = self.region_index;
         let mut region_index = old_region_index;
-        let new_value = tcx.replace_late_bound_regions(&value, |br| {
-            let _ = start_or_continue(f, "for<", ", ");
-            let br = match br {
-                ty::BrNamed(_, name) => {
-                    let _ = write!(f, "{}", name);
-                    br
-                }
-                ty::BrAnon(_) |
-                ty::BrFresh(_) |
-                ty::BrEnv => {
-                    let name = loop {
-                        let name = name_by_region_index(region_index);
-                        region_index += 1;
-                        if !self.is_name_used(&name) {
-                            break name;
-                        }
-                    };
-                    let _ = write!(f, "{}", name);
-                    ty::BrNamed(tcx.hir.local_def_id(CRATE_NODE_ID), name)
-                }
-            };
-            tcx.mk_region(ty::ReLateBound(ty::DebruijnIndex::INNERMOST, br))
-        }).0;
+        let new_value =
+            tcx.replace_late_bound_regions(&value, |br| {
+                let _ = start_or_continue(f, "for<", ", ");
+                let br = match br {
+                    ty::BrNamed(_, name) => {
+                        let _ = write!(f, "{}", name);
+                        br
+                    }
+                    ty::BrAnon(_) | ty::BrFresh(_) | ty::BrEnv => {
+                        let name = loop {
+                            let name = name_by_region_index(region_index);
+                            region_index += 1;
+                            if !self.is_name_used(&name) {
+                                break name;
+                            }
+                        };
+                        let _ = write!(f, "{}", name);
+                        ty::BrNamed(tcx.hir.local_def_id(CRATE_NODE_ID), name)
+                    }
+                };
+                tcx.mk_region(ty::ReLateBound(ty::DebruijnIndex::INNERMOST, br))
+            }).0;
         start_or_continue(f, "", "> ")?;
 
         // Push current state to gcx, and restore after writing new_value.
@@ -555,14 +583,14 @@ pub fn identify_regions() -> bool {
     ty::tls::with(|tcx| tcx.sess.opts.debugging_opts.identify_regions)
 }
 
-pub fn parameterized<F: fmt::Write>(f: &mut F,
-                                    substs: &subst::Substs,
-                                    did: DefId,
-                                    projections: &[ty::ProjectionPredicate])
-                                    -> fmt::Result {
+pub fn parameterized<F: fmt::Write>(
+    f: &mut F,
+    substs: &subst::Substs,
+    did: DefId,
+    projections: &[ty::ProjectionPredicate],
+) -> fmt::Result {
     PrintContext::new().parameterized(f, substs, did, projections)
 }
-
 
 impl<'a, T: Print> Print for &'a T {
     fn print<F: fmt::Write>(&self, f: &mut F, cx: &mut PrintContext) -> fmt::Result {
@@ -606,53 +634,49 @@ impl fmt::Debug for ty::GenericParamDef {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let type_name = match self.kind {
             ty::GenericParamDefKind::Lifetime => "Lifetime",
-            ty::GenericParamDefKind::Type {..} => "Type",
+            ty::GenericParamDefKind::Type { .. } => "Type",
         };
-        write!(f, "{}({}, {:?}, {})",
-               type_name,
-               self.name,
-               self.def_id,
-               self.index)
+        write!(
+            f,
+            "{}({}, {:?}, {})",
+            type_name, self.name, self.def_id, self.index
+        )
     }
 }
 
 impl fmt::Debug for ty::TraitDef {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        ty::tls::with(|tcx| {
-            write!(f, "{}", tcx.item_path_str(self.def_id))
-        })
+        ty::tls::with(|tcx| write!(f, "{}", tcx.item_path_str(self.def_id)))
     }
 }
 
 impl fmt::Debug for ty::AdtDef {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        ty::tls::with(|tcx| {
-            write!(f, "{}", tcx.item_path_str(self.did))
-        })
+        ty::tls::with(|tcx| write!(f, "{}", tcx.item_path_str(self.did)))
     }
 }
 
 impl<'tcx> fmt::Debug for ty::ClosureUpvar<'tcx> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "ClosureUpvar({:?},{:?})",
-               self.def,
-               self.ty)
+        write!(f, "ClosureUpvar({:?},{:?})", self.def, self.ty)
     }
 }
 
 impl fmt::Debug for ty::UpvarId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "UpvarId({:?};`{}`;{:?})",
-               self.var_id,
-               ty::tls::with(|tcx| tcx.hir.name(tcx.hir.hir_to_node_id(self.var_id))),
-               self.closure_expr_id)
+        write!(
+            f,
+            "UpvarId({:?};`{}`;{:?})",
+            self.var_id,
+            ty::tls::with(|tcx| tcx.hir.name(tcx.hir.hir_to_node_id(self.var_id))),
+            self.closure_expr_id
+        )
     }
 }
 
 impl<'tcx> fmt::Debug for ty::UpvarBorrow<'tcx> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "UpvarBorrow({:?}, {:?})",
-               self.kind, self.region)
+        write!(f, "UpvarBorrow({:?}, {:?})", self.kind, self.region)
     }
 }
 

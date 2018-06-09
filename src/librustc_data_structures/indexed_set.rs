@@ -8,6 +8,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use bitslice::{bitwise, Intersect, Subtract, Union};
+use bitslice::{BitSlice, Word};
+use indexed_vec::Idx;
+use rustc_serialize;
 use std::borrow::{Borrow, BorrowMut, ToOwned};
 use std::fmt;
 use std::iter;
@@ -15,10 +19,6 @@ use std::marker::PhantomData;
 use std::mem;
 use std::ops::{Deref, DerefMut, Range};
 use std::slice;
-use bitslice::{BitSlice, Word};
-use bitslice::{bitwise, Union, Subtract, Intersect};
-use indexed_vec::Idx;
-use rustc_serialize;
 
 /// Represents a set (or packed family of sets), of some element type
 /// E, where each E is identified by some unique index type `T`.
@@ -33,14 +33,15 @@ pub struct IdxSetBuf<T: Idx> {
 
 impl<T: Idx> Clone for IdxSetBuf<T> {
     fn clone(&self) -> Self {
-        IdxSetBuf { _pd: PhantomData, bits: self.bits.clone() }
+        IdxSetBuf {
+            _pd: PhantomData,
+            bits: self.bits.clone(),
+        }
     }
 }
 
 impl<T: Idx> rustc_serialize::Encodable for IdxSetBuf<T> {
-    fn encode<E: rustc_serialize::Encoder>(&self,
-                                     encoder: &mut E)
-                                     -> Result<(), E::Error> {
+    fn encode<E: rustc_serialize::Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         self.bits.encode(encoder)
     }
 }
@@ -55,7 +56,6 @@ impl<T: Idx> rustc_serialize::Decodable for IdxSetBuf<T> {
         })
     }
 }
-
 
 // pnkfelix wants to have this be `IdxSet<T>([Word]) and then pass
 // around `&mut IdxSet<T>` or `&IdxSet<T>`.
@@ -95,17 +95,13 @@ impl<T: Idx> ToOwned for IdxSet<T> {
 
 impl<T: Idx> fmt::Debug for IdxSetBuf<T> {
     fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
-        w.debug_list()
-         .entries(self.iter())
-         .finish()
+        w.debug_list().entries(self.iter()).finish()
     }
 }
 
 impl<T: Idx> fmt::Debug for IdxSet<T> {
     fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
-        w.debug_list()
-         .entries(self.iter())
-         .finish()
+        w.debug_list().entries(self.iter()).finish()
     }
 }
 
@@ -188,14 +184,14 @@ impl<T: Idx> IdxSet<T> {
 
         // all the blocks above it have to be completely cleared.
         if trim_block < self.bits.len() {
-            for b in &mut self.bits[trim_block+1..] {
+            for b in &mut self.bits[trim_block + 1..] {
                 *b = 0;
             }
 
             // at that block, the `universe_size % word_bits` lsbs
             // should remain.
             let remaining_bits = universe_size % word_bits;
-            let mask = (1<<remaining_bits)-1;
+            let mask = (1 << remaining_bits) - 1;
             self.bits[trim_block] &= mask;
         }
     }
@@ -275,7 +271,7 @@ impl<'a, T: Idx> Iterator for Iter<'a, T> {
                 if bit_pos != word_bits {
                     let bit = 1 << bit_pos;
                     *word ^= bit;
-                    return Some(T::new(bit_pos + offset))
+                    return Some(T::new(bit_pos + offset));
                 }
             }
 
@@ -302,10 +298,7 @@ fn test_trim_to() {
 #[test]
 fn test_set_up_to() {
     for i in 0..128 {
-        for mut idx_buf in
-            vec![IdxSetBuf::new_empty(128), IdxSetBuf::new_filled(128)]
-            .into_iter()
-        {
+        for mut idx_buf in vec![IdxSetBuf::new_empty(128), IdxSetBuf::new_filled(128)].into_iter() {
             idx_buf.set_up_to(i);
 
             let elems: Vec<usize> = idx_buf.iter().collect();

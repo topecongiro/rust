@@ -11,47 +11,50 @@
 //! This module contains files for saving intermediate work-products.
 
 use persist::fs::*;
-use rustc::dep_graph::{WorkProduct, WorkProductId, WorkProductFileKind};
+use rustc::dep_graph::{WorkProduct, WorkProductFileKind, WorkProductId};
 use rustc::session::Session;
 use rustc::util::fs::link_or_copy;
-use std::path::PathBuf;
 use std::fs as std_fs;
+use std::path::PathBuf;
 
 pub fn copy_cgu_workproducts_to_incr_comp_cache_dir(
     sess: &Session,
     cgu_name: &str,
-    files: &[(WorkProductFileKind, PathBuf)]
+    files: &[(WorkProductFileKind, PathBuf)],
 ) -> Option<(WorkProductId, WorkProduct)> {
-    debug!("copy_cgu_workproducts_to_incr_comp_cache_dir({:?},{:?})",
-           cgu_name,
-           files);
+    debug!(
+        "copy_cgu_workproducts_to_incr_comp_cache_dir({:?},{:?})",
+        cgu_name, files
+    );
     if sess.opts.incremental.is_none() {
-        return None
+        return None;
     }
 
-    let saved_files: Option<Vec<_>> =
-        files.iter()
-             .map(|&(kind, ref path)| {
-                 let extension = match kind {
-                     WorkProductFileKind::Object => "o",
-                     WorkProductFileKind::Bytecode => "bc",
-                     WorkProductFileKind::BytecodeCompressed => "bc.z",
-                 };
-                 let file_name = format!("{}.{}", cgu_name, extension);
-                 let path_in_incr_dir = in_incr_comp_dir_sess(sess, &file_name);
-                 match link_or_copy(path, &path_in_incr_dir) {
-                     Ok(_) => Some((kind, file_name)),
-                     Err(err) => {
-                         sess.warn(&format!("error copying object file `{}` \
-                                             to incremental directory as `{}`: {}",
-                                            path.display(),
-                                            path_in_incr_dir.display(),
-                                            err));
-                         None
-                     }
-                 }
-             })
-             .collect();
+    let saved_files: Option<Vec<_>> = files
+        .iter()
+        .map(|&(kind, ref path)| {
+            let extension = match kind {
+                WorkProductFileKind::Object => "o",
+                WorkProductFileKind::Bytecode => "bc",
+                WorkProductFileKind::BytecodeCompressed => "bc.z",
+            };
+            let file_name = format!("{}.{}", cgu_name, extension);
+            let path_in_incr_dir = in_incr_comp_dir_sess(sess, &file_name);
+            match link_or_copy(path, &path_in_incr_dir) {
+                Ok(_) => Some((kind, file_name)),
+                Err(err) => {
+                    sess.warn(&format!(
+                        "error copying object file `{}` \
+                         to incremental directory as `{}`: {}",
+                        path.display(),
+                        path_in_incr_dir.display(),
+                        err
+                    ));
+                    None
+                }
+            }
+        })
+        .collect();
     let saved_files = match saved_files {
         None => return None,
         Some(v) => v,
@@ -70,11 +73,13 @@ pub fn delete_workproduct_files(sess: &Session, work_product: &WorkProduct) {
     for &(_, ref file_name) in &work_product.saved_files {
         let path = in_incr_comp_dir_sess(sess, file_name);
         match std_fs::remove_file(&path) {
-            Ok(()) => { }
+            Ok(()) => {}
             Err(err) => {
-                sess.warn(
-                    &format!("file-system error deleting outdated file `{}`: {}",
-                             path.display(), err));
+                sess.warn(&format!(
+                    "file-system error deleting outdated file `{}`: {}",
+                    path.display(),
+                    err
+                ));
             }
         }
     }

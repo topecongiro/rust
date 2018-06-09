@@ -12,16 +12,15 @@ use std::fmt;
 use std::str::FromStr;
 
 /// The edition of the compiler (RFC 2052)
-#[derive(Clone, Copy, Hash, PartialOrd, Ord, Eq, PartialEq, Debug, RustcEncodable, RustcDecodable)]
+#[derive(Clone, Copy, Hash, PartialOrd, Ord, Eq, PartialEq, Debug, RustcEncodable,
+         RustcDecodable)]
 #[non_exhaustive]
 pub enum Edition {
     // editions must be kept in order, newest to oldest
-
     /// The 2015 edition
     Edition2015,
     /// The 2018 edition
     Edition2018,
-
     // when adding new editions, be sure to update:
     //
     // - Update the `ALL_EDITIONS` const
@@ -76,7 +75,7 @@ impl FromStr for Edition {
         match s {
             "2015" => Ok(Edition::Edition2015),
             "2018" => Ok(Edition::Edition2018),
-            _ => Err(())
+            _ => Err(()),
         }
     }
 }

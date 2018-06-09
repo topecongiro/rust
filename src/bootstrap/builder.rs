@@ -696,13 +696,10 @@ impl<'a> Builder<'a> {
     ) -> Command {
         let mut cargo = Command::new(&self.initial_cargo);
         let out_dir = self.stage_out(compiler, mode);
-        cargo
-            .env("CARGO_TARGET_DIR", out_dir)
-            .arg(cmd);
+        cargo.env("CARGO_TARGET_DIR", out_dir).arg(cmd);
 
         if cmd != "install" {
-            cargo.arg("--target")
-                 .arg(target);
+            cargo.arg("--target").arg(target);
         } else {
             assert_eq!(target, compiler.host);
         }
@@ -800,7 +797,10 @@ impl<'a> Builder<'a> {
             cargo.env("RUSTC_ERROR_FORMAT", error_format);
         }
         if cmd != "build" && cmd != "check" && want_rustdoc {
-            cargo.env("RUSTDOC_LIBDIR", self.sysroot_libdir(compiler, self.config.build));
+            cargo.env(
+                "RUSTDOC_LIBDIR",
+                self.sysroot_libdir(compiler, self.config.build),
+            );
         }
 
         if mode.is_tool() {

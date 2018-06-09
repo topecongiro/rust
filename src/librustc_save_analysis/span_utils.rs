@@ -38,12 +38,11 @@ impl<'a> SpanUtils<'a> {
 
     pub fn make_path_string(path: &FileName) -> String {
         match *path {
-            FileName::Real(ref path) if !path.is_absolute() =>
-                env::current_dir()
-                    .unwrap()
-                    .join(&path)
-                    .display()
-                    .to_string(),
+            FileName::Real(ref path) if !path.is_absolute() => env::current_dir()
+                .unwrap()
+                .join(&path)
+                .display()
+                .to_string(),
             _ => path.to_string(),
         }
     }
@@ -124,8 +123,10 @@ impl<'a> SpanUtils<'a> {
         loop {
             let next = toks.real_token();
 
-            if (next.tok == token::Lt || next.tok == token::Colon) && angle_count == 0
-                && bracket_count == 0 && prev.tok.is_ident()
+            if (next.tok == token::Lt || next.tok == token::Colon)
+                && angle_count == 0
+                && bracket_count == 0
+                && prev.tok.is_ident()
             {
                 result = Some(prev.sp);
             }
@@ -151,7 +152,8 @@ impl<'a> SpanUtils<'a> {
             }
             prev = next;
         }
-        #[cfg(debug_assertions)] {
+        #[cfg(debug_assertions)]
+        {
             if angle_count != 0 || bracket_count != 0 {
                 let loc = self.sess.codemap().lookup_char_pos(span.lo());
                 span_bug!(
@@ -279,7 +281,8 @@ impl<'a> SpanUtils<'a> {
         };
 
         //If the span comes from a fake filemap, filter it.
-        if !self.sess
+        if !self
+            .sess
             .codemap()
             .lookup_char_pos(parent.lo())
             .file
@@ -295,12 +298,12 @@ impl<'a> SpanUtils<'a> {
 }
 
 macro_rules! filter {
-    ($util: expr, $span: expr, $parent: expr, None) => {
+    ($util:expr, $span:expr, $parent:expr,None) => {
         if $util.filter_generated($span, $parent) {
             return None;
         }
     };
-    ($util: expr, $span: ident, $parent: expr) => {
+    ($util:expr, $span:ident, $parent:expr) => {
         if $util.filter_generated($span, $parent) {
             return;
         }

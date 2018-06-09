@@ -11,13 +11,13 @@
 use rustc::util::nodemap::DefIdSet;
 use std::mem;
 
-use clean::{self, AttributesExt, NestedAttributesExt};
 use clean::Item;
-use plugins;
+use clean::{self, AttributesExt, NestedAttributesExt};
 use fold;
 use fold::DocFolder;
 use fold::FoldItem::Strip;
 use passes::ImplStripper;
+use plugins;
 
 /// Strip items marked `#[doc(hidden)]`
 pub fn strip_hidden(krate: clean::Crate) -> plugins::PluginResult {
@@ -25,12 +25,17 @@ pub fn strip_hidden(krate: clean::Crate) -> plugins::PluginResult {
 
     // strip all #[doc(hidden)] items
     let krate = {
-        let mut stripper = Stripper{ retained: &mut retained, update_retained: true };
+        let mut stripper = Stripper {
+            retained: &mut retained,
+            update_retained: true,
+        };
         stripper.fold_crate(krate)
     };
 
     // strip all impls referencing stripped items
-    let mut stripper = ImplStripper { retained: &retained };
+    let mut stripper = ImplStripper {
+        retained: &retained,
+    };
     stripper.fold_crate(krate)
 }
 

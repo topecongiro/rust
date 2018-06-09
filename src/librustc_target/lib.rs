@@ -21,10 +21,11 @@
 //! one that doesn't; the one that doesn't might get decent parallel
 //! build speedups.
 
-#![doc(html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
-      html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
-      html_root_url = "https://doc.rust-lang.org/nightly/")]
-
+#![doc(
+    html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
+    html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
+    html_root_url = "https://doc.rust-lang.org/nightly/"
+)]
 #![feature(box_syntax)]
 #![feature(const_fn)]
 #![feature(fs_read_write)]
@@ -34,7 +35,8 @@
 #[macro_use]
 extern crate bitflags;
 extern crate serialize;
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate log;
 
 extern crate serialize as rustc_serialize; // used by deriving
 

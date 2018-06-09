@@ -12,8 +12,9 @@ use rustc::hir::def_id::DefId;
 use rustc::hir::intravisit::{self, NestedVisitorMap, Visitor};
 use rustc::hir::map::definitions::DefPathData;
 use rustc::hir::{self, ImplPolarity};
-use rustc::traits::{Clause, Clauses, DomainGoal, Goal, PolyDomainGoal, ProgramClause,
-                    WhereClauseAtom};
+use rustc::traits::{
+    Clause, Clauses, DomainGoal, Goal, PolyDomainGoal, ProgramClause, WhereClauseAtom,
+};
 use rustc::ty::subst::Substs;
 use rustc::ty::{self, Slice, TyCtxt};
 use rustc_data_structures::fx::FxHashSet;
@@ -378,7 +379,8 @@ impl<'a, 'tcx> ClauseDumper<'a, 'tcx> {
             }
 
             if let Some(clauses) = clauses {
-                let mut err = self.tcx
+                let mut err = self
+                    .tcx
                     .sess
                     .struct_span_err(attr.span, "program clause dump");
 

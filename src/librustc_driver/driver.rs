@@ -8,40 +8,41 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use super::Compilation;
 use rustc::dep_graph::DepGraph;
-use rustc::hir::{self, map as hir_map};
 use rustc::hir::lowering::lower_crate;
+use rustc::hir::{self, map as hir_map};
 use rustc::ich::Fingerprint;
-use rustc_data_structures::stable_hasher::StableHasher;
-use rustc_mir as mir;
-use rustc::session::{CompileResult, CrateDisambiguator, Session};
-use rustc::session::CompileIncomplete;
-use rustc::session::config::{self, Input, OutputFilenames, OutputType};
-use rustc::session::search_paths::PathKind;
 use rustc::lint;
-use rustc::middle::{self, reachable, resolve_lifetime, stability};
 use rustc::middle::cstore::CrateStoreDyn;
 use rustc::middle::privacy::AccessLevels;
-use rustc::ty::{self, AllArenas, Resolutions, TyCtxt};
+use rustc::middle::{self, reachable, resolve_lifetime, stability};
+use rustc::session::config::{self, Input, OutputFilenames, OutputType};
+use rustc::session::search_paths::PathKind;
+use rustc::session::CompileIncomplete;
+use rustc::session::{CompileResult, CrateDisambiguator, Session};
 use rustc::traits;
+use rustc::ty::{self, AllArenas, Resolutions, TyCtxt};
 use rustc::util::common::{install_panic_hook, time, ErrorReported};
 use rustc_allocator as allocator;
 use rustc_borrowck as borrowck;
+use rustc_codegen_utils::codegen_backend::CodegenBackend;
+use rustc_data_structures::stable_hasher::StableHasher;
 use rustc_incremental;
-use rustc_resolve::{MakeGlobMap, Resolver, ResolverArenas};
 use rustc_metadata::creader::CrateLoader;
 use rustc_metadata::cstore::{self, CStore};
-use rustc_traits;
-use rustc_codegen_utils::codegen_backend::CodegenBackend;
-use rustc_typeck as typeck;
-use rustc_privacy;
-use rustc_plugin::registry::Registry;
-use rustc_plugin as plugin;
+use rustc_mir as mir;
 use rustc_passes::{self, ast_validation, hir_stats, loops, rvalue_promotion};
-use super::Compilation;
+use rustc_plugin as plugin;
+use rustc_plugin::registry::Registry;
+use rustc_privacy;
+use rustc_resolve::{MakeGlobMap, Resolver, ResolverArenas};
+use rustc_traits;
+use rustc_typeck as typeck;
 
 use serialize::json;
 
+use rustc_data_structures::sync::{self, Lock, Lrc};
 use std::any::Any;
 use std::env;
 use std::ffi::{OsStr, OsString};
@@ -49,15 +50,14 @@ use std::fs;
 use std::io::{self, Write};
 use std::iter;
 use std::path::{Path, PathBuf};
-use rustc_data_structures::sync::{self, Lrc, Lock};
 use std::sync::mpsc;
-use syntax::{self, ast, attr, diagnostics, visit};
 use syntax::ext::base::ExtCtxt;
 use syntax::fold::Folder;
 use syntax::parse::{self, PResult};
 use syntax::util::node_count::NodeCounter;
-use syntax_pos::FileName;
+use syntax::{self, ast, attr, diagnostics, visit};
 use syntax_ext;
+use syntax_pos::FileName;
 
 use derive_registrar;
 use pretty::ReplaceBodyWithLoop;
@@ -67,21 +67,19 @@ use profile;
 #[cfg(not(parallel_queries))]
 pub fn spawn_thread_pool<F: FnOnce(config::Options) -> R + sync::Send, R: sync::Send>(
     opts: config::Options,
-    f: F
+    f: F,
 ) -> R {
-    ty::tls::GCX_PTR.set(&Lock::new(0), || {
-        f(opts)
-    })
+    ty::tls::GCX_PTR.set(&Lock::new(0), || f(opts))
 }
 
 #[cfg(parallel_queries)]
 pub fn spawn_thread_pool<F: FnOnce(config::Options) -> R + sync::Send, R: sync::Send>(
     opts: config::Options,
-    f: F
+    f: F,
 ) -> R {
+    use rayon::{ThreadPool, ThreadPoolBuilder};
     use syntax;
     use syntax_pos;
-    use rayon::{ThreadPoolBuilder, ThreadPool};
 
     let gcx_ptr = &Lock::new(0);
 
@@ -90,9 +88,7 @@ pub fn spawn_thread_pool<F: FnOnce(config::Options) -> R + sync::Send, R: sync::
         .deadlock_handler(|| unsafe { ty::maps::handle_deadlock() })
         .stack_size(16 * 1024 * 1024);
 
-    let with_pool = move |pool: &ThreadPool| {
-        pool.install(move || f(opts))
-    };
+    let with_pool = move |pool: &ThreadPool| pool.install(move || f(opts));
 
     syntax::GLOBALS.with(|syntax_globals| {
         syntax_pos::GLOBALS.with(|syntax_pos_globals| {
@@ -103,11 +99,7 @@ pub fn spawn_thread_pool<F: FnOnce(config::Options) -> R + sync::Send, R: sync::
             let main_handler = move |worker: &mut FnMut()| {
                 syntax::GLOBALS.set(syntax_globals, || {
                     syntax_pos::GLOBALS.set(syntax_pos_globals, || {
-                        ty::tls::with_thread_locals(|| {
-                            ty::tls::GCX_PTR.set(gcx_ptr, || {
-                                worker()
-                            })
-                        })
+                        ty::tls::with_thread_locals(|| ty::tls::GCX_PTR.set(gcx_ptr, || worker()))
                     })
                 })
             };
@@ -129,7 +121,7 @@ pub fn compile_input(
     control: &CompileController,
 ) -> CompileResult {
     macro_rules! controller_entry_point {
-        ($point: ident, $tsess: expr, $make_state: expr, $phase_result: expr) => {{
+        ($point:ident, $tsess:expr, $make_state:expr, $phase_result:expr) => {{
             let state = &mut $make_state;
             let phase_result: &CompileResult = &$phase_result;
             if phase_result.is_ok() || control.$point.run_callback_on_error {
@@ -141,7 +133,7 @@ pub fn compile_input(
                 // if there are no errors?
                 return $tsess.compile_status();
             }
-        }}
+        }};
     }
 
     if sess.profile_queries() {
@@ -443,13 +435,7 @@ impl<'a> ::CompilerCalls<'a> for CompileController<'a> {
         descriptions: &::errors::registry::Registry,
         output: ::ErrorOutputType,
     ) -> Compilation {
-        ::RustcDefaultCalls.early_callback(
-            matches,
-            sopts,
-            cfg,
-            descriptions,
-            output,
-        )
+        ::RustcDefaultCalls.early_callback(matches, sopts, cfg, descriptions, output)
     }
     fn no_input(
         &mut self,
@@ -460,14 +446,7 @@ impl<'a> ::CompilerCalls<'a> for CompileController<'a> {
         ofile: &Option<PathBuf>,
         descriptions: &::errors::registry::Registry,
     ) -> Option<(Input, Option<PathBuf>)> {
-        ::RustcDefaultCalls.no_input(
-            matches,
-            sopts,
-            cfg,
-            odir,
-            ofile,
-            descriptions,
-        )
+        ::RustcDefaultCalls.no_input(matches, sopts, cfg, odir, ofile, descriptions)
     }
     fn late_callback(
         &mut self,
@@ -479,13 +458,20 @@ impl<'a> ::CompilerCalls<'a> for CompileController<'a> {
         odir: &Option<PathBuf>,
         ofile: &Option<PathBuf>,
     ) -> Compilation {
-        ::RustcDefaultCalls
-            .late_callback(codegen_backend, matches, sess, cstore, input, odir, ofile)
+        ::RustcDefaultCalls.late_callback(
+            codegen_backend,
+            matches,
+            sess,
+            cstore,
+            input,
+            odir,
+            ofile,
+        )
     }
     fn build_controller(
         self: Box<Self>,
         _: &Session,
-        _: &::getopts::Matches
+        _: &::getopts::Matches,
     ) -> CompileController<'a> {
         *self
     }
@@ -809,12 +795,8 @@ pub fn phase_2_configure_and_expand_inner<'a, F>(
 where
     F: FnOnce(&ast::Crate) -> CompileResult,
 {
-    let (mut krate, features) = syntax::config::features(
-        krate,
-        &sess.parse_sess,
-        sess.opts.test,
-        sess.edition(),
-    );
+    let (mut krate, features) =
+        syntax::config::features(krate, &sess.parse_sess, sess.opts.test, sess.edition());
     // these need to be set "early" so that expansion sees `quote` if enabled.
     sess.init_features(features);
 
@@ -992,7 +974,8 @@ where
             ecx.check_unused_macros();
         });
 
-        let mut missing_fragment_specifiers: Vec<_> = ecx.parse_sess
+        let mut missing_fragment_specifiers: Vec<_> = ecx
+            .parse_sess
             .missing_fragment_specifiers
             .borrow()
             .iter()
@@ -1321,7 +1304,9 @@ pub fn phase_4_codegen<'a, 'tcx>(
         ::rustc::middle::dependency_format::calculate(tcx)
     });
 
-    let codegen = time(tcx.sess, "codegen", move || codegen_backend.codegen_crate(tcx, rx));
+    let codegen = time(tcx.sess, "codegen", move || {
+        codegen_backend.codegen_crate(tcx, rx)
+    });
     if tcx.sess.profile_queries() {
         profile::dump(&tcx.sess, "profile_queries".to_string())
     }
@@ -1418,7 +1403,8 @@ fn write_out_deps(sess: &Session, outputs: &OutputFilenames, out_filenames: &Vec
     let result = (|| -> io::Result<()> {
         // Build a list of files used to compile the output and
         // write Makefile-compatible dependency rules
-        let files: Vec<String> = sess.codemap()
+        let files: Vec<String> = sess
+            .codemap()
             .files()
             .iter()
             .filter(|fmap| fmap.is_real_file())
@@ -1579,7 +1565,8 @@ pub fn build_output_filenames(
             };
 
             // If a crate name is present, we use it as the link name
-            let stem = sess.opts
+            let stem = sess
+                .opts
                 .crate_name
                 .clone()
                 .or_else(|| attr::find_crate_name(attrs).map(|n| n.to_string()))
@@ -1595,7 +1582,8 @@ pub fn build_output_filenames(
         }
 
         Some(ref out_file) => {
-            let unnamed_output_types = sess.opts
+            let unnamed_output_types = sess
+                .opts
                 .output_types
                 .values()
                 .filter(|a| a.is_none())

@@ -8,10 +8,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![doc(html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
-      html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
-      html_root_url = "https://doc.rust-lang.org/nightly/")]
-
+#![doc(
+    html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
+    html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
+    html_root_url = "https://doc.rust-lang.org/nightly/"
+)]
 #![feature(custom_attribute)]
 #![allow(unused_attributes)]
 #![feature(range_contains)]
@@ -19,12 +20,12 @@
 #![feature(optin_builtin_traits)]
 
 extern crate atty;
-extern crate termcolor;
 #[cfg(unix)]
 extern crate libc;
 extern crate rustc_data_structures;
 extern crate serialize as rustc_serialize;
 extern crate syntax_pos;
+extern crate termcolor;
 extern crate unicode_width;
 
 pub use emitter::ColorConfig;
@@ -33,35 +34,35 @@ use self::Level::*;
 
 use emitter::{Emitter, EmitterWriter};
 
-use rustc_data_structures::sync::{self, Lrc, Lock, LockCell};
 use rustc_data_structures::fx::FxHashSet;
 use rustc_data_structures::stable_hasher::StableHasher;
+use rustc_data_structures::sync::{self, Lock, LockCell, Lrc};
 
 use std::borrow::Cow;
 use std::cell::Cell;
-use std::{error, fmt};
+use std::panic;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::SeqCst;
-use std::panic;
+use std::{error, fmt};
 
-use termcolor::{ColorSpec, Color};
+use termcolor::{Color, ColorSpec};
 
 mod diagnostic;
 mod diagnostic_builder;
 pub mod emitter;
-mod snippet;
-pub mod registry;
-mod styled_buffer;
 mod lock;
+pub mod registry;
+mod snippet;
+mod styled_buffer;
 
-use syntax_pos::{BytePos, Loc, FileLinesResult, FileMap, FileName, MultiSpan, Span, NO_EXPANSION};
+use syntax_pos::{BytePos, FileLinesResult, FileMap, FileName, Loc, MultiSpan, Span, NO_EXPANSION};
 
 #[derive(Copy, Clone, Debug, PartialEq, Hash, RustcEncodable, RustcDecodable)]
 pub enum Applicability {
     MachineApplicable,
     HasPlaceholders,
     MaybeIncorrect,
-    Unspecified
+    Unspecified,
 }
 
 #[derive(Clone, Debug, PartialEq, Hash, RustcEncodable, RustcDecodable)]
@@ -125,14 +126,15 @@ pub trait CodeMapper {
 
 impl CodeSuggestion {
     /// Returns the assembled code suggestions and whether they should be shown with an underline.
-    pub fn splice_lines(&self, cm: &CodeMapperDyn)
-                        -> Vec<(String, Vec<SubstitutionPart>)> {
+    pub fn splice_lines(&self, cm: &CodeMapperDyn) -> Vec<(String, Vec<SubstitutionPart>)> {
         use syntax_pos::{CharPos, Loc, Pos};
 
-        fn push_trailing(buf: &mut String,
-                         line_opt: Option<&Cow<str>>,
-                         lo: &Loc,
-                         hi_opt: Option<&Loc>) {
+        fn push_trailing(
+            buf: &mut String,
+            line_opt: Option<&Cow<str>>,
+            lo: &Loc,
+            hi_opt: Option<&Loc>,
+        ) {
             let (lo, hi_opt) = (lo.col.to_usize(), hi_opt.map(|hi| hi.col.to_usize()));
             if let Some(line) = line_opt {
                 if let Some(lo) = line.char_indices().map(|(i, _)| i).nth(lo) {
@@ -150,65 +152,79 @@ impl CodeSuggestion {
 
         assert!(!self.substitutions.is_empty());
 
-        self.substitutions.iter().cloned().map(|mut substitution| {
-            // Assumption: all spans are in the same file, and all spans
-            // are disjoint. Sort in ascending order.
-            substitution.parts.sort_by_key(|part| part.span.lo());
+        self.substitutions
+            .iter()
+            .cloned()
+            .map(|mut substitution| {
+                // Assumption: all spans are in the same file, and all spans
+                // are disjoint. Sort in ascending order.
+                substitution.parts.sort_by_key(|part| part.span.lo());
 
-            // Find the bounding span.
-            let lo = substitution.parts.iter().map(|part| part.span.lo()).min().unwrap();
-            let hi = substitution.parts.iter().map(|part| part.span.hi()).min().unwrap();
-            let bounding_span = Span::new(lo, hi, NO_EXPANSION);
-            let lines = cm.span_to_lines(bounding_span).unwrap();
-            assert!(!lines.lines.is_empty());
+                // Find the bounding span.
+                let lo = substitution
+                    .parts
+                    .iter()
+                    .map(|part| part.span.lo())
+                    .min()
+                    .unwrap();
+                let hi = substitution
+                    .parts
+                    .iter()
+                    .map(|part| part.span.hi())
+                    .min()
+                    .unwrap();
+                let bounding_span = Span::new(lo, hi, NO_EXPANSION);
+                let lines = cm.span_to_lines(bounding_span).unwrap();
+                assert!(!lines.lines.is_empty());
 
-            // To build up the result, we do this for each span:
-            // - push the line segment trailing the previous span
-            //   (at the beginning a "phantom" span pointing at the start of the line)
-            // - push lines between the previous and current span (if any)
-            // - if the previous and current span are not on the same line
-            //   push the line segment leading up to the current span
-            // - splice in the span substitution
-            //
-            // Finally push the trailing line segment of the last span
-            let fm = &lines.file;
-            let mut prev_hi = cm.lookup_char_pos(bounding_span.lo());
-            prev_hi.col = CharPos::from_usize(0);
+                // To build up the result, we do this for each span:
+                // - push the line segment trailing the previous span
+                //   (at the beginning a "phantom" span pointing at the start of the line)
+                // - push lines between the previous and current span (if any)
+                // - if the previous and current span are not on the same line
+                //   push the line segment leading up to the current span
+                // - splice in the span substitution
+                //
+                // Finally push the trailing line segment of the last span
+                let fm = &lines.file;
+                let mut prev_hi = cm.lookup_char_pos(bounding_span.lo());
+                prev_hi.col = CharPos::from_usize(0);
 
-            let mut prev_line = fm.get_line(lines.lines[0].line_index);
-            let mut buf = String::new();
+                let mut prev_line = fm.get_line(lines.lines[0].line_index);
+                let mut buf = String::new();
 
-            for part in &substitution.parts {
-                let cur_lo = cm.lookup_char_pos(part.span.lo());
-                if prev_hi.line == cur_lo.line {
-                    push_trailing(&mut buf, prev_line.as_ref(), &prev_hi, Some(&cur_lo));
-                } else {
-                    push_trailing(&mut buf, prev_line.as_ref(), &prev_hi, None);
-                    // push lines between the previous and current span (if any)
-                    for idx in prev_hi.line..(cur_lo.line - 1) {
-                        if let Some(line) = fm.get_line(idx) {
-                            buf.push_str(line.as_ref());
-                            buf.push('\n');
+                for part in &substitution.parts {
+                    let cur_lo = cm.lookup_char_pos(part.span.lo());
+                    if prev_hi.line == cur_lo.line {
+                        push_trailing(&mut buf, prev_line.as_ref(), &prev_hi, Some(&cur_lo));
+                    } else {
+                        push_trailing(&mut buf, prev_line.as_ref(), &prev_hi, None);
+                        // push lines between the previous and current span (if any)
+                        for idx in prev_hi.line..(cur_lo.line - 1) {
+                            if let Some(line) = fm.get_line(idx) {
+                                buf.push_str(line.as_ref());
+                                buf.push('\n');
+                            }
+                        }
+                        if let Some(cur_line) = fm.get_line(cur_lo.line - 1) {
+                            buf.push_str(&cur_line[..cur_lo.col.to_usize()]);
                         }
                     }
-                    if let Some(cur_line) = fm.get_line(cur_lo.line - 1) {
-                        buf.push_str(&cur_line[..cur_lo.col.to_usize()]);
-                    }
+                    buf.push_str(&part.snippet);
+                    prev_hi = cm.lookup_char_pos(part.span.hi());
+                    prev_line = fm.get_line(prev_hi.line - 1);
                 }
-                buf.push_str(&part.snippet);
-                prev_hi = cm.lookup_char_pos(part.span.hi());
-                prev_line = fm.get_line(prev_hi.line - 1);
-            }
-            // if the replacement already ends with a newline, don't print the next line
-            if !buf.ends_with('\n') {
-                push_trailing(&mut buf, prev_line.as_ref(), &prev_hi, None);
-            }
-            // remove trailing newlines
-            while buf.ends_with('\n') {
-                buf.pop();
-            }
-            (buf, substitution.parts)
-        }).collect()
+                // if the replacement already ends with a newline, don't print the next line
+                if !buf.ends_with('\n') {
+                    push_trailing(&mut buf, prev_line.as_ref(), &prev_hi, None);
+                }
+                // remove trailing newlines
+                while buf.ends_with('\n') {
+                    buf.pop();
+                }
+                (buf, substitution.parts)
+            })
+            .collect()
     }
 }
 
@@ -260,7 +276,7 @@ impl error::Error for ExplicitBug {
     }
 }
 
-pub use diagnostic::{Diagnostic, SubDiagnostic, DiagnosticStyledString, DiagnosticId};
+pub use diagnostic::{Diagnostic, DiagnosticId, DiagnosticStyledString, SubDiagnostic};
 pub use diagnostic_builder::DiagnosticBuilder;
 
 /// A handler deals with errors; certain errors
@@ -301,40 +317,45 @@ pub struct HandlerFlags {
 }
 
 impl Handler {
-    pub fn with_tty_emitter(color_config: ColorConfig,
-                            can_emit_warnings: bool,
-                            treat_err_as_bug: bool,
-                            cm: Option<Lrc<CodeMapperDyn>>)
-                            -> Handler {
+    pub fn with_tty_emitter(
+        color_config: ColorConfig,
+        can_emit_warnings: bool,
+        treat_err_as_bug: bool,
+        cm: Option<Lrc<CodeMapperDyn>>,
+    ) -> Handler {
         Handler::with_tty_emitter_and_flags(
             color_config,
             cm,
             HandlerFlags {
                 can_emit_warnings,
                 treat_err_as_bug,
-                .. Default::default()
-            })
+                ..Default::default()
+            },
+        )
     }
 
-    pub fn with_tty_emitter_and_flags(color_config: ColorConfig,
-                                      cm: Option<Lrc<CodeMapperDyn>>,
-                                      flags: HandlerFlags)
-                                      -> Handler {
+    pub fn with_tty_emitter_and_flags(
+        color_config: ColorConfig,
+        cm: Option<Lrc<CodeMapperDyn>>,
+        flags: HandlerFlags,
+    ) -> Handler {
         let emitter = Box::new(EmitterWriter::stderr(color_config, cm, false, false));
         Handler::with_emitter_and_flags(emitter, flags)
     }
 
-    pub fn with_emitter(can_emit_warnings: bool,
-                        treat_err_as_bug: bool,
-                        e: Box<Emitter + sync::Send>)
-                        -> Handler {
+    pub fn with_emitter(
+        can_emit_warnings: bool,
+        treat_err_as_bug: bool,
+        e: Box<Emitter + sync::Send>,
+    ) -> Handler {
         Handler::with_emitter_and_flags(
             e,
             HandlerFlags {
                 can_emit_warnings,
                 treat_err_as_bug,
-                .. Default::default()
-            })
+                ..Default::default()
+            },
+        )
     }
 
     pub fn with_emitter_and_flags(e: Box<Emitter + sync::Send>, flags: HandlerFlags) -> Handler {
@@ -368,10 +389,11 @@ impl Handler {
         DiagnosticBuilder::new(self, Level::Cancelled, "")
     }
 
-    pub fn struct_span_warn<'a, S: Into<MultiSpan>>(&'a self,
-                                                    sp: S,
-                                                    msg: &str)
-                                                    -> DiagnosticBuilder<'a> {
+    pub fn struct_span_warn<'a, S: Into<MultiSpan>>(
+        &'a self,
+        sp: S,
+        msg: &str,
+    ) -> DiagnosticBuilder<'a> {
         let mut result = DiagnosticBuilder::new(self, Level::Warning, msg);
         result.set_span(sp);
         if !self.flags.can_emit_warnings {
@@ -379,11 +401,12 @@ impl Handler {
         }
         result
     }
-    pub fn struct_span_warn_with_code<'a, S: Into<MultiSpan>>(&'a self,
-                                                              sp: S,
-                                                              msg: &str,
-                                                              code: DiagnosticId)
-                                                              -> DiagnosticBuilder<'a> {
+    pub fn struct_span_warn_with_code<'a, S: Into<MultiSpan>>(
+        &'a self,
+        sp: S,
+        msg: &str,
+        code: DiagnosticId,
+    ) -> DiagnosticBuilder<'a> {
         let mut result = DiagnosticBuilder::new(self, Level::Warning, msg);
         result.set_span(sp);
         result.code(code);
@@ -399,19 +422,21 @@ impl Handler {
         }
         result
     }
-    pub fn struct_span_err<'a, S: Into<MultiSpan>>(&'a self,
-                                                   sp: S,
-                                                   msg: &str)
-                                                   -> DiagnosticBuilder<'a> {
+    pub fn struct_span_err<'a, S: Into<MultiSpan>>(
+        &'a self,
+        sp: S,
+        msg: &str,
+    ) -> DiagnosticBuilder<'a> {
         let mut result = DiagnosticBuilder::new(self, Level::Error, msg);
         result.set_span(sp);
         result
     }
-    pub fn struct_span_err_with_code<'a, S: Into<MultiSpan>>(&'a self,
-                                                             sp: S,
-                                                             msg: &str,
-                                                             code: DiagnosticId)
-                                                             -> DiagnosticBuilder<'a> {
+    pub fn struct_span_err_with_code<'a, S: Into<MultiSpan>>(
+        &'a self,
+        sp: S,
+        msg: &str,
+        code: DiagnosticId,
+    ) -> DiagnosticBuilder<'a> {
         let mut result = DiagnosticBuilder::new(self, Level::Error, msg);
         result.set_span(sp);
         result.code(code);
@@ -430,19 +455,21 @@ impl Handler {
         result.code(code);
         result
     }
-    pub fn struct_span_fatal<'a, S: Into<MultiSpan>>(&'a self,
-                                                     sp: S,
-                                                     msg: &str)
-                                                     -> DiagnosticBuilder<'a> {
+    pub fn struct_span_fatal<'a, S: Into<MultiSpan>>(
+        &'a self,
+        sp: S,
+        msg: &str,
+    ) -> DiagnosticBuilder<'a> {
         let mut result = DiagnosticBuilder::new(self, Level::Fatal, msg);
         result.set_span(sp);
         result
     }
-    pub fn struct_span_fatal_with_code<'a, S: Into<MultiSpan>>(&'a self,
-                                                               sp: S,
-                                                               msg: &str,
-                                                               code: DiagnosticId)
-                                                               -> DiagnosticBuilder<'a> {
+    pub fn struct_span_fatal_with_code<'a, S: Into<MultiSpan>>(
+        &'a self,
+        sp: S,
+        msg: &str,
+        code: DiagnosticId,
+    ) -> DiagnosticBuilder<'a> {
         let mut result = DiagnosticBuilder::new(self, Level::Fatal, msg);
         result.set_span(sp);
         result.code(code);
@@ -466,21 +493,23 @@ impl Handler {
         self.emit(&sp.into(), msg, Fatal);
         FatalError
     }
-    pub fn span_fatal_with_code<S: Into<MultiSpan>>(&self,
-                                                    sp: S,
-                                                    msg: &str,
-                                                    code: DiagnosticId)
-                                                    -> FatalError {
+    pub fn span_fatal_with_code<S: Into<MultiSpan>>(
+        &self,
+        sp: S,
+        msg: &str,
+        code: DiagnosticId,
+    ) -> FatalError {
         self.emit_with_code(&sp.into(), msg, code, Fatal);
         FatalError
     }
     pub fn span_err<S: Into<MultiSpan>>(&self, sp: S, msg: &str) {
         self.emit(&sp.into(), msg, Error);
     }
-    pub fn mut_span_err<'a, S: Into<MultiSpan>>(&'a self,
-                                                sp: S,
-                                                msg: &str)
-                                                -> DiagnosticBuilder<'a> {
+    pub fn mut_span_err<'a, S: Into<MultiSpan>>(
+        &'a self,
+        sp: S,
+        msg: &str,
+    ) -> DiagnosticBuilder<'a> {
         let mut result = DiagnosticBuilder::new(self, Level::Error, msg);
         result.set_span(sp);
         result
@@ -512,10 +541,7 @@ impl Handler {
     pub fn span_note_without_error<S: Into<MultiSpan>>(&self, sp: S, msg: &str) {
         self.emit(&sp.into(), msg, Note);
     }
-    pub fn span_note_diag<'a>(&'a self,
-                              sp: Span,
-                              msg: &str)
-                              -> DiagnosticBuilder<'a> {
+    pub fn span_note_diag<'a>(&'a self, sp: Span, msg: &str) -> DiagnosticBuilder<'a> {
         let mut db = DiagnosticBuilder::new(self, Note, msg);
         db.set_span(sp);
         db
@@ -574,7 +600,7 @@ impl Handler {
         let s = match self.err_count() {
             0 => return,
             1 => "aborting due to previous error".to_string(),
-            _ => format!("aborting due to {} previous errors", self.err_count())
+            _ => format!("aborting due to {} previous errors", self.err_count()),
         };
 
         let _ = self.fatal(&s);
@@ -582,29 +608,40 @@ impl Handler {
         let can_show_explain = self.emitter.borrow().should_show_explain();
         let are_there_diagnostics = !self.emitted_diagnostic_codes.borrow().is_empty();
         if can_show_explain && are_there_diagnostics {
-            let mut error_codes =
-                self.emitted_diagnostic_codes.borrow()
-                                             .clone()
-                                             .into_iter()
-                                             .filter_map(|x| match x {
-                                                 DiagnosticId::Error(ref s) => Some(s.clone()),
-                                                 _ => None,
-                                             })
-                                             .collect::<Vec<_>>();
+            let mut error_codes = self
+                .emitted_diagnostic_codes
+                .borrow()
+                .clone()
+                .into_iter()
+                .filter_map(|x| match x {
+                    DiagnosticId::Error(ref s) => Some(s.clone()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
             if !error_codes.is_empty() {
                 error_codes.sort();
                 if error_codes.len() > 1 {
-                    let limit = if error_codes.len() > 9 { 9 } else { error_codes.len() };
-                    self.failure(&format!("Some errors occurred: {}{}",
-                                          error_codes[..limit].join(", "),
-                                          if error_codes.len() > 9 { "..." } else { "." }));
-                    self.failure(&format!("For more information about an error, try \
-                                           `rustc --explain {}`.",
-                                          &error_codes[0]));
+                    let limit = if error_codes.len() > 9 {
+                        9
+                    } else {
+                        error_codes.len()
+                    };
+                    self.failure(&format!(
+                        "Some errors occurred: {}{}",
+                        error_codes[..limit].join(", "),
+                        if error_codes.len() > 9 { "..." } else { "." }
+                    ));
+                    self.failure(&format!(
+                        "For more information about an error, try \
+                         `rustc --explain {}`.",
+                        &error_codes[0]
+                    ));
                 } else {
-                    self.failure(&format!("For more information about this error, try \
-                                           `rustc --explain {}`.",
-                                          &error_codes[0]));
+                    self.failure(&format!(
+                        "For more information about this error, try \
+                         `rustc --explain {}`.",
+                        &error_codes[0]
+                    ));
                 }
             }
         }
@@ -664,7 +701,9 @@ impl Handler {
         });
 
         if let Some(ref code) = diagnostic.code {
-            self.emitted_diagnostic_codes.borrow_mut().insert(code.clone());
+            self.emitted_diagnostic_codes
+                .borrow_mut()
+                .insert(code.clone());
         }
 
         let diagnostic_hash = {
@@ -676,7 +715,11 @@ impl Handler {
 
         // Only emit the diagnostic if we haven't already emitted an equivalent
         // one:
-        if self.emitted_diagnostics.borrow_mut().insert(diagnostic_hash) {
+        if self
+            .emitted_diagnostics
+            .borrow_mut()
+            .insert(diagnostic_hash)
+        {
             self.emitter.borrow_mut().emit(db);
             if db.is_error() {
                 self.bump_err_count();
@@ -684,7 +727,6 @@ impl Handler {
         }
     }
 }
-
 
 #[derive(Copy, PartialEq, Clone, Hash, Debug, RustcEncodable, RustcDecodable)]
 pub enum Level {
@@ -712,20 +754,16 @@ impl Level {
         let mut spec = ColorSpec::new();
         match self {
             Bug | Fatal | PhaseFatal | Error => {
-                spec.set_fg(Some(Color::Red))
-                    .set_intense(true);
+                spec.set_fg(Some(Color::Red)).set_intense(true);
             }
             Warning => {
-                spec.set_fg(Some(Color::Yellow))
-                    .set_intense(cfg!(windows));
+                spec.set_fg(Some(Color::Yellow)).set_intense(cfg!(windows));
             }
             Note => {
-                spec.set_fg(Some(Color::Green))
-                    .set_intense(true);
+                spec.set_fg(Some(Color::Green)).set_intense(true);
             }
             Help => {
-                spec.set_fg(Some(Color::Cyan))
-                    .set_intense(true);
+                spec.set_fg(Some(Color::Cyan)).set_intense(true);
             }
             FailureNote => {}
             Cancelled => unreachable!(),

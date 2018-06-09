@@ -8,15 +8,14 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-
+use rand::{thread_rng, Rng};
+use std::collections::BTreeMap;
 use std::iter::Iterator;
 use std::vec::Vec;
-use std::collections::BTreeMap;
-use rand::{Rng, thread_rng};
-use test::{Bencher, black_box};
+use test::{black_box, Bencher};
 
 macro_rules! map_insert_rand_bench {
-    ($name: ident, $n: expr, $map: ident) => (
+    ($name:ident, $n:expr, $map:ident) => {
         #[bench]
         pub fn $name(b: &mut Bencher) {
             let n: usize = $n;
@@ -37,11 +36,11 @@ macro_rules! map_insert_rand_bench {
             });
             black_box(map);
         }
-    )
+    };
 }
 
 macro_rules! map_insert_seq_bench {
-    ($name: ident, $n: expr, $map: ident) => (
+    ($name:ident, $n:expr, $map:ident) => {
         #[bench]
         pub fn $name(b: &mut Bencher) {
             let mut map = $map::new();
@@ -60,11 +59,11 @@ macro_rules! map_insert_seq_bench {
             });
             black_box(map);
         }
-    )
+    };
 }
 
 macro_rules! map_find_rand_bench {
-    ($name: ident, $n: expr, $map: ident) => (
+    ($name:ident, $n:expr, $map:ident) => {
         #[bench]
         pub fn $name(b: &mut Bencher) {
             let mut map = $map::new();
@@ -88,11 +87,11 @@ macro_rules! map_find_rand_bench {
                 black_box(t);
             })
         }
-    )
+    };
 }
 
 macro_rules! map_find_seq_bench {
-    ($name: ident, $n: expr, $map: ident) => (
+    ($name:ident, $n:expr, $map:ident) => {
         #[bench]
         pub fn $name(b: &mut Bencher) {
             let mut map = $map::new();
@@ -111,7 +110,7 @@ macro_rules! map_find_seq_bench {
                 black_box(x);
             })
         }
-    )
+    };
 }
 
 map_insert_rand_bench!{insert_rand_100,    100,    BTreeMap}

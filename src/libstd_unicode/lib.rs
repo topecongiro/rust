@@ -21,14 +21,15 @@
 //! (yet) aim to provide a full set of Unicode tables.
 
 #![unstable(feature = "unicode", issue = "27783")]
-#![doc(html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
-       html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
-       html_root_url = "https://doc.rust-lang.org/nightly/",
-       html_playground_url = "https://play.rust-lang.org/",
-       issue_tracker_base_url = "https://github.com/rust-lang/rust/issues/",
-       test(no_crate_inject, attr(allow(unused_variables), deny(warnings))))]
+#![doc(
+    html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
+    html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
+    html_root_url = "https://doc.rust-lang.org/nightly/",
+    html_playground_url = "https://play.rust-lang.org/",
+    issue_tracker_base_url = "https://github.com/rust-lang/rust/issues/",
+    test(no_crate_inject, attr(allow(unused_variables), deny(warnings)))
+)]
 #![no_std]
-
 #![feature(unicode_internals)]
 #![feature(staged_api)]
 #![rustc_deprecated(since = "1.27.0", reason = "moved into libcore")]

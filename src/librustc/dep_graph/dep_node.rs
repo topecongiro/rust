@@ -8,7 +8,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-
 //! This module defines the `DepNode` type which the compiler uses to represent
 //! nodes in the dependency graph. A `DepNode` consists of a `DepKind` (which
 //! specifies the kind of thing it represents, like a piece of HIR, MIR, etc)
@@ -60,26 +59,25 @@
 //! user of the `DepNode` API of having to know how to compute the expected
 //! fingerprint for a given set of node parameters.
 
-use mir::interpret::{GlobalId, ConstValue};
 use hir::def_id::{CrateNum, DefId, DefIndex, CRATE_DEF_INDEX};
 use hir::map::DefPathHash;
 use hir::{HirId, ItemLocalId};
+use mir::interpret::{ConstValue, GlobalId};
 
 use ich::{Fingerprint, StableHashingContext};
-use rustc_data_structures::stable_hasher::{StableHasher, HashStable};
+use rustc_data_structures::stable_hasher::{HashStable, StableHasher};
 use std::fmt;
 use std::hash::Hash;
 use syntax_pos::symbol::InternedString;
-use traits::query::{CanonicalProjectionGoal,
-                    CanonicalTyGoal, CanonicalPredicateGoal};
-use ty::{TyCtxt, Instance, InstanceDef, ParamEnv, ParamEnvAnd, PolyTraitRef, Ty};
+use traits::query::{CanonicalPredicateGoal, CanonicalProjectionGoal, CanonicalTyGoal};
 use ty::subst::Substs;
+use ty::{Instance, InstanceDef, ParamEnv, ParamEnvAnd, PolyTraitRef, Ty, TyCtxt};
 
 // erase!() just makes tokens go away. It's used to specify which macro argument
 // is repeated (i.e. which sub-expression of the macro we are in) but don't need
 // to actually use any of the arguments.
 macro_rules! erase {
-    ($x:tt) => ({})
+    ($x:tt) => {{}};
 }
 
 macro_rules! replace {
@@ -87,18 +85,30 @@ macro_rules! replace {
 }
 
 macro_rules! is_anon_attr {
-    (anon) => (true);
-    ($attr:ident) => (false);
+    (anon) => {
+        true
+    };
+    ($attr:ident) => {
+        false
+    };
 }
 
 macro_rules! is_input_attr {
-    (input) => (true);
-    ($attr:ident) => (false);
+    (input) => {
+        true
+    };
+    ($attr:ident) => {
+        false
+    };
 }
 
 macro_rules! is_eval_always_attr {
-    (eval_always) => (true);
-    ($attr:ident) => (false);
+    (eval_always) => {
+        true
+    };
+    ($attr:ident) => {
+        false
+    };
 }
 
 macro_rules! contains_anon_attr {
@@ -414,7 +424,6 @@ impl fmt::Debug for DepNode {
     }
 }
 
-
 impl DefPathHash {
     #[inline]
     pub fn to_dep_node(self, kind: DepKind) -> DepNode {
@@ -433,8 +442,7 @@ impl DepKind {
     #[inline]
     pub fn fingerprint_needed_for_crate_hash(self) -> bool {
         match self {
-            DepKind::HirBody |
-            DepKind::Krate => true,
+            DepKind::HirBody | DepKind::Krate => true,
             _ => false,
         }
     }
@@ -666,7 +674,7 @@ define_dep_nodes!( <'tcx>
     [] UpstreamMonomorphizationsFor(DefId),
 );
 
-trait DepNodeParams<'a, 'gcx: 'tcx + 'a, 'tcx: 'a> : fmt::Debug {
+trait DepNodeParams<'a, 'gcx: 'tcx + 'a, 'tcx: 'a>: fmt::Debug {
     const CAN_RECONSTRUCT_QUERY_KEY: bool;
 
     /// This method turns the parameters of a DepNodeConstructor into an opaque
@@ -683,7 +691,8 @@ trait DepNodeParams<'a, 'gcx: 'tcx + 'a, 'tcx: 'a> : fmt::Debug {
 }
 
 impl<'a, 'gcx: 'tcx + 'a, 'tcx: 'a, T> DepNodeParams<'a, 'gcx, 'tcx> for T
-    where T: HashStable<StableHashingContext<'a>> + fmt::Debug
+where
+    T: HashStable<StableHashingContext<'a>> + fmt::Debug,
 {
     default const CAN_RECONSTRUCT_QUERY_KEY: bool = false;
 
@@ -759,9 +768,11 @@ impl<'a, 'gcx: 'tcx + 'a, 'tcx: 'a> DepNodeParams<'a, 'gcx, 'tcx> for (DefId, De
     fn to_debug_str(&self, tcx: TyCtxt<'a, 'gcx, 'tcx>) -> String {
         let (def_id_0, def_id_1) = *self;
 
-        format!("({}, {})",
-                tcx.def_path_debug_str(def_id_0),
-                tcx.def_path_debug_str(def_id_1))
+        format!(
+            "({}, {})",
+            tcx.def_path_debug_str(def_id_0),
+            tcx.def_path_debug_str(def_id_1)
+        )
     }
 }
 
@@ -789,10 +800,10 @@ impl<'a, 'gcx: 'tcx + 'a, 'tcx: 'a> DepNodeParams<'a, 'gcx, 'tcx> for HirId {
 /// some independent path or string that persists between runs without
 /// the need to be mapped or unmapped. (This ensures we can serialize
 /// them even in the absence of a tcx.)
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
-         RustcEncodable, RustcDecodable)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, RustcEncodable,
+         RustcDecodable)]
 pub struct WorkProductId {
-    hash: Fingerprint
+    hash: Fingerprint,
 }
 
 impl WorkProductId {
@@ -801,14 +812,12 @@ impl WorkProductId {
         cgu_name.len().hash(&mut hasher);
         cgu_name.hash(&mut hasher);
         WorkProductId {
-            hash: hasher.finish()
+            hash: hasher.finish(),
         }
     }
 
     pub fn from_fingerprint(fingerprint: Fingerprint) -> WorkProductId {
-        WorkProductId {
-            hash: fingerprint
-        }
+        WorkProductId { hash: fingerprint }
     }
 }
 

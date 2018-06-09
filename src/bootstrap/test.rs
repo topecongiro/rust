@@ -281,12 +281,14 @@ impl Step for Rls {
             return;
         }
 
-        let mut cargo = tool::prepare_tool_cargo(builder,
-                                                 compiler,
-                                                 Mode::ToolRustc,
-                                                 host,
-                                                 "test",
-                                                 "src/tools/rls");
+        let mut cargo = tool::prepare_tool_cargo(
+            builder,
+            compiler,
+            Mode::ToolRustc,
+            host,
+            "test",
+            "src/tools/rls",
+        );
 
         // Don't build tests dynamically, just a pain to work with
         cargo.env("RUSTC_NO_PREFER_DYNAMIC", "1");
@@ -336,12 +338,14 @@ impl Step for Rustfmt {
             return;
         }
 
-        let mut cargo = tool::prepare_tool_cargo(builder,
-                                                 compiler,
-                                                 Mode::ToolRustc,
-                                                 host,
-                                                 "test",
-                                                 "src/tools/rustfmt");
+        let mut cargo = tool::prepare_tool_cargo(
+            builder,
+            compiler,
+            Mode::ToolRustc,
+            host,
+            "test",
+            "src/tools/rustfmt",
+        );
 
         // Don't build tests dynamically, just a pain to work with
         cargo.env("RUSTC_NO_PREFER_DYNAMIC", "1");
@@ -655,50 +659,101 @@ fn testdir(builder: &Builder, host: Interned<String>) -> PathBuf {
 }
 
 macro_rules! default_test {
-    ($name:ident { path: $path:expr, mode: $mode:expr, suite: $suite:expr }) => {
-        test!($name { path: $path, mode: $mode, suite: $suite, default: true, host: false });
-    }
+    ($name:ident { path: $path:expr,mode: $mode:expr,suite: $suite:expr }) => {
+        test!($name {
+            path: $path,
+            mode: $mode,
+            suite: $suite,
+            default: true,
+            host: false
+        });
+    };
 }
 
 macro_rules! default_test_with_compare_mode {
-    ($name:ident { path: $path:expr, mode: $mode:expr, suite: $suite:expr,
-                   compare_mode: $compare_mode:expr }) => {
-        test_with_compare_mode!($name { path: $path, mode: $mode, suite: $suite, default: true,
-                                        host: false, compare_mode: $compare_mode });
-    }
+    (
+        $name:ident { path: $path:expr,mode: $mode:expr,suite: $suite:expr,compare_mode: $compare_mode:expr }
+    ) => {
+        test_with_compare_mode!($name {
+            path: $path,
+            mode: $mode,
+            suite: $suite,
+            default: true,
+            host: false,
+            compare_mode: $compare_mode
+        });
+    };
 }
 
 macro_rules! host_test {
-    ($name:ident { path: $path:expr, mode: $mode:expr, suite: $suite:expr }) => {
-        test!($name { path: $path, mode: $mode, suite: $suite, default: true, host: true });
-    }
+    ($name:ident { path: $path:expr,mode: $mode:expr,suite: $suite:expr }) => {
+        test!($name {
+            path: $path,
+            mode: $mode,
+            suite: $suite,
+            default: true,
+            host: true
+        });
+    };
 }
 
 macro_rules! test {
-    ($name:ident { path: $path:expr, mode: $mode:expr, suite: $suite:expr, default: $default:expr,
-                   host: $host:expr }) => {
-        test_definitions!($name { path: $path, mode: $mode, suite: $suite, default: $default,
-                                  host: $host, compare_mode: None });
-    }
+    (
+        $name:ident {
+            path:
+            $path:expr,mode:
+            $mode:expr,suite:
+            $suite:expr,default:
+            $default:expr,host:
+            $host:expr
+        }
+    ) => {
+        test_definitions!($name {
+            path: $path,
+            mode: $mode,
+            suite: $suite,
+            default: $default,
+            host: $host,
+            compare_mode: None
+        });
+    };
 }
 
 macro_rules! test_with_compare_mode {
-    ($name:ident { path: $path:expr, mode: $mode:expr, suite: $suite:expr, default: $default:expr,
-                   host: $host:expr, compare_mode: $compare_mode:expr }) => {
-        test_definitions!($name { path: $path, mode: $mode, suite: $suite, default: $default,
-                                  host: $host, compare_mode: Some($compare_mode) });
-    }
+    (
+        $name:ident {
+            path:
+            $path:expr,mode:
+            $mode:expr,suite:
+            $suite:expr,default:
+            $default:expr,host:
+            $host:expr,compare_mode:
+            $compare_mode:expr
+        }
+    ) => {
+        test_definitions!($name {
+            path: $path,
+            mode: $mode,
+            suite: $suite,
+            default: $default,
+            host: $host,
+            compare_mode: Some($compare_mode)
+        });
+    };
 }
 
 macro_rules! test_definitions {
-    ($name:ident {
-        path: $path:expr,
-        mode: $mode:expr,
-        suite: $suite:expr,
-        default: $default:expr,
-        host: $host:expr,
-        compare_mode: $compare_mode:expr
-    }) => {
+    (
+        $name:ident {
+            path:
+            $path:expr,mode:
+            $mode:expr,suite:
+            $suite:expr,default:
+            $default:expr,host:
+            $host:expr,compare_mode:
+            $compare_mode:expr
+        }
+    ) => {
         #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
         pub struct $name {
             pub compiler: Compiler,
@@ -734,7 +789,7 @@ macro_rules! test_definitions {
                 })
             }
         }
-    }
+    };
 }
 
 default_test_with_compare_mode!(Ui {
@@ -1727,12 +1782,14 @@ impl Step for CrateRustdoc {
         let compiler = builder.compiler(builder.top_stage, self.host);
         let target = compiler.host;
 
-        let mut cargo = tool::prepare_tool_cargo(builder,
-                                                 compiler,
-                                                 Mode::ToolRustc,
-                                                 target,
-                                                 test_kind.subcommand(),
-                                                 "src/tools/rustdoc");
+        let mut cargo = tool::prepare_tool_cargo(
+            builder,
+            compiler,
+            Mode::ToolRustc,
+            target,
+            test_kind.subcommand(),
+            "src/tools/rustdoc",
+        );
         if test_kind.subcommand() == "test" && !builder.fail_fast {
             cargo.arg("--no-fail-fast");
         }

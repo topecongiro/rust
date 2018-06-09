@@ -347,7 +347,9 @@ pub trait TryFrom<T>: Sized {
 
 // As lifts over &
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<'a, T: ?Sized, U: ?Sized> AsRef<U> for &'a T where T: AsRef<U>
+impl<'a, T: ?Sized, U: ?Sized> AsRef<U> for &'a T
+where
+    T: AsRef<U>,
 {
     fn as_ref(&self) -> &U {
         <T as AsRef<U>>::as_ref(*self)
@@ -356,7 +358,9 @@ impl<'a, T: ?Sized, U: ?Sized> AsRef<U> for &'a T where T: AsRef<U>
 
 // As lifts over &mut
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<'a, T: ?Sized, U: ?Sized> AsRef<U> for &'a mut T where T: AsRef<U>
+impl<'a, T: ?Sized, U: ?Sized> AsRef<U> for &'a mut T
+where
+    T: AsRef<U>,
 {
     fn as_ref(&self) -> &U {
         <T as AsRef<U>>::as_ref(*self)
@@ -373,7 +377,9 @@ impl<'a, T: ?Sized, U: ?Sized> AsRef<U> for &'a mut T where T: AsRef<U>
 
 // AsMut lifts over &mut
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<'a, T: ?Sized, U: ?Sized> AsMut<U> for &'a mut T where T: AsMut<U>
+impl<'a, T: ?Sized, U: ?Sized> AsMut<U> for &'a mut T
+where
+    T: AsMut<U>,
 {
     fn as_mut(&mut self) -> &mut U {
         (*self).as_mut()
@@ -390,7 +396,9 @@ impl<'a, T: ?Sized, U: ?Sized> AsMut<U> for &'a mut T where T: AsMut<U>
 
 // From implies Into
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<T, U> Into<U> for T where U: From<T>
+impl<T, U> Into<U> for T
+where
+    U: From<T>,
 {
     fn into(self) -> U {
         U::from(self)
@@ -400,13 +408,16 @@ impl<T, U> Into<U> for T where U: From<T>
 // From (and thus Into) is reflexive
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<T> From<T> for T {
-    fn from(t: T) -> T { t }
+    fn from(t: T) -> T {
+        t
+    }
 }
-
 
 // TryFrom implies TryInto
 #[unstable(feature = "try_from", issue = "33417")]
-impl<T, U> TryInto<U> for T where U: TryFrom<T>
+impl<T, U> TryInto<U> for T
+where
+    U: TryFrom<T>,
 {
     type Error = U::Error;
 
@@ -418,7 +429,10 @@ impl<T, U> TryInto<U> for T where U: TryFrom<T>
 // Infallible conversions are semantically equivalent to fallible conversions
 // with an uninhabited error type.
 #[unstable(feature = "try_from", issue = "33417")]
-impl<T, U> TryFrom<U> for T where T: From<U> {
+impl<T, U> TryFrom<U> for T
+where
+    T: From<U>,
+{
     type Error = !;
 
     fn try_from(value: U) -> Result<Self, Self::Error> {

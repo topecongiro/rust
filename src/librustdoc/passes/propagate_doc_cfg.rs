@@ -10,8 +10,8 @@
 
 use std::sync::Arc;
 
-use clean::{Crate, Item};
 use clean::cfg::Cfg;
+use clean::{Crate, Item};
 use fold::DocFolder;
 use plugins::PluginResult;
 

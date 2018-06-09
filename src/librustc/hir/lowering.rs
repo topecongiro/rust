@@ -42,10 +42,10 @@
 
 use dep_graph::DepGraph;
 use hir;
-use hir::HirVec;
-use hir::map::{DefKey, DefPathData, Definitions};
-use hir::def_id::{DefId, DefIndex, DefIndexAddressSpace, CRATE_DEF_INDEX};
 use hir::def::{Def, PathResolution};
+use hir::def_id::{DefId, DefIndex, DefIndexAddressSpace, CRATE_DEF_INDEX};
+use hir::map::{DefKey, DefPathData, Definitions};
+use hir::HirVec;
 use lint::builtin::{self, PARENTHESIZED_PARAMS_IN_TYPES_AND_MODULES};
 use middle::cstore::CrateStore;
 use rustc_data_structures::indexed_vec::IndexVec;
@@ -57,17 +57,17 @@ use std::collections::{BTreeMap, HashSet};
 use std::fmt::Debug;
 use std::iter;
 use std::mem;
-use syntax::attr;
 use syntax::ast::*;
+use syntax::attr;
+use syntax::codemap::{self, respan, CompilerDesugaringKind, Spanned};
 use syntax::errors;
 use syntax::ext::hygiene::{Mark, SyntaxContext};
+use syntax::parse::token::Token;
 use syntax::print::pprust;
 use syntax::ptr::P;
-use syntax::codemap::{self, respan, CompilerDesugaringKind, Spanned};
 use syntax::std_inject;
 use syntax::symbol::{keywords, Symbol};
 use syntax::tokenstream::{Delimited, TokenStream, TokenTree};
-use syntax::parse::token::Token;
 use syntax::util::small_vector::SmallVector;
 use syntax::visit::{self, Visitor};
 use syntax_pos::Span;
@@ -489,7 +489,8 @@ impl<'a> LoweringContext<'a> {
     where
         F: FnOnce(&mut Self),
     {
-        let counter = self.item_local_id_counters
+        let counter = self
+            .item_local_id_counters
             .insert(owner, HIR_ID_COUNTER_LOCKED)
             .unwrap();
         let def_index = self.resolver.definitions().opt_def_index(owner).unwrap();
@@ -500,7 +501,8 @@ impl<'a> LoweringContext<'a> {
         debug_assert!(def_index == new_def_index);
         debug_assert!(new_counter >= counter);
 
-        let prev = self.item_local_id_counters
+        let prev = self
+            .item_local_id_counters
             .insert(owner, new_counter)
             .unwrap();
         debug_assert!(prev == HIR_ID_COUNTER_LOCKED);
@@ -705,7 +707,8 @@ impl<'a> LoweringContext<'a> {
 
         let hir_name = hir::LifetimeName::Name(name);
 
-        if self.lifetimes_to_define
+        if self
+            .lifetimes_to_define
             .iter()
             .any(|(_, lt_name)| *lt_name == hir_name)
         {
@@ -905,7 +908,8 @@ impl<'a> LoweringContext<'a> {
         if ident.span.ctxt() == SyntaxContext::empty() {
             return ident.name;
         }
-        *self.name_map
+        *self
+            .name_map
             .entry(ident)
             .or_insert_with(|| Symbol::from_ident(ident))
     }
@@ -931,7 +935,8 @@ impl<'a> LoweringContext<'a> {
                 }
             }
             None => {
-                let target_id = self.loop_scopes
+                let target_id = self
+                    .loop_scopes
                     .last()
                     .map(|innermost_loop_id| *innermost_loop_id)
                     .map(|id| Ok(self.lower_node_id(id).node_id))
@@ -1033,22 +1038,19 @@ impl<'a> LoweringContext<'a> {
                     _ => None,
                 }),
                 |this| {
-                    this.with_anonymous_lifetime_mode(
-                        AnonymousLifetimeMode::PassThrough,
-                        |this| {
-                            hir::TyBareFn(P(hir::BareFnTy {
-                                generic_params: this.lower_generic_params(
-                                    &f.generic_params,
-                                    &NodeMap(),
-                                    ImplTraitContext::Disallowed,
-                                ),
-                                unsafety: this.lower_unsafety(f.unsafety),
-                                abi: f.abi,
-                                decl: this.lower_fn_decl(&f.decl, None, false),
-                                arg_names: this.lower_fn_args_to_names(&f.decl),
-                            }))
-                        },
-                    )
+                    this.with_anonymous_lifetime_mode(AnonymousLifetimeMode::PassThrough, |this| {
+                        hir::TyBareFn(P(hir::BareFnTy {
+                            generic_params: this.lower_generic_params(
+                                &f.generic_params,
+                                &NodeMap(),
+                                ImplTraitContext::Disallowed,
+                            ),
+                            unsafety: this.lower_unsafety(f.unsafety),
+                            abi: f.abi,
+                            decl: this.lower_fn_decl(&f.decl, None, false),
+                            arg_names: this.lower_fn_args_to_names(&f.decl),
+                        }))
+                    })
                 },
             ),
             TyKind::Never => hir::TyNever,
@@ -1078,9 +1080,7 @@ impl<'a> LoweringContext<'a> {
             TyKind::Array(ref ty, ref length) => {
                 hir::TyArray(self.lower_ty(ty, itctx), self.lower_anon_const(length))
             }
-            TyKind::Typeof(ref expr) => {
-                hir::TyTypeof(self.lower_anon_const(expr))
-            }
+            TyKind::Typeof(ref expr) => hir::TyTypeof(self.lower_anon_const(expr)),
             TyKind::TraitObject(ref bounds, kind) => {
                 let mut lifetime_bound = None;
                 let bounds = bounds
@@ -1342,7 +1342,8 @@ impl<'a> LoweringContext<'a> {
     fn lower_foreign_mod(&mut self, fm: &ForeignMod) -> hir::ForeignMod {
         hir::ForeignMod {
             abi: fm.abi,
-            items: fm.items
+            items: fm
+                .items
                 .iter()
                 .map(|x| self.lower_foreign_item(x))
                 .collect(),
@@ -1379,7 +1380,8 @@ impl<'a> LoweringContext<'a> {
         let qself_position = qself.as_ref().map(|q| q.position);
         let qself = qself.as_ref().map(|q| self.lower_ty(&q.ty, itctx));
 
-        let resolution = self.resolver
+        let resolution = self
+            .resolver
             .get_resolution(id)
             .unwrap_or(PathResolution::new(Def::Err));
 
@@ -1452,8 +1454,9 @@ impl<'a> LoweringContext<'a> {
                             return n;
                         }
                         assert!(!def_id.is_local());
-                        let item_generics =
-                            self.cstore.item_generics_cloned_untracked(def_id, self.sess);
+                        let item_generics = self
+                            .cstore
+                            .item_generics_cloned_untracked(def_id, self.sess);
                         let n = item_generics.own_counts().lifetimes;
                         self.type_def_lifetime_params.insert(def_id, n);
                         n
@@ -1539,7 +1542,8 @@ impl<'a> LoweringContext<'a> {
     ) -> hir::Path {
         hir::Path {
             def: self.expect_full_def(id),
-            segments: p.segments
+            segments: p
+                .segments
                 .iter()
                 .map(|segment| {
                     self.lower_path_segment(
@@ -1603,11 +1607,7 @@ impl<'a> LoweringContext<'a> {
             parameters.lifetimes = self.elided_path_lifetimes(path_span, expected_lifetimes);
         }
 
-        hir::PathSegment::new(
-            self.lower_ident(segment.ident),
-            parameters,
-            infer_types,
-        )
+        hir::PathSegment::new(self.lower_ident(segment.ident), parameters, infer_types)
     }
 
     fn lower_angle_bracketed_parameter_data(
@@ -1645,50 +1645,45 @@ impl<'a> LoweringContext<'a> {
         // a hidden lifetime parameter. This is needed for backwards
         // compatibility, even in contexts like an impl header where
         // we generally don't permit such things (see #51008).
-        self.with_anonymous_lifetime_mode(
-            AnonymousLifetimeMode::PassThrough,
-            |this| {
-                const DISALLOWED: ImplTraitContext = ImplTraitContext::Disallowed;
-                let &ParenthesizedParameterData {
-                    ref inputs,
-                    ref output,
+        self.with_anonymous_lifetime_mode(AnonymousLifetimeMode::PassThrough, |this| {
+            const DISALLOWED: ImplTraitContext = ImplTraitContext::Disallowed;
+            let &ParenthesizedParameterData {
+                ref inputs,
+                ref output,
+                span,
+            } = data;
+            let inputs = inputs
+                .iter()
+                .map(|ty| this.lower_ty(ty, DISALLOWED))
+                .collect();
+            let mk_tup = |this: &mut Self, tys, span| {
+                let LoweredNodeId { node_id, hir_id } = this.next_id();
+                P(hir::Ty {
+                    node: hir::TyTup(tys),
+                    id: node_id,
+                    hir_id,
                     span,
-                } = data;
-                let inputs = inputs
-                    .iter()
-                    .map(|ty| this.lower_ty(ty, DISALLOWED))
-                    .collect();
-                let mk_tup = |this: &mut Self, tys, span| {
-                    let LoweredNodeId { node_id, hir_id } = this.next_id();
-                    P(hir::Ty {
-                        node: hir::TyTup(tys),
-                        id: node_id,
-                        hir_id,
-                        span,
-                    })
-                };
+                })
+            };
 
-                (
-                    hir::PathParameters {
-                        lifetimes: hir::HirVec::new(),
-                        types: hir_vec![mk_tup(this, inputs, span)],
-                        bindings: hir_vec![
-                            hir::TypeBinding {
-                                id: this.next_id().node_id,
-                                name: Symbol::intern(FN_OUTPUT_NAME),
-                                ty: output
-                                    .as_ref()
-                                    .map(|ty| this.lower_ty(&ty, DISALLOWED))
-                                    .unwrap_or_else(|| mk_tup(this, hir::HirVec::new(), span)),
-                                span: output.as_ref().map_or(span, |ty| ty.span),
-                            }
-                        ],
-                        parenthesized: true,
-                    },
-                    false,
-                )
-            }
-        )
+            (
+                hir::PathParameters {
+                    lifetimes: hir::HirVec::new(),
+                    types: hir_vec![mk_tup(this, inputs, span)],
+                    bindings: hir_vec![hir::TypeBinding {
+                        id: this.next_id().node_id,
+                        name: Symbol::intern(FN_OUTPUT_NAME),
+                        ty: output
+                            .as_ref()
+                            .map(|ty| this.lower_ty(&ty, DISALLOWED))
+                            .unwrap_or_else(|| mk_tup(this, hir::HirVec::new(), span)),
+                        span: output.as_ref().map_or(span, |ty| ty.span),
+                    }],
+                    parenthesized: true,
+                },
+                false,
+            )
+        })
     }
 
     fn lower_local(&mut self, l: &Local) -> P<hir::Local> {
@@ -1696,7 +1691,8 @@ impl<'a> LoweringContext<'a> {
         P(hir::Local {
             id: node_id,
             hir_id,
-            ty: l.ty
+            ty: l
+                .ty
                 .as_ref()
                 .map(|t| self.lower_ty(t, ImplTraitContext::Disallowed)),
             pat: self.lower_pat(&l.pat),
@@ -1747,7 +1743,8 @@ impl<'a> LoweringContext<'a> {
         //       return positions as well. This guards against trait declarations and their impls
         //       where impl Trait is disallowed. (again for now)
         P(hir::FnDecl {
-            inputs: decl.inputs
+            inputs: decl
+                .inputs
                 .iter()
                 .map(|arg| {
                     if let Some(def_id) = fn_def_id {
@@ -1818,12 +1815,14 @@ impl<'a> LoweringContext<'a> {
             id: self.lower_node_id(tp.id).node_id,
             name,
             bounds,
-            default: tp.default
+            default: tp
+                .default
                 .as_ref()
                 .map(|x| self.lower_ty(x, ImplTraitContext::Disallowed)),
             span: tp.ident.span,
             pure_wrt_drop: attr::contains_name(&tp.attrs, "may_dangle"),
-            synthetic: tp.attrs
+            synthetic: tp
+                .attrs
                 .iter()
                 .filter(|attr| attr.check_name("rustc_synthetic"))
                 .map(|_| hir::SyntheticTyParamKind::ImplTrait)
@@ -1930,7 +1929,8 @@ impl<'a> LoweringContext<'a> {
                                 if path.segments.len() == 1
                                     && bound_pred.bound_generic_params.is_empty() =>
                             {
-                                if let Some(Def::TyParam(def_id)) = self.resolver
+                                if let Some(Def::TyParam(def_id)) = self
+                                    .resolver
                                     .get_resolution(bound_pred.bounded_ty.id)
                                     .map(|d| d.base_def())
                                 {
@@ -1969,7 +1969,8 @@ impl<'a> LoweringContext<'a> {
     fn lower_where_clause(&mut self, wc: &WhereClause) -> hir::WhereClause {
         hir::WhereClause {
             id: self.lower_node_id(wc.id).node_id,
-            predicates: wc.predicates
+            predicates: wc
+                .predicates
                 .iter()
                 .map(|predicate| self.lower_where_predicate(predicate))
                 .collect(),
@@ -2003,10 +2004,12 @@ impl<'a> LoweringContext<'a> {
                                     // Ignore `?Trait` bounds.
                                     // Tthey were copied into type parameters already.
                                     TraitTyParamBound(_, TraitBoundModifier::Maybe) => None,
-                                    _ => Some(this.lower_ty_param_bound(
-                                        bound,
-                                        ImplTraitContext::Disallowed,
-                                    )),
+                                    _ => {
+                                        Some(this.lower_ty_param_bound(
+                                            bound,
+                                            ImplTraitContext::Disallowed,
+                                        ))
+                                    }
                                 })
                                 .collect(),
                             span,
@@ -2591,11 +2594,7 @@ impl<'a> LoweringContext<'a> {
                     AnonymousLifetimeMode::PassThrough,
                     |this| {
                         hir::ImplItemKind::Method(
-                            this.lower_method_sig(
-                                sig,
-                                impl_item_def_id,
-                                impl_trait_return_allow,
-                            ),
+                            this.lower_method_sig(sig, impl_item_def_id, impl_trait_return_allow),
                             body_id,
                         )
                     },
@@ -3037,37 +3036,34 @@ impl<'a> LoweringContext<'a> {
                     hir::LoopSource::Loop,
                 )
             }),
-            ExprKind::Catch(ref body) => {
-                self.with_catch_scope(body.id, |this| {
-                    let unstable_span =
-                        this.allow_internal_unstable(CompilerDesugaringKind::Catch, body.span);
-                    let mut block = this.lower_block(body, true).into_inner();
-                    let tail = block.expr.take().map_or_else(
-                        || {
-                            let LoweredNodeId { node_id, hir_id } = this.next_id();
-                            let span = this.sess.codemap().end_point(unstable_span);
-                            hir::Expr {
-                                id: node_id,
-                                span,
-                                node: hir::ExprTup(hir_vec![]),
-                                attrs: ThinVec::new(),
-                                hir_id,
-                            }
-                        },
-                        |x: P<hir::Expr>| x.into_inner(),
-                    );
-                    block.expr = Some(this.wrap_in_try_constructor(
-                        "from_ok", tail, unstable_span));
-                    hir::ExprBlock(P(block), None)
-                })
-            }
+            ExprKind::Catch(ref body) => self.with_catch_scope(body.id, |this| {
+                let unstable_span =
+                    this.allow_internal_unstable(CompilerDesugaringKind::Catch, body.span);
+                let mut block = this.lower_block(body, true).into_inner();
+                let tail = block.expr.take().map_or_else(
+                    || {
+                        let LoweredNodeId { node_id, hir_id } = this.next_id();
+                        let span = this.sess.codemap().end_point(unstable_span);
+                        hir::Expr {
+                            id: node_id,
+                            span,
+                            node: hir::ExprTup(hir_vec![]),
+                            attrs: ThinVec::new(),
+                            hir_id,
+                        }
+                    },
+                    |x: P<hir::Expr>| x.into_inner(),
+                );
+                block.expr = Some(this.wrap_in_try_constructor("from_ok", tail, unstable_span));
+                hir::ExprBlock(P(block), None)
+            }),
             ExprKind::Match(ref expr, ref arms) => hir::ExprMatch(
                 P(self.lower_expr(expr)),
                 arms.iter().map(|x| self.lower_arm(x)).collect(),
                 hir::MatchSource::Normal,
             ),
-            ExprKind::Closure(capture_clause, movability, ref decl, ref body, fn_decl_span) => {
-                self.with_new_scopes(|this| {
+            ExprKind::Closure(capture_clause, movability, ref decl, ref body, fn_decl_span) => self
+                .with_new_scopes(|this| {
                     let mut is_generator = false;
                     let body_id = this.lower_body(Some(decl), |this| {
                         let e = this.lower_expr(body);
@@ -3090,12 +3086,7 @@ impl<'a> LoweringContext<'a> {
                         })
                     } else {
                         if movability == Movability::Static {
-                            span_err!(
-                                this.sess,
-                                fn_decl_span,
-                                E0906,
-                                "closures cannot be static"
-                            );
+                            span_err!(this.sess, fn_decl_span, E0906, "closures cannot be static");
                         }
                         None
                     };
@@ -3106,13 +3097,11 @@ impl<'a> LoweringContext<'a> {
                         fn_decl_span,
                         generator_option,
                     )
-                })
-            }
-            ExprKind::Block(ref blk, opt_label) => {
-                hir::ExprBlock(self.lower_block(blk,
-                                                opt_label.is_some()),
-                                                self.lower_label(opt_label))
-            }
+                }),
+            ExprKind::Block(ref blk, opt_label) => hir::ExprBlock(
+                self.lower_block(blk, opt_label.is_some()),
+                self.lower_label(opt_label),
+            ),
             ExprKind::Assign(ref el, ref er) => {
                 hir::ExprAssign(P(self.lower_expr(el)), P(self.lower_expr(er)))
             }
@@ -3149,12 +3138,14 @@ impl<'a> LoweringContext<'a> {
                     (&Some(..), &Some(..), HalfOpen) => "Range",
                     (&None, &Some(..), Closed) => "RangeToInclusive",
                     (&Some(..), &Some(..), Closed) => unreachable!(),
-                    (_, &None, Closed) => self.diagnostic()
+                    (_, &None, Closed) => self
+                        .diagnostic()
                         .span_fatal(e.span, "inclusive range with no end")
                         .raise(),
                 };
 
-                let fields = e1.iter()
+                let fields = e1
+                    .iter()
                     .map(|e| ("start", e))
                     .chain(e2.iter().map(|e| ("end", e)))
                     .map(|(s, e)| {
@@ -3224,7 +3215,8 @@ impl<'a> LoweringContext<'a> {
             ExprKind::InlineAsm(ref asm) => {
                 let hir_asm = hir::InlineAsm {
                     inputs: asm.inputs.iter().map(|&(ref c, _)| c.clone()).collect(),
-                    outputs: asm.outputs
+                    outputs: asm
+                        .outputs
                         .iter()
                         .map(|out| hir::InlineAsmOutput {
                             constraint: out.constraint.clone(),
@@ -3240,11 +3232,13 @@ impl<'a> LoweringContext<'a> {
                     dialect: asm.dialect,
                     ctxt: asm.ctxt,
                 };
-                let outputs = asm.outputs
+                let outputs = asm
+                    .outputs
                     .iter()
                     .map(|out| self.lower_expr(&out.expr))
                     .collect();
-                let inputs = asm.inputs
+                let inputs = asm
+                    .inputs
                     .iter()
                     .map(|&(_, ref input)| self.lower_expr(input))
                     .collect();
@@ -3657,7 +3651,8 @@ impl<'a> LoweringContext<'a> {
             StmtKind::Item(ref it) => {
                 // Can only use the ID once.
                 let mut id = Some(s.id);
-                return self.lower_item_id(it)
+                return self
+                    .lower_item_id(it)
                     .into_iter()
                     .map(|item_id| Spanned {
                         node: hir::StmtDecl(
@@ -4140,8 +4135,7 @@ impl<'a> LoweringContext<'a> {
         unstable_span: Span,
     ) -> P<hir::Expr> {
         let path = &["ops", "Try", method];
-        let from_err = P(self.expr_std_path(unstable_span, path,
-                                            ThinVec::new()));
+        let from_err = P(self.expr_std_path(unstable_span, path, ThinVec::new()));
         P(self.expr_call(e.span, from_err, hir_vec![e]))
     }
 }

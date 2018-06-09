@@ -13,14 +13,24 @@ use core::num::flt2dec::estimator::*;
 #[test]
 fn test_estimate_scaling_factor() {
     macro_rules! assert_almost_eq {
-        ($actual:expr, $expected:expr) => ({
+        ($actual:expr, $expected:expr) => {{
             let actual = $actual;
             let expected = $expected;
-            println!("{} - {} = {} - {} = {}", stringify!($expected), stringify!($actual),
-                     expected, actual, expected - actual);
-            assert!(expected == actual || expected == actual + 1,
-                    "expected {}, actual {}", expected, actual);
-        })
+            println!(
+                "{} - {} = {} - {} = {}",
+                stringify!($expected),
+                stringify!($actual),
+                expected,
+                actual,
+                expected - actual
+            );
+            assert!(
+                expected == actual || expected == actual + 1,
+                "expected {}, actual {}",
+                expected,
+                actual
+            );
+        }};
     }
 
     assert_almost_eq!(estimate_scaling_factor(1, 0), 0);
@@ -38,7 +48,10 @@ fn test_estimate_scaling_factor() {
     assert_almost_eq!(estimate_scaling_factor(10 * 1048576 / 1000000, -20), -5);
     assert_almost_eq!(estimate_scaling_factor(10 * 1048576 / 1000000 + 1, -20), -4);
     assert_almost_eq!(estimate_scaling_factor(100 * 1048576 / 1000000, -20), -4);
-    assert_almost_eq!(estimate_scaling_factor(100 * 1048576 / 1000000 + 1, -20), -3);
+    assert_almost_eq!(
+        estimate_scaling_factor(100 * 1048576 / 1000000 + 1, -20),
+        -3
+    );
     assert_almost_eq!(estimate_scaling_factor(1048575, -20), 0);
     assert_almost_eq!(estimate_scaling_factor(1048576, -20), 0);
     assert_almost_eq!(estimate_scaling_factor(1048577, -20), 1);
@@ -57,4 +70,3 @@ fn test_estimate_scaling_factor() {
         assert_almost_eq!(estimate_scaling_factor(1, i as i16), expected as i16);
     }
 }
-

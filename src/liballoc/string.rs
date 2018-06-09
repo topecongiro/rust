@@ -63,13 +63,13 @@ use core::iter::{FromIterator, FusedIterator};
 use core::ops::Bound::{Excluded, Included, Unbounded};
 use core::ops::{self, Add, AddAssign, Index, IndexMut, RangeBounds};
 use core::ptr;
-use core::str::pattern::Pattern;
 use core::str::lossy;
+use core::str::pattern::Pattern;
 
 use alloc::CollectionAllocErr;
 use borrow::{Cow, ToOwned};
 use boxed::Box;
-use str::{self, from_boxed_utf8_unchecked, FromStr, Utf8Error, Chars};
+use str::{self, from_boxed_utf8_unchecked, Chars, FromStr, Utf8Error};
 use vec::Vec;
 
 /// A UTF-8 encoded, growable string.
@@ -425,7 +425,9 @@ impl String {
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn with_capacity(capacity: usize) -> String {
-        String { vec: Vec::with_capacity(capacity) }
+        String {
+            vec: Vec::with_capacity(capacity),
+        }
     }
 
     // HACK(japaric): with cfg(test) the inherent `[T]::to_vec` method, which is
@@ -503,12 +505,10 @@ impl String {
     pub fn from_utf8(vec: Vec<u8>) -> Result<String, FromUtf8Error> {
         match str::from_utf8(&vec) {
             Ok(..) => Ok(String { vec: vec }),
-            Err(e) => {
-                Err(FromUtf8Error {
-                    bytes: vec,
-                    error: e,
-                })
-            }
+            Err(e) => Err(FromUtf8Error {
+                bytes: vec,
+                error: e,
+            }),
         }
     }
 
@@ -617,7 +617,9 @@ impl String {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn from_utf16(v: &[u16]) -> Result<String, FromUtf16Error> {
-        decode_utf16(v.iter().cloned()).collect::<Result<_, _>>().map_err(|_| FromUtf16Error(()))
+        decode_utf16(v.iter().cloned())
+            .collect::<Result<_, _>>()
+            .map_err(|_| FromUtf16Error(()))
     }
 
     /// Decode a UTF-16 encoded slice `v` into a `String`, replacing
@@ -646,7 +648,9 @@ impl String {
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn from_utf16_lossy(v: &[u16]) -> String {
-        decode_utf16(v.iter().cloned()).map(|r| r.unwrap_or(REPLACEMENT_CHARACTER)).collect()
+        decode_utf16(v.iter().cloned())
+            .map(|r| r.unwrap_or(REPLACEMENT_CHARACTER))
+            .collect()
     }
 
     /// Creates a new `String` from a length, capacity, and pointer.
@@ -693,7 +697,9 @@ impl String {
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub unsafe fn from_raw_parts(buf: *mut u8, length: usize, capacity: usize) -> String {
-        String { vec: Vec::from_raw_parts(buf, length, capacity) }
+        String {
+            vec: Vec::from_raw_parts(buf, length, capacity),
+        }
     }
 
     /// Converts a vector of bytes to a `String` without checking that the
@@ -951,7 +957,7 @@ impl String {
     /// }
     /// # process_data("rust").expect("why is the test harness OOMing on 4 bytes?");
     /// ```
-    #[unstable(feature = "try_reserve", reason = "new API", issue="48043")]
+    #[unstable(feature = "try_reserve", reason = "new API", issue = "48043")]
     pub fn try_reserve(&mut self, additional: usize) -> Result<(), CollectionAllocErr> {
         self.vec.try_reserve(additional)
     }
@@ -989,8 +995,8 @@ impl String {
     /// }
     /// # process_data("rust").expect("why is the test harness OOMing on 4 bytes?");
     /// ```
-    #[unstable(feature = "try_reserve", reason = "new API", issue="48043")]
-    pub fn try_reserve_exact(&mut self, additional: usize) -> Result<(), CollectionAllocErr>  {
+    #[unstable(feature = "try_reserve", reason = "new API", issue = "48043")]
+    pub fn try_reserve_exact(&mut self, additional: usize) -> Result<(), CollectionAllocErr> {
         self.vec.try_reserve_exact(additional)
     }
 
@@ -1038,7 +1044,7 @@ impl String {
     /// assert!(s.capacity() >= 3);
     /// ```
     #[inline]
-    #[unstable(feature = "shrink_to", reason = "new API", issue="0")]
+    #[unstable(feature = "shrink_to", reason = "new API", issue = "0")]
     pub fn shrink_to(&mut self, min_capacity: usize) {
         self.vec.shrink_to(min_capacity)
     }
@@ -1065,7 +1071,9 @@ impl String {
     pub fn push(&mut self, ch: char) {
         match ch.len_utf8() {
             1 => self.vec.push(ch as u8),
-            _ => self.vec.extend_from_slice(ch.encode_utf8(&mut [0; 4]).as_bytes()),
+            _ => self
+                .vec
+                .extend_from_slice(ch.encode_utf8(&mut [0; 4]).as_bytes()),
         }
     }
 
@@ -1188,9 +1196,11 @@ impl String {
         let next = idx + ch.len_utf8();
         let len = self.len();
         unsafe {
-            ptr::copy(self.vec.as_ptr().offset(next as isize),
-                      self.vec.as_mut_ptr().offset(idx as isize),
-                      len - next);
+            ptr::copy(
+                self.vec.as_ptr().offset(next as isize),
+                self.vec.as_mut_ptr().offset(idx as isize),
+                len - next,
+            );
             self.vec.set_len(len - (next - idx));
         }
         ch
@@ -1214,25 +1224,26 @@ impl String {
     #[inline]
     #[stable(feature = "string_retain", since = "1.26.0")]
     pub fn retain<F>(&mut self, mut f: F)
-        where F: FnMut(char) -> bool
+    where
+        F: FnMut(char) -> bool,
     {
         let len = self.len();
         let mut del_bytes = 0;
         let mut idx = 0;
 
         while idx < len {
-            let ch = unsafe {
-                self.slice_unchecked(idx, len).chars().next().unwrap()
-            };
+            let ch = unsafe { self.slice_unchecked(idx, len).chars().next().unwrap() };
             let ch_len = ch.len_utf8();
 
             if !f(ch) {
                 del_bytes += ch_len;
             } else if del_bytes > 0 {
                 unsafe {
-                    ptr::copy(self.vec.as_ptr().offset(idx as isize),
-                              self.vec.as_mut_ptr().offset((idx - del_bytes) as isize),
-                              ch_len);
+                    ptr::copy(
+                        self.vec.as_ptr().offset(idx as isize),
+                        self.vec.as_mut_ptr().offset((idx - del_bytes) as isize),
+                        ch_len,
+                    );
                 }
             }
 
@@ -1241,7 +1252,9 @@ impl String {
         }
 
         if del_bytes > 0 {
-            unsafe { self.vec.set_len(len - del_bytes); }
+            unsafe {
+                self.vec.set_len(len - del_bytes);
+            }
         }
     }
 
@@ -1287,12 +1300,16 @@ impl String {
         let amt = bytes.len();
         self.vec.reserve(amt);
 
-        ptr::copy(self.vec.as_ptr().offset(idx as isize),
-                  self.vec.as_mut_ptr().offset((idx + amt) as isize),
-                  len - idx);
-        ptr::copy(bytes.as_ptr(),
-                  self.vec.as_mut_ptr().offset(idx as isize),
-                  amt);
+        ptr::copy(
+            self.vec.as_ptr().offset(idx as isize),
+            self.vec.as_mut_ptr().offset((idx + amt) as isize),
+            len - idx,
+        );
+        ptr::copy(
+            bytes.as_ptr(),
+            self.vec.as_mut_ptr().offset(idx as isize),
+            amt,
+        );
         self.vec.set_len(len + amt);
     }
 
@@ -1484,7 +1501,8 @@ impl String {
     /// ```
     #[stable(feature = "drain", since = "1.6.0")]
     pub fn drain<R>(&mut self, range: R) -> Drain
-        where R: RangeBounds<usize>
+    where
+        R: RangeBounds<usize>,
     {
         // Memory safety
         //
@@ -1544,7 +1562,8 @@ impl String {
     /// ```
     #[stable(feature = "splice", since = "1.27.0")]
     pub fn replace_range<R>(&mut self, range: R, replace_with: &str)
-        where R: RangeBounds<usize>
+    where
+        R: RangeBounds<usize>,
     {
         // Memory safety
         //
@@ -1552,19 +1571,17 @@ impl String {
         // of the vector version. The data is just plain bytes.
 
         match range.start_bound() {
-             Included(&n) => assert!(self.is_char_boundary(n)),
-             Excluded(&n) => assert!(self.is_char_boundary(n + 1)),
-             Unbounded => {},
+            Included(&n) => assert!(self.is_char_boundary(n)),
+            Excluded(&n) => assert!(self.is_char_boundary(n + 1)),
+            Unbounded => {}
         };
         match range.end_bound() {
-             Included(&n) => assert!(self.is_char_boundary(n + 1)),
-             Excluded(&n) => assert!(self.is_char_boundary(n)),
-             Unbounded => {},
+            Included(&n) => assert!(self.is_char_boundary(n + 1)),
+            Excluded(&n) => assert!(self.is_char_boundary(n)),
+            Unbounded => {}
         };
 
-        unsafe {
-            self.as_mut_vec()
-        }.splice(range, replace_with.bytes());
+        unsafe { self.as_mut_vec() }.splice(range, replace_with.bytes());
     }
 
     /// Converts this `String` into a [`Box`]`<`[`str`]`>`.
@@ -1682,7 +1699,9 @@ impl fmt::Display for FromUtf16Error {
 #[stable(feature = "rust1", since = "1.0.0")]
 impl Clone for String {
     fn clone(&self) -> Self {
-        String { vec: self.vec.clone() }
+        String {
+            vec: self.vec.clone(),
+        }
     }
 
     fn clone_from(&mut self, source: &Self) {
@@ -1782,9 +1801,11 @@ impl<'a> Extend<Cow<'a, str>> for String {
 }
 
 /// A convenience impl that delegates to the impl for `&str`
-#[unstable(feature = "pattern",
-           reason = "API not fully fleshed out and ready to be stabilized",
-           issue = "27721")]
+#[unstable(
+    feature = "pattern",
+    reason = "API not fully fleshed out and ready to be stabilized",
+    issue = "27721"
+)]
 impl<'a, 'b> Pattern<'a> for &'b String {
     type Searcher = <&'b str as Pattern<'a>>::Searcher;
 
@@ -1816,24 +1837,31 @@ impl PartialEq for String {
 }
 
 macro_rules! impl_eq {
-    ($lhs:ty, $rhs: ty) => {
+    ($lhs:ty, $rhs:ty) => {
         #[stable(feature = "rust1", since = "1.0.0")]
         impl<'a, 'b> PartialEq<$rhs> for $lhs {
             #[inline]
-            fn eq(&self, other: &$rhs) -> bool { PartialEq::eq(&self[..], &other[..]) }
+            fn eq(&self, other: &$rhs) -> bool {
+                PartialEq::eq(&self[..], &other[..])
+            }
             #[inline]
-            fn ne(&self, other: &$rhs) -> bool { PartialEq::ne(&self[..], &other[..]) }
+            fn ne(&self, other: &$rhs) -> bool {
+                PartialEq::ne(&self[..], &other[..])
+            }
         }
 
         #[stable(feature = "rust1", since = "1.0.0")]
         impl<'a, 'b> PartialEq<$lhs> for $rhs {
             #[inline]
-            fn eq(&self, other: &$lhs) -> bool { PartialEq::eq(&self[..], &other[..]) }
+            fn eq(&self, other: &$lhs) -> bool {
+                PartialEq::eq(&self[..], &other[..])
+            }
             #[inline]
-            fn ne(&self, other: &$lhs) -> bool { PartialEq::ne(&self[..], &other[..]) }
+            fn ne(&self, other: &$lhs) -> bool {
+                PartialEq::ne(&self[..], &other[..])
+            }
         }
-
-    }
+    };
 }
 
 impl_eq! { String, str }
@@ -2148,7 +2176,7 @@ impl<T: fmt::Display + ?Sized> ToString for T {
         use core::fmt::Write;
         let mut buf = String::new();
         buf.write_fmt(format_args!("{}", self))
-           .expect("a Display implementation return an error unexpectedly");
+            .expect("a Display implementation return an error unexpectedly");
         buf.shrink_to_fit();
         buf
     }

@@ -15,7 +15,7 @@
 //! lints are all available in `rustc_lint::builtin`.
 
 use errors::{Applicability, DiagnosticBuilder};
-use lint::{LintPass, LateLintPass, LintArray};
+use lint::{LateLintPass, LintArray, LintPass};
 use session::Session;
 use syntax::ast;
 use syntax::codemap::Span;
@@ -371,10 +371,11 @@ impl BuiltinLintDiagnostics {
             BuiltinLintDiagnostics::Normal => (),
             BuiltinLintDiagnostics::BareTraitObject(span, is_global) => {
                 let (sugg, app) = match sess.codemap().span_to_snippet(span) {
-                    Ok(ref s) if is_global => (format!("dyn ({})", s),
-                                               Applicability::MachineApplicable),
+                    Ok(ref s) if is_global => {
+                        (format!("dyn ({})", s), Applicability::MachineApplicable)
+                    }
                     Ok(s) => (format!("dyn {}", s), Applicability::MachineApplicable),
-                    Err(_) => (format!("dyn <type>"), Applicability::HasPlaceholders)
+                    Err(_) => (format!("dyn <type>"), Applicability::HasPlaceholders),
                 };
                 db.span_suggestion_with_applicability(span, "use `dyn`", sugg, app);
             }
@@ -389,9 +390,12 @@ impl BuiltinLintDiagnostics {
                             "::"
                         };
 
-                        (format!("crate{}{}", opt_colon, s), Applicability::MachineApplicable)
+                        (
+                            format!("crate{}{}", opt_colon, s),
+                            Applicability::MachineApplicable,
+                        )
                     }
-                    Err(_) => (format!("crate::<path>"), Applicability::HasPlaceholders)
+                    Err(_) => (format!("crate::<path>"), Applicability::HasPlaceholders),
                 };
                 db.span_suggestion_with_applicability(span, "use `crate`", sugg, app);
             }

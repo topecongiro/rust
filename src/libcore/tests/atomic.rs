@@ -8,8 +8,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use core::sync::atomic::*;
 use core::sync::atomic::Ordering::SeqCst;
+use core::sync::atomic::*;
 
 #[test]
 fn bool_() {
@@ -25,7 +25,7 @@ fn bool_() {
 fn bool_and() {
     let a = AtomicBool::new(true);
     assert_eq!(a.fetch_and(false, SeqCst), true);
-    assert_eq!(a.load(SeqCst),false);
+    assert_eq!(a.load(SeqCst), false);
 }
 
 #[test]
@@ -99,7 +99,7 @@ fn int_xor() {
 
 static S_FALSE: AtomicBool = AtomicBool::new(false);
 static S_TRUE: AtomicBool = AtomicBool::new(true);
-static S_INT: AtomicIsize  = AtomicIsize::new(0);
+static S_INT: AtomicIsize = AtomicIsize::new(0);
 static S_UINT: AtomicUsize = AtomicUsize::new(0);
 
 #[test]

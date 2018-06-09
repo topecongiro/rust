@@ -1,11 +1,11 @@
 use rustc::mir;
-use rustc::ty::{self, Ty, layout};
-use syntax::ast::FloatTy;
 use rustc::ty::layout::LayoutOf;
+use rustc::ty::{self, layout, Ty};
 use rustc_apfloat::ieee::{Double, Single};
 use rustc_apfloat::Float;
+use syntax::ast::FloatTy;
 
-use super::{EvalContext, Place, Machine, ValTy};
+use super::{EvalContext, Machine, Place, ValTy};
 
 use rustc::mir::interpret::{EvalResult, Scalar, Value};
 
@@ -79,7 +79,14 @@ impl<'a, 'mir, 'tcx, M: Machine<'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> {
             layout::Abi::Scalar(ref scalar) => scalar.value,
             _ => return err!(TypeNotPrimitive(right_ty)),
         };
-        trace!("Running binary op {:?}: {:?} ({:?}), {:?} ({:?})", bin_op, left, left_kind, right, right_kind);
+        trace!(
+            "Running binary op {:?}: {:?} ({:?}), {:?} ({:?})",
+            bin_op,
+            left,
+            left_kind,
+            right,
+            right_kind
+        );
 
         // I: Handle operations that support pointers
         if !left_kind.is_float() && !right_kind.is_float() {
@@ -117,20 +124,19 @@ impl<'a, 'mir, 'tcx, M: Machine<'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> {
                 }
             };
             let truncated = self.truncate(result, left_ty)?;
-            return Ok((Scalar::Bits {
-                bits: truncated,
-                defined: size as u8,
-            }, oflo));
+            return Ok((
+                Scalar::Bits {
+                    bits: truncated,
+                    defined: size as u8,
+                },
+                oflo,
+            ));
         }
 
         if left_kind != right_kind {
             let msg = format!(
                 "unimplemented binary op {:?}: {:?} ({:?}), {:?} ({:?})",
-                bin_op,
-                left,
-                left_kind,
-                right,
-                right_kind
+                bin_op, left, left_kind, right, right_kind
             );
             return err!(Unimplemented(msg));
         }
@@ -166,10 +172,16 @@ impl<'a, 'mir, 'tcx, M: Machine<'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> {
                     Rem | Div => {
                         // int_min / -1
                         if r == -1 && l == (1 << (size - 1)) {
-                            return Ok((Scalar::Bits { bits: l, defined: size as u8 }, true));
+                            return Ok((
+                                Scalar::Bits {
+                                    bits: l,
+                                    defined: size as u8,
+                                },
+                                true,
+                            ));
                         }
-                    },
-                    _ => {},
+                    }
+                    _ => {}
                 }
                 trace!("{}, {}, {}", l, l128, r);
                 let (result, mut oflo) = op(l128, r);
@@ -180,10 +192,13 @@ impl<'a, 'mir, 'tcx, M: Machine<'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> {
                 }
                 let result = result as u128;
                 let truncated = self.truncate(result, left_ty)?;
-                return Ok((Scalar::Bits {
-                    bits: truncated,
-                    defined: size as u8,
-                }, oflo));
+                return Ok((
+                    Scalar::Bits {
+                        bits: truncated,
+                        defined: size as u8,
+                    },
+                    oflo,
+                ));
             }
         }
 
@@ -231,9 +246,18 @@ impl<'a, 'mir, 'tcx, M: Machine<'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> {
             Gt => Scalar::from_bool(l > r),
             Ge => Scalar::from_bool(l >= r),
 
-            BitOr => Scalar::Bits { bits: l | r, defined: bit_width },
-            BitAnd => Scalar::Bits { bits: l & r, defined: bit_width },
-            BitXor => Scalar::Bits { bits: l ^ r, defined: bit_width },
+            BitOr => Scalar::Bits {
+                bits: l | r,
+                defined: bit_width,
+            },
+            BitAnd => Scalar::Bits {
+                bits: l & r,
+                defined: bit_width,
+            },
+            BitXor => Scalar::Bits {
+                bits: l ^ r,
+                defined: bit_width,
+            },
 
             Add | Sub | Mul | Rem | Div => {
                 let op: fn(u128, u128) -> (u128, bool) = match bin_op {
@@ -248,20 +272,19 @@ impl<'a, 'mir, 'tcx, M: Machine<'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> {
                 };
                 let (result, oflo) = op(l, r);
                 let truncated = self.truncate(result, left_ty)?;
-                return Ok((Scalar::Bits {
-                    bits: truncated,
-                    defined: bit_width,
-                }, oflo || truncated != result));
+                return Ok((
+                    Scalar::Bits {
+                        bits: truncated,
+                        defined: bit_width,
+                    },
+                    oflo || truncated != result,
+                ));
             }
 
             _ => {
                 let msg = format!(
                     "unimplemented binary op {:?}: {:?} ({:?}), {:?} ({:?})",
-                    bin_op,
-                    left,
-                    left_ty,
-                    right,
-                    right_ty,
+                    bin_op, left, left_ty, right, right_ty,
                 );
                 return err!(Unimplemented(msg));
             }
@@ -277,7 +300,7 @@ impl<'a, 'mir, 'tcx, M: Machine<'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> {
         ty: Ty<'tcx>,
     ) -> EvalResult<'tcx, Scalar> {
         use rustc::mir::UnOp::*;
-        use rustc_apfloat::ieee::{Single, Double};
+        use rustc_apfloat::ieee::{Double, Single};
         use rustc_apfloat::Float;
 
         let size = self.layout_of(ty)?.size;
@@ -285,7 +308,6 @@ impl<'a, 'mir, 'tcx, M: Machine<'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> {
         let size = size.bits();
 
         let result_bytes = match (un_op, &ty.sty) {
-
             (Not, ty::TyBool) => !val.to_bool()? as u128,
 
             (Not, _) => !bytes,

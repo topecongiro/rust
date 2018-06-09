@@ -83,25 +83,20 @@ impl Waker {
 impl Clone for Waker {
     #[inline]
     fn clone(&self) -> Self {
-        unsafe {
-            self.inner.as_ref().clone_raw()
-        }
+        unsafe { self.inner.as_ref().clone_raw() }
     }
 }
 
 impl fmt::Debug for Waker {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Waker")
-            .finish()
+        f.debug_struct("Waker").finish()
     }
 }
 
 impl Drop for Waker {
     #[inline]
     fn drop(&mut self) {
-        unsafe {
-            self.inner.as_ref().drop_raw()
-        }
+        unsafe { self.inner.as_ref().drop_raw() }
     }
 }
 
@@ -173,7 +168,9 @@ impl LocalWaker {
 impl From<LocalWaker> for Waker {
     #[inline]
     fn from(local_waker: LocalWaker) -> Self {
-        Waker { inner: local_waker.inner }
+        Waker {
+            inner: local_waker.inner,
+        }
     }
 }
 
@@ -181,24 +178,23 @@ impl Clone for LocalWaker {
     #[inline]
     fn clone(&self) -> Self {
         unsafe {
-            LocalWaker { inner: self.inner.as_ref().clone_raw().inner }
+            LocalWaker {
+                inner: self.inner.as_ref().clone_raw().inner,
+            }
         }
     }
 }
 
 impl fmt::Debug for LocalWaker {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Waker")
-            .finish()
+        f.debug_struct("Waker").finish()
     }
 }
 
 impl Drop for LocalWaker {
     #[inline]
     fn drop(&mut self) {
-        unsafe {
-            self.inner.as_ref().drop_raw()
-        }
+        unsafe { self.inner.as_ref().drop_raw() }
     }
 }
 
@@ -302,8 +298,7 @@ pub struct Context<'a> {
 
 impl<'a> fmt::Debug for Context<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Context")
-            .finish()
+        f.debug_struct("Context").finish()
     }
 }
 
@@ -358,7 +353,8 @@ impl<'a> Context<'a> {
     /// schedulers" within a task.
     #[inline]
     pub fn with_executor<'b, E>(&'b mut self, executor: &'b mut E) -> Context<'b>
-        where E: Executor
+    where
+        E: Executor,
     {
         Context {
             local_waker: self.local_waker,
@@ -406,8 +402,7 @@ pub struct TaskObj {
 
 impl fmt::Debug for TaskObj {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("TaskObj")
-            .finish()
+        f.debug_struct("TaskObj").finish()
     }
 }
 
@@ -463,17 +458,13 @@ impl TaskObj {
     /// futures only an `&mut self` reference is needed here.
     #[inline]
     pub fn poll_task(&mut self, cx: &mut Context) -> Poll<()> {
-        unsafe {
-            (self.poll)(self.ptr, cx)
-        }
+        unsafe { (self.poll)(self.ptr, cx) }
     }
 }
 
 impl Drop for TaskObj {
     fn drop(&mut self) {
-        unsafe {
-            (self.drop)(self.ptr)
-        }
+        unsafe { (self.drop)(self.ptr) }
     }
 }
 
@@ -484,9 +475,7 @@ pub struct SpawnErrorKind {
 
 impl fmt::Debug for SpawnErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("SpawnErrorKind")
-            .field(&"shutdown")
-            .finish()
+        f.debug_tuple("SpawnErrorKind").field(&"shutdown").finish()
     }
 }
 

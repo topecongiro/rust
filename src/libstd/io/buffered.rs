@@ -15,7 +15,7 @@ use io::prelude::*;
 use cmp;
 use error;
 use fmt;
-use io::{self, Initializer, DEFAULT_BUF_SIZE, Error, ErrorKind, SeekFrom};
+use io::{self, Error, ErrorKind, Initializer, SeekFrom, DEFAULT_BUF_SIZE};
 use memchr;
 
 /// The `BufReader` struct adds buffering to any reader.
@@ -130,7 +130,9 @@ impl<R: Read> BufReader<R> {
     /// }
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    pub fn get_ref(&self) -> &R { &self.inner }
+    pub fn get_ref(&self) -> &R {
+        &self.inner
+    }
 
     /// Gets a mutable reference to the underlying reader.
     ///
@@ -151,7 +153,9 @@ impl<R: Read> BufReader<R> {
     /// }
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    pub fn get_mut(&mut self) -> &mut R { &mut self.inner }
+    pub fn get_mut(&mut self) -> &mut R {
+        &mut self.inner
+    }
 
     /// Returns `true` if there are no bytes in the internal buffer.
     ///
@@ -226,7 +230,9 @@ impl<R: Read> BufReader<R> {
     /// }
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    pub fn into_inner(self) -> R { self.inner }
+    pub fn into_inner(self) -> R {
+        self.inner
+    }
 }
 
 impl<R: Seek> BufReader<R> {
@@ -240,17 +246,17 @@ impl<R: Seek> BufReader<R> {
         if offset < 0 {
             if let Some(new_pos) = pos.checked_sub((-offset) as u64) {
                 self.pos = new_pos as usize;
-                return Ok(())
+                return Ok(());
             }
         } else {
             if let Some(new_pos) = pos.checked_add(offset as u64) {
                 if new_pos <= self.cap as u64 {
                     self.pos = new_pos as usize;
-                    return Ok(())
+                    return Ok(());
                 }
             }
         }
-        self.seek(SeekFrom::Current(offset)).map(|_|())
+        self.seek(SeekFrom::Current(offset)).map(|_| ())
     }
 }
 
@@ -298,11 +304,17 @@ impl<R: Read> BufRead for BufReader<R> {
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<R> fmt::Debug for BufReader<R> where R: fmt::Debug {
+impl<R> fmt::Debug for BufReader<R>
+where
+    R: fmt::Debug,
+{
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("BufReader")
             .field("reader", &self.inner)
-            .field("buffer", &format_args!("{}/{}", self.cap - self.pos, self.buf.len()))
+            .field(
+                "buffer",
+                &format_args!("{}/{}", self.cap - self.pos, self.buf.len()),
+            )
             .finish()
     }
 }
@@ -502,14 +514,18 @@ impl<W: Write> BufWriter<W> {
 
             match r {
                 Ok(0) => {
-                    ret = Err(Error::new(ErrorKind::WriteZero,
-                                         "failed to write the buffered data"));
+                    ret = Err(Error::new(
+                        ErrorKind::WriteZero,
+                        "failed to write the buffered data",
+                    ));
                     break;
                 }
                 Ok(n) => written += n,
                 Err(ref e) if e.kind() == io::ErrorKind::Interrupted => {}
-                Err(e) => { ret = Err(e); break }
-
+                Err(e) => {
+                    ret = Err(e);
+                    break;
+                }
             }
         }
         if written > 0 {
@@ -532,7 +548,9 @@ impl<W: Write> BufWriter<W> {
     /// let reference = buffer.get_ref();
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    pub fn get_ref(&self) -> &W { self.inner.as_ref().unwrap() }
+    pub fn get_ref(&self) -> &W {
+        self.inner.as_ref().unwrap()
+    }
 
     /// Gets a mutable reference to the underlying writer.
     ///
@@ -550,7 +568,9 @@ impl<W: Write> BufWriter<W> {
     /// let reference = buffer.get_mut();
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    pub fn get_mut(&mut self) -> &mut W { self.inner.as_mut().unwrap() }
+    pub fn get_mut(&mut self) -> &mut W {
+        self.inner.as_mut().unwrap()
+    }
 
     /// Unwraps this `BufWriter`, returning the underlying writer.
     ///
@@ -575,7 +595,7 @@ impl<W: Write> BufWriter<W> {
     pub fn into_inner(mut self) -> Result<W, IntoInnerError<BufWriter<W>>> {
         match self.flush_buf() {
             Err(e) => Err(IntoInnerError(self, e)),
-            Ok(()) => Ok(self.inner.take().unwrap())
+            Ok(()) => Ok(self.inner.take().unwrap()),
         }
     }
 }
@@ -601,11 +621,17 @@ impl<W: Write> Write for BufWriter<W> {
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<W: Write> fmt::Debug for BufWriter<W> where W: fmt::Debug {
+impl<W: Write> fmt::Debug for BufWriter<W>
+where
+    W: fmt::Debug,
+{
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("BufWriter")
             .field("writer", &self.inner.as_ref().unwrap())
-            .field("buffer", &format_args!("{}/{}", self.buf.len(), self.buf.capacity()))
+            .field(
+                "buffer",
+                &format_args!("{}/{}", self.buf.len(), self.buf.capacity()),
+            )
             .finish()
     }
 }
@@ -660,7 +686,9 @@ impl<W> IntoInnerError<W> {
     /// };
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    pub fn error(&self) -> &Error { &self.1 }
+    pub fn error(&self) -> &Error {
+        &self.1
+    }
 
     /// Returns the buffered writer instance which generated the error.
     ///
@@ -693,12 +721,16 @@ impl<W> IntoInnerError<W> {
     /// };
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    pub fn into_inner(self) -> W { self.0 }
+    pub fn into_inner(self) -> W {
+        self.0
+    }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<W> From<IntoInnerError<W>> for Error {
-    fn from(iie: IntoInnerError<W>) -> Error { iie.1 }
+    fn from(iie: IntoInnerError<W>) -> Error {
+        iie.1
+    }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
@@ -833,7 +865,9 @@ impl<W: Write> LineWriter<W> {
     /// }
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    pub fn get_ref(&self) -> &W { self.inner.get_ref() }
+    pub fn get_ref(&self) -> &W {
+        self.inner.get_ref()
+    }
 
     /// Gets a mutable reference to the underlying writer.
     ///
@@ -856,7 +890,9 @@ impl<W: Write> LineWriter<W> {
     /// }
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    pub fn get_mut(&mut self) -> &mut W { self.inner.get_mut() }
+    pub fn get_mut(&mut self) -> &mut W {
+        self.inner.get_mut()
+    }
 
     /// Unwraps this `LineWriter`, returning the underlying writer.
     ///
@@ -884,10 +920,13 @@ impl<W: Write> LineWriter<W> {
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn into_inner(self) -> Result<W, IntoInnerError<LineWriter<W>>> {
         self.inner.into_inner().map_err(|IntoInnerError(buf, e)| {
-            IntoInnerError(LineWriter {
-                inner: buf,
-                need_flush: false,
-            }, e)
+            IntoInnerError(
+                LineWriter {
+                    inner: buf,
+                    need_flush: false,
+                },
+                e,
+            )
         })
     }
 }
@@ -907,7 +946,6 @@ impl<W: Write> Write for LineWriter<W> {
             None => return self.inner.write(buf),
         };
 
-
         // Ok, we're going to write a partial amount of the data given first
         // followed by flushing the newline. After we've successfully written
         // some data then we *must* report that we wrote that data, so future
@@ -916,7 +954,7 @@ impl<W: Write> Write for LineWriter<W> {
         let n = self.inner.write(&buf[..i + 1])?;
         self.need_flush = true;
         if self.flush().is_err() || n != i + 1 {
-            return Ok(n)
+            return Ok(n);
         }
 
         // At this point we successfully wrote `i + 1` bytes and flushed it out,
@@ -938,12 +976,17 @@ impl<W: Write> Write for LineWriter<W> {
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<W: Write> fmt::Debug for LineWriter<W> where W: fmt::Debug {
+impl<W: Write> fmt::Debug for LineWriter<W>
+where
+    W: fmt::Debug,
+{
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("LineWriter")
             .field("writer", &self.inner.inner)
-            .field("buffer",
-                   &format_args!("{}/{}", self.inner.buf.len(), self.inner.buf.capacity()))
+            .field(
+                "buffer",
+                &format_args!("{}/{}", self.inner.buf.len(), self.inner.buf.capacity()),
+            )
             .finish()
     }
 }
@@ -953,8 +996,8 @@ mod tests {
     use io::prelude::*;
     use io::{self, BufReader, BufWriter, LineWriter, SeekFrom};
     use sync::atomic::{AtomicUsize, Ordering};
-    use thread;
     use test;
+    use thread;
 
     /// A dummy reader intended at testing short-reads propagation.
     pub struct ShortReader {
@@ -1044,7 +1087,7 @@ mod tests {
     fn test_buffered_reader_seek_underflow() {
         // gimmick reader that yields its position modulo 256 for each byte
         struct PositionReader {
-            pos: u64
+            pos: u64,
         }
         impl Read for PositionReader {
             fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
@@ -1075,11 +1118,17 @@ mod tests {
 
         let mut reader = BufReader::with_capacity(5, PositionReader { pos: 0 });
         assert_eq!(reader.fill_buf().ok(), Some(&[0, 1, 2, 3, 4][..]));
-        assert_eq!(reader.seek(SeekFrom::End(-5)).ok(), Some(u64::max_value()-5));
+        assert_eq!(
+            reader.seek(SeekFrom::End(-5)).ok(),
+            Some(u64::max_value() - 5)
+        );
         assert_eq!(reader.fill_buf().ok().map(|s| s.len()), Some(5));
         // the following seek will require two underlying seeks
         let expected = 9223372036854775802;
-        assert_eq!(reader.seek(SeekFrom::Current(i64::min_value())).ok(), Some(expected));
+        assert_eq!(
+            reader.seek(SeekFrom::Current(i64::min_value())).ok(),
+            Some(expected)
+        );
         assert_eq!(reader.fill_buf().ok().map(|s| s.len()), Some(5));
         // seeking to 0 should empty the buffer.
         assert_eq!(reader.seek(SeekFrom::Current(0)).ok(), Some(expected));
@@ -1138,7 +1187,10 @@ mod tests {
         assert_eq!(&w.get_ref().get_ref()[..], &[0, 1, 2, 3, 4, 5, 6, 7][..]);
         assert_eq!(w.seek(SeekFrom::Start(2)).ok(), Some(2));
         w.write_all(&[8, 9]).unwrap();
-        assert_eq!(&w.into_inner().unwrap().into_inner()[..], &[0, 1, 8, 9, 4, 5, 6, 7]);
+        assert_eq!(
+            &w.into_inner().unwrap().into_inner()[..],
+            &[0, 1, 8, 9, 4, 5, 6, 7]
+        );
     }
 
     #[test]
@@ -1238,7 +1290,9 @@ mod tests {
 
     #[test]
     fn test_short_reads() {
-        let inner = ShortReader{lengths: vec![0, 1, 2, 0, 1, 0]};
+        let inner = ShortReader {
+            lengths: vec![0, 1, 2, 0, 1, 0],
+        };
         let mut reader = BufReader::new(inner);
         let mut buf = [0, 0];
         assert_eq!(reader.read(&mut buf).unwrap(), 0);
@@ -1275,7 +1329,9 @@ mod tests {
         struct FailFlushWriter;
 
         impl Write for FailFlushWriter {
-            fn write(&mut self, buf: &[u8]) -> io::Result<usize> { Ok(buf.len()) }
+            fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+                Ok(buf.len())
+            }
             fn flush(&mut self) -> io::Result<()> {
                 Err(io::Error::last_os_error())
             }
@@ -1301,30 +1357,29 @@ mod tests {
                 WRITES.fetch_add(1, Ordering::SeqCst);
                 panic!();
             }
-            fn flush(&mut self) -> io::Result<()> { Ok(()) }
+            fn flush(&mut self) -> io::Result<()> {
+                Ok(())
+            }
         }
 
         thread::spawn(|| {
             let mut writer = BufWriter::new(PanicWriter);
             let _ = writer.write(b"hello world");
             let _ = writer.flush();
-        }).join().unwrap_err();
+        }).join()
+            .unwrap_err();
 
         assert_eq!(WRITES.load(Ordering::SeqCst), 1);
     }
 
     #[bench]
     fn bench_buffered_reader(b: &mut test::Bencher) {
-        b.iter(|| {
-            BufReader::new(io::empty())
-        });
+        b.iter(|| BufReader::new(io::empty()));
     }
 
     #[bench]
     fn bench_buffered_writer(b: &mut test::Bencher) {
-        b.iter(|| {
-            BufWriter::new(io::sink())
-        });
+        b.iter(|| BufWriter::new(io::sink()));
     }
 
     struct AcceptOneThenFail {

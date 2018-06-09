@@ -34,26 +34,25 @@ impl<'a, 'tcx, 'rcx> AutoTraitFinder<'a, 'tcx, 'rcx> {
                 AdtKind::Struct => Def::Struct,
                 AdtKind::Enum => Def::Enum,
                 AdtKind::Union => Def::Union,
+            },
+            ty::TyInt(_) | ty::TyUint(_) | ty::TyFloat(_) | ty::TyStr | ty::TyBool | ty::TyChar => {
+                return self.get_auto_trait_impls(
+                    def_id,
+                    &move |_: DefId| match ty.sty {
+                        ty::TyInt(x) => Def::PrimTy(hir::TyInt(x)),
+                        ty::TyUint(x) => Def::PrimTy(hir::TyUint(x)),
+                        ty::TyFloat(x) => Def::PrimTy(hir::TyFloat(x)),
+                        ty::TyStr => Def::PrimTy(hir::TyStr),
+                        ty::TyBool => Def::PrimTy(hir::TyBool),
+                        ty::TyChar => Def::PrimTy(hir::TyChar),
+                        _ => unreachable!(),
+                    },
+                    None,
+                )
             }
-            ty::TyInt(_) |
-            ty::TyUint(_) |
-            ty::TyFloat(_) |
-            ty::TyStr |
-            ty::TyBool |
-            ty::TyChar => return self.get_auto_trait_impls(def_id, &move |_: DefId| {
-                match ty.sty {
-                    ty::TyInt(x) => Def::PrimTy(hir::TyInt(x)),
-                    ty::TyUint(x) => Def::PrimTy(hir::TyUint(x)),
-                    ty::TyFloat(x) => Def::PrimTy(hir::TyFloat(x)),
-                    ty::TyStr => Def::PrimTy(hir::TyStr),
-                    ty::TyBool => Def::PrimTy(hir::TyBool),
-                    ty::TyChar => Def::PrimTy(hir::TyChar),
-                    _ => unreachable!(),
-                }
-            }, None),
             _ => {
                 debug!("Unexpected type {:?}", def_id);
-                return Vec::new()
+                return Vec::new();
             }
         };
 
@@ -80,8 +79,11 @@ impl<'a, 'tcx, 'rcx> AutoTraitFinder<'a, 'tcx, 'rcx> {
         def_ctor: &F,
         name: Option<String>,
     ) -> Vec<Item>
-    where F: Fn(DefId) -> Def {
-        if self.cx
+    where
+        F: Fn(DefId) -> Def,
+    {
+        if self
+            .cx
             .tcx
             .get_attrs(def_id)
             .lists("doc")
@@ -102,7 +104,8 @@ impl<'a, 'tcx, 'rcx> AutoTraitFinder<'a, 'tcx, 'rcx> {
             "get_auto_trait_impls(def_id={:?}, def_ctor=..., generics={:?}",
             def_id, generics
         );
-        let auto_traits: Vec<_> = self.cx
+        let auto_traits: Vec<_> = self
+            .cx
             .send_trait
             .and_then(|send_trait| {
                 self.get_auto_trait_impl_for(
@@ -114,13 +117,15 @@ impl<'a, 'tcx, 'rcx> AutoTraitFinder<'a, 'tcx, 'rcx> {
                 )
             })
             .into_iter()
-            .chain(self.get_auto_trait_impl_for(
-                def_id,
-                name.clone(),
-                generics.clone(),
-                def_ctor,
-                tcx.require_lang_item(lang_items::SyncTraitLangItem),
-            ).into_iter())
+            .chain(
+                self.get_auto_trait_impl_for(
+                    def_id,
+                    name.clone(),
+                    generics.clone(),
+                    def_ctor,
+                    tcx.require_lang_item(lang_items::SyncTraitLangItem),
+                ).into_iter(),
+            )
             .collect();
 
         debug!(
@@ -138,8 +143,11 @@ impl<'a, 'tcx, 'rcx> AutoTraitFinder<'a, 'tcx, 'rcx> {
         def_ctor: &F,
         trait_def_id: DefId,
     ) -> Option<Item>
-    where F: Fn(DefId) -> Def {
-        if !self.cx
+    where
+        F: Fn(DefId) -> Def,
+    {
+        if !self
+            .cx
             .generated_synthetics
             .borrow_mut()
             .insert((def_id, trait_def_id))
@@ -263,7 +271,7 @@ impl<'a, 'tcx, 'rcx> AutoTraitFinder<'a, 'tcx, 'rcx> {
                         name,
                     });
                 }
-                ty::GenericParamDefKind::Type {..} => {
+                ty::GenericParamDefKind::Type { .. } => {
                     types.push(P(self.ty_param_to_ty(param.clone())));
                 }
             }
@@ -286,9 +294,9 @@ impl<'a, 'tcx, 'rcx> AutoTraitFinder<'a, 'tcx, 'rcx> {
                 P(hir::Path {
                     span: DUMMY_SP,
                     def: Def::TyParam(param.def_id),
-                    segments: HirVec::from_vec(vec![
-                        hir::PathSegment::from_name(param.name.as_symbol())
-                    ]),
+                    segments: HirVec::from_vec(vec![hir::PathSegment::from_name(
+                        param.name.as_symbol(),
+                    )]),
                 }),
             )),
             span: DUMMY_SP,
@@ -302,33 +310,33 @@ impl<'a, 'tcx, 'rcx> AutoTraitFinder<'a, 'tcx, 'rcx> {
         trait_did: DefId,
         generics: &ty::Generics,
     ) -> AutoTraitResult {
-        match self.f.find_auto_trait_generics(did, trait_did, generics,
-                |infcx, mut info| {
-                    let region_data = info.region_data;
-                    let names_map =
-                        info.names_map
-                            .drain()
-                            .map(|name| (name.clone(), Lifetime(name)))
-                            .collect();
-                    let lifetime_predicates =
-                        self.handle_lifetimes(&region_data, &names_map);
-                    let new_generics = self.param_env_to_generics(
-                        infcx.tcx,
-                        did,
-                        info.full_user_env,
-                        generics.clone(),
-                        lifetime_predicates,
-                        info.vid_to_region,
-                    );
+        match self
+            .f
+            .find_auto_trait_generics(did, trait_did, generics, |infcx, mut info| {
+                let region_data = info.region_data;
+                let names_map = info
+                    .names_map
+                    .drain()
+                    .map(|name| (name.clone(), Lifetime(name)))
+                    .collect();
+                let lifetime_predicates = self.handle_lifetimes(&region_data, &names_map);
+                let new_generics = self.param_env_to_generics(
+                    infcx.tcx,
+                    did,
+                    info.full_user_env,
+                    generics.clone(),
+                    lifetime_predicates,
+                    info.vid_to_region,
+                );
 
-                    debug!(
-                        "find_auto_trait_generics(did={:?}, trait_did={:?}, generics={:?}): \
-                         finished with {:?}",
-                        did, trait_did, generics, new_generics
-                    );
+                debug!(
+                    "find_auto_trait_generics(did={:?}, trait_did={:?}, generics={:?}): \
+                     finished with {:?}",
+                    did, trait_did, generics, new_generics
+                );
 
-                    new_generics
-                }) {
+                new_generics
+            }) {
             auto::AutoTraitResult::ExplicitImpl => AutoTraitResult::ExplicitImpl,
             auto::AutoTraitResult::NegativeImpl => AutoTraitResult::NegativeImpl,
             auto::AutoTraitResult::PositiveImpl(res) => AutoTraitResult::PositiveImpl(res),
@@ -650,7 +658,8 @@ impl<'a, 'tcx, 'rcx> AutoTraitFinder<'a, 'tcx, 'rcx> {
 
         // The `Sized` trait must be handled specially, since we only only display it when
         // it is *not* required (i.e. '?Sized')
-        let sized_trait = self.cx
+        let sized_trait = self
+            .cx
             .tcx
             .require_lang_item(lang_items::SizedTraitLangItem);
 
@@ -715,7 +724,8 @@ impl<'a, 'tcx, 'rcx> AutoTraitFinder<'a, 'tcx, 'rcx> {
 
                     if b.is_sized_bound(self.cx) {
                         has_sized.insert(ty.clone());
-                    } else if !b.get_trait_type()
+                    } else if !b
+                        .get_trait_type()
                         .and_then(|t| {
                             ty_to_traits
                                 .get(&ty)

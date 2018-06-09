@@ -8,9 +8,9 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::slice;
+use session::{config, early_error};
 use std::path::{Path, PathBuf};
-use session::{early_error, config};
+use std::slice;
 
 #[derive(Clone, Debug)]
 pub struct SearchPaths {
@@ -58,7 +58,10 @@ impl SearchPaths {
     }
 
     pub fn iter(&self, kind: PathKind) -> Iter {
-        Iter { kind: kind, iter: self.paths.iter() }
+        Iter {
+            kind: kind,
+            iter: self.paths.iter(),
+        }
     }
 }
 
@@ -68,9 +71,9 @@ impl<'a> Iterator for Iter<'a> {
     fn next(&mut self) -> Option<(&'a Path, PathKind)> {
         loop {
             match self.iter.next() {
-                Some(&(kind, ref p)) if self.kind == PathKind::All ||
-                                        kind == PathKind::All ||
-                                        kind == self.kind => {
+                Some(&(kind, ref p))
+                    if self.kind == PathKind::All || kind == PathKind::All || kind == self.kind =>
+                {
                     return Some((p, kind))
                 }
                 Some(..) => {}

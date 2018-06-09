@@ -39,12 +39,12 @@ use std::ops::Index;
 use std::sync::atomic::Ordering;
 use syntax::codemap::Span;
 use traits::{Obligation, ObligationCause, PredicateObligation};
-use ty::{self, CanonicalVar, Lift, Region, Slice, Ty, TyCtxt, TypeFlags};
-use ty::subst::{Kind, UnpackedKind};
 use ty::fold::{TypeFoldable, TypeFolder};
+use ty::subst::{Kind, UnpackedKind};
+use ty::{self, CanonicalVar, Lift, Region, Slice, Ty, TyCtxt, TypeFlags};
 
-use rustc_data_structures::indexed_vec::IndexVec;
 use rustc_data_structures::fx::FxHashMap;
+use rustc_data_structures::indexed_vec::IndexVec;
 
 /// A "canonicalized" type `V` is one where all free inference
 /// variables have been rewriten to "canonical vars". These are
@@ -57,7 +57,7 @@ pub struct Canonical<'gcx, V> {
 
 pub type CanonicalVarInfos<'gcx> = &'gcx Slice<CanonicalVarInfo>;
 
-impl<'gcx> UseSpecializedDecodable for CanonicalVarInfos<'gcx> { }
+impl<'gcx> UseSpecializedDecodable for CanonicalVarInfos<'gcx> {}
 
 /// A set of values corresponding to the canonical variables from some
 /// `Canonical`. You can give these values to
@@ -247,9 +247,7 @@ impl<'cx, 'gcx, 'tcx> InferCtxt<'cx, 'gcx, 'tcx> {
             CanonicalVarKind::Ty(ty_kind) => {
                 let ty = match ty_kind {
                     CanonicalTyVarKind::General => {
-                        self.next_ty_var(
-                            TypeVariableOrigin::MiscVariable(span),
-                        )
+                        self.next_ty_var(TypeVariableOrigin::MiscVariable(span))
                     }
 
                     CanonicalTyVarKind::Int => self.tcx.mk_int_var(self.next_int_var_id()),
@@ -259,9 +257,9 @@ impl<'cx, 'gcx, 'tcx> InferCtxt<'cx, 'gcx, 'tcx> {
                 ty.into()
             }
 
-            CanonicalVarKind::Region => {
-                self.next_region_var(RegionVariableOrigin::MiscVariable(span)).into()
-            }
+            CanonicalVarKind::Region => self
+                .next_region_var(RegionVariableOrigin::MiscVariable(span))
+                .into(),
         }
     }
 
@@ -350,9 +348,9 @@ impl<'cx, 'gcx, 'tcx> InferCtxt<'cx, 'gcx, 'tcx> {
         let substituted_values = |index: CanonicalVar| -> Kind<'tcx> {
             query_result.substitute_projected(self.tcx, result_subst, |v| &v.var_values[index])
         };
-        let mut obligations =
-            self.unify_canonical_vars(cause, param_env, original_values, substituted_values)?
-                .into_obligations();
+        let mut obligations = self
+            .unify_canonical_vars(cause, param_env, original_values, substituted_values)?
+            .into_obligations();
 
         obligations.extend(self.query_region_constraints_into_obligations(
             cause,
@@ -379,28 +377,32 @@ impl<'cx, 'gcx, 'tcx> InferCtxt<'cx, 'gcx, 'tcx> {
         unsubstituted_region_constraints: &'a [QueryRegionConstraint<'tcx>],
         result_subst: &'a CanonicalVarValues<'tcx>,
     ) -> impl Iterator<Item = PredicateObligation<'tcx>> + 'a {
-        Box::new(unsubstituted_region_constraints.iter().map(move |constraint| {
-            let ty::OutlivesPredicate(k1, r2) = constraint.skip_binder(); // restored below
-            let k1 = substitute_value(self.tcx, result_subst, k1);
-            let r2 = substitute_value(self.tcx, result_subst, r2);
-            match k1.unpack() {
-                UnpackedKind::Lifetime(r1) =>
-                    Obligation::new(
-                        cause.clone(),
-                        param_env,
-                        ty::Predicate::RegionOutlives(
-                            ty::Binder::dummy(ty::OutlivesPredicate(r1, r2))),
-                    ),
+        Box::new(
+            unsubstituted_region_constraints
+                .iter()
+                .map(move |constraint| {
+                    let ty::OutlivesPredicate(k1, r2) = constraint.skip_binder(); // restored below
+                    let k1 = substitute_value(self.tcx, result_subst, k1);
+                    let r2 = substitute_value(self.tcx, result_subst, r2);
+                    match k1.unpack() {
+                        UnpackedKind::Lifetime(r1) => Obligation::new(
+                            cause.clone(),
+                            param_env,
+                            ty::Predicate::RegionOutlives(ty::Binder::dummy(
+                                ty::OutlivesPredicate(r1, r2),
+                            )),
+                        ),
 
-                UnpackedKind::Type(t1) =>
-                    Obligation::new(
-                        cause.clone(),
-                        param_env,
-                        ty::Predicate::TypeOutlives(
-                            ty::Binder::dummy(ty::OutlivesPredicate(t1, r2))),
-                    ),
-            }
-        })) as Box<dyn Iterator<Item = _>>
+                        UnpackedKind::Type(t1) => Obligation::new(
+                            cause.clone(),
+                            param_env,
+                            ty::Predicate::TypeOutlives(ty::Binder::dummy(ty::OutlivesPredicate(
+                                t1, r2,
+                            ))),
+                        ),
+                    }
+                }),
+        ) as Box<dyn Iterator<Item = _>>
     }
 
     /// Given two sets of values for the same set of canonical variables, unify them.
@@ -463,7 +465,11 @@ impl<'cx, 'gcx, 'tcx> InferCtxt<'cx, 'gcx, 'tcx> {
     where
         V: Canonicalize<'gcx, 'tcx>,
     {
-        self.tcx.sess.perf_stats.queries_canonicalized.fetch_add(1, Ordering::Relaxed);
+        self.tcx
+            .sess
+            .perf_stats
+            .queries_canonicalized
+            .fetch_add(1, Ordering::Relaxed);
 
         Canonicalizer::canonicalize(
             value,
@@ -543,7 +549,8 @@ impl<'cx, 'gcx, 'tcx> TypeFolder<'gcx, 'tcx> for Canonicalizer<'cx, 'gcx, 'tcx> 
             }
 
             ty::ReVar(vid) => {
-                let r = self.infcx
+                let r = self
+                    .infcx
                     .unwrap()
                     .borrow_region_constraints()
                     .opportunistic_resolve_var(self.tcx, vid);

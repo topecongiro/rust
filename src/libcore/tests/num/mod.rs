@@ -8,34 +8,34 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use core::convert::{TryFrom, TryInto};
 use core::cmp::PartialEq;
+use core::convert::{TryFrom, TryInto};
 use core::fmt::Debug;
 use core::marker::Copy;
 use core::num::TryFromIntError;
-use core::ops::{Add, Sub, Mul, Div, Rem};
+use core::ops::{Add, Div, Mul, Rem, Sub};
 use core::option::Option;
-use core::option::Option::{Some, None};
+use core::option::Option::{None, Some};
 
 #[macro_use]
 mod int_macros;
 
-mod i8;
 mod i16;
 mod i32;
 mod i64;
+mod i8;
 
 #[macro_use]
 mod uint_macros;
 
-mod u8;
 mod u16;
 mod u32;
 mod u64;
+mod u8;
 
-mod flt2dec;
-mod dec2flt;
 mod bignum;
+mod dec2flt;
+mod flt2dec;
 
 /// Groups items that assume the pointer width is either 16/32/64, and has to be altered if
 /// support for larger/smaller pointer widths are added in the future.
@@ -49,25 +49,29 @@ macro_rules! assume_usize_width {
 }
 
 /// Helper function for testing numeric operations
-pub fn test_num<T>(ten: T, two: T) where
+pub fn test_num<T>(ten: T, two: T)
+where
     T: PartialEq
-     + Add<Output=T> + Sub<Output=T>
-     + Mul<Output=T> + Div<Output=T>
-     + Rem<Output=T> + Debug
-     + Copy
+        + Add<Output = T>
+        + Sub<Output = T>
+        + Mul<Output = T>
+        + Div<Output = T>
+        + Rem<Output = T>
+        + Debug
+        + Copy,
 {
-    assert_eq!(ten.add(two),  ten + two);
-    assert_eq!(ten.sub(two),  ten - two);
-    assert_eq!(ten.mul(two),  ten * two);
-    assert_eq!(ten.div(two),  ten / two);
-    assert_eq!(ten.rem(two),  ten % two);
+    assert_eq!(ten.add(two), ten + two);
+    assert_eq!(ten.sub(two), ten - two);
+    assert_eq!(ten.mul(two), ten * two);
+    assert_eq!(ten.div(two), ten / two);
+    assert_eq!(ten.rem(two), ten % two);
 }
 
 #[test]
 fn from_str_issue7588() {
-    let u : Option<u8> = u8::from_str_radix("1000", 10).ok();
+    let u: Option<u8> = u8::from_str_radix("1000", 10).ok();
     assert_eq!(u, None);
-    let s : Option<i16> = i16::from_str_radix("80000", 10).ok();
+    let s: Option<i16> = i16::from_str_radix("80000", 10).ok();
     assert_eq!(s, None);
 }
 
@@ -109,7 +113,10 @@ fn test_int_from_str_overflow() {
 #[test]
 fn test_leading_plus() {
     assert_eq!("+127".parse::<u8>().ok(), Some(127));
-    assert_eq!("+9223372036854775807".parse::<i64>().ok(), Some(9223372036854775807));
+    assert_eq!(
+        "+9223372036854775807".parse::<i64>().ok(),
+        Some(9223372036854775807)
+    );
 }
 
 #[test]
@@ -134,7 +141,7 @@ fn test_infallible_try_from_int_error() {
 }
 
 macro_rules! test_impl_from {
-    ($fn_name:ident, bool, $target: ty) => {
+    ($fn_name:ident,bool, $target:ty) => {
         #[test]
         fn $fn_name() {
             let one: $target = 1;
@@ -143,7 +150,7 @@ macro_rules! test_impl_from {
             assert_eq!(zero, <$target>::from(false));
         }
     };
-    ($fn_name: ident, $Small: ty, $Large: ty) => {
+    ($fn_name:ident, $Small:ty, $Large:ty) => {
         #[test]
         fn $fn_name() {
             let small_max = <$Small>::max_value();
@@ -153,7 +160,7 @@ macro_rules! test_impl_from {
             assert_eq!(large_max as $Small, small_max);
             assert_eq!(large_min as $Small, small_min);
         }
-    }
+    };
 }
 
 // Unsigned -> Unsigned
@@ -251,23 +258,28 @@ fn test_f32f64() {
     assert!(nan.is_nan());
 }
 
-
 /// Conversions where the full width of $source can be represented as $target
 macro_rules! test_impl_try_from_always_ok {
-    ($fn_name:ident, $source:ty, $target: ty) => {
+    ($fn_name:ident, $source:ty, $target:ty) => {
         #[test]
         fn $fn_name() {
             let max = <$source>::max_value();
             let min = <$source>::min_value();
             let zero: $source = 0;
-            assert_eq!(<$target as TryFrom<$source>>::try_from(max).unwrap(),
-                       max as $target);
-            assert_eq!(<$target as TryFrom<$source>>::try_from(min).unwrap(),
-                       min as $target);
-            assert_eq!(<$target as TryFrom<$source>>::try_from(zero).unwrap(),
-                       zero as $target);
+            assert_eq!(
+                <$target as TryFrom<$source>>::try_from(max).unwrap(),
+                max as $target
+            );
+            assert_eq!(
+                <$target as TryFrom<$source>>::try_from(min).unwrap(),
+                min as $target
+            );
+            assert_eq!(
+                <$target as TryFrom<$source>>::try_from(zero).unwrap(),
+                zero as $target
+            );
         }
-    }
+    };
 }
 
 test_impl_try_from_always_ok! { test_try_u8u8, u8, u8 }
@@ -341,14 +353,18 @@ macro_rules! test_impl_try_from_signed_to_unsigned_upper_ok {
             let min = <$source>::min_value();
             let zero: $source = 0;
             let neg_one: $source = -1;
-            assert_eq!(<$target as TryFrom<$source>>::try_from(max).unwrap(),
-                       max as $target);
+            assert_eq!(
+                <$target as TryFrom<$source>>::try_from(max).unwrap(),
+                max as $target
+            );
             assert!(<$target as TryFrom<$source>>::try_from(min).is_err());
-            assert_eq!(<$target as TryFrom<$source>>::try_from(zero).unwrap(),
-                       zero as $target);
+            assert_eq!(
+                <$target as TryFrom<$source>>::try_from(zero).unwrap(),
+                zero as $target
+            );
             assert!(<$target as TryFrom<$source>>::try_from(neg_one).is_err());
         }
-    }
+    };
 }
 
 test_impl_try_from_signed_to_unsigned_upper_ok! { test_try_i8u8, i8, u8 }
@@ -390,12 +406,16 @@ macro_rules! test_impl_try_from_unsigned_to_signed_upper_err {
             let min = <$source>::min_value();
             let zero: $source = 0;
             assert!(<$target as TryFrom<$source>>::try_from(max).is_err());
-            assert_eq!(<$target as TryFrom<$source>>::try_from(min).unwrap(),
-                       min as $target);
-            assert_eq!(<$target as TryFrom<$source>>::try_from(zero).unwrap(),
-                       zero as $target);
+            assert_eq!(
+                <$target as TryFrom<$source>>::try_from(min).unwrap(),
+                min as $target
+            );
+            assert_eq!(
+                <$target as TryFrom<$source>>::try_from(zero).unwrap(),
+                zero as $target
+            );
         }
-    }
+    };
 }
 
 test_impl_try_from_unsigned_to_signed_upper_err! { test_try_u8i8, u8, i8 }
@@ -438,16 +458,20 @@ macro_rules! test_impl_try_from_same_sign_err {
             if min != 0 {
                 assert!(<$target as TryFrom<$source>>::try_from(min).is_err());
             }
-            assert_eq!(<$target as TryFrom<$source>>::try_from(zero).unwrap(),
-                       zero as $target);
-            assert_eq!(<$target as TryFrom<$source>>::try_from(t_max as $source)
-                            .unwrap(),
-                       t_max as $target);
-            assert_eq!(<$target as TryFrom<$source>>::try_from(t_min as $source)
-                            .unwrap(),
-                       t_min as $target);
+            assert_eq!(
+                <$target as TryFrom<$source>>::try_from(zero).unwrap(),
+                zero as $target
+            );
+            assert_eq!(
+                <$target as TryFrom<$source>>::try_from(t_max as $source).unwrap(),
+                t_max as $target
+            );
+            assert_eq!(
+                <$target as TryFrom<$source>>::try_from(t_min as $source).unwrap(),
+                t_min as $target
+            );
         }
-    }
+    };
 }
 
 test_impl_try_from_same_sign_err! { test_try_u16u8, u16, u8 }
@@ -496,16 +520,20 @@ macro_rules! test_impl_try_from_signed_to_unsigned_err {
             let t_min = <$target>::min_value();
             assert!(<$target as TryFrom<$source>>::try_from(max).is_err());
             assert!(<$target as TryFrom<$source>>::try_from(min).is_err());
-            assert_eq!(<$target as TryFrom<$source>>::try_from(zero).unwrap(),
-                       zero as $target);
-            assert_eq!(<$target as TryFrom<$source>>::try_from(t_max as $source)
-                            .unwrap(),
-                       t_max as $target);
-            assert_eq!(<$target as TryFrom<$source>>::try_from(t_min as $source)
-                            .unwrap(),
-                       t_min as $target);
+            assert_eq!(
+                <$target as TryFrom<$source>>::try_from(zero).unwrap(),
+                zero as $target
+            );
+            assert_eq!(
+                <$target as TryFrom<$source>>::try_from(t_max as $source).unwrap(),
+                t_max as $target
+            );
+            assert_eq!(
+                <$target as TryFrom<$source>>::try_from(t_min as $source).unwrap(),
+                t_min as $target
+            );
         }
-    }
+    };
 }
 
 test_impl_try_from_signed_to_unsigned_err! { test_try_i16u8, i16, u8 }
@@ -528,54 +556,68 @@ assume_usize_width! {
 }
 
 macro_rules! test_float {
-    ($modname: ident, $fty: ty, $inf: expr, $neginf: expr, $nan: expr) => { mod $modname {
-        // FIXME(nagisa): these tests should test for sign of -0.0
-        #[test]
-        fn min() {
-            assert_eq!((0.0 as $fty).min(0.0), 0.0);
-            assert_eq!((-0.0 as $fty).min(-0.0), -0.0);
-            assert_eq!((9.0 as $fty).min(9.0), 9.0);
-            assert_eq!((-9.0 as $fty).min(0.0), -9.0);
-            assert_eq!((0.0 as $fty).min(9.0), 0.0);
-            assert_eq!((-0.0 as $fty).min(-9.0), -9.0);
-            assert_eq!(($inf as $fty).min(9.0), 9.0);
-            assert_eq!((9.0 as $fty).min($inf), 9.0);
-            assert_eq!(($inf as $fty).min(-9.0), -9.0);
-            assert_eq!((-9.0 as $fty).min($inf), -9.0);
-            assert_eq!(($neginf as $fty).min(9.0), $neginf);
-            assert_eq!((9.0 as $fty).min($neginf), $neginf);
-            assert_eq!(($neginf as $fty).min(-9.0), $neginf);
-            assert_eq!((-9.0 as $fty).min($neginf), $neginf);
-            assert_eq!(($nan as $fty).min(9.0), 9.0);
-            assert_eq!(($nan as $fty).min(-9.0), -9.0);
-            assert_eq!((9.0 as $fty).min($nan), 9.0);
-            assert_eq!((-9.0 as $fty).min($nan), -9.0);
-            assert!(($nan as $fty).min($nan).is_nan());
+    ($modname:ident, $fty:ty, $inf:expr, $neginf:expr, $nan:expr) => {
+        mod $modname {
+            // FIXME(nagisa): these tests should test for sign of -0.0
+            #[test]
+            fn min() {
+                assert_eq!((0.0 as $fty).min(0.0), 0.0);
+                assert_eq!((-0.0 as $fty).min(-0.0), -0.0);
+                assert_eq!((9.0 as $fty).min(9.0), 9.0);
+                assert_eq!((-9.0 as $fty).min(0.0), -9.0);
+                assert_eq!((0.0 as $fty).min(9.0), 0.0);
+                assert_eq!((-0.0 as $fty).min(-9.0), -9.0);
+                assert_eq!(($inf as $fty).min(9.0), 9.0);
+                assert_eq!((9.0 as $fty).min($inf), 9.0);
+                assert_eq!(($inf as $fty).min(-9.0), -9.0);
+                assert_eq!((-9.0 as $fty).min($inf), -9.0);
+                assert_eq!(($neginf as $fty).min(9.0), $neginf);
+                assert_eq!((9.0 as $fty).min($neginf), $neginf);
+                assert_eq!(($neginf as $fty).min(-9.0), $neginf);
+                assert_eq!((-9.0 as $fty).min($neginf), $neginf);
+                assert_eq!(($nan as $fty).min(9.0), 9.0);
+                assert_eq!(($nan as $fty).min(-9.0), -9.0);
+                assert_eq!((9.0 as $fty).min($nan), 9.0);
+                assert_eq!((-9.0 as $fty).min($nan), -9.0);
+                assert!(($nan as $fty).min($nan).is_nan());
+            }
+            #[test]
+            fn max() {
+                assert_eq!((0.0 as $fty).max(0.0), 0.0);
+                assert_eq!((-0.0 as $fty).max(-0.0), -0.0);
+                assert_eq!((9.0 as $fty).max(9.0), 9.0);
+                assert_eq!((-9.0 as $fty).max(0.0), 0.0);
+                assert_eq!((0.0 as $fty).max(9.0), 9.0);
+                assert_eq!((-0.0 as $fty).max(-9.0), -0.0);
+                assert_eq!(($inf as $fty).max(9.0), $inf);
+                assert_eq!((9.0 as $fty).max($inf), $inf);
+                assert_eq!(($inf as $fty).max(-9.0), $inf);
+                assert_eq!((-9.0 as $fty).max($inf), $inf);
+                assert_eq!(($neginf as $fty).max(9.0), 9.0);
+                assert_eq!((9.0 as $fty).max($neginf), 9.0);
+                assert_eq!(($neginf as $fty).max(-9.0), -9.0);
+                assert_eq!((-9.0 as $fty).max($neginf), -9.0);
+                assert_eq!(($nan as $fty).max(9.0), 9.0);
+                assert_eq!(($nan as $fty).max(-9.0), -9.0);
+                assert_eq!((9.0 as $fty).max($nan), 9.0);
+                assert_eq!((-9.0 as $fty).max($nan), -9.0);
+                assert!(($nan as $fty).max($nan).is_nan());
+            }
         }
-        #[test]
-        fn max() {
-            assert_eq!((0.0 as $fty).max(0.0), 0.0);
-            assert_eq!((-0.0 as $fty).max(-0.0), -0.0);
-            assert_eq!((9.0 as $fty).max(9.0), 9.0);
-            assert_eq!((-9.0 as $fty).max(0.0), 0.0);
-            assert_eq!((0.0 as $fty).max(9.0), 9.0);
-            assert_eq!((-0.0 as $fty).max(-9.0), -0.0);
-            assert_eq!(($inf as $fty).max(9.0), $inf);
-            assert_eq!((9.0 as $fty).max($inf), $inf);
-            assert_eq!(($inf as $fty).max(-9.0), $inf);
-            assert_eq!((-9.0 as $fty).max($inf), $inf);
-            assert_eq!(($neginf as $fty).max(9.0), 9.0);
-            assert_eq!((9.0 as $fty).max($neginf), 9.0);
-            assert_eq!(($neginf as $fty).max(-9.0), -9.0);
-            assert_eq!((-9.0 as $fty).max($neginf), -9.0);
-            assert_eq!(($nan as $fty).max(9.0), 9.0);
-            assert_eq!(($nan as $fty).max(-9.0), -9.0);
-            assert_eq!((9.0 as $fty).max($nan), 9.0);
-            assert_eq!((-9.0 as $fty).max($nan), -9.0);
-            assert!(($nan as $fty).max($nan).is_nan());
-        }
-    } }
+    };
 }
 
-test_float!(f32, f32, ::core::f32::INFINITY, ::core::f32::NEG_INFINITY, ::core::f32::NAN);
-test_float!(f64, f64, ::core::f64::INFINITY, ::core::f64::NEG_INFINITY, ::core::f64::NAN);
+test_float!(
+    f32,
+    f32,
+    ::core::f32::INFINITY,
+    ::core::f32::NEG_INFINITY,
+    ::core::f32::NAN
+);
+test_float!(
+    f64,
+    f64,
+    ::core::f64::INFINITY,
+    ::core::f64::NEG_INFINITY,
+    ::core::f64::NAN
+);

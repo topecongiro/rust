@@ -440,6 +440,7 @@ pub fn sanitize(result: &mut String, s: &str) -> bool {
     }
 
     // Underscore-qualify anything that didn't start as an ident.
-    !result.is_empty() && result.as_bytes()[0] != '_' as u8
+    !result.is_empty()
+        && result.as_bytes()[0] != '_' as u8
         && !(result.as_bytes()[0] as char).is_xid_start()
 }

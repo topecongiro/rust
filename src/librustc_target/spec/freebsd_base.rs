@@ -8,21 +8,23 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use spec::{LinkArgs, LinkerFlavor, TargetOptions, RelroLevel};
+use spec::{LinkArgs, LinkerFlavor, RelroLevel, TargetOptions};
 use std::default::Default;
 
 pub fn opts() -> TargetOptions {
     let mut args = LinkArgs::new();
-    args.insert(LinkerFlavor::Gcc, vec![
-        // GNU-style linkers will use this to omit linking to libraries
-        // which don't actually fulfill any relocations, but only for
-        // libraries which follow this flag.  Thus, use it before
-        // specifying libraries to link to.
-        "-Wl,--as-needed".to_string(),
-
-        // Always enable NX protection when it is available
-        "-Wl,-z,noexecstack".to_string(),
-    ]);
+    args.insert(
+        LinkerFlavor::Gcc,
+        vec![
+            // GNU-style linkers will use this to omit linking to libraries
+            // which don't actually fulfill any relocations, but only for
+            // libraries which follow this flag.  Thus, use it before
+            // specifying libraries to link to.
+            "-Wl,--as-needed".to_string(),
+            // Always enable NX protection when it is available
+            "-Wl,-z,noexecstack".to_string(),
+        ],
+    );
 
     TargetOptions {
         dynamic_linking: true,
@@ -36,6 +38,6 @@ pub fn opts() -> TargetOptions {
         relro_level: RelroLevel::Full,
         exe_allocation_crate: super::maybe_jemalloc(),
         abi_return_struct_as_int: true,
-        .. Default::default()
+        ..Default::default()
     }
 }

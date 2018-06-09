@@ -10,16 +10,16 @@
 
 //! Validity checking for weak lang items
 
-use session::config;
 use middle::lang_items;
+use session::config;
 
+use hir;
+use hir::intravisit;
+use hir::intravisit::{NestedVisitorMap, Visitor};
 use rustc_target::spec::PanicStrategy;
 use syntax::ast;
 use syntax::symbol::Symbol;
 use syntax_pos::Span;
-use hir::intravisit::{Visitor, NestedVisitorMap};
-use hir::intravisit;
-use hir;
 use ty::TyCtxt;
 
 use std::collections::HashSet;

@@ -20,8 +20,8 @@
 use super::MirBorrowckCtxt;
 
 use rustc::hir;
-use rustc::ty::{self, TyCtxt};
 use rustc::mir::{Mir, Place, ProjectionElem};
+use rustc::ty::{self, TyCtxt};
 
 pub trait IsPrefixOf<'tcx> {
     fn is_prefix_of(&self, other: &Place<'tcx>) -> bool;
@@ -44,7 +44,6 @@ impl<'tcx> IsPrefixOf<'tcx> for Place<'tcx> {
         }
     }
 }
-
 
 pub(super) struct Prefixes<'cx, 'gcx: 'tcx, 'tcx: 'cx> {
     mir: &'cx Mir<'tcx>,
@@ -109,14 +108,14 @@ impl<'cx, 'gcx, 'tcx> Iterator for Prefixes<'cx, 'gcx, 'tcx> {
 
             match proj.elem {
                 ProjectionElem::Field(_ /*field*/, _ /*ty*/) => {
-                        // FIXME: add union handling
+                    // FIXME: add union handling
                     self.next = Some(&proj.base);
                     return Some(cursor);
                 }
-                ProjectionElem::Downcast(..) |
-                ProjectionElem::Subslice { .. } |
-                ProjectionElem::ConstantIndex { .. } |
-                ProjectionElem::Index(_) => {
+                ProjectionElem::Downcast(..)
+                | ProjectionElem::Subslice { .. }
+                | ProjectionElem::ConstantIndex { .. }
+                | ProjectionElem::Index(_) => {
                     cursor = &proj.base;
                     continue 'cursor;
                 }
@@ -153,22 +152,13 @@ impl<'cx, 'gcx, 'tcx> Iterator for Prefixes<'cx, 'gcx, 'tcx> {
 
             let ty = proj.base.ty(self.mir, self.tcx).to_ty(self.tcx);
             match ty.sty {
-                ty::TyRawPtr(_) |
-                ty::TyRef(
-                    _, /*rgn*/
-                    _, /*ty*/
-                    hir::MutImmutable
-                    ) => {
+                ty::TyRawPtr(_) | ty::TyRef(_ /*rgn*/, _ /*ty*/, hir::MutImmutable) => {
                     // don't continue traversing over derefs of raw pointers or shared borrows.
                     self.next = None;
                     return Some(cursor);
                 }
 
-                ty::TyRef(
-                    _, /*rgn*/
-                    _, /*ty*/
-                    hir::MutMutable,
-                    ) => {
+                ty::TyRef(_ /*rgn*/, _ /*ty*/, hir::MutMutable) => {
                     self.next = Some(&proj.base);
                     return Some(cursor);
                 }

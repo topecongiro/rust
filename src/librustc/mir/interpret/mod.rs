@@ -8,30 +8,30 @@ macro_rules! err {
 mod error;
 mod value;
 
-pub use self::error::{EvalError, EvalResult, EvalErrorKind, AssertMessage};
+pub use self::error::{AssertMessage, EvalError, EvalErrorKind, EvalResult};
 
-pub use self::value::{Scalar, Value, ConstValue};
+pub use self::value::{ConstValue, Scalar, Value};
 
-use std::fmt;
-use mir;
+use byteorder::{BigEndian, LittleEndian, ReadBytesExt, WriteBytesExt};
 use hir::def_id::DefId;
-use ty::{self, TyCtxt, Instance};
-use ty::layout::{self, Align, HasDataLayout, Size};
 use middle::region;
-use std::iter;
-use std::io;
-use std::ops::{Deref, DerefMut};
-use std::hash::Hash;
-use syntax::ast::Mutability;
-use rustc_serialize::{Encoder, Decodable, Encodable};
-use rustc_data_structures::sorted_map::SortedMap;
+use mir;
 use rustc_data_structures::fx::FxHashMap;
-use rustc_data_structures::sync::{Lock as Mutex, HashMapExt};
+use rustc_data_structures::sorted_map::SortedMap;
+use rustc_data_structures::sync::{HashMapExt, Lock as Mutex};
 use rustc_data_structures::tiny_list::TinyList;
-use byteorder::{WriteBytesExt, ReadBytesExt, LittleEndian, BigEndian};
-use ty::codec::TyDecoder;
-use std::sync::atomic::{AtomicU32, Ordering};
+use rustc_serialize::{Decodable, Encodable, Encoder};
+use std::fmt;
+use std::hash::Hash;
+use std::io;
+use std::iter;
 use std::num::NonZeroU32;
+use std::ops::{Deref, DerefMut};
+use std::sync::atomic::{AtomicU32, Ordering};
+use syntax::ast::Mutability;
+use ty::codec::TyDecoder;
+use ty::layout::{self, Align, HasDataLayout, Size};
+use ty::{self, Instance, TyCtxt};
 
 #[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
 pub enum Lock {
@@ -98,12 +98,20 @@ pub trait PointerArithmetic: layout::HasDataLayout {
 
     fn signed_offset<'tcx>(self, val: u64, i: i64) -> EvalResult<'tcx, u64> {
         let (res, over) = self.overflowing_signed_offset(val, i as i128);
-        if over { err!(Overflow(mir::BinOp::Add)) } else { Ok(res) }
+        if over {
+            err!(Overflow(mir::BinOp::Add))
+        } else {
+            Ok(res)
+        }
     }
 
     fn offset<'tcx>(self, val: u64, i: u64) -> EvalResult<'tcx, u64> {
         let (res, over) = self.overflowing_offset(val, i);
-        if over { err!(Overflow(mir::BinOp::Add)) } else { Ok(res) }
+        if over {
+            err!(Overflow(mir::BinOp::Add))
+        } else {
+            Ok(res)
+        }
     }
 
     fn wrapping_signed_offset(self, val: u64, i: i64) -> u64 {
@@ -113,8 +121,8 @@ pub trait PointerArithmetic: layout::HasDataLayout {
 
 impl<T: layout::HasDataLayout> PointerArithmetic for T {}
 
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, RustcEncodable, RustcDecodable, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, RustcEncodable, RustcDecodable,
+         Hash)]
 pub struct Pointer {
     pub alloc_id: AllocId,
     pub offset: Size,
@@ -135,12 +143,17 @@ impl<'tcx> Pointer {
     pub(crate) fn wrapping_signed_offset<C: HasDataLayout>(self, i: i64, cx: C) -> Self {
         Pointer::new(
             self.alloc_id,
-            Size::from_bytes(cx.data_layout().wrapping_signed_offset(self.offset.bytes(), i)),
+            Size::from_bytes(
+                cx.data_layout()
+                    .wrapping_signed_offset(self.offset.bytes(), i),
+            ),
         )
     }
 
     pub fn overflowing_signed_offset<C: HasDataLayout>(self, i: i128, cx: C) -> (Self, bool) {
-        let (res, over) = cx.data_layout().overflowing_signed_offset(self.offset.bytes(), i);
+        let (res, over) = cx
+            .data_layout()
+            .overflowing_signed_offset(self.offset.bytes(), i);
         (Pointer::new(self.alloc_id, Size::from_bytes(res)), over)
     }
 
@@ -152,7 +165,9 @@ impl<'tcx> Pointer {
     }
 
     pub fn overflowing_offset<C: HasDataLayout>(self, i: Size, cx: C) -> (Self, bool) {
-        let (res, over) = cx.data_layout().overflowing_offset(self.offset.bytes(), i.bytes());
+        let (res, over) = cx
+            .data_layout()
+            .overflowing_offset(self.offset.bytes(), i.bytes());
         (Pointer::new(self.alloc_id, Size::from_bytes(res)), over)
     }
 
@@ -163,7 +178,6 @@ impl<'tcx> Pointer {
         ))
     }
 }
-
 
 #[derive(Copy, Clone, Eq, Hash, Ord, PartialEq, PartialOrd, Debug)]
 pub struct AllocId(pub u64);
@@ -178,16 +192,16 @@ enum AllocKind {
     Static,
 }
 
-pub fn specialized_encode_alloc_id<
-    'a, 'tcx,
-    E: Encoder,
->(
+pub fn specialized_encode_alloc_id<'a, 'tcx, E: Encoder>(
     encoder: &mut E,
     tcx: TyCtxt<'a, 'tcx, 'tcx>,
     alloc_id: AllocId,
 ) -> Result<(), E::Error> {
-    let alloc_type: AllocType<'tcx, &'tcx Allocation> =
-        tcx.alloc_map.lock().get(alloc_id).expect("no value for AllocId");
+    let alloc_type: AllocType<'tcx, &'tcx Allocation> = tcx
+        .alloc_map
+        .lock()
+        .get(alloc_id)
+        .expect("no value for AllocId");
     match alloc_type {
         AllocType::Memory(alloc) => {
             trace!("encoding {:?} with {:#?}", alloc_id, alloc);
@@ -228,7 +242,6 @@ pub struct AllocDecodingState {
 }
 
 impl AllocDecodingState {
-
     pub fn new_decoding_session(&self) -> AllocDecodingSession {
         static DECODER_SESSION_ID: AtomicU32 = AtomicU32::new(0);
         let counter = DECODER_SESSION_ID.fetch_add(1, Ordering::SeqCst);
@@ -261,13 +274,11 @@ pub struct AllocDecodingSession<'s> {
 }
 
 impl<'s> AllocDecodingSession<'s> {
-
     // Decodes an AllocId in a thread-safe way.
-    pub fn decode_alloc_id<'a, 'tcx, D>(&self,
-                                        decoder: &mut D)
-                                        -> Result<AllocId, D::Error>
-        where D: TyDecoder<'a, 'tcx>,
-              'tcx: 'a,
+    pub fn decode_alloc_id<'a, 'tcx, D>(&self, decoder: &mut D) -> Result<AllocId, D::Error>
+    where
+        D: TyDecoder<'a, 'tcx>,
+        'tcx: 'a,
     {
         // Read the index of the allocation
         let idx = decoder.read_u32()? as usize;
@@ -296,16 +307,15 @@ impl<'s> AllocDecodingSession<'s> {
                             // If this is an allocation, we need to reserve an
                             // AllocId so we can decode cyclic graphs.
                             let alloc_id = decoder.tcx().alloc_map.lock().reserve();
-                            *entry = State::InProgress(
-                                TinyList::new_single(self.session_id),
-                                alloc_id);
+                            *entry =
+                                State::InProgress(TinyList::new_single(self.session_id), alloc_id);
                             Some(alloc_id)
-                        },
+                        }
                         AllocKind::Fn | AllocKind::Static => {
                             // Fns and statics cannot be cyclic and their AllocId
                             // is determined later by interning
-                            *entry = State::InProgressNonAlloc(
-                                TinyList::new_single(self.session_id));
+                            *entry =
+                                State::InProgressNonAlloc(TinyList::new_single(self.session_id));
                             None
                         }
                     }
@@ -322,7 +332,7 @@ impl<'s> AllocDecodingSession<'s> {
                 State::InProgress(ref mut sessions, alloc_id) => {
                     if sessions.contains(&self.session_id) {
                         // Don't recurse.
-                        return Ok(alloc_id)
+                        return Ok(alloc_id);
                     } else {
                         // Start decoding concurrently
                         sessions.insert(self.session_id);
@@ -340,9 +350,13 @@ impl<'s> AllocDecodingSession<'s> {
                     // We already have a reserved AllocId.
                     let alloc_id = alloc_id.unwrap();
                     trace!("decoded alloc {:?} {:#?}", alloc_id, allocation);
-                    decoder.tcx().alloc_map.lock().set_id_same_memory(alloc_id, allocation);
+                    decoder
+                        .tcx()
+                        .alloc_map
+                        .lock()
+                        .set_id_same_memory(alloc_id, allocation);
                     Ok(alloc_id)
-                },
+                }
                 AllocKind::Fn => {
                     assert!(alloc_id.is_none());
                     trace!("creating fn alloc id");
@@ -350,7 +364,7 @@ impl<'s> AllocDecodingSession<'s> {
                     trace!("decoded fn alloc instance: {:?}", instance);
                     let alloc_id = decoder.tcx().alloc_map.lock().create_fn_alloc(instance);
                     Ok(alloc_id)
-                },
+                }
                 AllocKind::Static => {
                     assert!(alloc_id.is_none());
                     trace!("creating extern static alloc id at");
@@ -382,7 +396,7 @@ pub enum AllocType<'tcx, M> {
     /// The alloc id points to a static variable
     Static(DefId),
     /// The alloc id points to memory
-    Memory(M)
+    Memory(M),
 }
 
 pub struct AllocMap<'tcx, M> {
@@ -408,15 +422,13 @@ impl<'tcx, M: fmt::Debug + Eq + Hash + Clone> AllocMap<'tcx, M> {
 
     /// obtains a new allocation ID that can be referenced but does not
     /// yet have an allocation backing it.
-    pub fn reserve(
-        &mut self,
-    ) -> AllocId {
+    pub fn reserve(&mut self) -> AllocId {
         let next = self.next_id;
-        self.next_id.0 = self.next_id.0
-            .checked_add(1)
-            .expect("You overflowed a u64 by incrementing by 1... \
-                     You've just earned yourself a free drink if we ever meet. \
-                     Seriously, how did you do that?!");
+        self.next_id.0 = self.next_id.0.checked_add(1).expect(
+            "You overflowed a u64 by incrementing by 1... \
+             You've just earned yourself a free drink if we ever meet. \
+             Seriously, how did you do that?!",
+        );
         next
     }
 
@@ -461,12 +473,16 @@ impl<'tcx, M: fmt::Debug + Eq + Hash + Clone> AllocMap<'tcx, M> {
 
     pub fn set_id_memory(&mut self, id: AllocId, mem: M) {
         if let Some(old) = self.id_to_type.insert(id, AllocType::Memory(mem)) {
-            bug!("tried to set allocation id {}, but it was already existing as {:#?}", id, old);
+            bug!(
+                "tried to set allocation id {}, but it was already existing as {:#?}",
+                id,
+                old
+            );
         }
     }
 
     pub fn set_id_same_memory(&mut self, id: AllocId, mem: M) {
-       self.id_to_type.insert_same(id, AllocType::Memory(mem));
+        self.id_to_type.insert_same(id, AllocType::Memory(mem));
     }
 }
 
@@ -654,9 +670,8 @@ impl UndefMask {
         if amount.bytes() > unused_trailing_bits {
             let additional_blocks = amount.bytes() / BLOCK_SIZE + 1;
             assert_eq!(additional_blocks as usize as u64, additional_blocks);
-            self.blocks.extend(
-                iter::repeat(0).take(additional_blocks as usize),
-            );
+            self.blocks
+                .extend(iter::repeat(0).take(additional_blocks as usize));
         }
         let start = self.len;
         self.len += amount;

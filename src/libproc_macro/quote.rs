@@ -14,7 +14,7 @@
 //! This quasiquoter uses macros 2.0 hygiene to reliably access
 //! items from `proc_macro`, to build a `proc_macro::TokenStream`.
 
-use {Delimiter, Literal, Spacing, Span, Ident, Punct, Group, TokenStream, TokenTree};
+use {Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree};
 
 use syntax::ext::base::{ExtCtxt, ProcMacro};
 use syntax::parse::token;
@@ -32,14 +32,24 @@ pub trait Quote {
 }
 
 macro_rules! tt2ts {
-    ($e:expr) => (TokenStream::from(TokenTree::from($e)))
+    ($e:expr) => {
+        TokenStream::from(TokenTree::from($e))
+    };
 }
 
 macro_rules! quote_tok {
-    (,) => { tt2ts!(Punct::new(',', Spacing::Alone)) };
-    (.) => { tt2ts!(Punct::new('.', Spacing::Alone)) };
-    (:) => { tt2ts!(Punct::new(':', Spacing::Alone)) };
-    (|) => { tt2ts!(Punct::new('|', Spacing::Alone)) };
+    (,) => {
+        tt2ts!(Punct::new(',', Spacing::Alone))
+    };
+    (.) => {
+        tt2ts!(Punct::new('.', Spacing::Alone))
+    };
+    (:) => {
+        tt2ts!(Punct::new(':', Spacing::Alone))
+    };
+    (|) => {
+        tt2ts!(Punct::new('|', Spacing::Alone))
+    };
     (::) => {
         [
             TokenTree::from(Punct::new(':', Spacing::Joint)),
@@ -52,13 +62,27 @@ macro_rules! quote_tok {
             })
             .collect::<TokenStream>()
     };
-    (!) => { tt2ts!(Punct::new('!', Spacing::Alone)) };
-    (<) => { tt2ts!(Punct::new('<', Spacing::Alone)) };
-    (>) => { tt2ts!(Punct::new('>', Spacing::Alone)) };
-    (_) => { tt2ts!(Punct::new('_', Spacing::Alone)) };
-    (0) => { tt2ts!(Literal::i8_unsuffixed(0)) };
-    (&) => { tt2ts!(Punct::new('&', Spacing::Alone)) };
-    ($i:ident) => { tt2ts!(Ident::new(stringify!($i), Span::def_site())) };
+    (!) => {
+        tt2ts!(Punct::new('!', Spacing::Alone))
+    };
+    (<) => {
+        tt2ts!(Punct::new('<', Spacing::Alone))
+    };
+    (>) => {
+        tt2ts!(Punct::new('>', Spacing::Alone))
+    };
+    (_) => {
+        tt2ts!(Punct::new('_', Spacing::Alone))
+    };
+    (0) => {
+        tt2ts!(Literal::i8_unsuffixed(0))
+    };
+    (&) => {
+        tt2ts!(Punct::new('&', Spacing::Alone))
+    };
+    ($i:ident) => {
+        tt2ts!(Ident::new(stringify!($i), Span::def_site()))
+    };
 }
 
 macro_rules! quote_tree {
@@ -81,10 +105,12 @@ macro_rules! quote {
 }
 
 impl ProcMacro for Quoter {
-    fn expand<'cx>(&self, cx: &'cx mut ExtCtxt,
-                   _: ::syntax_pos::Span,
-                   stream: tokenstream::TokenStream)
-                   -> tokenstream::TokenStream {
+    fn expand<'cx>(
+        &self,
+        cx: &'cx mut ExtCtxt,
+        _: ::syntax_pos::Span,
+        stream: tokenstream::TokenStream,
+    ) -> tokenstream::TokenStream {
         let mut info = cx.current_expansion.mark.expn_info().unwrap();
         info.callee.allow_internal_unstable = true;
         cx.current_expansion.mark.set_expn_info(info);
@@ -107,26 +133,30 @@ impl Quote for TokenStream {
             return quote!(::TokenStream::new());
         }
         let mut after_dollar = false;
-        let tokens = self.into_iter().filter_map(|tree| {
-            if after_dollar {
-                after_dollar = false;
-                match tree {
-                    TokenTree::Ident(_) => {
-                        let tree = TokenStream::from(tree);
-                        return Some(quote!(::__internal::unquote(&(unquote tree)),));
+        let tokens = self
+            .into_iter()
+            .filter_map(|tree| {
+                if after_dollar {
+                    after_dollar = false;
+                    match tree {
+                        TokenTree::Ident(_) => {
+                            let tree = TokenStream::from(tree);
+                            return Some(quote!(::__internal::unquote(&(unquote tree)),));
+                        }
+                        TokenTree::Punct(ref tt) if tt.as_char() == '$' => {}
+                        _ => panic!("`$` must be followed by an ident or `$` in `quote!`"),
                     }
-                    TokenTree::Punct(ref tt) if tt.as_char() == '$' => {}
-                    _ => panic!("`$` must be followed by an ident or `$` in `quote!`"),
+                } else if let TokenTree::Punct(ref tt) = tree {
+                    if tt.as_char() == '$' {
+                        after_dollar = true;
+                        return None;
+                    }
                 }
-            } else if let TokenTree::Punct(ref tt) = tree {
-                if tt.as_char() == '$' {
-                    after_dollar = true;
-                    return None;
-                }
-            }
 
-            Some(quote!(::TokenStream::from((quote tree)),))
-        }).flat_map(|t| t.into_iter()).collect::<TokenStream>();
+                Some(quote!(::TokenStream::from((quote tree)),))
+            })
+            .flat_map(|t| t.into_iter())
+            .collect::<TokenStream>();
 
         if after_dollar {
             panic!("unexpected trailing `$` in `quote!`");

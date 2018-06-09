@@ -1,0 +1,7 @@
+ignore = [
+    "dlmalloc",
+    "liblibc",
+    "libcompiler",
+    "stdsimd",
+    "tools",
+]

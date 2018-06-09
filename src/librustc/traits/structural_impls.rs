@@ -576,7 +576,8 @@ EnumLiftImpl! {
 
 impl<'tcx> TypeFoldable<'tcx> for &'tcx ty::Slice<traits::Goal<'tcx>> {
     fn super_fold_with<'gcx: 'tcx, F: TypeFolder<'gcx, 'tcx>>(&self, folder: &mut F) -> Self {
-        let v = self.iter()
+        let v = self
+            .iter()
             .map(|t| t.fold_with(folder))
             .collect::<AccumulateVec<[_; 8]>>();
         folder.tcx().intern_goals(&v)
@@ -614,7 +615,8 @@ EnumTypeFoldableImpl! {
 
 impl<'tcx> TypeFoldable<'tcx> for &'tcx ty::Slice<traits::Clause<'tcx>> {
     fn super_fold_with<'gcx: 'tcx, F: TypeFolder<'gcx, 'tcx>>(&self, folder: &mut F) -> Self {
-        let v = self.iter()
+        let v = self
+            .iter()
             .map(|t| t.fold_with(folder))
             .collect::<AccumulateVec<[_; 8]>>();
         folder.tcx().intern_clauses(&v)
@@ -632,17 +634,11 @@ where
     C::RegionConstraint: Clone,
 {
     fn super_fold_with<'gcx: 'tcx, F: TypeFolder<'gcx, 'tcx>>(&self, folder: &mut F) -> Self {
-        <C as traits::ExClauseFold>::fold_ex_clause_with(
-            self,
-            folder,
-        )
+        <C as traits::ExClauseFold>::fold_ex_clause_with(self, folder)
     }
 
     fn super_visit_with<V: TypeVisitor<'tcx>>(&self, visitor: &mut V) -> bool {
-        <C as traits::ExClauseFold>::visit_ex_clause_with(
-            self,
-            visitor,
-        )
+        <C as traits::ExClauseFold>::visit_ex_clause_with(self, visitor)
     }
 }
 

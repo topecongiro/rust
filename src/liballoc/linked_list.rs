@@ -24,14 +24,14 @@
 
 use core::cmp::Ordering;
 use core::fmt;
-use core::hash::{Hasher, Hash};
+use core::hash::{Hash, Hasher};
 use core::iter::{FromIterator, FusedIterator};
 use core::marker::PhantomData;
 use core::mem;
 use core::ptr::NonNull;
 
-use boxed::Box;
 use super::SpecExtend;
+use boxed::Box;
 
 /// A doubly-linked list with owned nodes.
 ///
@@ -73,9 +73,7 @@ pub struct Iter<'a, T: 'a> {
 #[stable(feature = "collection_debug", since = "1.17.0")]
 impl<'a, T: 'a + fmt::Debug> fmt::Debug for Iter<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("Iter")
-         .field(&self.len)
-         .finish()
+        f.debug_tuple("Iter").field(&self.len).finish()
     }
 }
 
@@ -106,9 +104,9 @@ pub struct IterMut<'a, T: 'a> {
 impl<'a, T: 'a + fmt::Debug> fmt::Debug for IterMut<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("IterMut")
-         .field(&self.list)
-         .field(&self.len)
-         .finish()
+            .field(&self.list)
+            .field(&self.len)
+            .finish()
     }
 }
 
@@ -128,9 +126,7 @@ pub struct IntoIter<T> {
 #[stable(feature = "collection_debug", since = "1.17.0")]
 impl<T: fmt::Debug> fmt::Debug for IntoIter<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("IntoIter")
-         .field(&self.list)
-         .finish()
+        f.debug_tuple("IntoIter").field(&self.list).finish()
     }
 }
 
@@ -476,7 +472,8 @@ impl<T> LinkedList<T> {
     /// ```
     #[stable(feature = "linked_list_contains", since = "1.12.0")]
     pub fn contains(&self, x: &T) -> bool
-        where T: PartialEq<T>
+    where
+        T: PartialEq<T>,
     {
         self.iter().any(|e| e == x)
     }
@@ -498,9 +495,7 @@ impl<T> LinkedList<T> {
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn front(&self) -> Option<&T> {
-        unsafe {
-            self.head.as_ref().map(|node| &node.as_ref().element)
-        }
+        unsafe { self.head.as_ref().map(|node| &node.as_ref().element) }
     }
 
     /// Provides a mutable reference to the front element, or `None` if the list
@@ -526,9 +521,7 @@ impl<T> LinkedList<T> {
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn front_mut(&mut self) -> Option<&mut T> {
-        unsafe {
-            self.head.as_mut().map(|node| &mut node.as_mut().element)
-        }
+        unsafe { self.head.as_mut().map(|node| &mut node.as_mut().element) }
     }
 
     /// Provides a reference to the back element, or `None` if the list is
@@ -548,9 +541,7 @@ impl<T> LinkedList<T> {
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn back(&self) -> Option<&T> {
-        unsafe {
-            self.tail.as_ref().map(|node| &node.as_ref().element)
-        }
+        unsafe { self.tail.as_ref().map(|node| &node.as_ref().element) }
     }
 
     /// Provides a mutable reference to the back element, or `None` if the list
@@ -576,9 +567,7 @@ impl<T> LinkedList<T> {
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn back_mut(&mut self) -> Option<&mut T> {
-        unsafe {
-            self.tail.as_mut().map(|node| &mut node.as_mut().element)
-        }
+        unsafe { self.tail.as_mut().map(|node| &mut node.as_mut().element) }
     }
 
     /// Adds an element first in the list.
@@ -771,7 +760,8 @@ impl<T> LinkedList<T> {
     /// ```
     #[unstable(feature = "drain_filter", reason = "recently added", issue = "43244")]
     pub fn drain_filter<F>(&mut self, filter: F) -> DrainFilter<T, F>
-        where F: FnMut(&mut T) -> bool
+    where
+        F: FnMut(&mut T) -> bool,
     {
         // avoid borrow issues.
         let it = self.head;
@@ -917,9 +907,11 @@ impl<'a, T> IterMut<'a, T> {
     /// }
     /// ```
     #[inline]
-    #[unstable(feature = "linked_list_extras",
-               reason = "this is probably better handled by a cursor type -- we'll see",
-               issue = "27794")]
+    #[unstable(
+        feature = "linked_list_extras",
+        reason = "this is probably better handled by a cursor type -- we'll see",
+        issue = "27794"
+    )]
     pub fn insert_next(&mut self, element: T) {
         match self.head {
             None => self.list.push_back(element),
@@ -961,16 +953,16 @@ impl<'a, T> IterMut<'a, T> {
     /// assert_eq!(it.next().unwrap(), &2);
     /// ```
     #[inline]
-    #[unstable(feature = "linked_list_extras",
-               reason = "this is probably better handled by a cursor type -- we'll see",
-               issue = "27794")]
+    #[unstable(
+        feature = "linked_list_extras",
+        reason = "this is probably better handled by a cursor type -- we'll see",
+        issue = "27794"
+    )]
     pub fn peek_next(&mut self) -> Option<&mut T> {
         if self.len == 0 {
             None
         } else {
-            unsafe {
-                self.head.as_mut().map(|node| &mut node.as_mut().element)
-            }
+            unsafe { self.head.as_mut().map(|node| &mut node.as_mut().element) }
         }
     }
 }
@@ -978,7 +970,8 @@ impl<'a, T> IterMut<'a, T> {
 /// An iterator produced by calling `drain_filter` on LinkedList.
 #[unstable(feature = "drain_filter", reason = "recently added", issue = "43244")]
 pub struct DrainFilter<'a, T: 'a, F: 'a>
-    where F: FnMut(&mut T) -> bool,
+where
+    F: FnMut(&mut T) -> bool,
 {
     list: &'a mut LinkedList<T>,
     it: Option<NonNull<Node<T>>>,
@@ -989,7 +982,8 @@ pub struct DrainFilter<'a, T: 'a, F: 'a>
 
 #[unstable(feature = "drain_filter", reason = "recently added", issue = "43244")]
 impl<'a, T, F> Iterator for DrainFilter<'a, T, F>
-    where F: FnMut(&mut T) -> bool,
+where
+    F: FnMut(&mut T) -> bool,
 {
     type Item = T;
 
@@ -1016,7 +1010,8 @@ impl<'a, T, F> Iterator for DrainFilter<'a, T, F>
 
 #[unstable(feature = "drain_filter", reason = "recently added", issue = "43244")]
 impl<'a, T, F> Drop for DrainFilter<'a, T, F>
-    where F: FnMut(&mut T) -> bool,
+where
+    F: FnMut(&mut T) -> bool,
 {
     fn drop(&mut self) {
         self.for_each(drop);
@@ -1025,12 +1020,11 @@ impl<'a, T, F> Drop for DrainFilter<'a, T, F>
 
 #[unstable(feature = "drain_filter", reason = "recently added", issue = "43244")]
 impl<'a, T: 'a + fmt::Debug, F> fmt::Debug for DrainFilter<'a, T, F>
-    where F: FnMut(&mut T) -> bool
+where
+    F: FnMut(&mut T) -> bool,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("DrainFilter")
-         .field(&self.list)
-         .finish()
+        f.debug_tuple("DrainFilter").field(&self.list).finish()
     }
 }
 
@@ -1356,8 +1350,10 @@ mod tests {
         }
         check_links(&m);
         assert_eq!(m.len(), 3 + len * 2);
-        assert_eq!(m.into_iter().collect::<Vec<_>>(),
-                   [-2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1]);
+        assert_eq!(
+            m.into_iter().collect::<Vec<_>>(),
+            [-2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1]
+        );
     }
 
     #[test]
@@ -1365,11 +1361,10 @@ mod tests {
     fn test_send() {
         let n = list_from(&[1, 2, 3]);
         thread::spawn(move || {
-                check_links(&n);
-                let a: &[_] = &[&1, &2, &3];
-                assert_eq!(a, &*n.iter().collect::<Vec<_>>());
-            })
-            .join()
+            check_links(&n);
+            let a: &[_] = &[&1, &2, &3];
+            assert_eq!(a, &*n.iter().collect::<Vec<_>>());
+        }).join()
             .ok()
             .unwrap();
     }

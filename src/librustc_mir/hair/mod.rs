@@ -14,32 +14,32 @@
 //! unit-tested and separated from the Rust source and compiler data
 //! structures.
 
-use rustc::mir::{BinOp, BorrowKind, Field, Literal, UnOp};
+use self::cx::Cx;
+use rustc::hir;
 use rustc::hir::def_id::DefId;
 use rustc::middle::region;
+use rustc::mir::{BinOp, BorrowKind, Field, Literal, UnOp};
 use rustc::ty::subst::Substs;
-use rustc::ty::{AdtDef, UpvarSubsts, Region, Ty};
-use rustc::hir;
+use rustc::ty::{AdtDef, Region, Ty, UpvarSubsts};
 use syntax::ast;
 use syntax_pos::Span;
-use self::cx::Cx;
 
 pub mod cx;
 
 pub mod pattern;
-pub use self::pattern::{BindingMode, Pattern, PatternKind, FieldPattern};
+pub use self::pattern::{BindingMode, FieldPattern, Pattern, PatternKind};
 
 #[derive(Copy, Clone, Debug)]
 pub enum LintLevel {
     Inherited,
-    Explicit(ast::NodeId)
+    Explicit(ast::NodeId),
 }
 
 impl LintLevel {
     pub fn is_explicit(self) -> bool {
         match self {
             LintLevel::Inherited => false,
-            LintLevel::Explicit(_) => true
+            LintLevel::Explicit(_) => true,
         }
     }
 }
@@ -60,7 +60,7 @@ pub enum BlockSafety {
     Safe,
     ExplicitUnsafe(ast::NodeId),
     PushUnsafe,
-    PopUnsafe
+    PopUnsafe,
 }
 
 #[derive(Clone, Debug)]
@@ -165,7 +165,7 @@ pub enum ExprKind<'tcx> {
         lhs: ExprRef<'tcx>,
         rhs: ExprRef<'tcx>,
     }, // NOT overloaded!
-       // LogicalOp is distinct from BinaryOp because of lazy evaluation of the operands.
+    // LogicalOp is distinct from BinaryOp because of lazy evaluation of the operands.
     Unary {
         op: UnOp,
         arg: ExprRef<'tcx>,
@@ -262,7 +262,7 @@ pub enum ExprKind<'tcx> {
         variant_index: usize,
         substs: &'tcx Substs<'tcx>,
         fields: Vec<FieldExprRef<'tcx>>,
-        base: Option<FruInfo<'tcx>>
+        base: Option<FruInfo<'tcx>>,
     },
     Closure {
         closure_id: DefId,
@@ -276,7 +276,7 @@ pub enum ExprKind<'tcx> {
     InlineAsm {
         asm: &'tcx hir::InlineAsm,
         outputs: Vec<ExprRef<'tcx>>,
-        inputs: Vec<ExprRef<'tcx>>
+        inputs: Vec<ExprRef<'tcx>>,
     },
     Yield {
         value: ExprRef<'tcx>,
@@ -298,7 +298,7 @@ pub struct FieldExprRef<'tcx> {
 #[derive(Clone, Debug)]
 pub struct FruInfo<'tcx> {
     pub base: ExprRef<'tcx>,
-    pub field_types: Vec<Ty<'tcx>>
+    pub field_types: Vec<Ty<'tcx>>,
 }
 
 #[derive(Clone, Debug)]

@@ -27,8 +27,8 @@ use core::ptr;
 use core::ptr::NonNull;
 use core::slice;
 
-use core::hash::{Hash, Hasher};
 use core::cmp;
+use core::hash::{Hash, Hasher};
 
 use alloc::CollectionAllocErr;
 use raw_vec::RawVec;
@@ -165,41 +165,53 @@ impl<T> VecDeque<T> {
     /// Copies a contiguous block of memory len long from src to dst
     #[inline]
     unsafe fn copy(&self, dst: usize, src: usize, len: usize) {
-        debug_assert!(dst + len <= self.cap(),
-                      "cpy dst={} src={} len={} cap={}",
-                      dst,
-                      src,
-                      len,
-                      self.cap());
-        debug_assert!(src + len <= self.cap(),
-                      "cpy dst={} src={} len={} cap={}",
-                      dst,
-                      src,
-                      len,
-                      self.cap());
-        ptr::copy(self.ptr().offset(src as isize),
-                  self.ptr().offset(dst as isize),
-                  len);
+        debug_assert!(
+            dst + len <= self.cap(),
+            "cpy dst={} src={} len={} cap={}",
+            dst,
+            src,
+            len,
+            self.cap()
+        );
+        debug_assert!(
+            src + len <= self.cap(),
+            "cpy dst={} src={} len={} cap={}",
+            dst,
+            src,
+            len,
+            self.cap()
+        );
+        ptr::copy(
+            self.ptr().offset(src as isize),
+            self.ptr().offset(dst as isize),
+            len,
+        );
     }
 
     /// Copies a contiguous block of memory len long from src to dst
     #[inline]
     unsafe fn copy_nonoverlapping(&self, dst: usize, src: usize, len: usize) {
-        debug_assert!(dst + len <= self.cap(),
-                      "cno dst={} src={} len={} cap={}",
-                      dst,
-                      src,
-                      len,
-                      self.cap());
-        debug_assert!(src + len <= self.cap(),
-                      "cno dst={} src={} len={} cap={}",
-                      dst,
-                      src,
-                      len,
-                      self.cap());
-        ptr::copy_nonoverlapping(self.ptr().offset(src as isize),
-                                 self.ptr().offset(dst as isize),
-                                 len);
+        debug_assert!(
+            dst + len <= self.cap(),
+            "cno dst={} src={} len={} cap={}",
+            dst,
+            src,
+            len,
+            self.cap()
+        );
+        debug_assert!(
+            src + len <= self.cap(),
+            "cno dst={} src={} len={} cap={}",
+            dst,
+            src,
+            len,
+            self.cap()
+        );
+        ptr::copy_nonoverlapping(
+            self.ptr().offset(src as isize),
+            self.ptr().offset(dst as isize),
+            len,
+        );
     }
 
     /// Copies a potentially wrapping block of memory len long from src to dest.
@@ -208,14 +220,20 @@ impl<T> VecDeque<T> {
     unsafe fn wrap_copy(&self, dst: usize, src: usize, len: usize) {
         #[allow(dead_code)]
         fn diff(a: usize, b: usize) -> usize {
-            if a <= b { b - a } else { a - b }
+            if a <= b {
+                b - a
+            } else {
+                a - b
+            }
         }
-        debug_assert!(cmp::min(diff(dst, src), self.cap() - diff(dst, src)) + len <= self.cap(),
-                      "wrc dst={} src={} len={} cap={}",
-                      dst,
-                      src,
-                      len,
-                      self.cap());
+        debug_assert!(
+            cmp::min(diff(dst, src), self.cap() - diff(dst, src)) + len <= self.cap(),
+            "wrc dst={} src={} len={} cap={}",
+            dst,
+            src,
+            len,
+            self.cap()
+        );
 
         if src == dst || len == 0 {
             return;
@@ -484,8 +502,10 @@ impl<T> VecDeque<T> {
         let ri = self.wrap_add(self.tail, i);
         let rj = self.wrap_add(self.tail, j);
         unsafe {
-            ptr::swap(self.ptr().offset(ri as isize),
-                      self.ptr().offset(rj as isize))
+            ptr::swap(
+                self.ptr().offset(ri as isize),
+                self.ptr().offset(rj as isize),
+            )
         }
     }
 
@@ -553,7 +573,8 @@ impl<T> VecDeque<T> {
     pub fn reserve(&mut self, additional: usize) {
         let old_cap = self.cap();
         let used_cap = self.len() + 1;
-        let new_cap = used_cap.checked_add(additional)
+        let new_cap = used_cap
+            .checked_add(additional)
             .and_then(|needed_cap| needed_cap.checked_next_power_of_two())
             .expect("capacity overflow");
 
@@ -601,8 +622,8 @@ impl<T> VecDeque<T> {
     /// }
     /// # process_data(&[1, 2, 3]).expect("why is the test harness OOMing on 12 bytes?");
     /// ```
-    #[unstable(feature = "try_reserve", reason = "new API", issue="48043")]
-    pub fn try_reserve_exact(&mut self, additional: usize) -> Result<(), CollectionAllocErr>  {
+    #[unstable(feature = "try_reserve", reason = "new API", issue = "48043")]
+    pub fn try_reserve_exact(&mut self, additional: usize) -> Result<(), CollectionAllocErr> {
         self.try_reserve(additional)
     }
 
@@ -639,11 +660,12 @@ impl<T> VecDeque<T> {
     /// }
     /// # process_data(&[1, 2, 3]).expect("why is the test harness OOMing on 12 bytes?");
     /// ```
-    #[unstable(feature = "try_reserve", reason = "new API", issue="48043")]
+    #[unstable(feature = "try_reserve", reason = "new API", issue = "48043")]
     pub fn try_reserve(&mut self, additional: usize) -> Result<(), CollectionAllocErr> {
         let old_cap = self.cap();
         let used_cap = self.len() + 1;
-        let new_cap = used_cap.checked_add(additional)
+        let new_cap = used_cap
+            .checked_add(additional)
             .and_then(|needed_cap| needed_cap.checked_next_power_of_two())
             .ok_or(CollectionAllocErr::CapacityOverflow)?;
 
@@ -699,16 +721,17 @@ impl<T> VecDeque<T> {
     /// buf.shrink_to(0);
     /// assert!(buf.capacity() >= 4);
     /// ```
-    #[unstable(feature = "shrink_to", reason = "new API", issue="0")]
+    #[unstable(feature = "shrink_to", reason = "new API", issue = "0")]
     pub fn shrink_to(&mut self, min_capacity: usize) {
-        assert!(self.capacity() >= min_capacity, "Tried to shrink to a larger capacity");
+        assert!(
+            self.capacity() >= min_capacity,
+            "Tried to shrink to a larger capacity"
+        );
 
         // +1 since the ringbuffer always leaves one space empty
         // len + 1 can't overflow for an existing, well-formed ringbuffer.
-        let target_cap = cmp::max(
-            cmp::max(min_capacity, self.len()) + 1,
-            MINIMUM_CAPACITY + 1
-        ).next_power_of_two();
+        let target_cap = cmp::max(cmp::max(min_capacity, self.len()) + 1, MINIMUM_CAPACITY + 1)
+            .next_power_of_two();
 
         if target_cap < self.cap() {
             // There are three cases of interest:
@@ -967,7 +990,8 @@ impl<T> VecDeque<T> {
     #[inline]
     #[stable(feature = "drain", since = "1.6.0")]
     pub fn drain<R>(&mut self, range: R) -> Drain<T>
-        where R: RangeBounds<usize>
+    where
+        R: RangeBounds<usize>,
     {
         // Memory safety
         //
@@ -983,12 +1007,12 @@ impl<T> VecDeque<T> {
         let start = match range.start_bound() {
             Included(&n) => n,
             Excluded(&n) => n + 1,
-            Unbounded    => 0,
+            Unbounded => 0,
         };
         let end = match range.end_bound() {
             Included(&n) => n + 1,
             Excluded(&n) => n,
-            Unbounded    => len,
+            Unbounded => len,
         };
         assert!(start <= end, "drain lower bound was too large");
         assert!(end <= len, "drain upper bound was too large");
@@ -1065,7 +1089,8 @@ impl<T> VecDeque<T> {
     /// ```
     #[stable(feature = "vec_deque_contains", since = "1.12.0")]
     pub fn contains(&self, x: &T) -> bool
-        where T: PartialEq<T>
+    where
+        T: PartialEq<T>,
     {
         let (a, b) = self.as_slices();
         a.contains(x) || b.contains(x)
@@ -1404,7 +1429,11 @@ impl<T> VecDeque<T> {
 
         let contiguous = self.is_contiguous();
 
-        match (contiguous, distance_to_tail <= distance_to_head, idx >= self.tail) {
+        match (
+            contiguous,
+            distance_to_tail <= distance_to_head,
+            idx >= self.tail,
+        ) {
             (true, true, _) if index == 0 => {
                 // push_front
                 //
@@ -1623,7 +1652,11 @@ impl<T> VecDeque<T> {
 
         let contiguous = self.is_contiguous();
 
-        match (contiguous, distance_to_tail <= distance_to_head, idx >= self.tail) {
+        match (
+            contiguous,
+            distance_to_tail <= distance_to_head,
+            idx >= self.tail,
+        ) {
             (true, true, _) => {
                 unsafe {
                     // contiguous, remove closer to tail:
@@ -1788,22 +1821,28 @@ impl<T> VecDeque<T> {
                 // `at` lies in the first half.
                 let amount_in_first = first_len - at;
 
-                ptr::copy_nonoverlapping(first_half.as_ptr().offset(at as isize),
-                                         other.ptr(),
-                                         amount_in_first);
+                ptr::copy_nonoverlapping(
+                    first_half.as_ptr().offset(at as isize),
+                    other.ptr(),
+                    amount_in_first,
+                );
 
                 // just take all of the second half.
-                ptr::copy_nonoverlapping(second_half.as_ptr(),
-                                         other.ptr().offset(amount_in_first as isize),
-                                         second_len);
+                ptr::copy_nonoverlapping(
+                    second_half.as_ptr(),
+                    other.ptr().offset(amount_in_first as isize),
+                    second_len,
+                );
             } else {
                 // `at` lies in the second half, need to factor in the elements we skipped
                 // in the first half.
                 let offset = at - first_len;
                 let amount_in_second = second_len - offset;
-                ptr::copy_nonoverlapping(second_half.as_ptr().offset(offset as isize),
-                                         other.ptr(),
-                                         amount_in_second);
+                ptr::copy_nonoverlapping(
+                    second_half.as_ptr().offset(offset as isize),
+                    other.ptr(),
+                    amount_in_second,
+                );
             }
         }
 
@@ -1856,7 +1895,8 @@ impl<T> VecDeque<T> {
     /// ```
     #[stable(feature = "vec_deque_retain", since = "1.4.0")]
     pub fn retain<F>(&mut self, mut f: F)
-        where F: FnMut(&T) -> bool
+    where
+        F: FnMut(&T) -> bool,
     {
         let len = self.len();
         let mut del = 0;
@@ -1989,10 +2029,10 @@ pub struct Iter<'a, T: 'a> {
 impl<'a, T: 'a + fmt::Debug> fmt::Debug for Iter<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("Iter")
-         .field(&self.ring)
-         .field(&self.tail)
-         .field(&self.head)
-         .finish()
+            .field(&self.ring)
+            .field(&self.tail)
+            .field(&self.head)
+            .finish()
     }
 }
 
@@ -2029,7 +2069,8 @@ impl<'a, T> Iterator for Iter<'a, T> {
     }
 
     fn fold<Acc, F>(self, mut accum: Acc, mut f: F) -> Acc
-        where F: FnMut(Acc, Self::Item) -> Acc
+    where
+        F: FnMut(Acc, Self::Item) -> Acc,
     {
         let (front, back) = RingSlices::ring_slices(self.ring, self.head, self.tail);
         accum = front.iter().fold(accum, &mut f);
@@ -2049,7 +2090,8 @@ impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
     }
 
     fn rfold<Acc, F>(self, mut accum: Acc, mut f: F) -> Acc
-        where F: FnMut(Acc, Self::Item) -> Acc
+    where
+        F: FnMut(Acc, Self::Item) -> Acc,
     {
         let (front, back) = RingSlices::ring_slices(self.ring, self.head, self.tail);
         accum = back.iter().rfold(accum, &mut f);
@@ -2066,7 +2108,6 @@ impl<'a, T> ExactSizeIterator for Iter<'a, T> {
 
 #[stable(feature = "fused", since = "1.26.0")]
 impl<'a, T> FusedIterator for Iter<'a, T> {}
-
 
 /// A mutable iterator over the elements of a `VecDeque`.
 ///
@@ -2086,10 +2127,10 @@ pub struct IterMut<'a, T: 'a> {
 impl<'a, T: 'a + fmt::Debug> fmt::Debug for IterMut<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("IterMut")
-         .field(&self.ring)
-         .field(&self.tail)
-         .field(&self.head)
-         .finish()
+            .field(&self.ring)
+            .field(&self.tail)
+            .field(&self.head)
+            .finish()
     }
 }
 
@@ -2118,7 +2159,8 @@ impl<'a, T> Iterator for IterMut<'a, T> {
     }
 
     fn fold<Acc, F>(self, mut accum: Acc, mut f: F) -> Acc
-        where F: FnMut(Acc, Self::Item) -> Acc
+    where
+        F: FnMut(Acc, Self::Item) -> Acc,
     {
         let (front, back) = RingSlices::ring_slices(self.ring, self.head, self.tail);
         accum = front.iter_mut().fold(accum, &mut f);
@@ -2142,7 +2184,8 @@ impl<'a, T> DoubleEndedIterator for IterMut<'a, T> {
     }
 
     fn rfold<Acc, F>(self, mut accum: Acc, mut f: F) -> Acc
-        where F: FnMut(Acc, Self::Item) -> Acc
+    where
+        F: FnMut(Acc, Self::Item) -> Acc,
     {
         let (front, back) = RingSlices::ring_slices(self.ring, self.head, self.tail);
         accum = back.iter_mut().rfold(accum, &mut f);
@@ -2176,9 +2219,7 @@ pub struct IntoIter<T> {
 #[stable(feature = "collection_debug", since = "1.17.0")]
 impl<T: fmt::Debug> fmt::Debug for IntoIter<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("IntoIter")
-         .field(&self.inner)
-         .finish()
+        f.debug_tuple("IntoIter").field(&self.inner).finish()
     }
 }
 
@@ -2235,10 +2276,10 @@ pub struct Drain<'a, T: 'a> {
 impl<'a, T: 'a + fmt::Debug> fmt::Debug for Drain<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("Drain")
-         .field(&self.after_tail)
-         .field(&self.after_head)
-         .field(&self.iter)
-         .finish()
+            .field(&self.after_tail)
+            .field(&self.after_head)
+            .field(&self.iter)
+            .finish()
     }
 }
 
@@ -2366,12 +2407,15 @@ impl<A: PartialEq> PartialEq for VecDeque<A> {
 impl<A: Eq> Eq for VecDeque<A> {}
 
 macro_rules! __impl_slice_eq1 {
-    ($Lhs: ty, $Rhs: ty) => {
+    ($Lhs:ty, $Rhs:ty) => {
         __impl_slice_eq1! { $Lhs, $Rhs, Sized }
     };
-    ($Lhs: ty, $Rhs: ty, $Bound: ident) => {
+    ($Lhs:ty, $Rhs:ty, $Bound:ident) => {
         #[stable(feature = "vec-deque-partial-eq-slice", since = "1.17.0")]
-        impl<'a, 'b, A: $Bound, B> PartialEq<$Rhs> for $Lhs where A: PartialEq<B> {
+        impl<'a, 'b, A: $Bound, B> PartialEq<$Rhs> for $Lhs
+        where
+            A: PartialEq<B>,
+        {
             fn eq(&self, other: &$Rhs) -> bool {
                 if self.len() != other.len() {
                     return false;
@@ -2381,7 +2425,7 @@ macro_rules! __impl_slice_eq1 {
                 sa == oa && sb == ob
             }
         }
-    }
+    };
 }
 
 __impl_slice_eq1! { VecDeque<A>, Vec<B> }
@@ -2525,8 +2569,10 @@ impl<T> From<Vec<T>> for VecDeque<T> {
 
             // We need to extend the buf if it's not a power of two, too small
             // or doesn't have at least one free space
-            if !buf.cap().is_power_of_two() || (buf.cap() < (MINIMUM_CAPACITY + 1)) ||
-               (buf.cap() == len) {
+            if !buf.cap().is_power_of_two()
+                || (buf.cap() < (MINIMUM_CAPACITY + 1))
+                || (buf.cap() == len)
+            {
                 let cap = cmp::max(buf.cap() + 1, MINIMUM_CAPACITY + 1).next_power_of_two();
                 buf.reserve_exact(len, cap - len);
             }
@@ -2559,9 +2605,11 @@ impl<T> From<VecDeque<T>> for Vec<T> {
                     // do this in at most three copy moves.
                     if (cap - tail) > head {
                         // right hand block is the long one; move that enough for the left
-                        ptr::copy(buf.offset(tail as isize),
-                                  buf.offset((tail - head) as isize),
-                                  cap - tail);
+                        ptr::copy(
+                            buf.offset(tail as isize),
+                            buf.offset((tail - head) as isize),
+                            cap - tail,
+                        );
                         // copy left in the end
                         ptr::copy(buf, buf.offset((cap - head) as isize), head);
                         // shift the new thing to the start
@@ -2599,10 +2647,8 @@ impl<T> From<VecDeque<T>> for Vec<T> {
                         let n_ops = right_edge - left_edge;
                         left_edge += n_ops;
                         right_edge += right_offset + 1;
-
                     }
                 }
-
             }
             let out = Vec::from_raw_parts(buf, len, cap);
             mem::forget(other);
@@ -2722,7 +2768,6 @@ mod tests {
         // this test isn't covering what it wants to
         let cap = tester.capacity();
 
-
         // len is the length *after* insertion
         for len in 1..cap {
             // 0, 1, 2, .., len - 1
@@ -2809,9 +2854,8 @@ mod tests {
                         assert!(tester.head < tester.cap());
 
                         // We should see the correct values in the VecDeque
-                        let expected: VecDeque<_> = (0..drain_start)
-                            .chain(drain_end..len)
-                            .collect();
+                        let expected: VecDeque<_> =
+                            (0..drain_start).chain(drain_end..len).collect();
                         assert_eq!(expected, tester);
                     }
                 }

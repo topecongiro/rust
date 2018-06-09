@@ -1,13 +1,14 @@
 #![allow(unknown_lints)]
 
-use ty::layout::{Align, HasDataLayout, Size};
 use ty;
+use ty::layout::{Align, HasDataLayout, Size};
 
-use super::{EvalResult, Pointer, PointerArithmetic, Allocation};
+use super::{Allocation, EvalResult, Pointer, PointerArithmetic};
 
 /// Represents a constant value in Rust. ByVal and ScalarPair are optimizations which
 /// matches Value's optimizations for easy conversions between these two types
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, RustcEncodable, RustcDecodable, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, RustcEncodable, RustcDecodable,
+         Hash)]
 pub enum ConstValue<'tcx> {
     /// Used only for types with layout::abi::Scalar ABI and ZSTs which use Scalar::undef()
     Scalar(Scalar),
@@ -70,7 +71,8 @@ impl<'tcx> ConstValue<'tcx> {
 /// For optimization of a few very common cases, there is also a representation for a pair of
 /// primitive values (`ScalarPair`). It allows Miri to avoid making allocations for checked binary
 /// operations and fat pointers. This idea was taken from rustc's codegen.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, RustcEncodable, RustcDecodable, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, RustcEncodable, RustcDecodable,
+         Hash)]
 pub enum Value {
     ByRef(Scalar, Align),
     Scalar(Scalar),
@@ -106,7 +108,7 @@ impl<'tcx> Scalar {
                         bits: layout.signed_offset(bits as u64, i)? as u128,
                         defined: pointer_size,
                     })
-            }
+                }
             }
             Scalar::Ptr(ptr) => ptr.signed_offset(i, layout).map(Scalar::Ptr),
         }
@@ -124,13 +126,17 @@ impl<'tcx> Scalar {
                         bits: layout.offset(bits as u64, i.bytes())? as u128,
                         defined: pointer_size,
                     })
-            }
+                }
             }
             Scalar::Ptr(ptr) => ptr.offset(i, layout).map(Scalar::Ptr),
         }
     }
 
-    pub fn ptr_wrapping_signed_offset<C: HasDataLayout>(self, i: i64, cx: C) -> EvalResult<'tcx, Self> {
+    pub fn ptr_wrapping_signed_offset<C: HasDataLayout>(
+        self,
+        i: i64,
+        cx: C,
+    ) -> EvalResult<'tcx, Self> {
         let layout = cx.data_layout();
         match self {
             Scalar::Bits { bits, defined } => {
@@ -142,7 +148,7 @@ impl<'tcx> Scalar {
                         bits: layout.wrapping_signed_offset(bits as u64, i) as u128,
                         defined: pointer_size,
                     })
-            }
+                }
             }
             Scalar::Ptr(ptr) => Ok(Scalar::Ptr(ptr.wrapping_signed_offset(i, layout))),
         }
@@ -150,22 +156,25 @@ impl<'tcx> Scalar {
 
     pub fn is_null_ptr<C: HasDataLayout>(self, cx: C) -> EvalResult<'tcx, bool> {
         match self {
-            Scalar::Bits {
-                bits, defined,
-            } => if defined < cx.data_layout().pointer_size.bits() as u8 {
-                err!(ReadUndefBytes)
-            } else {
-                Ok(bits == 0)
-            },
+            Scalar::Bits { bits, defined } => {
+                if defined < cx.data_layout().pointer_size.bits() as u8 {
+                    err!(ReadUndefBytes)
+                } else {
+                    Ok(bits == 0)
+                }
+            }
             Scalar::Ptr(_) => Ok(false),
         }
     }
 
     pub fn to_value_with_len<C: HasDataLayout>(self, len: u64, cx: C) -> Value {
-        Value::ScalarPair(self, Scalar::Bits {
-            bits: len as u128,
-            defined: cx.data_layout().pointer_size.bits() as u8,
-        })
+        Value::ScalarPair(
+            self,
+            Scalar::Bits {
+                bits: len as u128,
+                defined: cx.data_layout().pointer_size.bits() as u8,
+            },
+        )
     }
 
     pub fn to_value_with_vtable(self, vtable: Pointer) -> Value {
@@ -187,7 +196,8 @@ impl From<Pointer> for Scalar {
 /// `memory::Allocation`. It is in many ways like a small chunk of a `Allocation`, up to 8 bytes in
 /// size. Like a range of bytes in an `Allocation`, a `Scalar` can either represent the raw bytes
 /// of a simple value or a pointer into another `Allocation`
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, RustcEncodable, RustcDecodable, Hash)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, RustcEncodable, RustcDecodable,
+         Hash)]
 pub enum Scalar {
     /// The raw bytes of a simple value.
     Bits {
@@ -204,16 +214,25 @@ pub enum Scalar {
 
 impl<'tcx> Scalar {
     pub fn undef() -> Self {
-        Scalar::Bits { bits: 0, defined: 0 }
+        Scalar::Bits {
+            bits: 0,
+            defined: 0,
+        }
     }
 
     pub fn from_bool(b: bool) -> Self {
         // FIXME: can we make defined `1`?
-        Scalar::Bits { bits: b as u128, defined: 8 }
+        Scalar::Bits {
+            bits: b as u128,
+            defined: 8,
+        }
     }
 
     pub fn from_char(c: char) -> Self {
-        Scalar::Bits { bits: c as u128, defined: 32 }
+        Scalar::Bits {
+            bits: c as u128,
+            defined: 32,
+        }
     }
 
     pub fn to_bits(self, size: Size) -> EvalResult<'tcx, u128> {
@@ -227,7 +246,7 @@ impl<'tcx> Scalar {
 
     pub fn to_ptr(self) -> EvalResult<'tcx, Pointer> {
         match self {
-            Scalar::Bits {..} => err!(ReadBytesAsPointer),
+            Scalar::Bits { .. } => err!(ReadBytesAsPointer),
             Scalar::Ptr(p) => Ok(p),
         }
     }
@@ -248,8 +267,14 @@ impl<'tcx> Scalar {
 
     pub fn to_bool(self) -> EvalResult<'tcx, bool> {
         match self {
-            Scalar::Bits { bits: 0, defined: 8 } => Ok(false),
-            Scalar::Bits { bits: 1, defined: 8 } => Ok(true),
+            Scalar::Bits {
+                bits: 0,
+                defined: 8,
+            } => Ok(false),
+            Scalar::Bits {
+                bits: 1,
+                defined: 8,
+            } => Ok(true),
             _ => err!(InvalidBool),
         }
     }

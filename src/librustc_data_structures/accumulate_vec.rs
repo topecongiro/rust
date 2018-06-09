@@ -15,24 +15,26 @@
 //!
 //! The N above is determined by Array's implementor, by way of an associated constant.
 
+use std::iter::{self, FromIterator, IntoIterator};
 use std::ops::{Deref, DerefMut, RangeBounds};
-use std::iter::{self, IntoIterator, FromIterator};
 use std::slice;
 use std::vec;
 
-use rustc_serialize::{Encodable, Encoder, Decodable, Decoder};
+use rustc_serialize::{Decodable, Decoder, Encodable, Encoder};
 
 use array_vec::{self, Array, ArrayVec};
 
 #[derive(Hash, Debug)]
 pub enum AccumulateVec<A: Array> {
     Array(ArrayVec<A>),
-    Heap(Vec<A::Element>)
+    Heap(Vec<A::Element>),
 }
 
 impl<A> Clone for AccumulateVec<A>
-    where A: Array,
-          A::Element: Clone {
+where
+    A: Array,
+    A::Element: Clone,
+{
     fn clone(&self) -> Self {
         match *self {
             AccumulateVec::Array(ref arr) => AccumulateVec::Array(arr.clone()),
@@ -50,7 +52,7 @@ impl<A: Array> AccumulateVec<A> {
         iter::once(el).collect()
     }
 
-    pub fn many<I: IntoIterator<Item=A::Element>>(iter: I) -> Self {
+    pub fn many<I: IntoIterator<Item = A::Element>>(iter: I) -> Self {
         iter.into_iter().collect()
     }
 
@@ -73,15 +75,12 @@ impl<A: Array> AccumulateVec<A> {
     }
 
     pub fn drain<R>(&mut self, range: R) -> Drain<A>
-        where R: RangeBounds<usize>
+    where
+        R: RangeBounds<usize>,
     {
         match *self {
-            AccumulateVec::Array(ref mut v) => {
-                Drain::Array(v.drain(range))
-            },
-            AccumulateVec::Heap(ref mut v) => {
-                Drain::Heap(v.drain(range))
-            },
+            AccumulateVec::Array(ref mut v) => Drain::Array(v.drain(range)),
+            AccumulateVec::Heap(ref mut v) => Drain::Heap(v.drain(range)),
         }
     }
 }
@@ -106,7 +105,10 @@ impl<A: Array> DerefMut for AccumulateVec<A> {
 }
 
 impl<A: Array> FromIterator<A::Element> for AccumulateVec<A> {
-    fn from_iter<I>(iter: I) -> AccumulateVec<A> where I: IntoIterator<Item=A::Element> {
+    fn from_iter<I>(iter: I) -> AccumulateVec<A>
+    where
+        I: IntoIterator<Item = A::Element>,
+    {
         let iter = iter.into_iter();
         if iter.size_hint().1.map_or(false, |n| n <= A::LEN) {
             let mut v = ArrayVec::new();
@@ -146,7 +148,8 @@ impl<A: Array> Iterator for IntoIter<A> {
 }
 
 pub enum Drain<'a, A: Array>
-        where A::Element: 'a
+where
+    A::Element: 'a,
 {
     Array(array_vec::Drain<'a, A>),
     Heap(vec::Drain<'a, A::Element>),
@@ -178,7 +181,7 @@ impl<A: Array> IntoIterator for AccumulateVec<A> {
             repr: match self {
                 AccumulateVec::Array(arr) => IntoIterRepr::Array(arr.into_iter()),
                 AccumulateVec::Heap(vec) => IntoIterRepr::Heap(vec.into_iter()),
-            }
+            },
         }
     }
 }
@@ -212,8 +215,10 @@ impl<A: Array> Default for AccumulateVec<A> {
 }
 
 impl<A> Encodable for AccumulateVec<A>
-    where A: Array,
-          A::Element: Encodable {
+where
+    A: Array,
+    A::Element: Encodable,
+{
     fn encode<S: Encoder>(&self, s: &mut S) -> Result<(), S::Error> {
         s.emit_seq(self.len(), |s| {
             for (i, e) in self.iter().enumerate() {
@@ -225,12 +230,17 @@ impl<A> Encodable for AccumulateVec<A>
 }
 
 impl<A> Decodable for AccumulateVec<A>
-    where A: Array,
-          A::Element: Decodable {
+where
+    A: Array,
+    A::Element: Decodable,
+{
     fn decode<D: Decoder>(d: &mut D) -> Result<AccumulateVec<A>, D::Error> {
         d.read_seq(|d, len| {
-            Ok(try!((0..len).map(|i| d.read_seq_elt(i, |d| Decodable::decode(d))).collect()))
+            Ok(try!(
+                (0..len)
+                    .map(|i| d.read_seq_elt(i, |d| Decodable::decode(d)))
+                    .collect()
+            ))
         })
     }
 }
-

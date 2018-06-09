@@ -69,15 +69,14 @@ impl FlagComputation {
 
     fn add_sty(&mut self, st: &ty::TypeVariants) {
         match st {
-            &ty::TyBool |
-            &ty::TyChar |
-            &ty::TyInt(_) |
-            &ty::TyFloat(_) |
-            &ty::TyUint(_) |
-            &ty::TyNever |
-            &ty::TyStr |
-            &ty::TyForeign(..) => {
-            }
+            &ty::TyBool
+            | &ty::TyChar
+            | &ty::TyInt(_)
+            | &ty::TyFloat(_)
+            | &ty::TyUint(_)
+            | &ty::TyNever
+            | &ty::TyStr
+            | &ty::TyForeign(..) => {}
 
             // You might think that we could just return TyError for
             // any type containing TyError as a component, and get
@@ -86,9 +85,7 @@ impl FlagComputation {
             // But doing so caused sporadic memory corruption, and
             // neither I (tjc) nor nmatsakis could figure out why,
             // so we're doing it this way.
-            &ty::TyError => {
-                self.add_flags(TypeFlags::HAS_TY_ERR)
-            }
+            &ty::TyError => self.add_flags(TypeFlags::HAS_TY_ERR),
 
             &ty::TyParam(ref p) => {
                 self.add_flags(TypeFlags::HAS_FREE_LOCAL_NAMES);
@@ -121,16 +118,14 @@ impl FlagComputation {
                 self.add_flags(TypeFlags::HAS_FREE_LOCAL_NAMES); // it might, right?
                 self.add_flags(TypeFlags::HAS_TY_INFER);
                 match infer {
-                    ty::FreshTy(_) |
-                    ty::FreshIntTy(_) |
-                    ty::FreshFloatTy(_) |
-                    ty::CanonicalTy(_) => {
+                    ty::FreshTy(_)
+                    | ty::FreshIntTy(_)
+                    | ty::FreshFloatTy(_)
+                    | ty::CanonicalTy(_) => {
                         self.add_flags(TypeFlags::HAS_CANONICAL_VARS);
                     }
 
-                    ty::TyVar(_) |
-                    ty::IntVar(_) |
-                    ty::FloatVar(_) => {
+                    ty::TyVar(_) | ty::IntVar(_) | ty::FloatVar(_) => {
                         self.add_flags(TypeFlags::KEEP_IN_LOCAL_TCX)
                     }
                 }
@@ -177,9 +172,7 @@ impl FlagComputation {
                 self.add_const(len);
             }
 
-            &ty::TySlice(tt) => {
-                self.add_ty(tt)
-            }
+            &ty::TySlice(tt) => self.add_ty(tt),
 
             &ty::TyRawPtr(ref m) => {
                 self.add_ty(m.ty);

@@ -2,14 +2,14 @@
 //! This separation exists to ensure that no fancy miri features like
 //! interpreting common C functions leak into CTFE.
 
-use rustc::mir::interpret::{AllocId, EvalResult, Scalar, Pointer, AccessKind, GlobalId};
-use super::{EvalContext, Place, ValTy, Memory};
+use super::{EvalContext, Memory, Place, ValTy};
+use rustc::mir::interpret::{AccessKind, AllocId, EvalResult, GlobalId, Pointer, Scalar};
 
 use rustc::mir;
-use rustc::ty::{self, Ty};
 use rustc::ty::layout::Size;
-use syntax::codemap::Span;
+use rustc::ty::{self, Ty};
 use syntax::ast::Mutability;
+use syntax::codemap::Span;
 
 /// Methods of this trait signifies a point where CTFE evaluation would fail
 /// and some use case dependent behaviour can instead be applied
@@ -99,10 +99,7 @@ pub trait Machine<'mir, 'tcx>: Sized {
         Ok(())
     }
 
-    fn add_lock<'a>(
-        _mem: &mut Memory<'a, 'mir, 'tcx, Self>,
-        _id: AllocId,
-    ) {}
+    fn add_lock<'a>(_mem: &mut Memory<'a, 'mir, 'tcx, Self>, _id: AllocId) {}
 
     fn free_lock<'a>(
         _mem: &mut Memory<'a, 'mir, 'tcx, Self>,

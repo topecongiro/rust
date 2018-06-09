@@ -28,12 +28,11 @@ pub type CanonicalProjectionGoal<'tcx> =
 
 pub type CanonicalTyGoal<'tcx> = Canonical<'tcx, ty::ParamEnvAnd<'tcx, Ty<'tcx>>>;
 
-pub type CanonicalPredicateGoal<'tcx> =
-    Canonical<'tcx, ty::ParamEnvAnd<'tcx, ty::Predicate<'tcx>>>;
+pub type CanonicalPredicateGoal<'tcx> = Canonical<'tcx, ty::ParamEnvAnd<'tcx, ty::Predicate<'tcx>>>;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct NoSolution;
 
 pub type Fallible<T> = Result<T, NoSolution>;
 
-impl_stable_hash_for!(struct NoSolution { });
+impl_stable_hash_for!(struct NoSolution {});

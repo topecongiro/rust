@@ -8,11 +8,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use rustc::infer::InferCtxt;
 use rustc::infer::canonical::{CanonicalVarValues, Canonicalize, Certainty, QueryResult};
 use rustc::infer::region_constraints::{Constraint, RegionConstraintData};
-use rustc::traits::{FulfillmentContext, TraitEngine};
+use rustc::infer::InferCtxt;
 use rustc::traits::query::NoSolution;
+use rustc::traits::{FulfillmentContext, TraitEngine};
 use rustc::ty;
 use std::fmt::Debug;
 
@@ -95,7 +95,7 @@ where
             region_obligations
                 .into_iter()
                 .map(|(_, r_o)| ty::OutlivesPredicate(r_o.sup_type.into(), r_o.sub_region))
-                .map(ty::Binder::dummy) // no bound regions in the code above
+                .map(ty::Binder::dummy), // no bound regions in the code above
         );
 
         outlives

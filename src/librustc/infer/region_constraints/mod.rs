@@ -10,19 +10,19 @@
 
 //! See README.md
 
-use self::UndoLogEntry::*;
 use self::CombineMapType::*;
+use self::UndoLogEntry::*;
 
-use super::{MiscVariable, RegionVariableOrigin, SubregionOrigin};
 use super::unify_key;
+use super::{MiscVariable, RegionVariableOrigin, SubregionOrigin};
 
-use rustc_data_structures::indexed_vec::{IndexVec, Idx};
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
+use rustc_data_structures::indexed_vec::{Idx, IndexVec};
 use rustc_data_structures::unify as ut;
-use ty::{self, Ty, TyCtxt};
-use ty::{Region, RegionVid};
 use ty::ReStatic;
+use ty::{self, Ty, TyCtxt};
 use ty::{BrFresh, ReLateBound, ReVar};
+use ty::{Region, RegionVid};
 
 use std::collections::BTreeMap;
 use std::{cmp, fmt, mem, u32};
@@ -418,15 +418,15 @@ impl<'tcx> RegionConstraintCollector<'tcx> {
         }
     }
 
-    pub fn new_region_var(&mut self,
-                          universe: ty::UniverseIndex,
-                          origin: RegionVariableOrigin) -> RegionVid {
-        let vid = self.var_infos.push(RegionVariableInfo {
-            origin,
-            universe,
-        });
+    pub fn new_region_var(
+        &mut self,
+        universe: ty::UniverseIndex,
+        origin: RegionVariableOrigin,
+    ) -> RegionVid {
+        let vid = self.var_infos.push(RegionVariableInfo { origin, universe });
 
-        let u_vid = self.unification_table
+        let u_vid = self
+            .unification_table
             .new_key(unify_key::RegionVidKey { min_vid: vid });
         assert_eq!(vid, u_vid);
         if self.in_snapshot() {
@@ -434,8 +434,7 @@ impl<'tcx> RegionConstraintCollector<'tcx> {
         }
         debug!(
             "created new region variable {:?} with origin {:?}",
-            vid,
-            origin
+            vid, origin
         );
         return vid;
     }
@@ -490,7 +489,8 @@ impl<'tcx> RegionConstraintCollector<'tcx> {
             skols
         }
 
-        let constraints_to_kill: Vec<usize> = self.undo_log
+        let constraints_to_kill: Vec<usize> = self
+            .undo_log
             .iter()
             .enumerate()
             .rev()
@@ -636,9 +636,7 @@ impl<'tcx> RegionConstraintCollector<'tcx> {
         // cannot add constraints once regions are resolved
         debug!(
             "RegionConstraintCollector: make_subregion({:?}, {:?}) due to {:?}",
-            sub,
-            sup,
-            origin
+            sub, sup, origin
         );
 
         match (sub, sup) {
@@ -777,19 +775,19 @@ impl<'tcx> RegionConstraintCollector<'tcx> {
 
     fn universe(&self, region: Region<'tcx>) -> ty::UniverseIndex {
         match *region {
-            ty::ReScope(..) |
-            ty::ReStatic |
-            ty::ReEmpty |
-            ty::ReErased |
-            ty::ReFree(..) |
-            ty::ReEarlyBound(..) => ty::UniverseIndex::ROOT,
+            ty::ReScope(..)
+            | ty::ReStatic
+            | ty::ReEmpty
+            | ty::ReErased
+            | ty::ReFree(..)
+            | ty::ReEarlyBound(..) => ty::UniverseIndex::ROOT,
             ty::ReSkolemized(universe, _) => universe,
-            ty::ReClosureBound(vid) |
-            ty::ReVar(vid) => self.var_universe(vid),
-            ty::ReLateBound(..) =>
-                bug!("universe(): encountered bound region {:?}", region),
-            ty::ReCanonical(..) =>
-                bug!("region_universe(): encountered canonical region {:?}", region),
+            ty::ReClosureBound(vid) | ty::ReVar(vid) => self.var_universe(vid),
+            ty::ReLateBound(..) => bug!("universe(): encountered bound region {:?}", region),
+            ty::ReCanonical(..) => bug!(
+                "region_universe(): encountered canonical region {:?}",
+                region
+            ),
         }
     }
 
@@ -820,9 +818,7 @@ impl<'tcx> RegionConstraintCollector<'tcx> {
     ) -> FxHashSet<ty::Region<'tcx>> {
         debug!(
             "tainted(mark={:?}, r0={:?}, directions={:?})",
-            mark,
-            r0,
-            directions
+            mark, r0, directions
         );
 
         // `result_set` acts as a worklist: we explore all outgoing

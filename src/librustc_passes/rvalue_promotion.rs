@@ -24,23 +24,23 @@
 // - It's not possible to take the address of a static item with unsafe interior. This is enforced
 // by borrowck::gather_loans
 
-use rustc::ty::cast::CastKind;
-use rustc::hir::def::{Def, CtorKind};
+use rustc::hir;
+use rustc::hir::def::{CtorKind, Def};
 use rustc::hir::def_id::DefId;
+use rustc::hir::intravisit::{self, NestedVisitorMap, Visitor};
 use rustc::hir::map::blocks::FnLikeNode;
 use rustc::middle::expr_use_visitor as euv;
 use rustc::middle::mem_categorization as mc;
 use rustc::middle::mem_categorization::Categorization;
-use rustc::ty::{self, Ty, TyCtxt};
+use rustc::ty::cast::CastKind;
 use rustc::ty::maps::Providers;
 use rustc::ty::subst::Substs;
+use rustc::ty::{self, Ty, TyCtxt};
 use rustc::util::nodemap::{ItemLocalSet, NodeSet};
-use rustc::hir;
 use rustc_data_structures::sync::Lrc;
 use syntax::ast;
 use syntax::attr;
 use syntax_pos::{Span, DUMMY_SP};
-use rustc::hir::intravisit::{self, Visitor, NestedVisitorMap};
 
 pub fn provide(providers: &mut Providers) {
     *providers = Providers {
@@ -58,23 +58,26 @@ pub fn check_crate<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>) {
     tcx.sess.abort_if_errors();
 }
 
-fn const_is_rvalue_promotable_to_static<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                                                  def_id: DefId)
-                                                  -> bool
-{
+fn const_is_rvalue_promotable_to_static<'a, 'tcx>(
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    def_id: DefId,
+) -> bool {
     assert!(def_id.is_local());
 
-    let node_id = tcx.hir.as_local_node_id(def_id)
-                     .expect("rvalue_promotable_map invoked with non-local def-id");
+    let node_id = tcx
+        .hir
+        .as_local_node_id(def_id)
+        .expect("rvalue_promotable_map invoked with non-local def-id");
     let body_id = tcx.hir.body_owned_by(node_id);
     let body_hir_id = tcx.hir.node_to_hir_id(body_id.node_id);
-    tcx.rvalue_promotable_map(def_id).contains(&body_hir_id.local_id)
+    tcx.rvalue_promotable_map(def_id)
+        .contains(&body_hir_id.local_id)
 }
 
-fn rvalue_promotable_map<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-                                   def_id: DefId)
-                                   -> Lrc<ItemLocalSet>
-{
+fn rvalue_promotable_map<'a, 'tcx>(
+    tcx: TyCtxt<'a, 'tcx, 'tcx>,
+    def_id: DefId,
+) -> Lrc<ItemLocalSet> {
     let outer_def_id = tcx.closure_base_def_id(def_id);
     if outer_def_id != def_id {
         return tcx.rvalue_promotable_map(outer_def_id);
@@ -93,8 +96,10 @@ fn rvalue_promotable_map<'a, 'tcx>(tcx: TyCtxt<'a, 'tcx, 'tcx>,
     };
 
     // `def_id` should be a `Body` owner
-    let node_id = tcx.hir.as_local_node_id(def_id)
-                     .expect("rvalue_promotable_map invoked with non-local def-id");
+    let node_id = tcx
+        .hir
+        .as_local_node_id(def_id)
+        .expect("rvalue_promotable_map invoked with non-local def-id");
     let body_id = tcx.hir.body_owned_by(node_id);
     visitor.visit_nested_body(body_id);
 
@@ -116,8 +121,7 @@ struct CheckCrateVisitor<'a, 'tcx: 'a> {
 impl<'a, 'gcx> CheckCrateVisitor<'a, 'gcx> {
     // Returns true iff all the values of the type are promotable.
     fn type_has_only_promotable_values(&mut self, ty: Ty<'gcx>) -> bool {
-        ty.is_freeze(self.tcx, self.param_env, DUMMY_SP) &&
-        !ty.needs_drop(self.tcx, self.param_env)
+        ty.is_freeze(self.tcx, self.param_env, DUMMY_SP) && !ty.needs_drop(self.tcx, self.param_env)
     }
 
     fn handle_const_fn_call(&mut self, def_id: DefId, ret_ty: Ty<'gcx>, span: Span) {
@@ -132,10 +136,13 @@ impl<'a, 'gcx> CheckCrateVisitor<'a, 'gcx> {
         };
 
         if let Some(&attr::Stability {
-            rustc_const_unstable: Some(attr::RustcConstUnstable {
-                feature: ref feature_name
-            }),
-        .. }) = self.tcx.lookup_stability(def_id) {
+            rustc_const_unstable:
+                Some(attr::RustcConstUnstable {
+                    feature: ref feature_name,
+                }),
+            ..
+        }) = self.tcx.lookup_stability(def_id)
+        {
             self.promotable &=
                 // feature-gate is enabled,
                 self.tcx.features()
@@ -193,7 +200,6 @@ impl<'a, 'tcx> Visitor<'tcx> for CheckCrateVisitor<'a, 'tcx> {
             _ => {}
         };
 
-
         self.tables = self.tcx.typeck_tables_of(item_def_id);
         self.param_env = self.tcx.param_env(item_def_id);
         self.identity_substs = Substs::identity_for_item(self.tcx, item_def_id);
@@ -231,8 +237,7 @@ impl<'a, 'tcx> Visitor<'tcx> for CheckCrateVisitor<'a, 'tcx> {
                     hir::DeclItem(_) => {}
                 }
             }
-            hir::StmtExpr(..) |
-            hir::StmtSemi(..) => {
+            hir::StmtExpr(..) | hir::StmtSemi(..) => {
                 self.promotable = false;
             }
         }
@@ -491,13 +496,13 @@ fn check_adjustments<'a, 'tcx>(v: &mut CheckCrateVisitor<'a, 'tcx>, e: &hir::Exp
     let mut adjustments = v.tables.expr_adjustments(e).iter().peekable();
     while let Some(adjustment) = adjustments.next() {
         match adjustment.kind {
-            Adjust::NeverToAny |
-            Adjust::ReifyFnPointer |
-            Adjust::UnsafeFnPointer |
-            Adjust::ClosureFnPointer |
-            Adjust::MutToConstPointer |
-            Adjust::Borrow(_) |
-            Adjust::Unsize => {}
+            Adjust::NeverToAny
+            | Adjust::ReifyFnPointer
+            | Adjust::UnsafeFnPointer
+            | Adjust::ClosureFnPointer
+            | Adjust::MutToConstPointer
+            | Adjust::Borrow(_)
+            | Adjust::Unsize => {}
 
             Adjust::Deref(_) => {
                 if let Some(next_adjustment) = adjustments.peek() {
@@ -513,25 +518,27 @@ fn check_adjustments<'a, 'tcx>(v: &mut CheckCrateVisitor<'a, 'tcx>, e: &hir::Exp
 }
 
 impl<'a, 'gcx, 'tcx> euv::Delegate<'tcx> for CheckCrateVisitor<'a, 'gcx> {
-    fn consume(&mut self,
-               _consume_id: ast::NodeId,
-               _consume_span: Span,
-               _cmt: &mc::cmt_,
-               _mode: euv::ConsumeMode) {}
+    fn consume(
+        &mut self,
+        _consume_id: ast::NodeId,
+        _consume_span: Span,
+        _cmt: &mc::cmt_,
+        _mode: euv::ConsumeMode,
+    ) {
+    }
 
-    fn borrow(&mut self,
-              borrow_id: ast::NodeId,
-              _borrow_span: Span,
-              cmt: &mc::cmt_<'tcx>,
-              _loan_region: ty::Region<'tcx>,
-              bk: ty::BorrowKind,
-              loan_cause: euv::LoanCause) {
+    fn borrow(
+        &mut self,
+        borrow_id: ast::NodeId,
+        _borrow_span: Span,
+        cmt: &mc::cmt_<'tcx>,
+        _loan_region: ty::Region<'tcx>,
+        bk: ty::BorrowKind,
+        loan_cause: euv::LoanCause,
+    ) {
         debug!(
             "borrow(borrow_id={:?}, cmt={:?}, bk={:?}, loan_cause={:?})",
-            borrow_id,
-            cmt,
-            bk,
-            loan_cause,
+            borrow_id, cmt, bk, loan_cause,
         );
 
         // Kind of hacky, but we allow Unsafe coercions in constants.
@@ -561,24 +568,25 @@ impl<'a, 'gcx, 'tcx> euv::Delegate<'tcx> for CheckCrateVisitor<'a, 'gcx> {
                 Categorization::StaticItem => {
                     break;
                 }
-                Categorization::Deref(ref cmt, _) |
-                Categorization::Downcast(ref cmt, _) |
-                Categorization::Interior(ref cmt, _) => {
+                Categorization::Deref(ref cmt, _)
+                | Categorization::Downcast(ref cmt, _)
+                | Categorization::Interior(ref cmt, _) => {
                     cur = cmt;
                 }
 
-                Categorization::Upvar(..) |
-                Categorization::Local(..) => break,
+                Categorization::Upvar(..) | Categorization::Local(..) => break,
             }
         }
     }
 
     fn decl_without_init(&mut self, _id: ast::NodeId, _span: Span) {}
-    fn mutate(&mut self,
-              _assignment_id: ast::NodeId,
-              _assignment_span: Span,
-              _assignee_cmt: &mc::cmt_,
-              _mode: euv::MutateMode) {
+    fn mutate(
+        &mut self,
+        _assignment_id: ast::NodeId,
+        _assignment_span: Span,
+        _assignee_cmt: &mc::cmt_,
+        _mode: euv::MutateMode,
+    ) {
     }
 
     fn matched_pat(&mut self, _: &hir::Pat, _: &mc::cmt_, _: euv::MatchMode) {}

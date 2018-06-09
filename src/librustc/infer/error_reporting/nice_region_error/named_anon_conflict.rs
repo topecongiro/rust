@@ -22,8 +22,7 @@ impl<'a, 'gcx, 'tcx> NiceRegionError<'a, 'gcx, 'tcx> {
 
         debug!(
             "try_report_named_anon_conflict(sub={:?}, sup={:?})",
-            sub,
-            sup
+            sub, sup
         );
 
         // Determine whether the sub and sup consist of one named region ('a)
@@ -42,7 +41,8 @@ impl<'a, 'gcx, 'tcx> NiceRegionError<'a, 'gcx, 'tcx> {
                 self.find_arg_with_region(sup, sub).unwrap(),
                 self.is_suitable_region(sup).unwrap(),
             )
-        } else if self.is_named_region(sup) && self.is_suitable_region(sub).is_some()
+        } else if self.is_named_region(sup)
+            && self.is_suitable_region(sub).is_some()
             && self.find_arg_with_region(sub, sup).is_some()
         {
             (

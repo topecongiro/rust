@@ -200,7 +200,7 @@ use cmp::Ordering;
 use fmt::{self, Debug, Display};
 use marker::Unsize;
 use mem;
-use ops::{Deref, DerefMut, CoerceUnsized};
+use ops::{CoerceUnsized, Deref, DerefMut};
 use ptr;
 
 /// A mutable memory location.
@@ -239,7 +239,7 @@ pub struct Cell<T> {
     value: UnsafeCell<T>,
 }
 
-impl<T:Copy> Cell<T> {
+impl<T: Copy> Cell<T> {
     /// Returns a copy of the contained value.
     ///
     /// # Examples
@@ -254,7 +254,7 @@ impl<T:Copy> Cell<T> {
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn get(&self) -> T {
-        unsafe{ *self.value.get() }
+        unsafe { *self.value.get() }
     }
 
     /// Updates the contained value using a function and returns the new value.
@@ -292,7 +292,7 @@ unsafe impl<T> Send for Cell<T> where T: Send {}
 impl<T> !Sync for Cell<T> {}
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<T:Copy> Clone for Cell<T> {
+impl<T: Copy> Clone for Cell<T> {
     #[inline]
     fn clone(&self) -> Cell<T> {
         Cell::new(self.get())
@@ -300,7 +300,7 @@ impl<T:Copy> Clone for Cell<T> {
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<T:Default> Default for Cell<T> {
+impl<T: Default> Default for Cell<T> {
     /// Creates a `Cell<T>`, with the `Default` value for T.
     #[inline]
     fn default() -> Cell<T> {
@@ -309,7 +309,7 @@ impl<T:Default> Default for Cell<T> {
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<T:PartialEq + Copy> PartialEq for Cell<T> {
+impl<T: PartialEq + Copy> PartialEq for Cell<T> {
     #[inline]
     fn eq(&self, other: &Cell<T>) -> bool {
         self.get() == other.get()
@@ -317,10 +317,10 @@ impl<T:PartialEq + Copy> PartialEq for Cell<T> {
 }
 
 #[stable(feature = "cell_eq", since = "1.2.0")]
-impl<T:Eq + Copy> Eq for Cell<T> {}
+impl<T: Eq + Copy> Eq for Cell<T> {}
 
 #[stable(feature = "cell_ord", since = "1.10.0")]
-impl<T:PartialOrd + Copy> PartialOrd for Cell<T> {
+impl<T: PartialOrd + Copy> PartialOrd for Cell<T> {
     #[inline]
     fn partial_cmp(&self, other: &Cell<T>) -> Option<Ordering> {
         self.get().partial_cmp(&other.get())
@@ -348,7 +348,7 @@ impl<T:PartialOrd + Copy> PartialOrd for Cell<T> {
 }
 
 #[stable(feature = "cell_ord", since = "1.10.0")]
-impl<T:Ord + Copy> Ord for Cell<T> {
+impl<T: Ord + Copy> Ord for Cell<T> {
     #[inline]
     fn cmp(&self, other: &Cell<T>) -> Ordering {
         self.get().cmp(&other.get())
@@ -415,9 +415,7 @@ impl<T> Cell<T> {
     #[inline]
     #[stable(feature = "cell_get_mut", since = "1.11.0")]
     pub fn get_mut(&mut self) -> &mut T {
-        unsafe {
-            &mut *self.value.get()
-        }
+        unsafe { &mut *self.value.get() }
     }
 
     /// Sets the contained value.
@@ -635,7 +633,7 @@ impl<T> RefCell<T> {
     /// assert_eq!(cell, RefCell::new(6));
     /// ```
     #[inline]
-    #[stable(feature = "refcell_replace", since="1.24.0")]
+    #[stable(feature = "refcell_replace", since = "1.24.0")]
     pub fn replace(&self, t: T) -> T {
         mem::replace(&mut *self.borrow_mut(), t)
     }
@@ -660,7 +658,7 @@ impl<T> RefCell<T> {
     /// assert_eq!(cell, RefCell::new(6));
     /// ```
     #[inline]
-    #[unstable(feature = "refcell_replace_swap", issue="43570")]
+    #[unstable(feature = "refcell_replace_swap", issue = "43570")]
     pub fn replace_with<F: FnOnce(&mut T) -> T>(&self, f: F) -> T {
         let mut_borrow = &mut *self.borrow_mut();
         let replacement = f(mut_borrow);
@@ -687,7 +685,7 @@ impl<T> RefCell<T> {
     /// assert_eq!(d, RefCell::new(5));
     /// ```
     #[inline]
-    #[stable(feature = "refcell_swap", since="1.24.0")]
+    #[stable(feature = "refcell_swap", since = "1.24.0")]
     pub fn swap(&self, other: &Self) {
         mem::swap(&mut *self.borrow_mut(), &mut *other.borrow_mut())
     }
@@ -893,9 +891,7 @@ impl<T: ?Sized> RefCell<T> {
     #[inline]
     #[stable(feature = "cell_get_mut", since = "1.11.0")]
     pub fn get_mut(&mut self) -> &mut T {
-        unsafe {
-            &mut *self.value.get()
-        }
+        unsafe { &mut *self.value.get() }
     }
 }
 
@@ -917,7 +913,7 @@ impl<T: Clone> Clone for RefCell<T> {
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<T:Default> Default for RefCell<T> {
+impl<T: Default> Default for RefCell<T> {
     /// Creates a `RefCell<T>`, with the `Default` value for T.
     #[inline]
     fn default() -> RefCell<T> {
@@ -1015,7 +1011,7 @@ impl<'b> BorrowRef<'b> {
             b => {
                 borrow.set(b + 1);
                 Some(BorrowRef { borrow: borrow })
-            },
+            }
         }
     }
 }
@@ -1039,7 +1035,9 @@ impl<'b> Clone for BorrowRef<'b> {
         // Prevent the borrow counter from overflowing.
         assert!(borrow != WRITING);
         self.borrow.set(borrow + 1);
-        BorrowRef { borrow: self.borrow }
+        BorrowRef {
+            borrow: self.borrow,
+        }
     }
 }
 
@@ -1102,7 +1100,8 @@ impl<'b, T: ?Sized> Ref<'b, T> {
     #[stable(feature = "cell_map", since = "1.8.0")]
     #[inline]
     pub fn map<U: ?Sized, F>(orig: Ref<'b, T>, f: F) -> Ref<'b, U>
-        where F: FnOnce(&T) -> &U
+    where
+        F: FnOnce(&T) -> &U,
     {
         Ref {
             value: f(orig.value),
@@ -1148,7 +1147,8 @@ impl<'b, T: ?Sized> RefMut<'b, T> {
     #[stable(feature = "cell_map", since = "1.8.0")]
     #[inline]
     pub fn map<U: ?Sized, F>(orig: RefMut<'b, T>, f: F) -> RefMut<'b, U>
-        where F: FnOnce(&mut T) -> &mut U
+    where
+        F: FnOnce(&mut T) -> &mut U,
     {
         // FIXME(nll-rfc#40): fix borrow-check
         let RefMut { value, borrow } = orig;
@@ -1179,7 +1179,7 @@ impl<'b> BorrowRefMut<'b> {
             UNUSED => {
                 borrow.set(WRITING);
                 Some(BorrowRefMut { borrow: borrow })
-            },
+            }
             _ => None,
         }
     }

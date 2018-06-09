@@ -12,30 +12,31 @@ use index;
 
 use rustc::hir;
 use rustc::hir::def::{self, CtorKind};
-use rustc::hir::def_id::{DefIndex, DefId, CrateNum};
+use rustc::hir::def_id::{CrateNum, DefId, DefIndex};
 use rustc::ich::StableHashingContext;
-use rustc::middle::cstore::{DepKind, LinkagePreference, NativeLibrary, ForeignModule};
+use rustc::middle::cstore::{DepKind, ForeignModule, LinkagePreference, NativeLibrary};
 use rustc::middle::lang_items;
 use rustc::mir;
 use rustc::session::CrateDisambiguator;
-use rustc::ty::{self, Ty, ReprOptions};
+use rustc::ty::{self, ReprOptions, Ty};
 use rustc_target::spec::{PanicStrategy, TargetTriple};
 
 use rustc_serialize as serialize;
-use syntax::{ast, attr};
 use syntax::edition::Edition;
 use syntax::symbol::Symbol;
+use syntax::{ast, attr};
 use syntax_pos::{self, Span};
 
 use std::marker::PhantomData;
 use std::mem;
 
-use rustc_data_structures::stable_hasher::{StableHasher, HashStable,
-                                           StableHasherResult};
+use rustc_data_structures::stable_hasher::{HashStable, StableHasher, StableHasherResult};
 
 pub fn rustc_version() -> String {
-    format!("rustc {}",
-            option_env!("CFG_VERSION").unwrap_or("unknown version"))
+    format!(
+        "rustc {}",
+        option_env!("CFG_VERSION").unwrap_or("unknown version")
+    )
 }
 
 /// Metadata encoding version.
@@ -51,8 +52,20 @@ pub const METADATA_VERSION: u8 = 4;
 /// This header is followed by the position of the `CrateRoot`,
 /// which is encoded as a 32-bit big-endian unsigned integer,
 /// and further followed by the rustc version string.
-pub const METADATA_HEADER: &'static [u8; 12] =
-    &[0, 0, 0, 0, b'r', b'u', b's', b't', 0, 0, 0, METADATA_VERSION];
+pub const METADATA_HEADER: &'static [u8; 12] = &[
+    0,
+    0,
+    0,
+    0,
+    b'r',
+    b'u',
+    b's',
+    b't',
+    0,
+    0,
+    0,
+    METADATA_VERSION,
+];
 
 /// A value of type T referred to by its absolute position
 /// in the metadata, and which can be decoded lazily.
@@ -101,9 +114,7 @@ impl<T> serialize::UseSpecializedEncodable for Lazy<T> {}
 impl<T> serialize::UseSpecializedDecodable for Lazy<T> {}
 
 impl<CTX, T> HashStable<CTX> for Lazy<T> {
-    fn hash_stable<W: StableHasherResult>(&self,
-                                          _: &mut CTX,
-                                          _: &mut StableHasher<W>) {
+    fn hash_stable<W: StableHasherResult>(&self, _: &mut CTX, _: &mut StableHasher<W>) {
         // There's nothing to do. Whatever got encoded within this Lazy<>
         // wrapper has already been hashed.
     }
@@ -158,9 +169,7 @@ impl<T> serialize::UseSpecializedEncodable for LazySeq<T> {}
 impl<T> serialize::UseSpecializedDecodable for LazySeq<T> {}
 
 impl<CTX, T> HashStable<CTX> for LazySeq<T> {
-    fn hash_stable<W: StableHasherResult>(&self,
-                                          _: &mut CTX,
-                                          _: &mut StableHasher<W>) {
+    fn hash_stable<W: StableHasherResult>(&self, _: &mut CTX, _: &mut StableHasher<W>) {
         // There's nothing to do. Whatever got encoded within this Lazy<>
         // wrapper has already been hashed.
     }
@@ -242,9 +251,11 @@ pub struct TraitImpls {
 }
 
 impl<'a, 'gcx> HashStable<StableHashingContext<'a>> for TraitImpls {
-    fn hash_stable<W: StableHasherResult>(&self,
-                                          hcx: &mut StableHashingContext<'a>,
-                                          hasher: &mut StableHasher<W>) {
+    fn hash_stable<W: StableHasherResult>(
+        &self,
+        hcx: &mut StableHashingContext<'a>,
+        hasher: &mut StableHasher<W>,
+    ) {
         let TraitImpls {
             trait_id: (krate, def_index),
             ref impls,
@@ -252,7 +263,7 @@ impl<'a, 'gcx> HashStable<StableHashingContext<'a>> for TraitImpls {
 
         DefId {
             krate: CrateNum::from_u32(krate),
-            index: def_index
+            index: def_index,
         }.hash_stable(hcx, hasher);
         impls.hash_stable(hcx, hasher);
     }
@@ -323,20 +334,22 @@ pub enum EntryKind<'tcx> {
 }
 
 impl<'a, 'gcx> HashStable<StableHashingContext<'a>> for EntryKind<'gcx> {
-    fn hash_stable<W: StableHasherResult>(&self,
-                                          hcx: &mut StableHashingContext<'a>,
-                                          hasher: &mut StableHasher<W>) {
+    fn hash_stable<W: StableHasherResult>(
+        &self,
+        hcx: &mut StableHashingContext<'a>,
+        hasher: &mut StableHasher<W>,
+    ) {
         mem::discriminant(self).hash_stable(hcx, hasher);
         match *self {
-            EntryKind::ImmStatic        |
-            EntryKind::MutStatic        |
-            EntryKind::ForeignImmStatic |
-            EntryKind::ForeignMutStatic |
-            EntryKind::ForeignMod       |
-            EntryKind::GlobalAsm        |
-            EntryKind::ForeignType      |
-            EntryKind::Field |
-            EntryKind::Type => {
+            EntryKind::ImmStatic
+            | EntryKind::MutStatic
+            | EntryKind::ForeignImmStatic
+            | EntryKind::ForeignMutStatic
+            | EntryKind::ForeignMod
+            | EntryKind::GlobalAsm
+            | EntryKind::ForeignType
+            | EntryKind::Field
+            | EntryKind::Type => {
                 // Nothing else to hash here.
             }
             EntryKind::Const(qualif, ref const_data) => {
@@ -349,13 +362,12 @@ impl<'a, 'gcx> HashStable<StableHashingContext<'a>> for EntryKind<'gcx> {
             EntryKind::Variant(ref variant_data) => {
                 variant_data.hash_stable(hcx, hasher);
             }
-            EntryKind::Struct(ref variant_data, ref repr_options) |
-            EntryKind::Union(ref variant_data, ref repr_options)  => {
+            EntryKind::Struct(ref variant_data, ref repr_options)
+            | EntryKind::Union(ref variant_data, ref repr_options) => {
                 variant_data.hash_stable(hcx, hasher);
                 repr_options.hash_stable(hcx, hasher);
             }
-            EntryKind::Fn(ref fn_data) |
-            EntryKind::ForeignFn(ref fn_data) => {
+            EntryKind::Fn(ref fn_data) | EntryKind::ForeignFn(ref fn_data) => {
                 fn_data.hash_stable(hcx, hasher);
             }
             EntryKind::Mod(ref mod_data) => {
@@ -407,9 +419,11 @@ pub struct RenderedConst(pub String);
 
 impl<'a> HashStable<StableHashingContext<'a>> for RenderedConst {
     #[inline]
-    fn hash_stable<W: StableHasherResult>(&self,
-                                          hcx: &mut StableHashingContext<'a>,
-                                          hasher: &mut StableHasher<W>) {
+    fn hash_stable<W: StableHasherResult>(
+        &self,
+        hcx: &mut StableHashingContext<'a>,
+        hasher: &mut StableHasher<W>,
+    ) {
         self.0.hash_stable(hcx, hasher);
     }
 }
@@ -493,7 +507,6 @@ impl_stable_hash_for!(struct ImplData<'tcx> {
     trait_ref
 });
 
-
 /// Describes whether the container of an associated item
 /// is a trait or an impl and whether, in a trait, it has
 /// a default, or an in impl, whether it's marked "default".
@@ -515,24 +528,23 @@ impl_stable_hash_for!(enum ::schema::AssociatedContainer {
 impl AssociatedContainer {
     pub fn with_def_id(&self, def_id: DefId) -> ty::AssociatedItemContainer {
         match *self {
-            AssociatedContainer::TraitRequired |
-            AssociatedContainer::TraitWithDefault => ty::TraitContainer(def_id),
+            AssociatedContainer::TraitRequired | AssociatedContainer::TraitWithDefault => {
+                ty::TraitContainer(def_id)
+            }
 
-            AssociatedContainer::ImplDefault |
-            AssociatedContainer::ImplFinal => ty::ImplContainer(def_id),
+            AssociatedContainer::ImplDefault | AssociatedContainer::ImplFinal => {
+                ty::ImplContainer(def_id)
+            }
         }
     }
 
     pub fn defaultness(&self) -> hir::Defaultness {
         match *self {
-            AssociatedContainer::TraitRequired => hir::Defaultness::Default {
-                has_value: false,
-            },
+            AssociatedContainer::TraitRequired => hir::Defaultness::Default { has_value: false },
 
-            AssociatedContainer::TraitWithDefault |
-            AssociatedContainer::ImplDefault => hir::Defaultness::Default {
-                has_value: true,
-            },
+            AssociatedContainer::TraitWithDefault | AssociatedContainer::ImplDefault => {
+                hir::Defaultness::Default { has_value: true }
+            }
 
             AssociatedContainer::ImplFinal => hir::Defaultness::Final,
         }

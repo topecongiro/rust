@@ -251,7 +251,10 @@ impl<'a, 'gcx, 'tcx> Visitor<'tcx> for GatherBorrows<'a, 'gcx, 'tcx> {
                     match context {
                         // The use of TMP in a shared borrow does not
                         // count as an actual activation.
-                        PlaceContext::Borrow { kind: mir::BorrowKind::Shared, .. } => {
+                        PlaceContext::Borrow {
+                            kind: mir::BorrowKind::Shared,
+                            ..
+                        } => {
                             two_phase_use = TwoPhaseUse::SharedUse;
                         }
                         _ => {

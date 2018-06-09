@@ -268,11 +268,15 @@ macro_rules! select {
 
 #[cfg(test)]
 macro_rules! assert_approx_eq {
-    ($a:expr, $b:expr) => ({
+    ($a:expr, $b:expr) => {{
         let (a, b) = (&$a, &$b);
-        assert!((*a - *b).abs() < 1.0e-6,
-                "{} is not approximately equal to {}", *a, *b);
-    })
+        assert!(
+            (*a - *b).abs() < 1.0e-6,
+            "{} is not approximately equal to {}",
+            *a,
+            *b
+        );
+    }};
 }
 
 /// Built-in macros to the compiler itself.
@@ -316,8 +320,8 @@ pub mod builtin {
     #[stable(feature = "compile_error_macro", since = "1.20.0")]
     #[macro_export]
     macro_rules! compile_error {
-        ($msg:expr) => ({ /* compiler built-in */ });
-        ($msg:expr,) => ({ /* compiler built-in */ });
+        ($msg:expr) => {{ /* compiler built-in */ }};
+        ($msg:expr,) => {{ /* compiler built-in */ }};
     }
 
     /// The core macro for formatted string creation & output.
@@ -368,8 +372,8 @@ pub mod builtin {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[macro_export]
     macro_rules! format_args {
-        ($fmt:expr) => ({ /* compiler built-in */ });
-        ($fmt:expr, $($args:tt)*) => ({ /* compiler built-in */ });
+        ($fmt:expr) => {{ /* compiler built-in */ }};
+        ($fmt:expr, $($args:tt)*) => {{ /* compiler built-in */ }};
     }
 
     /// Inspect an environment variable at compile time.
@@ -406,8 +410,8 @@ pub mod builtin {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[macro_export]
     macro_rules! env {
-        ($name:expr) => ({ /* compiler built-in */ });
-        ($name:expr,) => ({ /* compiler built-in */ });
+        ($name:expr) => {{ /* compiler built-in */ }};
+        ($name:expr,) => {{ /* compiler built-in */ }};
     }
 
     /// Optionally inspect an environment variable at compile time.
@@ -432,8 +436,8 @@ pub mod builtin {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[macro_export]
     macro_rules! option_env {
-        ($name:expr) => ({ /* compiler built-in */ });
-        ($name:expr,) => ({ /* compiler built-in */ });
+        ($name:expr) => {{ /* compiler built-in */ }};
+        ($name:expr,) => {{ /* compiler built-in */ }};
     }
 
     /// Concatenate identifiers into one identifier.
@@ -463,8 +467,8 @@ pub mod builtin {
     #[unstable(feature = "concat_idents_macro", issue = "29599")]
     #[macro_export]
     macro_rules! concat_idents {
-        ($($e:ident),+) => ({ /* compiler built-in */ });
-        ($($e:ident,)+) => ({ /* compiler built-in */ });
+        ($($e:ident),+) => {{ /* compiler built-in */ }};
+        ($($e:ident,)+) => {{ /* compiler built-in */ }};
     }
 
     /// Concatenates literals into a static string slice.
@@ -485,8 +489,8 @@ pub mod builtin {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[macro_export]
     macro_rules! concat {
-        ($($e:expr),*) => ({ /* compiler built-in */ });
-        ($($e:expr,)*) => ({ /* compiler built-in */ });
+        ($($e:expr),*) => {{ /* compiler built-in */ }};
+        ($($e:expr,)*) => {{ /* compiler built-in */ }};
     }
 
     /// A macro which expands to the line number on which it was invoked.
@@ -512,7 +516,9 @@ pub mod builtin {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     #[macro_export]
-    macro_rules! line { () => ({ /* compiler built-in */ }) }
+    macro_rules! line {
+        () => {{ /* compiler built-in */ }};
+    }
 
     /// A macro which expands to the column number on which it was invoked.
     ///
@@ -537,7 +543,9 @@ pub mod builtin {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     #[macro_export]
-    macro_rules! column { () => ({ /* compiler built-in */ }) }
+    macro_rules! column {
+        () => {{ /* compiler built-in */ }};
+    }
 
     /// A macro which expands to the file name from which it was invoked.
     ///
@@ -561,7 +569,9 @@ pub mod builtin {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     #[macro_export]
-    macro_rules! file { () => ({ /* compiler built-in */ }) }
+    macro_rules! file {
+        () => {{ /* compiler built-in */ }};
+    }
 
     /// A macro which stringifies its arguments.
     ///
@@ -580,7 +590,9 @@ pub mod builtin {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     #[macro_export]
-    macro_rules! stringify { ($($t:tt)*) => ({ /* compiler built-in */ }) }
+    macro_rules! stringify {
+        ($($t:tt)*) => {{ /* compiler built-in */ }};
+    }
 
     /// Includes a utf8-encoded file as a string.
     ///
@@ -615,8 +627,8 @@ pub mod builtin {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[macro_export]
     macro_rules! include_str {
-        ($file:expr) => ({ /* compiler built-in */ });
-        ($file:expr,) => ({ /* compiler built-in */ });
+        ($file:expr) => {{ /* compiler built-in */ }};
+        ($file:expr,) => {{ /* compiler built-in */ }};
     }
 
     /// Includes a file as a reference to a byte array.
@@ -652,8 +664,8 @@ pub mod builtin {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[macro_export]
     macro_rules! include_bytes {
-        ($file:expr) => ({ /* compiler built-in */ });
-        ($file:expr,) => ({ /* compiler built-in */ });
+        ($file:expr) => {{ /* compiler built-in */ }};
+        ($file:expr,) => {{ /* compiler built-in */ }};
     }
 
     /// Expands to a string that represents the current module path.
@@ -675,7 +687,9 @@ pub mod builtin {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     #[macro_export]
-    macro_rules! module_path { () => ({ /* compiler built-in */ }) }
+    macro_rules! module_path {
+        () => {{ /* compiler built-in */ }};
+    }
 
     /// Boolean evaluation of configuration flags, at compile-time.
     ///
@@ -697,7 +711,9 @@ pub mod builtin {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     #[macro_export]
-    macro_rules! cfg { ($($cfg:tt)*) => ({ /* compiler built-in */ }) }
+    macro_rules! cfg {
+        ($($cfg:tt)*) => {{ /* compiler built-in */ }};
+    }
 
     /// Parse a file as an expression or an item according to the context.
     ///
@@ -741,8 +757,8 @@ pub mod builtin {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[macro_export]
     macro_rules! include {
-        ($file:expr) => ({ /* compiler built-in */ });
-        ($file:expr,) => ({ /* compiler built-in */ });
+        ($file:expr) => {{ /* compiler built-in */ }};
+        ($file:expr,) => {{ /* compiler built-in */ }};
     }
 
     /// Ensure that a boolean expression is `true` at runtime.
@@ -794,9 +810,9 @@ pub mod builtin {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[macro_export]
     macro_rules! assert {
-        ($cond:expr) => ({ /* compiler built-in */ });
-        ($cond:expr,) => ({ /* compiler built-in */ });
-        ($cond:expr, $($arg:tt)+) => ({ /* compiler built-in */ });
+        ($cond:expr) => {{ /* compiler built-in */ }};
+        ($cond:expr,) => {{ /* compiler built-in */ }};
+        ($cond:expr, $($arg:tt)+) => {{ /* compiler built-in */ }};
     }
 }
 

@@ -4,15 +4,18 @@
 
 use rustc::mir;
 
-use rustc::mir::interpret::EvalResult;
 use super::{EvalContext, Machine};
+use rustc::mir::interpret::EvalResult;
 
 impl<'a, 'mir, 'tcx, M: Machine<'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> {
     pub fn inc_step_counter_and_check_limit(&mut self, n: usize) {
         self.terminators_remaining = self.terminators_remaining.saturating_sub(n);
         if self.terminators_remaining == 0 {
             // FIXME(#49980): make this warning a lint
-            self.tcx.sess.span_warn(self.frame().span, "Constant evaluating a complex constant, this might take some time");
+            self.tcx.sess.span_warn(
+                self.frame().span,
+                "Constant evaluating a complex constant, this might take some time",
+            );
             self.terminators_remaining = 1_000_000;
         }
     }

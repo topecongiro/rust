@@ -8,7 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use core::result::Result::{Ok, Err};
+use core::result::Result::{Err, Ok};
 
 #[test]
 fn test_position() {
@@ -60,8 +60,14 @@ fn test_binary_search() {
     assert_eq!(b.binary_search(&0), Err(0));
     assert_eq!(b.binary_search(&1), Ok(0));
     assert_eq!(b.binary_search(&2), Err(1));
-    assert!(match b.binary_search(&3) { Ok(1...3) => true, _ => false });
-    assert!(match b.binary_search(&3) { Ok(1...3) => true, _ => false });
+    assert!(match b.binary_search(&3) {
+        Ok(1...3) => true,
+        _ => false,
+    });
+    assert!(match b.binary_search(&3) {
+        Ok(1...3) => true,
+        _ => false,
+    });
     assert_eq!(b.binary_search(&4), Err(4));
     assert_eq!(b.binary_search(&5), Err(4));
     assert_eq!(b.binary_search(&6), Err(4));
@@ -160,7 +166,8 @@ fn test_chunks_zip() {
     let v1: &[i32] = &[0, 1, 2, 3, 4];
     let v2: &[i32] = &[6, 7, 8, 9, 10];
 
-    let res = v1.chunks(2)
+    let res = v1
+        .chunks(2)
         .zip(v2.chunks(2))
         .map(|(a, b)| a.iter().sum::<i32>() + b.iter().sum::<i32>())
         .collect::<Vec<_>>();
@@ -264,7 +271,8 @@ fn test_exact_chunks_zip() {
     let v1: &[i32] = &[0, 1, 2, 3, 4];
     let v2: &[i32] = &[6, 7, 8, 9, 10];
 
-    let res = v1.exact_chunks(2)
+    let res = v1
+        .exact_chunks(2)
         .zip(v2.exact_chunks(2))
         .map(|(a, b)| a.iter().sum::<i32>() + b.iter().sum::<i32>())
         .collect::<Vec<_>>();
@@ -368,7 +376,8 @@ fn test_windows_zip() {
     let v1: &[i32] = &[0, 1, 2, 3, 4];
     let v2: &[i32] = &[6, 7, 8, 9, 10];
 
-    let res = v1.windows(2)
+    let res = v1
+        .windows(2)
         .zip(v2.windows(2))
         .map(|(a, b)| a.iter().sum::<i32>() + b.iter().sum::<i32>())
         .collect::<Vec<_>>();
@@ -383,8 +392,7 @@ mod slice_index {
     // This checks all six indexing methods, given an input range that
     // should succeed. (it is NOT suitable for testing invalid inputs)
     macro_rules! assert_range_eq {
-        ($arr:expr, $range:expr, $expected:expr)
-        => {
+        ($arr:expr, $range:expr, $expected:expr) => {
             let mut arr = $arr;
             let mut expected = $expected;
             {
@@ -395,7 +403,8 @@ mod slice_index {
                 assert_eq!(s.get($range), Some(expected), "(in assertion for: get)");
                 unsafe {
                     assert_eq!(
-                        s.get_unchecked($range), expected,
+                        s.get_unchecked($range),
+                        expected,
                         "(in assertion for: get_unchecked)",
                     );
                 }
@@ -404,22 +413,21 @@ mod slice_index {
                 let s: &mut [_] = &mut arr;
                 let expected: &mut [_] = &mut expected;
 
+                assert_eq!(&mut s[$range], expected, "(in assertion for: index_mut)",);
                 assert_eq!(
-                    &mut s[$range], expected,
-                    "(in assertion for: index_mut)",
-                );
-                assert_eq!(
-                    s.get_mut($range), Some(&mut expected[..]),
+                    s.get_mut($range),
+                    Some(&mut expected[..]),
                     "(in assertion for: get_mut)",
                 );
                 unsafe {
                     assert_eq!(
-                        s.get_unchecked_mut($range), expected,
+                        s.get_unchecked_mut($range),
+                        expected,
                         "(in assertion for: get_unchecked_mut)",
                     );
                 }
             }
-        }
+        };
     }
 
     // Make sure the macro can actually detect bugs,
@@ -612,8 +620,8 @@ fn test_find_rfind() {
 #[test]
 fn test_iter_folds() {
     let a = [1, 2, 3, 4, 5]; // len>4 so the unroll is used
-    assert_eq!(a.iter().fold(0, |acc, &x| 2*acc + x), 57);
-    assert_eq!(a.iter().rfold(0, |acc, &x| 2*acc + x), 129);
+    assert_eq!(a.iter().fold(0, |acc, &x| 2 * acc + x), 57);
+    assert_eq!(a.iter().rfold(0, |acc, &x| 2 * acc + x), 129);
     let fold = |acc: i32, &x| acc.checked_mul(2)?.checked_add(x);
     assert_eq!(a.iter().try_fold(0, &fold), Some(57));
     assert_eq!(a.iter().try_rfold(0, &fold), Some(129));
@@ -823,9 +831,15 @@ fn test_align_to_simple() {
     let expect2 = [1 | 2 << 8, 3 | 4 << 8, 5 | 6 << 8];
     let expect3 = [2 << 8 | 3, 4 << 8 | 5, 6 << 8 | 7];
     let expect4 = [2 | 3 << 8, 4 | 5 << 8, 6 | 7 << 8];
-    assert!(aligned == expect1 || aligned == expect2 || aligned == expect3 || aligned == expect4,
-            "aligned={:?} expected={:?} || {:?} || {:?} || {:?}",
-            aligned, expect1, expect2, expect3, expect4);
+    assert!(
+        aligned == expect1 || aligned == expect2 || aligned == expect3 || aligned == expect4,
+        "aligned={:?} expected={:?} || {:?} || {:?} || {:?}",
+        aligned,
+        expect1,
+        expect2,
+        expect3,
+        expect4
+    );
 }
 
 #[test]
@@ -838,10 +852,20 @@ fn test_align_to_zst() {
 
 #[test]
 fn test_align_to_non_trivial() {
-    #[repr(align(8))] struct U64(u64, u64);
-    #[repr(align(8))] struct U64U64U32(u64, u64, u32);
-    let data = [U64(1, 2), U64(3, 4), U64(5, 6), U64(7, 8), U64(9, 10), U64(11, 12), U64(13, 14),
-                U64(15, 16)];
+    #[repr(align(8))]
+    struct U64(u64, u64);
+    #[repr(align(8))]
+    struct U64U64U32(u64, u64, u32);
+    let data = [
+        U64(1, 2),
+        U64(3, 4),
+        U64(5, 6),
+        U64(7, 8),
+        U64(9, 10),
+        U64(11, 12),
+        U64(13, 14),
+        U64(15, 16),
+    ];
     let (prefix, aligned, suffix) = unsafe { data.align_to::<U64U64U32>() };
     assert_eq!(aligned.len(), 4);
     assert_eq!(prefix.len() + suffix.len(), 2);

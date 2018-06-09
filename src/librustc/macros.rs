@@ -142,19 +142,19 @@ macro_rules! impl_stable_hash_for {
 
 #[macro_export]
 macro_rules! impl_stable_hash_for_spanned {
-    ($T:path) => (
-
-        impl<'a, 'tcx> HashStable<StableHashingContext<'a>> for ::syntax::codemap::Spanned<$T>
-        {
+    ($T:path) => {
+        impl<'a, 'tcx> HashStable<StableHashingContext<'a>> for ::syntax::codemap::Spanned<$T> {
             #[inline]
-            fn hash_stable<W: StableHasherResult>(&self,
-                                                  hcx: &mut StableHashingContext<'a>,
-                                                  hasher: &mut StableHasher<W>) {
+            fn hash_stable<W: StableHasherResult>(
+                &self,
+                hcx: &mut StableHashingContext<'a>,
+                hasher: &mut StableHasher<W>,
+            ) {
                 self.node.hash_stable(hcx, hasher);
                 self.span.hash_stable(hcx, hasher);
             }
         }
-    );
+    };
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -483,4 +483,3 @@ macro_rules! EnumTypeFoldableImpl {
         )
     };
 }
-

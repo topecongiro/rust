@@ -8,13 +8,12 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-
 // implements the unary operator "op &T"
 // based on "op T" where T is expected to be `Copy`able
 macro_rules! forward_ref_unop {
     (impl $imp:ident, $method:ident for $t:ty) => {
         forward_ref_unop!(impl $imp, $method for $t,
-                #[stable(feature = "rust1", since = "1.0.0")]);
+                        #[stable(feature = "rust1", since = "1.0.0")]);
     };
     (impl $imp:ident, $method:ident for $t:ty, #[$attr:meta]) => {
         #[$attr]
@@ -26,7 +25,7 @@ macro_rules! forward_ref_unop {
                 $imp::$method(*self)
             }
         }
-    }
+    };
 }
 
 // implements binary operators "&T op U", "T op &U", "&T op &U"
@@ -34,7 +33,7 @@ macro_rules! forward_ref_unop {
 macro_rules! forward_ref_binop {
     (impl $imp:ident, $method:ident for $t:ty, $u:ty) => {
         forward_ref_binop!(impl $imp, $method for $t, $u,
-                #[stable(feature = "rust1", since = "1.0.0")]);
+                        #[stable(feature = "rust1", since = "1.0.0")]);
     };
     (impl $imp:ident, $method:ident for $t:ty, $u:ty, #[$attr:meta]) => {
         #[$attr]
@@ -66,7 +65,7 @@ macro_rules! forward_ref_binop {
                 $imp::$method(*self, *other)
             }
         }
-    }
+    };
 }
 
 // implements "T op= &U", based on "T op= U"
@@ -74,7 +73,7 @@ macro_rules! forward_ref_binop {
 macro_rules! forward_ref_op_assign {
     (impl $imp:ident, $method:ident for $t:ty, $u:ty) => {
         forward_ref_op_assign!(impl $imp, $method for $t, $u,
-                #[stable(feature = "op_assign_builtins_by_ref", since = "1.22.0")]);
+                        #[stable(feature = "op_assign_builtins_by_ref", since = "1.22.0")]);
     };
     (impl $imp:ident, $method:ident for $t:ty, $u:ty, #[$attr:meta]) => {
         #[$attr]
@@ -84,5 +83,5 @@ macro_rules! forward_ref_op_assign {
                 $imp::$method(self, *other);
             }
         }
-    }
+    };
 }

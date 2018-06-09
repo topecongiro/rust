@@ -8,10 +8,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use errors::{DiagnosticBuilder, DiagnosticId};
 use rustc::session::Session;
-use syntax_pos::Span;
-use errors::{DiagnosticId, DiagnosticBuilder};
 use rustc::ty::{Ty, TypeFoldable};
+use syntax_pos::Span;
 
 pub trait StructuredDiagnostic<'tcx> {
     fn session(&self) -> &Session;
@@ -46,16 +46,25 @@ pub struct VariadicError<'tcx> {
 }
 
 impl<'tcx> VariadicError<'tcx> {
-    pub fn new(sess: &'tcx Session,
-               span: Span,
-               t: Ty<'tcx>,
-               cast_ty: &'tcx str) -> VariadicError<'tcx> {
-        VariadicError { sess, span, t, cast_ty }
+    pub fn new(
+        sess: &'tcx Session,
+        span: Span,
+        t: Ty<'tcx>,
+        cast_ty: &'tcx str,
+    ) -> VariadicError<'tcx> {
+        VariadicError {
+            sess,
+            span,
+            t,
+            cast_ty,
+        }
     }
 }
 
 impl<'tcx> StructuredDiagnostic<'tcx> for VariadicError<'tcx> {
-    fn session(&self) -> &Session { self.sess }
+    fn session(&self) -> &Session {
+        self.sess
+    }
 
     fn code(&self) -> DiagnosticId {
         __diagnostic_used!(E0617);
@@ -73,9 +82,11 @@ impl<'tcx> StructuredDiagnostic<'tcx> for VariadicError<'tcx> {
             )
         };
         if let Ok(snippet) = self.sess.codemap().span_to_snippet(self.span) {
-            err.span_suggestion(self.span,
-                                &format!("cast the value to `{}`", self.cast_ty),
-                                format!("{} as {}", snippet, self.cast_ty));
+            err.span_suggestion(
+                self.span,
+                &format!("cast the value to `{}`", self.cast_ty),
+                format!("{} as {}", snippet, self.cast_ty),
+            );
         } else {
             err.help(&format!("cast the value to `{}`", self.cast_ty));
         }
@@ -83,10 +94,12 @@ impl<'tcx> StructuredDiagnostic<'tcx> for VariadicError<'tcx> {
     }
 
     fn extended(&self, mut err: DiagnosticBuilder<'tcx>) -> DiagnosticBuilder<'tcx> {
-        err.note(&format!("certain types, like `{}`, must be cast before passing them to a \
-                           variadic function, because of arcane ABI rules dictated by the C \
-                           standard",
-                          self.t));
+        err.note(&format!(
+            "certain types, like `{}`, must be cast before passing them to a \
+             variadic function, because of arcane ABI rules dictated by the C \
+             standard",
+            self.t
+        ));
         err
     }
 }
@@ -99,16 +112,25 @@ pub struct SizedUnsizedCastError<'tcx> {
 }
 
 impl<'tcx> SizedUnsizedCastError<'tcx> {
-    pub fn new(sess: &'tcx Session,
-               span: Span,
-               expr_ty: Ty<'tcx>,
-               cast_ty: String) -> SizedUnsizedCastError<'tcx> {
-        SizedUnsizedCastError { sess, span, expr_ty, cast_ty }
+    pub fn new(
+        sess: &'tcx Session,
+        span: Span,
+        expr_ty: Ty<'tcx>,
+        cast_ty: String,
+    ) -> SizedUnsizedCastError<'tcx> {
+        SizedUnsizedCastError {
+            sess,
+            span,
+            expr_ty,
+            cast_ty,
+        }
     }
 }
 
 impl<'tcx> StructuredDiagnostic<'tcx> for SizedUnsizedCastError<'tcx> {
-    fn session(&self) -> &Session { self.sess }
+    fn session(&self) -> &Session {
+        self.sess
+    }
 
     fn code(&self) -> DiagnosticId {
         __diagnostic_used!(E0607);
@@ -121,9 +143,10 @@ impl<'tcx> StructuredDiagnostic<'tcx> for SizedUnsizedCastError<'tcx> {
         } else {
             self.sess.struct_span_fatal_with_code(
                 self.span,
-                &format!("cannot cast thin pointer `{}` to fat pointer `{}`",
-                         self.expr_ty,
-                         self.cast_ty),
+                &format!(
+                    "cannot cast thin pointer `{}` to fat pointer `{}`",
+                    self.expr_ty, self.cast_ty
+                ),
                 self.code(),
             )
         }
@@ -144,7 +167,8 @@ To fix this error, don't try to cast directly between thin and fat
 pointers.
 
 For more information about casts, take a look at The Book:
-https://doc.rust-lang.org/book/first-edition/casting-between-types.html");
+https://doc.rust-lang.org/book/first-edition/casting-between-types.html",
+        );
         err
     }
 }

@@ -9,10 +9,10 @@
 // except according to those terms.
 
 use std::cmp;
-use std::collections::BinaryHeap;
 use std::collections::binary_heap::{Drain, PeekMut};
+use std::collections::BinaryHeap;
 use std::panic::{self, AssertUnwindSafe};
-use std::sync::atomic::{AtomicUsize, ATOMIC_USIZE_INIT, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT};
 
 use rand::{thread_rng, Rng};
 
@@ -325,10 +325,11 @@ fn panic_safe() {
         for i in 1..DATASZ + 1 {
             DROP_COUNTER.store(0, Ordering::SeqCst);
 
-            let mut panic_ords: Vec<_> = data.iter()
-                                             .filter(|&&x| x != i)
-                                             .map(|&x| PanicOrd(x, false))
-                                             .collect();
+            let mut panic_ords: Vec<_> = data
+                .iter()
+                .filter(|&&x| x != i)
+                .map(|&x| PanicOrd(x, false))
+                .collect();
             let panic_item = PanicOrd(i, true);
 
             // heapify the sane items

@@ -8,17 +8,17 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use borrow_check::borrow_set::{BorrowSet, BorrowData};
+use borrow_check::borrow_set::{BorrowData, BorrowSet};
 use borrow_check::place_ext::PlaceExt;
 
 use rustc;
 use rustc::hir;
 use rustc::hir::def_id::DefId;
 use rustc::middle::region;
-use rustc::mir::{self, Location, Place, Mir};
+use rustc::mir::{self, Location, Mir, Place};
+use rustc::ty::RegionKind::ReScope;
 use rustc::ty::TyCtxt;
 use rustc::ty::{RegionKind, RegionVid};
-use rustc::ty::RegionKind::ReScope;
 
 use rustc_data_structures::bitslice::BitwiseOperator;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
@@ -26,10 +26,10 @@ use rustc_data_structures::indexed_set::IdxSet;
 use rustc_data_structures::indexed_vec::IndexVec;
 use rustc_data_structures::sync::Lrc;
 
-use dataflow::{BitDenotation, BlockSets, InitialFlow};
-pub use dataflow::indexes::BorrowIndex;
 use borrow_check::nll::region_infer::RegionInferenceContext;
 use borrow_check::nll::ToRegionVid;
+pub use dataflow::indexes::BorrowIndex;
+use dataflow::{BitDenotation, BlockSets, InitialFlow};
 
 use std::rc::Rc;
 
@@ -62,7 +62,7 @@ fn precompute_borrows_out_of_scope<'a, 'tcx>(
     location: Location,
 ) {
     // Keep track of places we've locations to check and locations that we have checked.
-    let mut stack = vec![ location ];
+    let mut stack = vec![location];
     let mut visited = FxHashSet();
     visited.insert(location);
 
@@ -115,21 +115,25 @@ impl<'a, 'gcx, 'tcx> Borrows<'a, 'gcx, 'tcx> {
         nonlexical_regioncx: Rc<RegionInferenceContext<'tcx>>,
         def_id: DefId,
         body_id: Option<hir::BodyId>,
-        borrow_set: &Rc<BorrowSet<'tcx>>
+        borrow_set: &Rc<BorrowSet<'tcx>>,
     ) -> Self {
         let scope_tree = tcx.region_scope_tree(def_id);
-        let root_scope = body_id.map(|body_id| {
-            region::Scope::CallSite(tcx.hir.body(body_id).value.hir_id.local_id)
-        });
+        let root_scope = body_id
+            .map(|body_id| region::Scope::CallSite(tcx.hir.body(body_id).value.hir_id.local_id));
 
         let mut borrows_out_of_scope_at_location = FxHashMap();
         for (borrow_index, borrow_data) in borrow_set.borrows.iter_enumerated() {
             let borrow_region = borrow_data.region.to_region_vid();
             let location = borrow_set.borrows[borrow_index].reserve_location;
 
-            precompute_borrows_out_of_scope(mir, &nonlexical_regioncx,
-                                            &mut borrows_out_of_scope_at_location,
-                                            borrow_index, borrow_region, location);
+            precompute_borrows_out_of_scope(
+                mir,
+                &nonlexical_regioncx,
+                &mut borrows_out_of_scope_at_location,
+                borrow_index,
+                borrow_region,
+                location,
+            );
         }
 
         Borrows {
@@ -143,8 +147,12 @@ impl<'a, 'gcx, 'tcx> Borrows<'a, 'gcx, 'tcx> {
         }
     }
 
-    crate fn borrows(&self) -> &IndexVec<BorrowIndex, BorrowData<'tcx>> { &self.borrow_set.borrows }
-    pub fn scope_tree(&self) -> &Lrc<region::ScopeTree> { &self.scope_tree }
+    crate fn borrows(&self) -> &IndexVec<BorrowIndex, BorrowData<'tcx>> {
+        &self.borrow_set.borrows
+    }
+    pub fn scope_tree(&self) -> &Lrc<region::ScopeTree> {
+        &self.scope_tree
+    }
 
     pub fn location(&self, idx: BorrowIndex) -> &Location {
         &self.borrow_set.borrows[idx].reserve_location
@@ -153,9 +161,11 @@ impl<'a, 'gcx, 'tcx> Borrows<'a, 'gcx, 'tcx> {
     /// Add all borrows to the kill set, if those borrows are out of scope at `location`.
     /// That means either they went out of either a nonlexical scope, if we care about those
     /// at the moment, or the location represents a lexical EndRegion
-    fn kill_loans_out_of_scope_at_location(&self,
-                                           sets: &mut BlockSets<BorrowIndex>,
-                                           location: Location) {
+    fn kill_loans_out_of_scope_at_location(
+        &self,
+        sets: &mut BlockSets<BorrowIndex>,
+        location: Location,
+    ) {
         // NOTE: The state associated with a given `location`
         // reflects the dataflow on entry to the statement.
         // Iterate over each of the borrows that we've precomputed
@@ -174,10 +184,7 @@ impl<'a, 'gcx, 'tcx> Borrows<'a, 'gcx, 'tcx> {
         }
     }
 
-    fn kill_borrows_on_local(&self,
-                             sets: &mut BlockSets<BorrowIndex>,
-                             local: &rustc::mir::Local)
-    {
+    fn kill_borrows_on_local(&self, sets: &mut BlockSets<BorrowIndex>, local: &rustc::mir::Local) {
         if let Some(borrow_indexes) = self.borrow_set.local_map.get(local) {
             sets.kill_all(borrow_indexes);
         }
@@ -186,7 +193,9 @@ impl<'a, 'gcx, 'tcx> Borrows<'a, 'gcx, 'tcx> {
 
 impl<'a, 'gcx, 'tcx> BitDenotation for Borrows<'a, 'gcx, 'tcx> {
     type Idx = BorrowIndex;
-    fn name() -> &'static str { "borrows" }
+    fn name() -> &'static str {
+        "borrows"
+    }
     fn bits_per_block(&self) -> usize {
         self.borrow_set.borrows.len() * 2
     }
@@ -197,26 +206,36 @@ impl<'a, 'gcx, 'tcx> BitDenotation for Borrows<'a, 'gcx, 'tcx> {
         // `_sets`.
     }
 
-    fn before_statement_effect(&self,
-                               sets: &mut BlockSets<BorrowIndex>,
-                               location: Location) {
-        debug!("Borrows::before_statement_effect sets: {:?} location: {:?}", sets, location);
+    fn before_statement_effect(&self, sets: &mut BlockSets<BorrowIndex>, location: Location) {
+        debug!(
+            "Borrows::before_statement_effect sets: {:?} location: {:?}",
+            sets, location
+        );
         self.kill_loans_out_of_scope_at_location(sets, location);
     }
 
     fn statement_effect(&self, sets: &mut BlockSets<BorrowIndex>, location: Location) {
-        debug!("Borrows::statement_effect sets: {:?} location: {:?}", sets, location);
+        debug!(
+            "Borrows::statement_effect sets: {:?} location: {:?}",
+            sets, location
+        );
 
-        let block = &self.mir.basic_blocks().get(location.block).unwrap_or_else(|| {
-            panic!("could not find block at location {:?}", location);
-        });
-        let stmt = block.statements.get(location.statement_index).unwrap_or_else(|| {
-            panic!("could not find statement at location {:?}");
-        });
+        let block = &self
+            .mir
+            .basic_blocks()
+            .get(location.block)
+            .unwrap_or_else(|| {
+                panic!("could not find block at location {:?}", location);
+            });
+        let stmt = block
+            .statements
+            .get(location.statement_index)
+            .unwrap_or_else(|| {
+                panic!("could not find statement at location {:?}");
+            });
 
         match stmt.kind {
-            mir::StatementKind::EndRegion(_) => {
-            }
+            mir::StatementKind::EndRegion(_) => {}
 
             mir::StatementKind::Assign(ref lhs, ref rhs) => {
                 // Make sure there are no remaining borrows for variables
@@ -233,27 +252,43 @@ impl<'a, 'gcx, 'tcx> BitDenotation for Borrows<'a, 'gcx, 'tcx> {
                 // propagate_call_return method.
 
                 if let mir::Rvalue::Ref(region, _, ref place) = *rhs {
-                    if place.is_unsafe_place(self.tcx, self.mir) { return; }
-                    let index = self.borrow_set.location_map.get(&location).unwrap_or_else(|| {
-                        panic!("could not find BorrowIndex for location {:?}", location);
-                    });
+                    if place.is_unsafe_place(self.tcx, self.mir) {
+                        return;
+                    }
+                    let index = self
+                        .borrow_set
+                        .location_map
+                        .get(&location)
+                        .unwrap_or_else(|| {
+                            panic!("could not find BorrowIndex for location {:?}", location);
+                        });
 
                     if let RegionKind::ReEmpty = region {
                         // If the borrowed value dies before the borrow is used, the region for
                         // the borrow can be empty. Don't track the borrow in that case.
-                        debug!("Borrows::statement_effect_on_borrows \
-                                location: {:?} stmt: {:?} has empty region, killing {:?}",
-                               location, stmt.kind, index);
+                        debug!(
+                            "Borrows::statement_effect_on_borrows \
+                             location: {:?} stmt: {:?} has empty region, killing {:?}",
+                            location, stmt.kind, index
+                        );
                         sets.kill(&index);
-                        return
+                        return;
                     } else {
-                        debug!("Borrows::statement_effect_on_borrows location: {:?} stmt: {:?}",
-                               location, stmt.kind);
+                        debug!(
+                            "Borrows::statement_effect_on_borrows location: {:?} stmt: {:?}",
+                            location, stmt.kind
+                        );
                     }
 
-                    assert!(self.borrow_set.region_map.get(region).unwrap_or_else(|| {
-                        panic!("could not find BorrowIndexs for region {:?}", region);
-                    }).contains(&index));
+                    assert!(
+                        self.borrow_set
+                            .region_map
+                            .get(region)
+                            .unwrap_or_else(|| {
+                                panic!("could not find BorrowIndexs for region {:?}", region);
+                            })
+                            .contains(&index)
+                    );
                     sets.gen(&index);
 
                     // Issue #46746: Two-phase borrows handles
@@ -277,7 +312,11 @@ impl<'a, 'gcx, 'tcx> BitDenotation for Borrows<'a, 'gcx, 'tcx> {
                 self.kill_borrows_on_local(sets, &local)
             }
 
-            mir::StatementKind::InlineAsm { ref outputs, ref asm, .. } => {
+            mir::StatementKind::InlineAsm {
+                ref outputs,
+                ref asm,
+                ..
+            } => {
                 for (output, kind) in outputs.iter().zip(&asm.outputs) {
                     if !kind.is_indirect && !kind.is_rw {
                         // Make sure there are no remaining borrows for direct
@@ -291,35 +330,42 @@ impl<'a, 'gcx, 'tcx> BitDenotation for Borrows<'a, 'gcx, 'tcx> {
                 }
             }
 
-            mir::StatementKind::ReadForMatch(..) |
-            mir::StatementKind::SetDiscriminant { .. } |
-            mir::StatementKind::StorageLive(..) |
-            mir::StatementKind::Validate(..) |
-            mir::StatementKind::UserAssertTy(..) |
-            mir::StatementKind::Nop => {}
-
+            mir::StatementKind::ReadForMatch(..)
+            | mir::StatementKind::SetDiscriminant { .. }
+            | mir::StatementKind::StorageLive(..)
+            | mir::StatementKind::Validate(..)
+            | mir::StatementKind::UserAssertTy(..)
+            | mir::StatementKind::Nop => {}
         }
     }
 
-    fn before_terminator_effect(&self,
-                                sets: &mut BlockSets<BorrowIndex>,
-                                location: Location) {
-        debug!("Borrows::before_terminator_effect sets: {:?} location: {:?}", sets, location);
+    fn before_terminator_effect(&self, sets: &mut BlockSets<BorrowIndex>, location: Location) {
+        debug!(
+            "Borrows::before_terminator_effect sets: {:?} location: {:?}",
+            sets, location
+        );
         self.kill_loans_out_of_scope_at_location(sets, location);
     }
 
     fn terminator_effect(&self, sets: &mut BlockSets<BorrowIndex>, location: Location) {
-        debug!("Borrows::terminator_effect sets: {:?} location: {:?}", sets, location);
+        debug!(
+            "Borrows::terminator_effect sets: {:?} location: {:?}",
+            sets, location
+        );
 
-        let block = &self.mir.basic_blocks().get(location.block).unwrap_or_else(|| {
-            panic!("could not find block at location {:?}", location);
-        });
+        let block = &self
+            .mir
+            .basic_blocks()
+            .get(location.block)
+            .unwrap_or_else(|| {
+                panic!("could not find block at location {:?}", location);
+            });
 
         let term = block.terminator();
         match term.kind {
-            mir::TerminatorKind::Resume |
-            mir::TerminatorKind::Return |
-            mir::TerminatorKind::GeneratorDrop => {
+            mir::TerminatorKind::Resume
+            | mir::TerminatorKind::Return
+            | mir::TerminatorKind::GeneratorDrop => {
                 // When we return from the function, then all `ReScope`-style regions
                 // are guaranteed to have ended.
                 // Normally, there would be `EndRegion` statements that come before,
@@ -332,8 +378,8 @@ impl<'a, 'gcx, 'tcx> BitDenotation for Borrows<'a, 'gcx, 'tcx> {
                         // a parent of our closure. Note that the CallSite scope itself is
                         // *outside* of the closure, for some weird reason.
                         if let Some(root_scope) = self.root_scope {
-                            if *scope != root_scope &&
-                                self.scope_tree.is_subscope_of(*scope, root_scope)
+                            if *scope != root_scope
+                                && self.scope_tree.is_subscope_of(*scope, root_scope)
                             {
                                 sets.kill(&borrow_index);
                             }
@@ -341,25 +387,27 @@ impl<'a, 'gcx, 'tcx> BitDenotation for Borrows<'a, 'gcx, 'tcx> {
                     }
                 }
             }
-            mir::TerminatorKind::Abort |
-            mir::TerminatorKind::SwitchInt {..} |
-            mir::TerminatorKind::Drop {..} |
-            mir::TerminatorKind::DropAndReplace {..} |
-            mir::TerminatorKind::Call {..} |
-            mir::TerminatorKind::Assert {..} |
-            mir::TerminatorKind::Yield {..} |
-            mir::TerminatorKind::Goto {..} |
-            mir::TerminatorKind::FalseEdges {..} |
-            mir::TerminatorKind::FalseUnwind {..} |
-            mir::TerminatorKind::Unreachable => {}
+            mir::TerminatorKind::Abort
+            | mir::TerminatorKind::SwitchInt { .. }
+            | mir::TerminatorKind::Drop { .. }
+            | mir::TerminatorKind::DropAndReplace { .. }
+            | mir::TerminatorKind::Call { .. }
+            | mir::TerminatorKind::Assert { .. }
+            | mir::TerminatorKind::Yield { .. }
+            | mir::TerminatorKind::Goto { .. }
+            | mir::TerminatorKind::FalseEdges { .. }
+            | mir::TerminatorKind::FalseUnwind { .. }
+            | mir::TerminatorKind::Unreachable => {}
         }
     }
 
-    fn propagate_call_return(&self,
-                             _in_out: &mut IdxSet<BorrowIndex>,
-                             _call_bb: mir::BasicBlock,
-                             _dest_bb: mir::BasicBlock,
-                             _dest_place: &mir::Place) {
+    fn propagate_call_return(
+        &self,
+        _in_out: &mut IdxSet<BorrowIndex>,
+        _call_bb: mir::BasicBlock,
+        _dest_bb: mir::BasicBlock,
+        _dest_place: &mir::Place,
+    ) {
         // there are no effects on borrows from method call return...
         //
         // ... but if overwriting a place can affect flow state, then
@@ -381,4 +429,3 @@ impl<'a, 'gcx, 'tcx> InitialFlow for Borrows<'a, 'gcx, 'tcx> {
         false // bottom = nothing is reserved or activated yet
     }
 }
-

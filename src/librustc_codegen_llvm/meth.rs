@@ -8,18 +8,18 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use llvm::ValueRef;
 use abi::{FnType, FnTypeExt};
+use builder::Builder;
 use callee;
 use common::*;
-use builder::Builder;
 use consts;
+use debuginfo;
+use llvm::ValueRef;
 use monomorphize;
+use rustc::ty::layout::HasDataLayout;
+use rustc::ty::{self, Ty};
 use type_::Type;
 use value::Value;
-use rustc::ty::{self, Ty};
-use rustc::ty::layout::HasDataLayout;
-use debuginfo;
 
 #[derive(Copy, Clone, Debug)]
 pub struct VirtualIndex(u64);
@@ -33,15 +33,21 @@ impl<'a, 'tcx> VirtualIndex {
         VirtualIndex(index as u64 + 3)
     }
 
-    pub fn get_fn(self, bx: &Builder<'a, 'tcx>,
-                  llvtable: ValueRef,
-                  fn_ty: &FnType<'tcx, Ty<'tcx>>) -> ValueRef {
+    pub fn get_fn(
+        self,
+        bx: &Builder<'a, 'tcx>,
+        llvtable: ValueRef,
+        fn_ty: &FnType<'tcx, Ty<'tcx>>,
+    ) -> ValueRef {
         // Load the data pointer from the object.
         debug!("get_fn({:?}, {:?})", Value(llvtable), self);
 
         let llvtable = bx.pointercast(llvtable, fn_ty.llvm_type(bx.cx).ptr_to().ptr_to());
         let ptr_align = bx.tcx().data_layout.pointer_align;
-        let ptr = bx.load(bx.inbounds_gep(llvtable, &[C_usize(bx.cx, self.0)]), ptr_align);
+        let ptr = bx.load(
+            bx.inbounds_gep(llvtable, &[C_usize(bx.cx, self.0)]),
+            ptr_align,
+        );
         bx.nonnull_metadata(ptr);
         // Vtable loads are invariant
         bx.set_invariant_load(ptr);
@@ -54,7 +60,10 @@ impl<'a, 'tcx> VirtualIndex {
 
         let llvtable = bx.pointercast(llvtable, Type::isize(bx.cx).ptr_to());
         let usize_align = bx.tcx().data_layout.pointer_align;
-        let ptr = bx.load(bx.inbounds_gep(llvtable, &[C_usize(bx.cx, self.0)]), usize_align);
+        let ptr = bx.load(
+            bx.inbounds_gep(llvtable, &[C_usize(bx.cx, self.0)]),
+            usize_align,
+        );
         // Vtable loads are invariant
         bx.set_invariant_load(ptr);
         ptr
@@ -69,11 +78,11 @@ impl<'a, 'tcx> VirtualIndex {
 /// The `trait_ref` encodes the erased self type. Hence if we are
 /// making an object `Foo<Trait>` from a value of type `Foo<T>`, then
 /// `trait_ref` would map `T:Trait`.
-pub fn get_vtable<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>,
-                            ty: Ty<'tcx>,
-                            trait_ref: Option<ty::PolyExistentialTraitRef<'tcx>>)
-                            -> ValueRef
-{
+pub fn get_vtable<'a, 'tcx>(
+    cx: &CodegenCx<'a, 'tcx>,
+    ty: Ty<'tcx>,
+    trait_ref: Option<ty::PolyExistentialTraitRef<'tcx>>,
+) -> ValueRef {
     let tcx = cx.tcx;
 
     debug!("get_vtable(ty={:?}, trait_ref={:?})", ty, trait_ref);
@@ -90,8 +99,10 @@ pub fn get_vtable<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>,
     let mut components: Vec<_> = [
         callee::get_fn(cx, monomorphize::resolve_drop_in_place(cx.tcx, ty)),
         C_usize(cx, size.bytes()),
-        C_usize(cx, align.abi())
-    ].iter().cloned().collect();
+        C_usize(cx, align.abi()),
+    ].iter()
+        .cloned()
+        .collect();
 
     if let Some(trait_ref) = trait_ref {
         let trait_ref = trait_ref.with_self_ty(tcx, ty);

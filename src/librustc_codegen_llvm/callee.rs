@@ -23,9 +23,9 @@ use monomorphize::Instance;
 use type_of::LayoutLlvmExt;
 
 use rustc::hir::def_id::DefId;
-use rustc::ty::{self, TypeFoldable};
 use rustc::ty::layout::LayoutOf;
 use rustc::ty::subst::Substs;
+use rustc::ty::{self, TypeFoldable};
 
 /// Codegens a reference to a fn/method item, monomorphizing and
 /// inlining as it goes.
@@ -34,10 +34,7 @@ use rustc::ty::subst::Substs;
 ///
 /// - `cx`: the crate context
 /// - `instance`: the instance to be instantiated
-pub fn get_fn<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>,
-                        instance: Instance<'tcx>)
-                        -> ValueRef
-{
+pub fn get_fn<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>, instance: Instance<'tcx>) -> ValueRef {
     let tcx = cx.tcx;
 
     debug!("get_fn(instance={:?})", instance);
@@ -141,16 +138,20 @@ pub fn get_fn<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>,
                         // the current crate does not re-export generics, the
                         // definition of the instance will have been declared
                         // as `hidden`.
-                        if cx.tcx.is_unreachable_local_definition(instance_def_id) ||
-                           !cx.tcx.local_crate_exports_generics() {
+                        if cx.tcx.is_unreachable_local_definition(instance_def_id)
+                            || !cx.tcx.local_crate_exports_generics()
+                        {
                             llvm::LLVMRustSetVisibility(llfn, llvm::Visibility::Hidden);
                         }
                     } else {
                         // This is a monomorphization of a generic function
                         // defined in an upstream crate.
-                        if cx.tcx.upstream_monomorphizations_for(instance_def_id)
-                                 .map(|set| set.contains_key(instance.substs))
-                                 .unwrap_or(false) {
+                        if cx
+                            .tcx
+                            .upstream_monomorphizations_for(instance_def_id)
+                            .map(|set| set.contains_key(instance.substs))
+                            .unwrap_or(false)
+                        {
                             // This is instantiated in another crate. It cannot
                             // be `hidden`.
                         } else {
@@ -188,9 +189,7 @@ pub fn get_fn<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>,
             }
         }
 
-        if cx.use_dll_storage_attrs &&
-            tcx.is_dllimport_foreign_item(instance_def_id)
-        {
+        if cx.use_dll_storage_attrs && tcx.is_dllimport_foreign_item(instance_def_id) {
             unsafe {
                 llvm::LLVMSetDLLStorageClass(llfn, llvm::DLLStorageClass::DllImport);
             }
@@ -204,18 +203,13 @@ pub fn get_fn<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>,
     llfn
 }
 
-pub fn resolve_and_get_fn<'a, 'tcx>(cx: &CodegenCx<'a, 'tcx>,
-                                    def_id: DefId,
-                                    substs: &'tcx Substs<'tcx>)
-                                    -> ValueRef
-{
+pub fn resolve_and_get_fn<'a, 'tcx>(
+    cx: &CodegenCx<'a, 'tcx>,
+    def_id: DefId,
+    substs: &'tcx Substs<'tcx>,
+) -> ValueRef {
     get_fn(
         cx,
-        ty::Instance::resolve(
-            cx.tcx,
-            ty::ParamEnv::reveal_all(),
-            def_id,
-            substs
-        ).unwrap()
+        ty::Instance::resolve(cx.tcx, ty::ParamEnv::reveal_all(), def_id, substs).unwrap(),
     )
 }

@@ -12,18 +12,18 @@
 //! which folds deeply, invoking the underlying
 //! `normalize_projection_ty` query when it encounters projections.
 
-use infer::{InferCtxt, InferOk};
 use infer::at::At;
 use infer::canonical::{Canonical, Canonicalize, QueryResult};
+use infer::{InferCtxt, InferOk};
 use middle::const_val::ConstVal;
 use mir::interpret::GlobalId;
 use rustc_data_structures::sync::Lrc;
-use traits::{Obligation, ObligationCause, PredicateObligation, Reveal};
-use traits::query::CanonicalProjectionGoal;
 use traits::project::Normalized;
-use ty::{self, Ty, TyCtxt};
+use traits::query::CanonicalProjectionGoal;
+use traits::{Obligation, ObligationCause, PredicateObligation, Reveal};
 use ty::fold::{TypeFoldable, TypeFolder};
 use ty::subst::{Subst, Substs};
+use ty::{self, Ty, TyCtxt};
 
 use super::NoSolution;
 

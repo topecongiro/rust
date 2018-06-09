@@ -29,7 +29,7 @@ use cell;
 use char;
 use core::array;
 use fmt::{self, Debug, Display};
-use heap::{AllocErr, LayoutErr, CannotReallocInPlace};
+use heap::{AllocErr, CannotReallocInPlace, LayoutErr};
 use mem::transmute;
 use num;
 use str;
@@ -137,14 +137,21 @@ pub trait Error: Debug + Display {
     /// }
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    fn cause(&self) -> Option<&Error> { None }
+    fn cause(&self) -> Option<&Error> {
+        None
+    }
 
     /// Get the `TypeId` of `self`
     #[doc(hidden)]
-    #[unstable(feature = "error_type_id",
-               reason = "unclear whether to commit to this public implementation detail",
-               issue = "27745")]
-    fn type_id(&self) -> TypeId where Self: 'static {
+    #[unstable(
+        feature = "error_type_id",
+        reason = "unclear whether to commit to this public implementation detail",
+        issue = "27745"
+    )]
+    fn type_id(&self) -> TypeId
+    where
+        Self: 'static,
+    {
         TypeId::of::<Self>()
     }
 }
@@ -170,7 +177,9 @@ impl From<String> for Box<Error + Send + Sync> {
         struct StringError(String);
 
         impl Error for StringError {
-            fn description(&self) -> &str { &self.0 }
+            fn description(&self) -> &str {
+                &self.0
+            }
         }
 
         impl Display for StringError {
@@ -222,30 +231,38 @@ impl<'a> From<Cow<'a, str>> for Box<Error> {
 
 #[unstable(feature = "never_type", issue = "35121")]
 impl Error for ! {
-    fn description(&self) -> &str { *self }
+    fn description(&self) -> &str {
+        *self
+    }
 }
 
-#[unstable(feature = "allocator_api",
-           reason = "the precise API and guarantees it provides may be tweaked.",
-           issue = "32838")]
+#[unstable(
+    feature = "allocator_api",
+    reason = "the precise API and guarantees it provides may be tweaked.",
+    issue = "32838"
+)]
 impl Error for AllocErr {
     fn description(&self) -> &str {
         "memory allocation failed"
     }
 }
 
-#[unstable(feature = "allocator_api",
-           reason = "the precise API and guarantees it provides may be tweaked.",
-           issue = "32838")]
+#[unstable(
+    feature = "allocator_api",
+    reason = "the precise API and guarantees it provides may be tweaked.",
+    issue = "32838"
+)]
 impl Error for LayoutErr {
     fn description(&self) -> &str {
         "invalid parameters to Layout::from_size_align"
     }
 }
 
-#[unstable(feature = "allocator_api",
-           reason = "the precise API and guarantees it provides may be tweaked.",
-           issue = "32838")]
+#[unstable(
+    feature = "allocator_api",
+    reason = "the precise API and guarantees it provides may be tweaked.",
+    issue = "32838"
+)]
 impl Error for CannotReallocInPlace {
     fn description(&self) -> &str {
         CannotReallocInPlace::description(self)
@@ -254,7 +271,9 @@ impl Error for CannotReallocInPlace {
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl Error for str::ParseBoolError {
-    fn description(&self) -> &str { "failed to parse bool" }
+    fn description(&self) -> &str {
+        "failed to parse bool"
+    }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
@@ -388,9 +407,7 @@ impl Error + 'static {
     #[inline]
     pub fn downcast_ref<T: Error + 'static>(&self) -> Option<&T> {
         if self.is::<T>() {
-            unsafe {
-                Some(&*(self as *const Error as *const T))
-            }
+            unsafe { Some(&*(self as *const Error as *const T)) }
         } else {
             None
         }
@@ -402,9 +419,7 @@ impl Error + 'static {
     #[inline]
     pub fn downcast_mut<T: Error + 'static>(&mut self) -> Option<&mut T> {
         if self.is::<T>() {
-            unsafe {
-                Some(&mut *(self as *mut Error as *mut T))
-            }
+            unsafe { Some(&mut *(self as *mut Error as *mut T)) }
         } else {
             None
         }
@@ -477,8 +492,7 @@ impl Error + Send {
     #[inline]
     #[stable(feature = "error_downcast", since = "1.3.0")]
     /// Attempt to downcast the box to a concrete type.
-    pub fn downcast<T: Error + 'static>(self: Box<Self>)
-                                        -> Result<Box<T>, Box<Error + Send>> {
+    pub fn downcast<T: Error + 'static>(self: Box<Self>) -> Result<Box<T>, Box<Error + Send>> {
         let err: Box<Error> = self;
         <Error>::downcast(err).map_err(|s| unsafe {
             // reapply the Send marker
@@ -491,8 +505,7 @@ impl Error + Send + Sync {
     #[inline]
     #[stable(feature = "error_downcast", since = "1.3.0")]
     /// Attempt to downcast the box to a concrete type.
-    pub fn downcast<T: Error + 'static>(self: Box<Self>)
-                                        -> Result<Box<T>, Box<Self>> {
+    pub fn downcast<T: Error + 'static>(self: Box<Self>) -> Result<Box<T>, Box<Self>> {
         let err: Box<Error> = self;
         <Error>::downcast(err).map_err(|s| unsafe {
             // reapply the Send+Sync marker
@@ -523,10 +536,14 @@ mod tests {
     }
 
     impl Error for A {
-        fn description(&self) -> &str { "A-desc" }
+        fn description(&self) -> &str {
+            "A-desc"
+        }
     }
     impl Error for B {
-        fn description(&self) -> &str { "A-desc" }
+        fn description(&self) -> &str {
+            "A-desc"
+        }
     }
 
     #[test]

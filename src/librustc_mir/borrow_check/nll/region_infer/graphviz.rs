@@ -12,11 +12,11 @@
 //! libgraphviz traits, specialized to attaching borrowck analysis
 //! data to rendered labels.
 
+use super::*;
 use dot::{self, IntoCow};
 use rustc_data_structures::indexed_vec::Idx;
 use std::borrow::Cow;
 use std::io::{self, Write};
-use super::*;
 
 impl<'tcx> RegionInferenceContext<'tcx> {
     /// Write out the region constraint graph.

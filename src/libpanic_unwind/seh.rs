@@ -62,8 +62,8 @@ use core::any::Any;
 use core::mem;
 use core::raw;
 
-use windows as c;
 use libc::{c_int, c_uint};
+use windows as c;
 
 // First up, a whole bunch of type definitions. There's a few platform-specific
 // oddities here, and a lot that's just blatantly copied from LLVM. The purpose
@@ -114,8 +114,12 @@ mod imp {
     pub const NAME2: [u8; 7] = [b'.', b'P', b'A', b'X', 0, 0, 0];
 
     macro_rules! ptr {
-        (0) => (0 as *mut u8);
-        ($e:expr) => ($e as *mut u8);
+        (0) => {
+            0 as *mut u8
+        };
+        ($e:expr) => {
+            $e as *mut u8
+        };
     }
 }
 
@@ -277,19 +281,31 @@ pub unsafe fn panic(data: Box<Any + Send>) -> u32 {
     //
     // In any case, we basically need to do something like this until we can
     // express more operations in statics (and we may never be able to).
-    atomic_store(&mut THROW_INFO.pCatchableTypeArray as *mut _ as *mut u32,
-                 ptr!(&CATCHABLE_TYPE_ARRAY as *const _) as u32);
-    atomic_store(&mut CATCHABLE_TYPE_ARRAY.arrayOfCatchableTypes[0] as *mut _ as *mut u32,
-                 ptr!(&CATCHABLE_TYPE1 as *const _) as u32);
-    atomic_store(&mut CATCHABLE_TYPE_ARRAY.arrayOfCatchableTypes[1] as *mut _ as *mut u32,
-                 ptr!(&CATCHABLE_TYPE2 as *const _) as u32);
-    atomic_store(&mut CATCHABLE_TYPE1.pType as *mut _ as *mut u32,
-                 ptr!(&TYPE_DESCRIPTOR1 as *const _) as u32);
-    atomic_store(&mut CATCHABLE_TYPE2.pType as *mut _ as *mut u32,
-                 ptr!(&TYPE_DESCRIPTOR2 as *const _) as u32);
+    atomic_store(
+        &mut THROW_INFO.pCatchableTypeArray as *mut _ as *mut u32,
+        ptr!(&CATCHABLE_TYPE_ARRAY as *const _) as u32,
+    );
+    atomic_store(
+        &mut CATCHABLE_TYPE_ARRAY.arrayOfCatchableTypes[0] as *mut _ as *mut u32,
+        ptr!(&CATCHABLE_TYPE1 as *const _) as u32,
+    );
+    atomic_store(
+        &mut CATCHABLE_TYPE_ARRAY.arrayOfCatchableTypes[1] as *mut _ as *mut u32,
+        ptr!(&CATCHABLE_TYPE2 as *const _) as u32,
+    );
+    atomic_store(
+        &mut CATCHABLE_TYPE1.pType as *mut _ as *mut u32,
+        ptr!(&TYPE_DESCRIPTOR1 as *const _) as u32,
+    );
+    atomic_store(
+        &mut CATCHABLE_TYPE2.pType as *mut _ as *mut u32,
+        ptr!(&TYPE_DESCRIPTOR2 as *const _) as u32,
+    );
 
-    c::_CxxThrowException(&mut ptrs_ptr as *mut _ as *mut _,
-                          &mut THROW_INFO as *mut _ as *mut _);
+    c::_CxxThrowException(
+        &mut ptrs_ptr as *mut _ as *mut _,
+        &mut THROW_INFO as *mut _ as *mut _,
+    );
     u32::max_value()
 }
 

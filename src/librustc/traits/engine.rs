@@ -8,9 +8,9 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use hir::def_id::DefId;
 use infer::InferCtxt;
 use ty::{self, Ty, TyCtxt};
-use hir::def_id::DefId;
 
 use super::{FulfillmentContext, FulfillmentError};
 use super::{ObligationCause, PredicateObligation};

@@ -12,9 +12,9 @@ use infer::InferCtxt;
 use syntax::ast;
 use syntax::codemap::Span;
 use traits::{FulfillmentContext, TraitEngine};
-use ty::{self, Ty, TypeFoldable};
 use ty::outlives::Component;
 use ty::wf;
+use ty::{self, Ty, TypeFoldable};
 
 /// Outlives bounds are relationships between generic parameters,
 /// whether they both be regions (`'a: 'b`) or whether types are
@@ -116,12 +116,12 @@ impl<'cx, 'gcx, 'tcx> InferCtxt<'cx, 'gcx, 'tcx> {
             implied_bounds.extend(obligations.into_iter().flat_map(|obligation| {
                 assert!(!obligation.has_escaping_regions());
                 match obligation.predicate {
-                    ty::Predicate::Trait(..) |
-                    ty::Predicate::Subtype(..) |
-                    ty::Predicate::Projection(..) |
-                    ty::Predicate::ClosureKind(..) |
-                    ty::Predicate::ObjectSafe(..) |
-                    ty::Predicate::ConstEvaluatable(..) => vec![],
+                    ty::Predicate::Trait(..)
+                    | ty::Predicate::Subtype(..)
+                    | ty::Predicate::Projection(..)
+                    | ty::Predicate::ClosureKind(..)
+                    | ty::Predicate::ObjectSafe(..)
+                    | ty::Predicate::ConstEvaluatable(..) => vec![],
 
                     ty::Predicate::WellFormed(subty) => {
                         wf_types.push(subty);
@@ -201,16 +201,16 @@ pub fn explicit_outlives_bounds<'tcx>(
         .caller_bounds
         .into_iter()
         .filter_map(move |predicate| match predicate {
-            ty::Predicate::Projection(..) |
-            ty::Predicate::Trait(..) |
-            ty::Predicate::Subtype(..) |
-            ty::Predicate::WellFormed(..) |
-            ty::Predicate::ObjectSafe(..) |
-            ty::Predicate::ClosureKind(..) |
-            ty::Predicate::TypeOutlives(..) |
-            ty::Predicate::ConstEvaluatable(..) => None,
-            ty::Predicate::RegionOutlives(ref data) => data.no_late_bound_regions().map(
-                |ty::OutlivesPredicate(r_a, r_b)| OutlivesBound::RegionSubRegion(r_b, r_a),
-            ),
+            ty::Predicate::Projection(..)
+            | ty::Predicate::Trait(..)
+            | ty::Predicate::Subtype(..)
+            | ty::Predicate::WellFormed(..)
+            | ty::Predicate::ObjectSafe(..)
+            | ty::Predicate::ClosureKind(..)
+            | ty::Predicate::TypeOutlives(..)
+            | ty::Predicate::ConstEvaluatable(..) => None,
+            ty::Predicate::RegionOutlives(ref data) => data
+                .no_late_bound_regions()
+                .map(|ty::OutlivesPredicate(r_a, r_b)| OutlivesBound::RegionSubRegion(r_b, r_a)),
         })
 }

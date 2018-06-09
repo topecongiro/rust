@@ -11,9 +11,9 @@
 use rustc::middle::allocator::AllocatorKind;
 use rustc_errors;
 use rustc_target::spec::abi::Abi;
-use syntax::ast::{Attribute, Crate, LitKind, StrStyle};
-use syntax::ast::{Arg, Constness, Generics, Mac, Mutability, Ty, Unsafety};
 use syntax::ast::{self, Expr, Ident, Item, ItemKind, TyKind, VisibilityKind};
+use syntax::ast::{Arg, Constness, Generics, Mac, Mutability, Ty, Unsafety};
+use syntax::ast::{Attribute, Crate, LitKind, StrStyle};
 use syntax::attr;
 use syntax::codemap::{dummy_spanned, respan};
 use syntax::codemap::{ExpnInfo, MacroAttribute, NameAndSpan};

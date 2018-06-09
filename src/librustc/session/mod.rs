@@ -19,32 +19,32 @@ use lint;
 use lint::builtin::BuiltinLintDiagnostics;
 use middle::allocator::AllocatorKind;
 use middle::dependency_format;
+use session::config::OutputType;
 use session::search_paths::PathKind;
-use session::config::{OutputType};
 use ty::tls;
-use util::nodemap::{FxHashSet};
-use util::common::{duration_to_secs_str, ErrorReported};
 use util::common::ProfileQueriesMsg;
+use util::common::{duration_to_secs_str, ErrorReported};
+use util::nodemap::FxHashSet;
 
-use rustc_data_structures::sync::{self, Lrc, Lock, LockCell, OneThread, Once, RwLock};
+use rustc_data_structures::sync::{self, Lock, LockCell, Lrc, Once, OneThread, RwLock};
 
-use syntax::ast::NodeId;
-use errors::{self, DiagnosticBuilder, DiagnosticId};
 use errors::emitter::{Emitter, EmitterWriter};
+use errors::{self, DiagnosticBuilder, DiagnosticId};
+use syntax::ast::NodeId;
 use syntax::edition::Edition;
-use syntax::json::JsonEmitter;
 use syntax::feature_gate;
-use syntax::symbol::Symbol;
+use syntax::feature_gate::AttributeType;
+use syntax::json::JsonEmitter;
 use syntax::parse;
 use syntax::parse::ParseSess;
+use syntax::symbol::Symbol;
 use syntax::{ast, codemap};
-use syntax::feature_gate::AttributeType;
 use syntax_pos::{MultiSpan, Span};
 
+use jobserver::Client;
+use rustc_data_structures::flock;
 use rustc_target::spec::{LinkerFlavor, PanicStrategy};
 use rustc_target::spec::{Target, TargetTriple};
-use rustc_data_structures::flock;
-use jobserver::Client;
 
 use std;
 use std::cell::{self, Cell, RefCell};
@@ -53,9 +53,9 @@ use std::env;
 use std::fmt;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
-use std::sync::mpsc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::mpsc;
+use std::time::Duration;
 
 mod code_stats;
 pub mod config;
@@ -414,7 +414,8 @@ impl Session {
         span_maybe: Option<Span>,
     ) {
         let id_span_message = (msg_id, span_maybe, message.to_owned());
-        let fresh = self.one_time_diagnostics
+        let fresh = self
+            .one_time_diagnostics
             .borrow_mut()
             .insert(id_span_message);
         if fresh {
@@ -608,7 +609,8 @@ impl Session {
     }
 
     pub fn fewer_names(&self) -> bool {
-        let more_names = self.opts
+        let more_names = self
+            .opts
             .output_types
             .contains_key(&OutputType::LlvmAssembly)
             || self.opts.output_types.contains_key(&OutputType::Bitcode);
@@ -660,7 +662,7 @@ impl Session {
     pub fn target_cpu(&self) -> &str {
         match self.opts.cg.target_cpu {
             Some(ref s) => &**s,
-            None => &*self.target.target.options.cpu
+            None => &*self.target.target.options.cpu,
         }
     }
 
@@ -691,7 +693,8 @@ impl Session {
     pub fn sysroot<'a>(&'a self) -> &'a Path {
         match self.opts.maybe_sysroot {
             Some(ref sysroot) => sysroot,
-            None => self.default_sysroot
+            None => self
+                .default_sysroot
                 .as_ref()
                 .expect("missing sysroot and default_sysroot in Session"),
         }
@@ -834,12 +837,24 @@ impl Session {
             "Total time spent decoding DefPath tables:      {}",
             duration_to_secs_str(*self.perf_stats.decode_def_path_tables_time.lock())
         );
-        println!("Total queries canonicalized:                   {}",
-                 self.perf_stats.queries_canonicalized.load(Ordering::Relaxed));
-        println!("normalize_ty_after_erasing_regions:            {}",
-                 self.perf_stats.normalize_ty_after_erasing_regions.load(Ordering::Relaxed));
-        println!("normalize_projection_ty:                       {}",
-                 self.perf_stats.normalize_projection_ty.load(Ordering::Relaxed));
+        println!(
+            "Total queries canonicalized:                   {}",
+            self.perf_stats
+                .queries_canonicalized
+                .load(Ordering::Relaxed)
+        );
+        println!(
+            "normalize_ty_after_erasing_regions:            {}",
+            self.perf_stats
+                .normalize_ty_after_erasing_regions
+                .load(Ordering::Relaxed)
+        );
+        println!(
+            "normalize_projection_ty:                       {}",
+            self.perf_stats
+                .normalize_projection_ty
+                .load(Ordering::Relaxed)
+        );
     }
 
     /// We want to know if we're allowed to do an optimization for crate foo from -z fuel=foo=n.
@@ -1015,19 +1030,12 @@ pub fn build_session_with_codemap(
                     .ui_testing(sopts.debugging_opts.ui_testing),
             ),
             (config::ErrorOutputType::Json(pretty), None) => Box::new(
-                JsonEmitter::stderr(
-                    Some(registry),
-                    codemap.clone(),
-                    pretty,
-                ).ui_testing(sopts.debugging_opts.ui_testing),
+                JsonEmitter::stderr(Some(registry), codemap.clone(), pretty)
+                    .ui_testing(sopts.debugging_opts.ui_testing),
             ),
             (config::ErrorOutputType::Json(pretty), Some(dst)) => Box::new(
-                JsonEmitter::new(
-                    dst,
-                    Some(registry),
-                    codemap.clone(),
-                    pretty,
-                ).ui_testing(sopts.debugging_opts.ui_testing),
+                JsonEmitter::new(dst, Some(registry), codemap.clone(), pretty)
+                    .ui_testing(sopts.debugging_opts.ui_testing),
             ),
             (config::ErrorOutputType::Short(color_config), None) => Box::new(
                 EmitterWriter::stderr(color_config, Some(codemap.clone()), true, false),
@@ -1086,7 +1094,8 @@ pub fn build_session_(
 
     let working_dir = match env::current_dir() {
         Ok(dir) => dir,
-        Err(e) => p_s.span_diagnostic
+        Err(e) => p_s
+            .span_diagnostic
             .fatal(&format!("Current directory is invalid: {}", e))
             .raise(),
     };
@@ -1156,9 +1165,8 @@ pub fn build_session_(
             static mut GLOBAL_JOBSERVER: *mut Client = 0 as *mut _;
             static INIT: std::sync::Once = std::sync::ONCE_INIT;
             INIT.call_once(|| {
-                let client = Client::from_env().unwrap_or_else(|| {
-                    Client::new(32).expect("failed to create jobserver")
-                });
+                let client = Client::from_env()
+                    .unwrap_or_else(|| Client::new(32).expect("failed to create jobserver"));
                 GLOBAL_JOBSERVER = Box::into_raw(Box::new(client));
             });
             (*GLOBAL_JOBSERVER).clone()
@@ -1172,7 +1180,8 @@ pub fn build_session_(
 /// Hash value constructed out of all the `-C metadata` arguments passed to the
 /// compiler. Together with the crate-name forms a unique global identifier for
 /// the crate.
-#[derive(Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Clone, Copy, RustcEncodable, RustcDecodable)]
+#[derive(Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Clone, Copy, RustcEncodable,
+         RustcDecodable)]
 pub struct CrateDisambiguator(Fingerprint);
 
 impl CrateDisambiguator {

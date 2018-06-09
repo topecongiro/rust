@@ -418,7 +418,8 @@ impl<I: Idx> SparseBitSet<I> {
     /// self.contains_chunk(chunk)`.
     pub fn contains_chunk(&self, chunk: SparseChunk<I>) -> SparseChunk<I> {
         SparseChunk {
-            bits: self.chunk_bits
+            bits: self
+                .chunk_bits
                 .get(&chunk.key)
                 .map_or(0, |bits| bits & chunk.bits),
             ..chunk

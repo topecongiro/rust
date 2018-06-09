@@ -9,15 +9,14 @@
 // except according to those terms.
 
 use hir::def_id::DefId;
+use ich::{Fingerprint, NodeIdHashingMode, StableHashingContext};
+use rustc_data_structures::base_n;
+use rustc_data_structures::stable_hasher::{HashStable, StableHasher, StableHasherResult};
+use std::hash::Hash;
 use syntax::ast::NodeId;
 use syntax::symbol::InternedString;
 use ty::{Instance, TyCtxt};
 use util::nodemap::FxHashMap;
-use rustc_data_structures::base_n;
-use rustc_data_structures::stable_hasher::{HashStable, StableHasherResult,
-                                           StableHasher};
-use ich::{Fingerprint, StableHashingContext, NodeIdHashingMode};
-use std::hash::Hash;
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
 pub enum MonoItem<'tcx> {
@@ -33,7 +32,7 @@ impl<'tcx> MonoItem<'tcx> {
                 // Estimate the size of a function based on how many statements
                 // it contains.
                 tcx.instance_def_size_estimate(instance.def)
-            },
+            }
             // Conservatively estimate the size of a static declaration
             // or assembly to be 1.
             MonoItem::Static(_) | MonoItem::GlobalAsm(_) => 1,
@@ -42,9 +41,11 @@ impl<'tcx> MonoItem<'tcx> {
 }
 
 impl<'a, 'tcx> HashStable<StableHashingContext<'a>> for MonoItem<'tcx> {
-    fn hash_stable<W: StableHasherResult>(&self,
-                                           hcx: &mut StableHashingContext<'a>,
-                                           hasher: &mut StableHasher<W>) {
+    fn hash_stable<W: StableHasherResult>(
+        &self,
+        hcx: &mut StableHashingContext<'a>,
+        hasher: &mut StableHasher<W>,
+    ) {
         ::std::mem::discriminant(self).hash_stable(hcx, hasher);
 
         match *self {
@@ -136,9 +137,7 @@ impl<'tcx> CodegenUnit<'tcx> {
         &self.items
     }
 
-    pub fn items_mut(&mut self)
-        -> &mut FxHashMap<MonoItem<'tcx>, (Linkage, Visibility)>
-    {
+    pub fn items_mut(&mut self) -> &mut FxHashMap<MonoItem<'tcx>, (Linkage, Visibility)> {
         &mut self.items
     }
 
@@ -160,7 +159,8 @@ impl<'tcx> CodegenUnit<'tcx> {
 
     pub fn size_estimate(&self) -> usize {
         // Should only be called if `estimate_size` has previously been called.
-        self.size_estimate.expect("estimate_size must be called before getting a size_estimate")
+        self.size_estimate
+            .expect("estimate_size must be called before getting a size_estimate")
     }
 
     pub fn modify_size_estimate(&mut self, delta: usize) {
@@ -172,9 +172,11 @@ impl<'tcx> CodegenUnit<'tcx> {
 }
 
 impl<'a, 'tcx> HashStable<StableHashingContext<'a>> for CodegenUnit<'tcx> {
-    fn hash_stable<W: StableHasherResult>(&self,
-                                           hcx: &mut StableHashingContext<'a>,
-                                           hasher: &mut StableHasher<W>) {
+    fn hash_stable<W: StableHasherResult>(
+        &self,
+        hcx: &mut StableHashingContext<'a>,
+        hasher: &mut StableHasher<W>,
+    ) {
         let CodegenUnit {
             ref items,
             name,
@@ -184,12 +186,15 @@ impl<'a, 'tcx> HashStable<StableHashingContext<'a>> for CodegenUnit<'tcx> {
 
         name.hash_stable(hcx, hasher);
 
-        let mut items: Vec<(Fingerprint, _)> = items.iter().map(|(mono_item, &attrs)| {
-            let mut hasher = StableHasher::new();
-            mono_item.hash_stable(hcx, &mut hasher);
-            let mono_item_fingerprint = hasher.finish();
-            (mono_item_fingerprint, attrs)
-        }).collect();
+        let mut items: Vec<(Fingerprint, _)> = items
+            .iter()
+            .map(|(mono_item, &attrs)| {
+                let mut hasher = StableHasher::new();
+                mono_item.hash_stable(hcx, &mut hasher);
+                let mono_item_fingerprint = hasher.finish();
+                (mono_item_fingerprint, attrs)
+            })
+            .collect();
 
         items.sort_unstable_by_key(|i| i.0);
         items.hash_stable(hcx, hasher);

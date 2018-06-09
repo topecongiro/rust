@@ -28,22 +28,22 @@
 #![allow(non_camel_case_types)]
 
 use rustc::session;
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::default::Default;
 use std::fmt::{self, Write};
-use std::borrow::Cow;
 use std::ops::Range;
 use std::str;
-use syntax::feature_gate::UnstableFeatures;
 use syntax::codemap::Span;
+use syntax::feature_gate::UnstableFeatures;
 
+use html::highlight;
 use html::render::derive_id;
 use html::toc::TocBuilder;
-use html::highlight;
 use test;
 
-use pulldown_cmark::{html, Event, Tag, Parser};
+use pulldown_cmark::{html, Event, Parser, Tag};
 use pulldown_cmark::{Options, OPTION_ENABLE_FOOTNOTES, OPTION_ENABLE_TABLES};
 
 /// A unit struct which has the `fmt::Display` trait implemented. When
@@ -77,8 +77,7 @@ impl<'a> Line<'a> {
 
     fn for_code(self) -> &'a str {
         match self {
-            Line::Shown(l) |
-            Line::Hidden(l) => l,
+            Line::Shown(l) | Line::Hidden(l) => l,
         }
     }
 }
@@ -133,9 +132,7 @@ struct CodeBlocks<'a, I: Iterator<Item = Event<'a>>> {
 
 impl<'a, I: Iterator<Item = Event<'a>>> CodeBlocks<'a, I> {
     fn new(iter: I) -> Self {
-        CodeBlocks {
-            inner: iter,
-        }
+        CodeBlocks { inner: iter }
     }
 }
 
@@ -177,12 +174,13 @@ impl<'a, I: Iterator<Item = Event<'a>>> Iterator for CodeBlocks<'a, I> {
                 if url.is_empty() {
                     return None;
                 }
-                let test = origtext.lines()
+                let test = origtext
+                    .lines()
                     .map(|l| map_line(l).for_code())
-                    .collect::<Vec<&str>>().join("\n");
+                    .collect::<Vec<&str>>()
+                    .join("\n");
                 let krate = krate.as_ref().map(|s| &**s);
-                let (test, _) = test::make_test(&test, krate, false,
-                                           &Default::default());
+                let (test, _) = test::make_test(&test, krate, false, &Default::default());
                 let channel = if test.contains("#![feature(") {
                     "&amp;version=nightly"
                 } else {
@@ -191,12 +189,18 @@ impl<'a, I: Iterator<Item = Event<'a>>> Iterator for CodeBlocks<'a, I> {
                 // These characters don't need to be escaped in a URI.
                 // FIXME: use a library function for percent encoding.
                 fn dont_escape(c: u8) -> bool {
-                    (b'a' <= c && c <= b'z') ||
-                    (b'A' <= c && c <= b'Z') ||
-                    (b'0' <= c && c <= b'9') ||
-                    c == b'-' || c == b'_' || c == b'.' ||
-                    c == b'~' || c == b'!' || c == b'\'' ||
-                    c == b'(' || c == b')' || c == b'*'
+                    (b'a' <= c && c <= b'z')
+                        || (b'A' <= c && c <= b'Z')
+                        || (b'0' <= c && c <= b'9')
+                        || c == b'-'
+                        || c == b'_'
+                        || c == b'.'
+                        || c == b'~'
+                        || c == b'!'
+                        || c == b'\''
+                        || c == b'('
+                        || c == b')'
+                        || c == b'*'
                 }
                 let mut test_escaped = String::new();
                 for b in test.bytes() {
@@ -219,14 +223,21 @@ impl<'a, I: Iterator<Item = Event<'a>>> Iterator for CodeBlocks<'a, I> {
                 None
             };
             s.push_str(&highlight::render_with_highlighting(
-                        &text,
-                        Some(&format!("rust-example-rendered{}",
-                                      if ignore { " ignore" }
-                                      else if compile_fail { " compile_fail" }
-                                      else { "" })),
-                        None,
-                        playground_button.as_ref().map(String::as_str),
-                        tooltip));
+                &text,
+                Some(&format!(
+                    "rust-example-rendered{}",
+                    if ignore {
+                        " ignore"
+                    } else if compile_fail {
+                        " compile_fail"
+                    } else {
+                        ""
+                    }
+                )),
+                None,
+                playground_button.as_ref().map(String::as_str),
+                tooltip,
+            ));
             Some(Event::Html(s.into()))
         })
     }
@@ -240,10 +251,7 @@ struct LinkReplacer<'a, 'b, I: Iterator<Item = Event<'a>>> {
 
 impl<'a, 'b, I: Iterator<Item = Event<'a>>> LinkReplacer<'a, 'b, I> {
     fn new(iter: I, links: &'b [(String, String)]) -> Self {
-        LinkReplacer {
-            inner: iter,
-            links,
-        }
+        LinkReplacer { inner: iter, links }
     }
 }
 
@@ -297,7 +305,7 @@ impl<'a, 'b, I: Iterator<Item = Event<'a>>> Iterator for HeadingLinks<'a, 'b, I>
                 match event {
                     Event::End(Tag::Header(..)) => break,
                     Event::Text(ref text) => id.extend(text.chars().filter_map(slugify)),
-                    _ => {},
+                    _ => {}
                 }
                 self.buf.push_back(event);
             }
@@ -307,15 +315,19 @@ impl<'a, 'b, I: Iterator<Item = Event<'a>>> Iterator for HeadingLinks<'a, 'b, I>
                 let mut html_header = String::new();
                 html::push_html(&mut html_header, self.buf.iter().cloned());
                 let sec = builder.push(level as u32, html_header, id.clone());
-                self.buf.push_front(Event::InlineHtml(format!("{} ", sec).into()));
+                self.buf
+                    .push_front(Event::InlineHtml(format!("{} ", sec).into()));
             }
 
-            self.buf.push_back(Event::InlineHtml(format!("</a></h{}>", level).into()));
+            self.buf
+                .push_back(Event::InlineHtml(format!("</a></h{}>", level).into()));
 
-            let start_tags = format!("<h{level} id=\"{id}\" class=\"section-header\">\
-                                      <a href=\"#{id}\">",
-                                     id = id,
-                                     level = level);
+            let start_tags = format!(
+                "<h{level} id=\"{id}\" class=\"section-header\">\
+                 <a href=\"#{id}\">",
+                id = id,
+                level = level
+            );
             return Some(Event::InlineHtml(start_tags.into()));
         }
         event
@@ -376,7 +388,9 @@ impl<'a, I: Iterator<Item = Event<'a>>> Footnotes<'a, I> {
     fn get_entry(&mut self, key: &str) -> &mut (Vec<Event<'a>>, u16) {
         let new_id = self.footnotes.keys().count() + 1;
         let key = key.to_owned();
-        self.footnotes.entry(key).or_insert((Vec::new(), new_id as u16))
+        self.footnotes
+            .entry(key)
+            .or_insert((Vec::new(), new_id as u16))
     }
 }
 
@@ -388,9 +402,11 @@ impl<'a, I: Iterator<Item = Event<'a>>> Iterator for Footnotes<'a, I> {
             match self.inner.next() {
                 Some(Event::FootnoteReference(ref reference)) => {
                     let entry = self.get_entry(&reference);
-                    let reference = format!("<sup id=\"fnref{0}\"><a href=\"#fn{0}\">{0}\
-                                             </a></sup>",
-                                            (*entry).1);
+                    let reference = format!(
+                        "<sup id=\"fnref{0}\"><a href=\"#fn{0}\">{0}\
+                         </a></sup>",
+                        (*entry).1
+                    );
                     return Some(Event::Html(reference.into()));
                 }
                 Some(Event::Start(Tag::FootnoteDefinition(def))) => {
@@ -418,9 +434,11 @@ impl<'a, I: Iterator<Item = Event<'a>>> Iterator for Footnotes<'a, I> {
                                 is_paragraph = true;
                             }
                             html::push_html(&mut ret, content.into_iter());
-                            write!(ret,
-                                   "&nbsp;<a href=\"#fnref{}\" rev=\"footnote\">↩</a>",
-                                   id).unwrap();
+                            write!(
+                                ret,
+                                "&nbsp;<a href=\"#fnref{}\" rev=\"footnote\">↩</a>",
+                                id
+                            ).unwrap();
                             if is_paragraph {
                                 ret.push_str("</p>");
                             }
@@ -437,8 +455,12 @@ impl<'a, I: Iterator<Item = Event<'a>>> Iterator for Footnotes<'a, I> {
     }
 }
 
-pub fn find_testable_code(doc: &str, tests: &mut ::test::Collector, position: Span,
-                          sess: Option<&session::Session>) {
+pub fn find_testable_code(
+    doc: &str,
+    tests: &mut ::test::Collector,
+    position: Span,
+    sess: Option<&session::Session>,
+) {
     tests.set_position(position);
 
     let mut parser = Parser::new(doc);
@@ -454,7 +476,7 @@ pub fn find_testable_code(doc: &str, tests: &mut ::test::Collector, position: Sp
                     LangString::parse(&*s)
                 };
                 if !block_info.rust {
-                    continue
+                    continue;
                 }
                 let mut test_s = String::new();
                 let mut offset = None;
@@ -481,11 +503,18 @@ pub fn find_testable_code(doc: &str, tests: &mut ::test::Collector, position: Sp
                     nb_lines += doc[prev_offset..offset].lines().count();
                     let line = tests.get_line() + (nb_lines - 1);
                     let filename = tests.get_filename();
-                    tests.add_test(text.to_owned(),
-                                   block_info.should_panic, block_info.no_run,
-                                   block_info.ignore, block_info.test_harness,
-                                   block_info.compile_fail, block_info.error_codes,
-                                   line, filename, block_info.allow_fail);
+                    tests.add_test(
+                        text.to_owned(),
+                        block_info.should_panic,
+                        block_info.no_run,
+                        block_info.ignore,
+                        block_info.test_harness,
+                        block_info.compile_fail,
+                        block_info.error_codes,
+                        line,
+                        filename,
+                        block_info.allow_fail,
+                    );
                     prev_offset = offset;
                 } else {
                     if let Some(ref sess) = sess {
@@ -531,7 +560,7 @@ impl LangString {
             should_panic: false,
             no_run: false,
             ignore: false,
-            rust: true,  // NB This used to be `notrust = false`
+            rust: true, // NB This used to be `notrust = false`
             test_harness: false,
             compile_fail: false,
             error_codes: Vec::new(),
@@ -549,21 +578,31 @@ impl LangString {
         }
 
         data.original = string.to_owned();
-        let tokens = string.split(|c: char|
-            !(c == '_' || c == '-' || c.is_alphanumeric())
-        );
+        let tokens = string.split(|c: char| !(c == '_' || c == '-' || c.is_alphanumeric()));
 
         for token in tokens {
             match token.trim() {
-                "" => {},
+                "" => {}
                 "should_panic" => {
                     data.should_panic = true;
                     seen_rust_tags = seen_other_tags == false;
                 }
-                "no_run" => { data.no_run = true; seen_rust_tags = !seen_other_tags; }
-                "ignore" => { data.ignore = true; seen_rust_tags = !seen_other_tags; }
-                "allow_fail" => { data.allow_fail = true; seen_rust_tags = !seen_other_tags; }
-                "rust" => { data.rust = true; seen_rust_tags = true; }
+                "no_run" => {
+                    data.no_run = true;
+                    seen_rust_tags = !seen_other_tags;
+                }
+                "ignore" => {
+                    data.ignore = true;
+                    seen_rust_tags = !seen_other_tags;
+                }
+                "allow_fail" => {
+                    data.allow_fail = true;
+                    seen_rust_tags = !seen_other_tags;
+                }
+                "rust" => {
+                    data.rust = true;
+                    seen_rust_tags = true;
+                }
                 "test_harness" => {
                     data.test_harness = true;
                     seen_rust_tags = !seen_other_tags || seen_rust_tags;
@@ -581,7 +620,7 @@ impl LangString {
                         seen_other_tags = true;
                     }
                 }
-                _ => { seen_other_tags = true }
+                _ => seen_other_tags = true,
             }
         }
 
@@ -596,7 +635,9 @@ impl<'a> fmt::Display for Markdown<'a> {
         let Markdown(md, links) = *self;
 
         // This is actually common enough to special-case
-        if md.is_empty() { return Ok(()) }
+        if md.is_empty() {
+            return Ok(());
+        }
         let mut opts = Options::empty();
         opts.insert(OPTION_ENABLE_TABLES);
         opts.insert(OPTION_ENABLE_FOOTNOTES);
@@ -613,12 +654,13 @@ impl<'a> fmt::Display for Markdown<'a> {
 
         let mut s = String::with_capacity(md.len() * 3 / 2);
 
-        html::push_html(&mut s,
-                        Footnotes::new(
-                            CodeBlocks::new(
-                                LinkReplacer::new(
-                                    HeadingLinks::new(p, None),
-                                    links))));
+        html::push_html(
+            &mut s,
+            Footnotes::new(CodeBlocks::new(LinkReplacer::new(
+                HeadingLinks::new(p, None),
+                links,
+            ))),
+        );
 
         fmt.write_str(&s)
     }
@@ -638,8 +680,10 @@ impl<'a> fmt::Display for MarkdownWithToc<'a> {
 
         let mut toc = TocBuilder::new();
 
-        html::push_html(&mut s,
-                        Footnotes::new(CodeBlocks::new(HeadingLinks::new(p, Some(&mut toc)))));
+        html::push_html(
+            &mut s,
+            Footnotes::new(CodeBlocks::new(HeadingLinks::new(p, Some(&mut toc)))),
+        );
 
         write!(fmt, "<nav id=\"TOC\">{}</nav>", toc.into_toc())?;
 
@@ -652,7 +696,9 @@ impl<'a> fmt::Display for MarkdownHtml<'a> {
         let MarkdownHtml(md) = *self;
 
         // This is actually common enough to special-case
-        if md.is_empty() { return Ok(()) }
+        if md.is_empty() {
+            return Ok(());
+        }
         let mut opts = Options::empty();
         opts.insert(OPTION_ENABLE_TABLES);
         opts.insert(OPTION_ENABLE_FOOTNOTES);
@@ -662,13 +708,15 @@ impl<'a> fmt::Display for MarkdownHtml<'a> {
         // Treat inline HTML as plain text.
         let p = p.map(|event| match event {
             Event::Html(text) | Event::InlineHtml(text) => Event::Text(text),
-            _ => event
+            _ => event,
         });
 
         let mut s = String::with_capacity(md.len() * 3 / 2);
 
-        html::push_html(&mut s,
-                        Footnotes::new(CodeBlocks::new(HeadingLinks::new(p, None))));
+        html::push_html(
+            &mut s,
+            Footnotes::new(CodeBlocks::new(HeadingLinks::new(p, None))),
+        );
 
         fmt.write_str(&s)
     }
@@ -678,7 +726,9 @@ impl<'a> fmt::Display for MarkdownSummaryLine<'a> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         let MarkdownSummaryLine(md, links) = *self;
         // This is actually common enough to special-case
-        if md.is_empty() { return Ok(()) }
+        if md.is_empty() {
+            return Ok(());
+        }
 
         let replacer = |_: &str, s: &str| {
             if let Some(&(_, ref replace)) = links.into_iter().find(|link| &*link.0 == s) {
@@ -688,8 +738,7 @@ impl<'a> fmt::Display for MarkdownSummaryLine<'a> {
             }
         };
 
-        let p = Parser::new_with_broken_link_callback(md, Options::empty(),
-                                                      Some(&replacer));
+        let p = Parser::new_with_broken_link_callback(md, Options::empty(), Some(&replacer));
 
         let mut s = String::new();
 
@@ -712,7 +761,7 @@ pub fn plain_summary_line(md: &str) -> String {
         fn next(&mut self) -> Option<String> {
             let next_event = self.inner.next();
             if next_event.is_none() {
-                return None
+                return None;
             }
             let next_event = next_event.unwrap();
             let (ret, is_in) = match next_event {
@@ -780,8 +829,7 @@ pub fn markdown_links(md: &str) -> Vec<(String, Option<Range<usize>>)> {
             shortcut_links.borrow_mut().push((s.to_owned(), locate(s)));
             None
         };
-        let p = Parser::new_with_broken_link_callback(md, opts,
-            Some(&push));
+        let p = Parser::new_with_broken_link_callback(md, opts, Some(&push));
 
         let iter = Footnotes::new(HeadingLinks::new(p, None));
 
@@ -804,26 +852,37 @@ pub fn markdown_links(md: &str) -> Vec<(String, Option<Range<usize>>)> {
 
 #[cfg(test)]
 mod tests {
-    use super::{LangString, Markdown, MarkdownHtml};
     use super::plain_summary_line;
+    use super::{LangString, Markdown, MarkdownHtml};
     use html::render::reset_ids;
 
     #[test]
     fn test_lang_string_parse() {
-        fn t(s: &str,
-            should_panic: bool, no_run: bool, ignore: bool, rust: bool, test_harness: bool,
-            compile_fail: bool, allow_fail: bool, error_codes: Vec<String>) {
-            assert_eq!(LangString::parse(s), LangString {
-                should_panic,
-                no_run,
-                ignore,
-                rust,
-                test_harness,
-                compile_fail,
-                error_codes,
-                original: s.to_owned(),
-                allow_fail,
-            })
+        fn t(
+            s: &str,
+            should_panic: bool,
+            no_run: bool,
+            ignore: bool,
+            rust: bool,
+            test_harness: bool,
+            compile_fail: bool,
+            allow_fail: bool,
+            error_codes: Vec<String>,
+        ) {
+            assert_eq!(
+                LangString::parse(s),
+                LangString {
+                    should_panic,
+                    no_run,
+                    ignore,
+                    rust,
+                    test_harness,
+                    compile_fail,
+                    error_codes,
+                    original: s.to_owned(),
+                    allow_fail,
+                }
+            )
         }
 
         fn v() -> Vec<String> {
@@ -832,21 +891,121 @@ mod tests {
 
         // marker                | should_panic| no_run| ignore| rust | test_harness| compile_fail
         //                       | allow_fail | error_codes
-        t("",                      false,        false,  false,  true,  false, false, false, v());
-        t("rust",                  false,        false,  false,  true,  false, false, false, v());
-        t("sh",                    false,        false,  false,  false, false, false, false, v());
-        t("ignore",                false,        false,  true,   true,  false, false, false, v());
-        t("should_panic",          true,         false,  false,  true,  false, false, false, v());
-        t("no_run",                false,        true,   false,  true,  false, false, false, v());
-        t("test_harness",          false,        false,  false,  true,  true,  false, false, v());
-        t("compile_fail",          false,        true,   false,  true,  false, true,  false, v());
-        t("allow_fail",            false,        false,  false,  true,  false, false, true,  v());
-        t("{.no_run .example}",    false,        true,   false,  true,  false, false, false, v());
-        t("{.sh .should_panic}",   true,         false,  false,  false, false, false, false, v());
-        t("{.example .rust}",      false,        false,  false,  true,  false, false, false, v());
-        t("{.test_harness .rust}", false,        false,  false,  true,  true,  false, false, v());
-        t("text, no_run",          false,        true,   false,  false, false, false, false, v());
-        t("text,no_run",           false,        true,   false,  false, false, false, false, v());
+        t("", false, false, false, true, false, false, false, v());
+        t("rust", false, false, false, true, false, false, false, v());
+        t("sh", false, false, false, false, false, false, false, v());
+        t("ignore", false, false, true, true, false, false, false, v());
+        t(
+            "should_panic",
+            true,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            v(),
+        );
+        t("no_run", false, true, false, true, false, false, false, v());
+        t(
+            "test_harness",
+            false,
+            false,
+            false,
+            true,
+            true,
+            false,
+            false,
+            v(),
+        );
+        t(
+            "compile_fail",
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            v(),
+        );
+        t(
+            "allow_fail",
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            true,
+            v(),
+        );
+        t(
+            "{.no_run .example}",
+            false,
+            true,
+            false,
+            true,
+            false,
+            false,
+            false,
+            v(),
+        );
+        t(
+            "{.sh .should_panic}",
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            v(),
+        );
+        t(
+            "{.example .rust}",
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            v(),
+        );
+        t(
+            "{.test_harness .rust}",
+            false,
+            false,
+            false,
+            true,
+            true,
+            false,
+            false,
+            v(),
+        );
+        t(
+            "text, no_run",
+            false,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            v(),
+        );
+        t(
+            "text,no_run",
+            false,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            v(),
+        );
     }
 
     #[test]
@@ -864,18 +1023,28 @@ mod tests {
             reset_ids(true);
         }
 
-        t("# Foo bar", "<h1 id=\"foo-bar\" class=\"section-header\">\
-          <a href=\"#foo-bar\">Foo bar</a></h1>");
-        t("## Foo-bar_baz qux", "<h2 id=\"foo-bar_baz-qux\" class=\"section-\
-          header\"><a href=\"#foo-bar_baz-qux\">Foo-bar_baz qux</a></h2>");
-        t("### **Foo** *bar* baz!?!& -_qux_-%",
-          "<h3 id=\"foo-bar-baz--qux-\" class=\"section-header\">\
-          <a href=\"#foo-bar-baz--qux-\"><strong>Foo</strong> \
-          <em>bar</em> baz!?!&amp; -<em>qux</em>-%</a></h3>");
-        t("#### **Foo?** & \\*bar?!*  _`baz`_ ❤ #qux",
-          "<h4 id=\"foo--bar--baz--qux\" class=\"section-header\">\
-          <a href=\"#foo--bar--baz--qux\"><strong>Foo?</strong> &amp; *bar?!*  \
-          <em><code>baz</code></em> ❤ #qux</a></h4>");
+        t(
+            "# Foo bar",
+            "<h1 id=\"foo-bar\" class=\"section-header\">\
+             <a href=\"#foo-bar\">Foo bar</a></h1>",
+        );
+        t(
+            "## Foo-bar_baz qux",
+            "<h2 id=\"foo-bar_baz-qux\" class=\"section-\
+             header\"><a href=\"#foo-bar_baz-qux\">Foo-bar_baz qux</a></h2>",
+        );
+        t(
+            "### **Foo** *bar* baz!?!& -_qux_-%",
+            "<h3 id=\"foo-bar-baz--qux-\" class=\"section-header\">\
+             <a href=\"#foo-bar-baz--qux-\"><strong>Foo</strong> \
+             <em>bar</em> baz!?!&amp; -<em>qux</em>-%</a></h3>",
+        );
+        t(
+            "#### **Foo?** & \\*bar?!*  _`baz`_ ❤ #qux",
+            "<h4 id=\"foo--bar--baz--qux\" class=\"section-header\">\
+             <a href=\"#foo--bar--baz--qux\"><strong>Foo?</strong> &amp; *bar?!*  \
+             <em><code>baz</code></em> ❤ #qux</a></h4>",
+        );
     }
 
     #[test]
@@ -886,18 +1055,36 @@ mod tests {
         }
 
         let test = || {
-            t("# Example", "<h1 id=\"example\" class=\"section-header\">\
-              <a href=\"#example\">Example</a></h1>");
-            t("# Panics", "<h1 id=\"panics\" class=\"section-header\">\
-              <a href=\"#panics\">Panics</a></h1>");
-            t("# Example", "<h1 id=\"example-1\" class=\"section-header\">\
-              <a href=\"#example-1\">Example</a></h1>");
-            t("# Main", "<h1 id=\"main-1\" class=\"section-header\">\
-              <a href=\"#main-1\">Main</a></h1>");
-            t("# Example", "<h1 id=\"example-2\" class=\"section-header\">\
-              <a href=\"#example-2\">Example</a></h1>");
-            t("# Panics", "<h1 id=\"panics-1\" class=\"section-header\">\
-              <a href=\"#panics-1\">Panics</a></h1>");
+            t(
+                "# Example",
+                "<h1 id=\"example\" class=\"section-header\">\
+                 <a href=\"#example\">Example</a></h1>",
+            );
+            t(
+                "# Panics",
+                "<h1 id=\"panics\" class=\"section-header\">\
+                 <a href=\"#panics\">Panics</a></h1>",
+            );
+            t(
+                "# Example",
+                "<h1 id=\"example-1\" class=\"section-header\">\
+                 <a href=\"#example-1\">Example</a></h1>",
+            );
+            t(
+                "# Main",
+                "<h1 id=\"main-1\" class=\"section-header\">\
+                 <a href=\"#main-1\">Main</a></h1>",
+            );
+            t(
+                "# Example",
+                "<h1 id=\"example-2\" class=\"section-header\">\
+                 <a href=\"#example-2\">Example</a></h1>",
+            );
+            t(
+                "# Panics",
+                "<h1 id=\"panics-1\" class=\"section-header\">\
+                 <a href=\"#panics-1\">Panics</a></h1>",
+            );
         };
         test();
         reset_ids(true);
@@ -911,8 +1098,14 @@ mod tests {
             assert_eq!(output, expect, "original: {}", input);
         }
 
-        t("hello [Rust](https://www.rust-lang.org) :)", "hello Rust :)");
-        t("hello [Rust](https://www.rust-lang.org \"Rust\") :)", "hello Rust :)");
+        t(
+            "hello [Rust](https://www.rust-lang.org) :)",
+            "hello Rust :)",
+        );
+        t(
+            "hello [Rust](https://www.rust-lang.org \"Rust\") :)",
+            "hello Rust :)",
+        );
         t("code `let x = i32;` ...", "code `let x = i32;` ...");
         t("type `Type<'static>` ...", "type `Type<'static>` ...");
         t("# top header", "top header");
@@ -926,7 +1119,10 @@ mod tests {
             assert_eq!(output, expect, "original: {}", input);
         }
 
-        t("`Struct<'a, T>`", "<p><code>Struct&lt;'a, T&gt;</code></p>\n");
+        t(
+            "`Struct<'a, T>`",
+            "<p><code>Struct&lt;'a, T&gt;</code></p>\n",
+        );
         t("Struct<'a, T>", "<p>Struct&lt;'a, T&gt;</p>\n");
         t("Struct<br>", "<p>Struct&lt;br&gt;</p>\n");
     }

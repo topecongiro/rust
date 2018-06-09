@@ -10,23 +10,29 @@
 
 //! UTF-8 and UTF-16 decoding iterators
 
+use super::from_u32_unchecked;
 use fmt;
 use iter::FusedIterator;
-use super::from_u32_unchecked;
 
 /// An iterator over an iterator of bytes of the characters the bytes represent
 /// as UTF-8
 #[unstable(feature = "decode_utf8", issue = "33906")]
-#[rustc_deprecated(since = "1.27.0", reason = "Use str::from_utf8 instead:
-    https://doc.rust-lang.org/nightly/std/str/struct.Utf8Error.html#examples")]
+#[rustc_deprecated(
+    since = "1.27.0",
+    reason = "Use str::from_utf8 instead:
+    https://doc.rust-lang.org/nightly/std/str/struct.Utf8Error.html#examples"
+)]
 #[derive(Clone, Debug)]
 #[allow(deprecated)]
 pub struct DecodeUtf8<I: Iterator<Item = u8>>(::iter::Peekable<I>);
 
 /// Decodes an `Iterator` of bytes as UTF-8.
 #[unstable(feature = "decode_utf8", issue = "33906")]
-#[rustc_deprecated(since = "1.27.0", reason = "Use str::from_utf8 instead:
-    https://doc.rust-lang.org/nightly/std/str/struct.Utf8Error.html#examples")]
+#[rustc_deprecated(
+    since = "1.27.0",
+    reason = "Use str::from_utf8 instead:
+    https://doc.rust-lang.org/nightly/std/str/struct.Utf8Error.html#examples"
+)]
 #[allow(deprecated)]
 #[inline]
 pub fn decode_utf8<I: IntoIterator<Item = u8>>(i: I) -> DecodeUtf8<I::IntoIter> {
@@ -35,8 +41,11 @@ pub fn decode_utf8<I: IntoIterator<Item = u8>>(i: I) -> DecodeUtf8<I::IntoIter> 
 
 /// `<DecodeUtf8 as Iterator>::next` returns this for an invalid input sequence.
 #[unstable(feature = "decode_utf8", issue = "33906")]
-#[rustc_deprecated(since = "1.27.0", reason = "Use str::from_utf8 instead:
-    https://doc.rust-lang.org/nightly/std/str/struct.Utf8Error.html#examples")]
+#[rustc_deprecated(
+    since = "1.27.0",
+    reason = "Use str::from_utf8 instead:
+    https://doc.rust-lang.org/nightly/std/str/struct.Utf8Error.html#examples"
+)]
 #[derive(PartialEq, Eq, Debug)]
 #[allow(deprecated)]
 pub struct InvalidSequence(());
@@ -59,21 +68,23 @@ impl<I: Iterator<Item = u8>> Iterator for DecodeUtf8<I> {
 
             let mut code_point;
             macro_rules! first_byte {
-                ($mask: expr) => {
+                ($mask:expr) => {
                     code_point = u32::from(first_byte & $mask)
-                }
+                };
             }
             macro_rules! continuation_byte {
-                () => { continuation_byte!(0x80...0xBF) };
-                ($range: pat) => {
+                () => {
+                    continuation_byte!(0x80...0xBF)
+                };
+                ($range:pat) => {
                     match self.0.peek() {
                         Some(&byte @ $range) => {
                             code_point = (code_point << 6) | u32::from(byte & 0b0011_1111);
                             self.0.next();
                         }
-                        _ => return Err(InvalidSequence(()))
+                        _ => return Err(InvalidSequence(())),
                     }
-                }
+                };
             }
 
             match first_byte {
@@ -86,7 +97,7 @@ impl<I: Iterator<Item = u8>> Iterator for DecodeUtf8<I> {
                 }
                 0xE0 => {
                     first_byte!(0b0000_1111);
-                    continuation_byte!(0xA0...0xBF);  // 0x80...0x9F here are overlong
+                    continuation_byte!(0xA0...0xBF); // 0x80...0x9F here are overlong
                     continuation_byte!();
                 }
                 0xE1...0xEC | 0xEE...0xEF => {
@@ -96,12 +107,12 @@ impl<I: Iterator<Item = u8>> Iterator for DecodeUtf8<I> {
                 }
                 0xED => {
                     first_byte!(0b0000_1111);
-                    continuation_byte!(0x80...0x9F);  // 0xA0..0xBF here are surrogates
+                    continuation_byte!(0x80...0x9F); // 0xA0..0xBF here are surrogates
                     continuation_byte!();
                 }
                 0xF0 => {
                     first_byte!(0b0000_0111);
-                    continuation_byte!(0x90...0xBF);  // 0x80..0x8F here are overlong
+                    continuation_byte!(0x90...0xBF); // 0x80..0x8F here are overlong
                     continuation_byte!();
                     continuation_byte!();
                 }
@@ -113,15 +124,13 @@ impl<I: Iterator<Item = u8>> Iterator for DecodeUtf8<I> {
                 }
                 0xF4 => {
                     first_byte!(0b0000_0111);
-                    continuation_byte!(0x80...0x8F);  // 0x90..0xBF here are beyond char::MAX
+                    continuation_byte!(0x80...0x8F); // 0x90..0xBF here are beyond char::MAX
                     continuation_byte!();
                     continuation_byte!();
                 }
-                _ => return Err(InvalidSequence(()))  // Illegal first byte, overlong, or beyond MAX
+                _ => return Err(InvalidSequence(())), // Illegal first byte, overlong, or beyond MAX
             }
-            unsafe {
-                Ok(from_u32_unchecked(code_point))
-            }
+            unsafe { Ok(from_u32_unchecked(code_point)) }
         })
     }
 
@@ -144,7 +153,8 @@ impl<I: FusedIterator<Item = u8>> FusedIterator for DecodeUtf8<I> {}
 #[stable(feature = "decode_utf16", since = "1.9.0")]
 #[derive(Clone, Debug)]
 pub struct DecodeUtf16<I>
-    where I: Iterator<Item = u16>
+where
+    I: Iterator<Item = u16>,
 {
     iter: I,
     buf: Option<u16>,
@@ -217,7 +227,7 @@ impl<I: Iterator<Item = u16>> Iterator for DecodeUtf16<I> {
     fn next(&mut self) -> Option<Result<char, DecodeUtf16Error>> {
         let u = match self.buf.take() {
             Some(buf) => buf,
-            None => self.iter.next()?
+            None => self.iter.next()?,
         };
 
         if u < 0xD800 || 0xDFFF < u {

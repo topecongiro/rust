@@ -11,11 +11,11 @@
 //! Helper functions corresponding to lifetime errors due to
 //! anonymous regions.
 use hir;
-use infer::error_reporting::nice_region_error::NiceRegionError;
-use ty::{self, Region, Ty};
 use hir::def_id::DefId;
 use hir::map as hir_map;
+use infer::error_reporting::nice_region_error::NiceRegionError;
 use syntax_pos::Span;
+use ty::{self, Region, Ty};
 
 // The struct contains the information about the anonymous region
 // we are searching for.
@@ -125,7 +125,8 @@ impl<'a, 'gcx, 'tcx> NiceRegionError<'a, 'gcx, 'tcx> {
             _ => return None, // not a free region
         };
 
-        let node_id = self.tcx
+        let node_id = self
+            .tcx
             .hir
             .as_local_node_id(suitable_region_binding_scope)
             .unwrap();
@@ -157,7 +158,8 @@ impl<'a, 'gcx, 'tcx> NiceRegionError<'a, 'gcx, 'tcx> {
         match ret_ty.sty {
             ty::TyFnDef(_, _) => {
                 let sig = ret_ty.fn_sig(self.tcx);
-                let late_bound_regions = self.tcx
+                let late_bound_regions = self
+                    .tcx
                     .collect_referenced_late_bound_regions(&sig.output());
                 if late_bound_regions.iter().any(|r| *r == br) {
                     return Some(decl.output.span());
@@ -173,7 +175,8 @@ impl<'a, 'gcx, 'tcx> NiceRegionError<'a, 'gcx, 'tcx> {
     // enable E0621 for it.
     pub(super) fn is_self_anon(&self, is_first: bool, scope_def_id: DefId) -> bool {
         is_first
-            && self.tcx
+            && self
+                .tcx
                 .opt_associated_item(scope_def_id)
                 .map(|i| i.method_has_self_argument) == Some(true)
     }
@@ -183,7 +186,8 @@ impl<'a, 'gcx, 'tcx> NiceRegionError<'a, 'gcx, 'tcx> {
         &self,
         suitable_region_binding_scope: DefId,
     ) -> bool {
-        let container_id = self.tcx
+        let container_id = self
+            .tcx
             .associated_item(suitable_region_binding_scope)
             .container
             .id();

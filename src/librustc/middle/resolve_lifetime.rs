@@ -20,7 +20,7 @@ use hir::def_id::{CrateNum, DefId, LocalDefId, LOCAL_CRATE};
 use hir::map::Map;
 use hir::ItemLocalId;
 use hir::LifetimeName;
-use ty::{self, TyCtxt, GenericParamDefKind};
+use ty::{self, GenericParamDefKind, TyCtxt};
 
 use errors::DiagnosticBuilder;
 use rustc::lint;
@@ -103,10 +103,7 @@ impl Region {
         let origin = LifetimeDefOrigin::from_is_in_band(def.in_band);
         debug!(
             "Region::late: def={:?} depth={:?} def_id={:?} origin={:?}",
-            def,
-            depth,
-            def_id,
-            origin,
+            def, depth, def_id, origin,
         );
         (def.lifetime.name, Region::LateBound(depth, def_id, origin))
     }
@@ -142,15 +139,12 @@ impl Region {
 
     fn shifted_out_to_binder(self, binder: ty::DebruijnIndex) -> Region {
         match self {
-            Region::LateBound(debruijn, id, origin) => Region::LateBound(
-                debruijn.shifted_out_to_binder(binder),
-                id,
-                origin,
-            ),
-            Region::LateBoundAnon(debruijn, index) => Region::LateBoundAnon(
-                debruijn.shifted_out_to_binder(binder),
-                index,
-            ),
+            Region::LateBound(debruijn, id, origin) => {
+                Region::LateBound(debruijn.shifted_out_to_binder(binder), id, origin)
+            }
+            Region::LateBoundAnon(debruijn, index) => {
+                Region::LateBoundAnon(debruijn.shifted_out_to_binder(binder), index)
+            }
             _ => self,
         }
     }
@@ -395,7 +389,8 @@ fn resolve_lifetimes<'tcx>(
     let mut defs = FxHashMap();
     for (k, v) in named_region_map.defs {
         let hir_id = tcx.hir.node_to_hir_id(k);
-        let map = defs.entry(hir_id.owner_local_def_id())
+        let map = defs
+            .entry(hir_id.owner_local_def_id())
             .or_insert_with(|| Lrc::new(FxHashMap()));
         Lrc::get_mut(map).unwrap().insert(hir_id.local_id, v);
     }
@@ -562,7 +557,8 @@ impl<'a, 'tcx> Visitor<'tcx> for LifetimeContext<'a, 'tcx> {
                 let was_in_fn_syntax = self.is_in_fn_syntax;
                 self.is_in_fn_syntax = true;
                 let scope = Scope::Binder {
-                    lifetimes: c.generic_params
+                    lifetimes: c
+                        .generic_params
                         .lifetimes()
                         .map(|def| Region::late(&self.tcx.hir, def))
                         .collect(),
@@ -1309,7 +1305,8 @@ impl<'a, 'tcx> LifetimeContext<'a, 'tcx> {
             }
         };
 
-        let mut def_ids: Vec<_> = defined_by.values()
+        let mut def_ids: Vec<_> = defined_by
+            .values()
             .flat_map(|region| match region {
                 Region::EarlyBound(_, def_id, _)
                 | Region::LateBound(_, def_id, _)
@@ -1661,14 +1658,17 @@ impl<'a, 'tcx> LifetimeContext<'a, 'tcx> {
                 self.xcrate_object_lifetime_defaults
                     .entry(def_id)
                     .or_insert_with(|| {
-                        tcx.generics_of(def_id).params.iter().filter_map(|param| {
-                            match param.kind {
-                                GenericParamDefKind::Type { object_lifetime_default, .. } => {
-                                    Some(object_lifetime_default)
-                                }
+                        tcx.generics_of(def_id)
+                            .params
+                            .iter()
+                            .filter_map(|param| match param.kind {
+                                GenericParamDefKind::Type {
+                                    object_lifetime_default,
+                                    ..
+                                } => Some(object_lifetime_default),
                                 GenericParamDefKind::Lifetime => None,
-                            }
-                        }).collect()
+                            })
+                            .collect()
                     })
             };
             unsubst
@@ -1748,7 +1748,8 @@ impl<'a, 'tcx> LifetimeContext<'a, 'tcx> {
                 node: hir::TraitItemKind::Method(_, ref m),
                 ..
             }) => {
-                match self.tcx
+                match self
+                    .tcx
                     .hir
                     .expect_item(self.tcx.hir.get_parent(parent))
                     .node
@@ -1771,7 +1772,8 @@ impl<'a, 'tcx> LifetimeContext<'a, 'tcx> {
                 node: hir::ImplItemKind::Method(_, body),
                 ..
             }) => {
-                match self.tcx
+                match self
+                    .tcx
                     .hir
                     .expect_item(self.tcx.hir.get_parent(parent))
                     .node
@@ -2423,7 +2425,9 @@ fn insert_late_bound_lifetimes(
             hir::GenericParam::Lifetime(ref lifetime_def) => {
                 if !lifetime_def.bounds.is_empty() {
                     // `'a: 'b` means both `'a` and `'b` are referenced
-                    appears_in_where_clause.regions.insert(lifetime_def.lifetime.name);
+                    appears_in_where_clause
+                        .regions
+                        .insert(lifetime_def.lifetime.name);
                 }
             }
             hir::GenericParam::Type(_) => {}

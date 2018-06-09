@@ -27,7 +27,7 @@
 #![stable(feature = "rust1", since = "1.0.0")]
 
 #[stable(feature = "rust1", since = "1.0.0")]
-pub use core::ascii::{EscapeDefault, escape_default};
+pub use core::ascii::{escape_default, EscapeDefault};
 
 /// Extension methods for ASCII-subset only operations.
 ///
@@ -166,7 +166,9 @@ pub trait AsciiExt {
     /// inherent methods on `u8`, `char`, `[u8]` and `str`.
     #[unstable(feature = "ascii_ctype", issue = "39658")]
     #[rustc_deprecated(since = "1.26.0", reason = "use inherent methods instead")]
-    fn is_ascii_alphabetic(&self) -> bool { unimplemented!(); }
+    fn is_ascii_alphabetic(&self) -> bool {
+        unimplemented!();
+    }
 
     /// Checks if the value is an ASCII uppercase character:
     /// U+0041 'A' ... U+005A 'Z'.
@@ -179,7 +181,9 @@ pub trait AsciiExt {
     /// inherent methods on `u8`, `char`, `[u8]` and `str`.
     #[unstable(feature = "ascii_ctype", issue = "39658")]
     #[rustc_deprecated(since = "1.26.0", reason = "use inherent methods instead")]
-    fn is_ascii_uppercase(&self) -> bool { unimplemented!(); }
+    fn is_ascii_uppercase(&self) -> bool {
+        unimplemented!();
+    }
 
     /// Checks if the value is an ASCII lowercase character:
     /// U+0061 'a' ... U+007A 'z'.
@@ -192,7 +196,9 @@ pub trait AsciiExt {
     /// inherent methods on `u8`, `char`, `[u8]` and `str`.
     #[unstable(feature = "ascii_ctype", issue = "39658")]
     #[rustc_deprecated(since = "1.26.0", reason = "use inherent methods instead")]
-    fn is_ascii_lowercase(&self) -> bool { unimplemented!(); }
+    fn is_ascii_lowercase(&self) -> bool {
+        unimplemented!();
+    }
 
     /// Checks if the value is an ASCII alphanumeric character:
     /// U+0041 'A' ... U+005A 'Z', U+0061 'a' ... U+007A 'z', or
@@ -206,7 +212,9 @@ pub trait AsciiExt {
     /// inherent methods on `u8`, `char`, `[u8]` and `str`.
     #[unstable(feature = "ascii_ctype", issue = "39658")]
     #[rustc_deprecated(since = "1.26.0", reason = "use inherent methods instead")]
-    fn is_ascii_alphanumeric(&self) -> bool { unimplemented!(); }
+    fn is_ascii_alphanumeric(&self) -> bool {
+        unimplemented!();
+    }
 
     /// Checks if the value is an ASCII decimal digit:
     /// U+0030 '0' ... U+0039 '9'.
@@ -219,7 +227,9 @@ pub trait AsciiExt {
     /// inherent methods on `u8`, `char`, `[u8]` and `str`.
     #[unstable(feature = "ascii_ctype", issue = "39658")]
     #[rustc_deprecated(since = "1.26.0", reason = "use inherent methods instead")]
-    fn is_ascii_digit(&self) -> bool { unimplemented!(); }
+    fn is_ascii_digit(&self) -> bool {
+        unimplemented!();
+    }
 
     /// Checks if the value is an ASCII hexadecimal digit:
     /// U+0030 '0' ... U+0039 '9', U+0041 'A' ... U+0046 'F', or
@@ -233,7 +243,9 @@ pub trait AsciiExt {
     /// inherent methods on `u8`, `char`, `[u8]` and `str`.
     #[unstable(feature = "ascii_ctype", issue = "39658")]
     #[rustc_deprecated(since = "1.26.0", reason = "use inherent methods instead")]
-    fn is_ascii_hexdigit(&self) -> bool { unimplemented!(); }
+    fn is_ascii_hexdigit(&self) -> bool {
+        unimplemented!();
+    }
 
     /// Checks if the value is an ASCII punctuation character:
     ///
@@ -251,7 +263,9 @@ pub trait AsciiExt {
     /// inherent methods on `u8`, `char`, `[u8]` and `str`.
     #[unstable(feature = "ascii_ctype", issue = "39658")]
     #[rustc_deprecated(since = "1.26.0", reason = "use inherent methods instead")]
-    fn is_ascii_punctuation(&self) -> bool { unimplemented!(); }
+    fn is_ascii_punctuation(&self) -> bool {
+        unimplemented!();
+    }
 
     /// Checks if the value is an ASCII graphic character:
     /// U+0021 '!' ... U+007E '~'.
@@ -264,7 +278,9 @@ pub trait AsciiExt {
     /// inherent methods on `u8`, `char`, `[u8]` and `str`.
     #[unstable(feature = "ascii_ctype", issue = "39658")]
     #[rustc_deprecated(since = "1.26.0", reason = "use inherent methods instead")]
-    fn is_ascii_graphic(&self) -> bool { unimplemented!(); }
+    fn is_ascii_graphic(&self) -> bool {
+        unimplemented!();
+    }
 
     /// Checks if the value is an ASCII whitespace character:
     /// U+0020 SPACE, U+0009 HORIZONTAL TAB, U+000A LINE FEED,
@@ -294,7 +310,9 @@ pub trait AsciiExt {
     /// inherent methods on `u8`, `char`, `[u8]` and `str`.
     #[unstable(feature = "ascii_ctype", issue = "39658")]
     #[rustc_deprecated(since = "1.26.0", reason = "use inherent methods instead")]
-    fn is_ascii_whitespace(&self) -> bool { unimplemented!(); }
+    fn is_ascii_whitespace(&self) -> bool {
+        unimplemented!();
+    }
 
     /// Checks if the value is an ASCII control character:
     /// U+0000 NUL ... U+001F UNIT SEPARATOR, or U+007F DELETE.
@@ -307,7 +325,9 @@ pub trait AsciiExt {
     /// inherent methods on `u8`, `char`, `[u8]` and `str`.
     #[unstable(feature = "ascii_ctype", issue = "39658")]
     #[rustc_deprecated(since = "1.26.0", reason = "use inherent methods instead")]
-    fn is_ascii_control(&self) -> bool { unimplemented!(); }
+    fn is_ascii_control(&self) -> bool {
+        unimplemented!();
+    }
 }
 
 macro_rules! delegating_ascii_methods {

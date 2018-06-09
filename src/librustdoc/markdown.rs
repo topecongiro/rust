@@ -11,23 +11,23 @@
 use std::default::Default;
 use std::fs::File;
 use std::io::prelude::*;
-use std::path::{PathBuf, Path};
+use std::path::{Path, PathBuf};
 
 use errors;
 use getopts;
-use testing;
+use rustc::session::config::{CodegenOptions, Externs};
 use rustc::session::search_paths::SearchPaths;
-use rustc::session::config::{Externs, CodegenOptions};
 use syntax::codemap::DUMMY_SP;
 use syntax::edition::Edition;
+use testing;
 
-use externalfiles::{ExternalHtml, LoadStringError, load_string};
+use externalfiles::{load_string, ExternalHtml, LoadStringError};
 
-use html::render::reset_ids;
 use html::escape::Escape;
 use html::markdown;
-use html::markdown::{Markdown, MarkdownWithToc, find_testable_code};
-use test::{TestOptions, Collector};
+use html::markdown::{find_testable_code, Markdown, MarkdownWithToc};
+use html::render::reset_ids;
+use test::{Collector, TestOptions};
 
 /// Separate any lines at the start of the file that begin with `# ` or `%`.
 fn extract_leading_metadata<'a>(s: &'a str) -> (Vec<&'a str>, &'a str) {
@@ -50,14 +50,23 @@ fn extract_leading_metadata<'a>(s: &'a str) -> (Vec<&'a str>, &'a str) {
 
 /// Render `input` (e.g. "foo.md") into an HTML file in `output`
 /// (e.g. output = "bar" => "bar/foo.html").
-pub fn render(input: &Path, mut output: PathBuf, matches: &getopts::Matches,
-              external_html: &ExternalHtml, include_toc: bool, diag: &errors::Handler) -> isize {
+pub fn render(
+    input: &Path,
+    mut output: PathBuf,
+    matches: &getopts::Matches,
+    external_html: &ExternalHtml,
+    include_toc: bool,
+    diag: &errors::Handler,
+) -> isize {
     output.push(input.file_stem().unwrap());
     output.set_extension("html");
 
     let mut css = String::new();
     for name in &matches.opt_strs("markdown-css") {
-        let s = format!("<link rel=\"stylesheet\" type=\"text/css\" href=\"{}\">\n", name);
+        let s = format!(
+            "<link rel=\"stylesheet\" type=\"text/css\" href=\"{}\">\n",
+            name
+        );
         css.push_str(&s)
     }
 
@@ -66,22 +75,28 @@ pub fn render(input: &Path, mut output: PathBuf, matches: &getopts::Matches,
         Err(LoadStringError::ReadFail) => return 1,
         Err(LoadStringError::BadUtf8) => return 2,
     };
-    if let Some(playground) = matches.opt_str("markdown-playground-url").or(
-                              matches.opt_str("playground-url")) {
-        markdown::PLAYGROUND.with(|s| { *s.borrow_mut() = Some((None, playground)); });
+    if let Some(playground) = matches
+        .opt_str("markdown-playground-url")
+        .or(matches.opt_str("playground-url"))
+    {
+        markdown::PLAYGROUND.with(|s| {
+            *s.borrow_mut() = Some((None, playground));
+        });
     }
 
     let mut out = match File::create(&output) {
         Err(e) => {
-            diag.struct_err(&format!("{}: {}", output.display(), e)).emit();
+            diag.struct_err(&format!("{}: {}", output.display(), e))
+                .emit();
             return 4;
         }
-        Ok(f) => f
+        Ok(f) => f,
     };
 
     let (metadata, text) = extract_leading_metadata(&input_str);
     if metadata.is_empty() {
-        diag.struct_err("invalid markdown file: no initial lines starting with `# ` or `%`").emit();
+        diag.struct_err("invalid markdown file: no initial lines starting with `# ` or `%`")
+            .emit();
         return 5;
     }
     let title = metadata[0];
@@ -131,7 +146,8 @@ pub fn render(input: &Path, mut output: PathBuf, matches: &getopts::Matches,
 
     match err {
         Err(e) => {
-            diag.struct_err(&format!("cannot write to `{}`: {}", output.display(), e)).emit();
+            diag.struct_err(&format!("cannot write to `{}`: {}", output.display(), e))
+                .emit();
             6
         }
         Ok(_) => 0,
@@ -139,10 +155,19 @@ pub fn render(input: &Path, mut output: PathBuf, matches: &getopts::Matches,
 }
 
 /// Run any tests/code examples in the markdown file `input`.
-pub fn test(input: &str, cfgs: Vec<String>, libs: SearchPaths, externs: Externs,
-            mut test_args: Vec<String>, maybe_sysroot: Option<PathBuf>,
-            display_warnings: bool, linker: Option<PathBuf>, edition: Edition,
-            cg: CodegenOptions, diag: &errors::Handler) -> isize {
+pub fn test(
+    input: &str,
+    cfgs: Vec<String>,
+    libs: SearchPaths,
+    externs: Externs,
+    mut test_args: Vec<String>,
+    maybe_sysroot: Option<PathBuf>,
+    display_warnings: bool,
+    linker: Option<PathBuf>,
+    edition: Edition,
+    cg: CodegenOptions,
+    diag: &errors::Handler,
+) -> isize {
     let input_str = match load_string(input, diag) {
         Ok(s) => s,
         Err(LoadStringError::ReadFail) => return 1,
@@ -152,13 +177,26 @@ pub fn test(input: &str, cfgs: Vec<String>, libs: SearchPaths, externs: Externs,
     let mut opts = TestOptions::default();
     opts.no_crate_inject = true;
     opts.display_warnings = display_warnings;
-    let mut collector = Collector::new(input.to_owned(), cfgs, libs, cg, externs,
-                                       true, opts, maybe_sysroot, None,
-                                       Some(PathBuf::from(input)),
-                                       linker, edition);
+    let mut collector = Collector::new(
+        input.to_owned(),
+        cfgs,
+        libs,
+        cg,
+        externs,
+        true,
+        opts,
+        maybe_sysroot,
+        None,
+        Some(PathBuf::from(input)),
+        linker,
+        edition,
+    );
     find_testable_code(&input_str, &mut collector, DUMMY_SP, None);
     test_args.insert(0, "rustdoctest".to_string());
-    testing::test_main(&test_args, collector.tests,
-                       testing::Options::new().display_output(display_warnings));
+    testing::test_main(
+        &test_args,
+        collector.tests,
+        testing::Options::new().display_output(display_warnings),
+    );
     0
 }

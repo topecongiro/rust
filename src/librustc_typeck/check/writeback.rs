@@ -17,14 +17,14 @@ use rustc::hir;
 use rustc::hir::def_id::{DefId, DefIndex};
 use rustc::hir::intravisit::{self, NestedVisitorMap, Visitor};
 use rustc::infer::InferCtxt;
-use rustc::ty::{self, Ty, TyCtxt};
 use rustc::ty::adjustment::{Adjust, Adjustment};
 use rustc::ty::fold::{TypeFoldable, TypeFolder};
+use rustc::ty::{self, Ty, TyCtxt};
 use rustc::util::nodemap::DefIdSet;
+use rustc_data_structures::sync::Lrc;
+use std::mem;
 use syntax::ast;
 use syntax_pos::Span;
-use std::mem;
-use rustc_data_structures::sync::Lrc;
 
 ///////////////////////////////////////////////////////////////////////////
 // Entry point
@@ -54,8 +54,7 @@ impl<'a, 'gcx, 'tcx> FnCtxt<'a, 'gcx, 'tcx> {
         );
         debug!(
             "used_trait_imports({:?}) = {:?}",
-            item_def_id,
-            used_trait_imports
+            item_def_id, used_trait_imports
         );
         wbcx.tables.used_trait_imports = used_trait_imports;
 
@@ -63,8 +62,7 @@ impl<'a, 'gcx, 'tcx> FnCtxt<'a, 'gcx, 'tcx> {
 
         debug!(
             "writeback: tables for {:?} are {:#?}",
-            item_def_id,
-            wbcx.tables
+            item_def_id, wbcx.tables
         );
 
         self.tcx.alloc_tables(wbcx.tables)
@@ -176,8 +174,7 @@ impl<'cx, 'gcx, 'tcx> WritebackCx<'cx, 'gcx, 'tcx> {
                     let index_ty = tables.expr_ty_adjusted(&index);
                     let index_ty = self.fcx.resolve_type_vars_if_possible(&index_ty);
 
-                    if base_ty.builtin_index().is_some()
-                        && index_ty == self.fcx.tcx.types.usize {
+                    if base_ty.builtin_index().is_some() && index_ty == self.fcx.tcx.types.usize {
                         // Remove the method call record
                         tables.type_dependent_defs_mut().remove(e.hir_id);
                         tables.node_substs_mut().remove(e.hir_id);
@@ -189,23 +186,25 @@ impl<'cx, 'gcx, 'tcx> WritebackCx<'cx, 'gcx, 'tcx> {
                                 // of size information - we need to get rid of it
                                 // Since this is "after" the other adjustment to be
                                 // discarded, we do an extra `pop()`
-                                Some(Adjustment { kind: Adjust::Unsize, .. }) => {
+                                Some(Adjustment {
+                                    kind: Adjust::Unsize,
+                                    ..
+                                }) => {
                                     // So the borrow discard actually happens here
                                     a.pop();
-                                },
+                                }
                                 _ => {}
                             }
                         });
                     }
-                },
+                }
                 // Might encounter non-valid indexes at this point, so there
                 // has to be a fall-through
-                _ => {},
+                _ => {}
             }
         }
     }
 }
-
 
 ///////////////////////////////////////////////////////////////////////////
 // Impl of Visitor for Resolver
@@ -257,7 +256,8 @@ impl<'cx, 'gcx, 'tcx> Visitor<'gcx> for WritebackCx<'cx, 'gcx, 'tcx> {
     fn visit_pat(&mut self, p: &'gcx hir::Pat) {
         match p.node {
             hir::PatKind::Binding(..) => {
-                let bm = *self.fcx
+                let bm = *self
+                    .fcx
                     .tables
                     .borrow()
                     .pat_binding_modes()
@@ -310,8 +310,7 @@ impl<'cx, 'gcx, 'tcx> WritebackCx<'cx, 'gcx, 'tcx> {
             };
             debug!(
                 "Upvar capture for {:?} resolved to {:?}",
-                upvar_id,
-                new_upvar_capture
+                upvar_id, new_upvar_capture
             );
             self.tables
                 .upvar_capture_map
@@ -352,7 +351,8 @@ impl<'cx, 'gcx, 'tcx> WritebackCx<'cx, 'gcx, 'tcx> {
     }
 
     fn visit_free_region_map(&mut self) {
-        let free_region_map = self.tcx()
+        let free_region_map = self
+            .tcx()
             .lift_to_global(&self.fcx.tables.borrow().free_region_map);
         let free_region_map = free_region_map.expect("all regions in free-region-map are global");
         self.tables.free_region_map = free_region_map;
@@ -402,14 +402,21 @@ impl<'cx, 'gcx, 'tcx> WritebackCx<'cx, 'gcx, 'tcx> {
 
     fn visit_field_id(&mut self, node_id: ast::NodeId) {
         let hir_id = self.tcx().hir.node_to_hir_id(node_id);
-        if let Some(index) = self.fcx.tables.borrow_mut().field_indices_mut().remove(hir_id) {
+        if let Some(index) = self
+            .fcx
+            .tables
+            .borrow_mut()
+            .field_indices_mut()
+            .remove(hir_id)
+        {
             self.tables.field_indices_mut().insert(hir_id, index);
         }
     }
 
     fn visit_node_id(&mut self, span: Span, hir_id: hir::HirId) {
         // Export associated path extensions and method resultions.
-        if let Some(def) = self.fcx
+        if let Some(def) = self
+            .fcx
             .tables
             .borrow_mut()
             .type_dependent_defs_mut()
@@ -437,7 +444,8 @@ impl<'cx, 'gcx, 'tcx> WritebackCx<'cx, 'gcx, 'tcx> {
     }
 
     fn visit_adjustments(&mut self, span: Span, hir_id: hir::HirId) {
-        let adjustment = self.fcx
+        let adjustment = self
+            .fcx
             .tables
             .borrow_mut()
             .adjustments_mut()
@@ -451,8 +459,7 @@ impl<'cx, 'gcx, 'tcx> WritebackCx<'cx, 'gcx, 'tcx> {
                 let resolved_adjustment = self.resolve(&adjustment, &span);
                 debug!(
                     "Adjustments for node {:?}: {:?}",
-                    hir_id,
-                    resolved_adjustment
+                    hir_id, resolved_adjustment
                 );
                 self.tables
                     .adjustments_mut()
@@ -462,7 +469,8 @@ impl<'cx, 'gcx, 'tcx> WritebackCx<'cx, 'gcx, 'tcx> {
     }
 
     fn visit_pat_adjustments(&mut self, span: Span, hir_id: hir::HirId) {
-        let adjustment = self.fcx
+        let adjustment = self
+            .fcx
             .tables
             .borrow_mut()
             .pat_adjustments_mut()
@@ -476,8 +484,7 @@ impl<'cx, 'gcx, 'tcx> WritebackCx<'cx, 'gcx, 'tcx> {
                 let resolved_adjustment = self.resolve(&adjustment, &span);
                 debug!(
                     "pat_adjustments for node {:?}: {:?}",
-                    hir_id,
-                    resolved_adjustment
+                    hir_id, resolved_adjustment
                 );
                 self.tables
                     .pat_adjustments_mut()
@@ -593,7 +600,8 @@ impl<'cx, 'gcx, 'tcx> Resolver<'cx, 'gcx, 'tcx> {
     fn report_error(&self, t: Ty<'tcx>) {
         if !self.tcx.sess.has_errors() {
             self.infcx
-                .need_type_info_err(Some(self.body.id()), self.span.to_span(&self.tcx), t).emit();
+                .need_type_info_err(Some(self.body.id()), self.span.to_span(&self.tcx), t)
+                .emit();
         }
     }
 }

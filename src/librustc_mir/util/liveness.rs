@@ -33,18 +33,18 @@
 //! generator yield points, all pre-existing references are invalidated, so this
 //! doesn't matter).
 
-use rustc::mir::*;
-use rustc::mir::visit::{PlaceContext, Visitor};
-use rustc_data_structures::indexed_vec::{Idx, IndexVec};
-use rustc_data_structures::indexed_set::IdxSetBuf;
-use util::pretty::{dump_enabled, write_basic_block, write_mir_intro};
-use rustc::ty::item_path;
 use rustc::mir::visit::MirVisitable;
-use std::path::{Path, PathBuf};
-use std::fs;
+use rustc::mir::visit::{PlaceContext, Visitor};
+use rustc::mir::*;
+use rustc::ty::item_path;
 use rustc::ty::TyCtxt;
+use rustc_data_structures::indexed_set::IdxSetBuf;
+use rustc_data_structures::indexed_vec::{Idx, IndexVec};
+use std::fs;
 use std::io::{self, Write};
+use std::path::{Path, PathBuf};
 use transform::MirSource;
+use util::pretty::{dump_enabled, write_basic_block, write_mir_intro};
 
 pub type LocalSet = IdxSetBuf<Local>;
 
@@ -119,12 +119,14 @@ impl LivenessResults {
 /// considered to make a variable live (e.g., do drops count?).
 pub fn liveness_of_locals<'tcx>(mir: &Mir<'tcx>, mode: LivenessMode) -> LivenessResult {
     let locals = mir.local_decls.len();
-    let def_use: IndexVec<_, _> = mir.basic_blocks()
+    let def_use: IndexVec<_, _> = mir
+        .basic_blocks()
         .iter()
         .map(|b| block(mode, b, locals))
         .collect();
 
-    let mut ins: IndexVec<_, _> = mir.basic_blocks()
+    let mut ins: IndexVec<_, _> = mir
+        .basic_blocks()
         .indices()
         .map(|_| LocalSet::new_empty(locals))
         .collect();
@@ -431,7 +433,8 @@ pub fn write_mir_fn<'a, 'tcx>(
     write_mir_intro(tcx, src, mir, w)?;
     for block in mir.basic_blocks().indices() {
         let print = |w: &mut dyn Write, prefix, result: &IndexVec<BasicBlock, LocalSet>| {
-            let live: Vec<String> = mir.local_decls
+            let live: Vec<String> = mir
+                .local_decls
                 .indices()
                 .filter(|i| result[block].contains(i))
                 .map(|i| format!("{:?}", i))

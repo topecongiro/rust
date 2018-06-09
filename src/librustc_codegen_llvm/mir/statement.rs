@@ -17,10 +17,11 @@ use super::FunctionCx;
 use super::LocalRef;
 
 impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
-    pub fn codegen_statement(&mut self,
-                           bx: Builder<'a, 'tcx>,
-                           statement: &mir::Statement<'tcx>)
-                           -> Builder<'a, 'tcx> {
+    pub fn codegen_statement(
+        &mut self,
+        bx: Builder<'a, 'tcx>,
+        statement: &mir::Statement<'tcx>,
+    ) -> Builder<'a, 'tcx> {
         debug!("codegen_statement(statement={:?})", statement);
 
         self.set_debug_loc(&bx, statement.source_info);
@@ -28,9 +29,7 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
             mir::StatementKind::Assign(ref place, ref rvalue) => {
                 if let mir::Place::Local(index) = *place {
                     match self.locals[index] {
-                        LocalRef::Place(cg_dest) => {
-                            self.codegen_rvalue(bx, cg_dest, rvalue)
-                        }
+                        LocalRef::Place(cg_dest) => self.codegen_rvalue(bx, cg_dest, rvalue),
                         LocalRef::Operand(None) => {
                             let (bx, operand) = self.codegen_rvalue_operand(bx, rvalue);
                             self.locals[index] = LocalRef::Operand(Some(operand));
@@ -38,9 +37,11 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                         }
                         LocalRef::Operand(Some(op)) => {
                             if !op.layout.is_zst() {
-                                span_bug!(statement.source_info.span,
-                                          "operand {:?} already assigned",
-                                          rvalue);
+                                span_bug!(
+                                    statement.source_info.span,
+                                    "operand {:?} already assigned",
+                                    rvalue
+                                );
                             }
 
                             // If the type is zero-sized, it's already been set here,
@@ -53,7 +54,10 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                     self.codegen_rvalue(bx, cg_dest, rvalue)
                 }
             }
-            mir::StatementKind::SetDiscriminant{ref place, variant_index} => {
+            mir::StatementKind::SetDiscriminant {
+                ref place,
+                variant_index,
+            } => {
                 self.codegen_place(&bx, place)
                     .codegen_set_discr(&bx, variant_index);
                 bx
@@ -70,23 +74,29 @@ impl<'a, 'tcx> FunctionCx<'a, 'tcx> {
                 }
                 bx
             }
-            mir::StatementKind::InlineAsm { ref asm, ref outputs, ref inputs } => {
-                let outputs = outputs.iter().map(|output| {
-                    self.codegen_place(&bx, output)
-                }).collect();
+            mir::StatementKind::InlineAsm {
+                ref asm,
+                ref outputs,
+                ref inputs,
+            } => {
+                let outputs = outputs
+                    .iter()
+                    .map(|output| self.codegen_place(&bx, output))
+                    .collect();
 
-                let input_vals = inputs.iter().map(|input| {
-                    self.codegen_operand(&bx, input).immediate()
-                }).collect();
+                let input_vals = inputs
+                    .iter()
+                    .map(|input| self.codegen_operand(&bx, input).immediate())
+                    .collect();
 
                 asm::codegen_inline_asm(&bx, asm, outputs, input_vals);
                 bx
             }
-            mir::StatementKind::ReadForMatch(_) |
-            mir::StatementKind::EndRegion(_) |
-            mir::StatementKind::Validate(..) |
-            mir::StatementKind::UserAssertTy(..) |
-            mir::StatementKind::Nop => bx,
+            mir::StatementKind::ReadForMatch(_)
+            | mir::StatementKind::EndRegion(_)
+            | mir::StatementKind::Validate(..)
+            | mir::StatementKind::UserAssertTy(..)
+            | mir::StatementKind::Nop => bx,
         }
     }
 }

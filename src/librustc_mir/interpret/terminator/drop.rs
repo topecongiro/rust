@@ -2,8 +2,8 @@ use rustc::mir::BasicBlock;
 use rustc::ty::{self, Ty};
 use syntax::codemap::Span;
 
+use interpret::{EvalContext, Machine, Place, PlaceExtra, ValTy};
 use rustc::mir::interpret::{EvalResult, Scalar, Value};
-use interpret::{Machine, ValTy, EvalContext, Place, PlaceExtra};
 
 impl<'a, 'mir, 'tcx, M: Machine<'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> {
     pub(crate) fn drop_place(
@@ -60,8 +60,8 @@ impl<'a, 'mir, 'tcx, M: Machine<'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> {
                     // no drop fn -> bail out
                     None => {
                         self.goto_block(target);
-                        return Ok(())
-                    },
+                        return Ok(());
+                    }
                 }
             }
             _ => instance,

@@ -7,8 +7,8 @@
 // <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
-use ops::{Mul, Add, Try};
 use num::Wrapping;
+use ops::{Add, Mul, Try};
 
 use super::{AlwaysOk, LoopState};
 
@@ -104,8 +104,8 @@ use super::{AlwaysOk, LoopState};
 /// assert_eq!(c.0, vec![0, 1, 2, 3, 4]);
 /// ```
 #[stable(feature = "rust1", since = "1.0.0")]
-#[rustc_on_unimplemented="a collection of type `{Self}` cannot be \
-                          built from an iterator over elements of type `{A}`"]
+#[rustc_on_unimplemented = "a collection of type `{Self}` cannot be \
+                            built from an iterator over elements of type `{A}`"]
 pub trait FromIterator<A>: Sized {
     /// Creates a value from an iterator.
     ///
@@ -127,7 +127,7 @@ pub trait FromIterator<A>: Sized {
     /// assert_eq!(v, vec![5, 5, 5, 5, 5]);
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    fn from_iter<T: IntoIterator<Item=A>>(iter: T) -> Self;
+    fn from_iter<T: IntoIterator<Item = A>>(iter: T) -> Self;
 }
 
 /// Conversion into an `Iterator`.
@@ -223,7 +223,7 @@ pub trait IntoIterator {
 
     /// Which kind of iterator are we turning this into?
     #[stable(feature = "rust1", since = "1.0.0")]
-    type IntoIter: Iterator<Item=Self::Item>;
+    type IntoIter: Iterator<Item = Self::Item>;
 
     /// Creates an iterator from a value.
     ///
@@ -349,7 +349,7 @@ pub trait Extend<A> {
     /// assert_eq!("abcdef", &message);
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    fn extend<T: IntoIterator<Item=A>>(&mut self, iter: T);
+    fn extend<T: IntoIterator<Item = A>>(&mut self, iter: T);
 }
 
 #[stable(feature = "extend_for_unit", since = "1.28.0")]
@@ -458,8 +458,11 @@ pub trait DoubleEndedIterator: Iterator {
     /// ```
     #[inline]
     #[stable(feature = "iterator_try_fold", since = "1.27.0")]
-    fn try_rfold<B, F, R>(&mut self, init: B, mut f: F) -> R where
-        Self: Sized, F: FnMut(B, Self::Item) -> R, R: Try<Ok=B>
+    fn try_rfold<B, F, R>(&mut self, init: B, mut f: F) -> R
+    where
+        Self: Sized,
+        F: FnMut(B, Self::Item) -> R,
+        R: Try<Ok = B>,
     {
         let mut accum = init;
         while let Some(x) = self.next_back() {
@@ -521,8 +524,10 @@ pub trait DoubleEndedIterator: Iterator {
     /// ```
     #[inline]
     #[stable(feature = "iter_rfold", since = "1.27.0")]
-    fn rfold<B, F>(mut self, accum: B, mut f: F) -> B where
-        Self: Sized, F: FnMut(B, Self::Item) -> B,
+    fn rfold<B, F>(mut self, accum: B, mut f: F) -> B
+    where
+        Self: Sized,
+        F: FnMut(B, Self::Item) -> B,
     {
         self.try_rfold(accum, move |acc, x| AlwaysOk(f(acc, x))).0
     }
@@ -571,20 +576,26 @@ pub trait DoubleEndedIterator: Iterator {
     /// ```
     #[inline]
     #[stable(feature = "iter_rfind", since = "1.27.0")]
-    fn rfind<P>(&mut self, mut predicate: P) -> Option<Self::Item> where
+    fn rfind<P>(&mut self, mut predicate: P) -> Option<Self::Item>
+    where
         Self: Sized,
-        P: FnMut(&Self::Item) -> bool
+        P: FnMut(&Self::Item) -> bool,
     {
         self.try_rfold((), move |(), x| {
-            if predicate(&x) { LoopState::Break(x) }
-            else { LoopState::Continue(()) }
+            if predicate(&x) {
+                LoopState::Break(x)
+            } else {
+                LoopState::Continue(())
+            }
         }).break_value()
     }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<'a, I: DoubleEndedIterator + ?Sized> DoubleEndedIterator for &'a mut I {
-    fn next_back(&mut self) -> Option<I::Item> { (**self).next_back() }
+    fn next_back(&mut self) -> Option<I::Item> {
+        (**self).next_back()
+    }
 }
 
 /// An iterator that knows its exact length.
@@ -745,7 +756,7 @@ pub trait Sum<A = Self>: Sized {
     /// Method which takes an iterator and generates `Self` from the elements by
     /// "summing up" the items.
     #[stable(feature = "iter_arith_traits", since = "1.12.0")]
-    fn sum<I: Iterator<Item=A>>(iter: I) -> Self;
+    fn sum<I: Iterator<Item = A>>(iter: I) -> Self;
 }
 
 /// Trait to represent types that can be created by multiplying elements of an
@@ -764,7 +775,7 @@ pub trait Product<A = Self>: Sized {
     /// Method which takes an iterator and generates `Self` from the elements by
     /// multiplying the items.
     #[stable(feature = "iter_arith_traits", since = "1.12.0")]
-    fn product<I: Iterator<Item=A>>(iter: I) -> Self;
+    fn product<I: Iterator<Item = A>>(iter: I) -> Self;
 }
 
 // NB: explicitly use Add and Mul here to inherit overflow checks
@@ -854,13 +865,15 @@ struct ResultShunt<I, E> {
 }
 
 impl<I, T, E> ResultShunt<I, E>
-    where I: Iterator<Item = Result<T, E>>
+where
+    I: Iterator<Item = Result<T, E>>,
 {
     /// Process the given iterator as if it yielded a `T` instead of a
     /// `Result<T, _>`. Any errors will stop the inner iterator and
     /// the overall result will be an error.
     pub fn process<F, U>(iter: I, mut f: F) -> Result<U, E>
-        where F: FnMut(&mut Self) -> U
+    where
+        F: FnMut(&mut Self) -> U,
     {
         let mut shunt = ResultShunt::new(iter);
         let value = f(shunt.by_ref());
@@ -868,10 +881,7 @@ impl<I, T, E> ResultShunt<I, E>
     }
 
     fn new(iter: I) -> Self {
-        ResultShunt {
-            iter,
-            error: None,
-        }
+        ResultShunt { iter, error: None }
     }
 
     /// Consume the adapter and rebuild a `Result` value. This should
@@ -886,7 +896,8 @@ impl<I, T, E> ResultShunt<I, E>
 }
 
 impl<I, T, E> Iterator for ResultShunt<I, E>
-    where I: Iterator<Item = Result<T, E>>
+where
+    I: Iterator<Item = Result<T, E>>,
 {
     type Item = T;
 
@@ -911,9 +922,10 @@ impl<I, T, E> Iterator for ResultShunt<I, E>
     }
 }
 
-#[stable(feature = "iter_arith_traits_result", since="1.16.0")]
+#[stable(feature = "iter_arith_traits_result", since = "1.16.0")]
 impl<T, U, E> Sum<Result<U, E>> for Result<T, E>
-    where T: Sum<U>,
+where
+    T: Sum<U>,
 {
     /// Takes each element in the `Iterator`: if it is an `Err`, no further
     /// elements are taken, and the `Err` is returned. Should no `Err` occur,
@@ -933,21 +945,24 @@ impl<T, U, E> Sum<Result<U, E>> for Result<T, E>
     /// assert_eq!(res, Ok(3));
     /// ```
     fn sum<I>(iter: I) -> Result<T, E>
-        where I: Iterator<Item = Result<U, E>>,
+    where
+        I: Iterator<Item = Result<U, E>>,
     {
         ResultShunt::process(iter, |i| i.sum())
     }
 }
 
-#[stable(feature = "iter_arith_traits_result", since="1.16.0")]
+#[stable(feature = "iter_arith_traits_result", since = "1.16.0")]
 impl<T, U, E> Product<Result<U, E>> for Result<T, E>
-    where T: Product<U>,
+where
+    T: Product<U>,
 {
     /// Takes each element in the `Iterator`: if it is an `Err`, no further
     /// elements are taken, and the `Err` is returned. Should no `Err` occur,
     /// the product of all elements is returned.
     fn product<I>(iter: I) -> Result<T, E>
-        where I: Iterator<Item = Result<U, E>>,
+    where
+        I: Iterator<Item = Result<U, E>>,
     {
         ResultShunt::process(iter, |i| i.product())
     }
@@ -993,7 +1008,7 @@ impl<'a, I: FusedIterator + ?Sized> FusedIterator for &'a mut I {}
 /// [`usize::MAX`]: ../../std/usize/constant.MAX.html
 /// [`.size_hint`]: ../../std/iter/trait.Iterator.html#method.size_hint
 #[unstable(feature = "trusted_len", issue = "37572")]
-pub unsafe trait TrustedLen : Iterator {}
+pub unsafe trait TrustedLen: Iterator {}
 
 #[unstable(feature = "trusted_len", issue = "37572")]
 unsafe impl<'a, I: TrustedLen + ?Sized> TrustedLen for &'a mut I {}

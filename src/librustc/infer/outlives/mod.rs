@@ -10,7 +10,7 @@
 
 //! Various code related to computing outlives relations.
 
+pub mod bounds;
 pub mod env;
 pub mod free_region_map;
-pub mod bounds;
 mod obligations;

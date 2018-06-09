@@ -17,8 +17,8 @@ extern crate libc;
 use std::io;
 use std::io::prelude::*;
 
-use Attr;
 use color;
+use Attr;
 use Terminal;
 
 /// A Terminal implementation which uses the Win32 Console API.
@@ -207,7 +207,8 @@ impl<T: Write + Send + 'static> Terminal for WinConsole<T> {
     }
 
     fn into_inner(self) -> T
-        where Self: Sized
+    where
+        Self: Sized,
     {
         self.buf
     }

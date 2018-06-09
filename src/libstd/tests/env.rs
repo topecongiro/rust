@@ -11,15 +11,14 @@
 extern crate rand;
 
 use std::env::*;
+use std::ffi::{OsStr, OsString};
 use std::iter::repeat;
-use std::ffi::{OsString, OsStr};
 
 use rand::Rng;
 
 fn make_rand_name() -> OsString {
     let mut rng = rand::thread_rng();
-    let n = format!("TEST{}", rng.gen_ascii_chars().take(10)
-                                 .collect::<String>());
+    let n = format!("TEST{}", rng.gen_ascii_chars().take(10).collect::<String>());
     let n = OsString::from(n);
     assert!(var_os(&n).is_none());
     n
@@ -85,11 +84,7 @@ fn test_env_set_var() {
 
     let mut e = vars_os();
     set_var(&n, "VALUE");
-    assert!(!e.any(|(k, v)| {
-        &*k == &*n && &*v == "VALUE"
-    }));
+    assert!(!e.any(|(k, v)| &*k == &*n && &*v == "VALUE"));
 
-    assert!(vars_os().any(|(k, v)| {
-        &*k == &*n && &*v == "VALUE"
-    }));
+    assert!(vars_os().any(|(k, v)| &*k == &*n && &*v == "VALUE"));
 }

@@ -76,7 +76,7 @@ impl fmt::Debug for RangeFull {
 /// assert_eq!(arr[1..3], [     'b', 'c'     ]);  // Range
 /// ```
 #[doc(alias = "..")]
-#[derive(Clone, PartialEq, Eq, Hash)]  // not Copy -- see #27186
+#[derive(Clone, PartialEq, Eq, Hash)] // not Copy -- see #27186
 #[stable(feature = "rust1", since = "1.0.0")]
 pub struct Range<Idx> {
     /// The lower bound of the range (inclusive).
@@ -178,7 +178,7 @@ impl<Idx: PartialOrd<Idx>> Range<Idx> {
 ///
 /// [`Iterator`]: ../iter/trait.IntoIterator.html
 #[doc(alias = "..")]
-#[derive(Clone, PartialEq, Eq, Hash)]  // not Copy -- see #27186
+#[derive(Clone, PartialEq, Eq, Hash)] // not Copy -- see #27186
 #[stable(feature = "rust1", since = "1.0.0")]
 pub struct RangeFrom<Idx> {
     /// The lower bound of the range (inclusive).
@@ -326,7 +326,7 @@ impl<Idx: PartialOrd<Idx>> RangeTo<Idx> {
 /// assert_eq!(arr[1..=2], [  1,2  ]);  // RangeInclusive
 /// ```
 #[doc(alias = "..=")]
-#[derive(Clone, PartialEq, Eq, Hash)]  // not Copy -- see #27186
+#[derive(Clone, PartialEq, Eq, Hash)] // not Copy -- see #27186
 #[stable(feature = "inclusive_range", since = "1.26.0")]
 pub struct RangeInclusive<Idx> {
     // FIXME: The current representation follows RFC 1980,
@@ -670,7 +670,6 @@ pub trait RangeBounds<T: ?Sized> {
     #[stable(feature = "collections_range", since = "1.28.0")]
     fn end_bound(&self) -> Bound<&T>;
 
-
     /// Returns `true` if `item` is contained in the range.
     ///
     /// # Examples
@@ -697,9 +696,7 @@ pub trait RangeBounds<T: ?Sized> {
             Included(ref start) => *start <= item,
             Excluded(ref start) => *start < item,
             Unbounded => true,
-        })
-        &&
-        (match self.end_bound() {
+        }) && (match self.end_bound() {
             Included(ref end) => item <= *end,
             Excluded(ref end) => item < *end,
             Unbounded => true,
@@ -775,7 +772,7 @@ impl<T> RangeBounds<T> for (Bound<T>, Bound<T>) {
         match *self {
             (Included(ref start), _) => Included(start),
             (Excluded(ref start), _) => Excluded(start),
-            (Unbounded, _)           => Unbounded,
+            (Unbounded, _) => Unbounded,
         }
     }
 
@@ -783,7 +780,7 @@ impl<T> RangeBounds<T> for (Bound<T>, Bound<T>) {
         match *self {
             (_, Included(ref end)) => Included(end),
             (_, Excluded(ref end)) => Excluded(end),
-            (_, Unbounded)         => Unbounded,
+            (_, Unbounded) => Unbounded,
         }
     }
 }

@@ -13,19 +13,19 @@
 use super::{check_fn, Expectation, FnCtxt, GeneratorTypes};
 
 use astconv::AstConv;
+use rustc::hir;
 use rustc::hir::def_id::DefId;
-use rustc::infer::{InferOk, InferResult};
-use rustc::infer::LateBoundRegionConversionTime;
 use rustc::infer::type_variable::TypeVariableOrigin;
+use rustc::infer::LateBoundRegionConversionTime;
+use rustc::infer::{InferOk, InferResult};
 use rustc::traits::error_reporting::ArgKind;
-use rustc::ty::{self, ToPolyTraitRef, Ty, GenericParamDefKind};
 use rustc::ty::fold::TypeFoldable;
 use rustc::ty::subst::Substs;
+use rustc::ty::{self, GenericParamDefKind, ToPolyTraitRef, Ty};
+use rustc_target::spec::abi::Abi;
 use std::cmp;
 use std::iter;
-use rustc_target::spec::abi::Abi;
 use syntax::codemap::Span;
-use rustc::hir;
 
 /// What signature do we *expect* the closure to have from context?
 #[derive(Debug)]
@@ -104,34 +104,27 @@ impl<'a, 'gcx, 'tcx> FnCtxt<'a, 'gcx, 'tcx> {
         // inference phase (`upvar.rs`).
         let base_substs =
             Substs::identity_for_item(self.tcx, self.tcx.closure_base_def_id(expr_def_id));
-        let substs = base_substs.extend_to(self.tcx,expr_def_id, |param, _| {
-            match param.kind {
-                GenericParamDefKind::Lifetime => {
-                    span_bug!(expr.span, "closure has region param")
-                }
-                GenericParamDefKind::Type {..} => {
-                    self.infcx
-                        .next_ty_var(TypeVariableOrigin::ClosureSynthetic(expr.span)).into()
-                }
-            }
+        let substs = base_substs.extend_to(self.tcx, expr_def_id, |param, _| match param.kind {
+            GenericParamDefKind::Lifetime => span_bug!(expr.span, "closure has region param"),
+            GenericParamDefKind::Type { .. } => self
+                .infcx
+                .next_ty_var(TypeVariableOrigin::ClosureSynthetic(expr.span))
+                .into(),
         });
-        if let Some(GeneratorTypes { yield_ty, interior, movability }) = generator_types {
+        if let Some(GeneratorTypes {
+            yield_ty,
+            interior,
+            movability,
+        }) = generator_types
+        {
             let substs = ty::GeneratorSubsts { substs };
-            self.demand_eqtype(
-                expr.span,
-                yield_ty,
-                substs.yield_ty(expr_def_id, self.tcx),
-            );
+            self.demand_eqtype(expr.span, yield_ty, substs.yield_ty(expr_def_id, self.tcx));
             self.demand_eqtype(
                 expr.span,
                 liberated_sig.output(),
                 substs.return_ty(expr_def_id, self.tcx),
             );
-            self.demand_eqtype(
-                expr.span,
-                interior,
-                substs.witness(expr_def_id, self.tcx),
-            );
+            self.demand_eqtype(expr.span, interior, substs.witness(expr_def_id, self.tcx));
             return self.tcx.mk_generator(expr_def_id, substs, movability);
         }
 
@@ -463,7 +456,11 @@ impl<'a, 'gcx, 'tcx> FnCtxt<'a, 'gcx, 'tcx> {
         // Create a `PolyFnSig`. Note the oddity that late bound
         // regions appearing free in `expected_sig` are now bound up
         // in this binder we are creating.
-        assert!(!expected_sig.sig.has_regions_bound_above(ty::DebruijnIndex::INNERMOST));
+        assert!(
+            !expected_sig
+                .sig
+                .has_regions_bound_above(ty::DebruijnIndex::INNERMOST)
+        );
         let bound_sig = ty::Binder::bind(self.tcx.mk_fn_sig(
             expected_sig.sig.inputs().iter().cloned(),
             expected_sig.sig.output(),
@@ -576,7 +573,8 @@ impl<'a, 'gcx, 'tcx> FnCtxt<'a, 'gcx, 'tcx> {
                 let InferOk {
                     value: (),
                     obligations,
-                } = self.at(cause, self.param_env)
+                } = self
+                    .at(cause, self.param_env)
                     .eq(*expected_ty, supplied_ty)?;
                 all_obligations.extend(obligations);
             }
@@ -590,7 +588,8 @@ impl<'a, 'gcx, 'tcx> FnCtxt<'a, 'gcx, 'tcx> {
             let InferOk {
                 value: (),
                 obligations,
-            } = self.at(cause, self.param_env)
+            } = self
+                .at(cause, self.param_env)
                 .eq(expected_sigs.liberated_sig.output(), supplied_output_ty)?;
             all_obligations.extend(obligations);
 
@@ -664,7 +663,8 @@ impl<'a, 'gcx, 'tcx> FnCtxt<'a, 'gcx, 'tcx> {
         body: &hir::Body,
         bound_sig: ty::PolyFnSig<'tcx>,
     ) -> ClosureSignatures<'tcx> {
-        let liberated_sig = self.tcx()
+        let liberated_sig = self
+            .tcx()
             .liberate_late_bound_regions(expr_def_id, &bound_sig);
         let liberated_sig = self.inh.normalize_associated_types_in(
             body.value.span,

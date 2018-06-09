@@ -34,39 +34,42 @@ mod decode;
 mod methods;
 
 // stable re-exports
-#[stable(feature = "rust1", since = "1.0.0")]
-pub use self::convert::{from_u32, from_digit};
 #[stable(feature = "char_from_unchecked", since = "1.5.0")]
 pub use self::convert::from_u32_unchecked;
-#[stable(feature = "char_from_str", since = "1.20.0")]
-pub use self::convert::ParseCharError;
 #[unstable(feature = "try_from", issue = "33417")]
 pub use self::convert::CharTryFromError;
+#[stable(feature = "char_from_str", since = "1.20.0")]
+pub use self::convert::ParseCharError;
+#[stable(feature = "rust1", since = "1.0.0")]
+pub use self::convert::{from_digit, from_u32};
 #[stable(feature = "decode_utf16", since = "1.9.0")]
 pub use self::decode::{decode_utf16, DecodeUtf16, DecodeUtf16Error};
 
 // unstable re-exports
+#[unstable(feature = "decode_utf8", issue = "33906")]
+#[rustc_deprecated(
+    since = "1.27.0",
+    reason = "Use str::from_utf8 instead:
+    https://doc.rust-lang.org/nightly/std/str/struct.Utf8Error.html#examples"
+)]
+#[allow(deprecated)]
+pub use self::decode::{decode_utf8, DecodeUtf8, InvalidSequence};
 #[unstable(feature = "unicode_version", issue = "49726")]
 pub use unicode::tables::UNICODE_VERSION;
 #[unstable(feature = "unicode_version", issue = "49726")]
 pub use unicode::version::UnicodeVersion;
-#[unstable(feature = "decode_utf8", issue = "33906")]
-#[rustc_deprecated(since = "1.27.0", reason = "Use str::from_utf8 instead:
-    https://doc.rust-lang.org/nightly/std/str/struct.Utf8Error.html#examples")]
-#[allow(deprecated)]
-pub use self::decode::{decode_utf8, DecodeUtf8, InvalidSequence};
 
 use fmt::{self, Write};
 use iter::FusedIterator;
 
 // UTF-8 ranges and tags for encoding characters
-const TAG_CONT: u8     = 0b1000_0000;
-const TAG_TWO_B: u8    = 0b1100_0000;
-const TAG_THREE_B: u8  = 0b1110_0000;
-const TAG_FOUR_B: u8   = 0b1111_0000;
-const MAX_ONE_B: u32   =     0x80;
-const MAX_TWO_B: u32   =    0x800;
-const MAX_THREE_B: u32 =  0x10000;
+const TAG_CONT: u8 = 0b1000_0000;
+const TAG_TWO_B: u8 = 0b1100_0000;
+const TAG_THREE_B: u8 = 0b1110_0000;
+const TAG_FOUR_B: u8 = 0b1111_0000;
+const MAX_ONE_B: u32 = 0x80;
+const MAX_TWO_B: u32 = 0x800;
+const MAX_THREE_B: u32 = 0x10000;
 
 /*
     Lu  Uppercase_Letter        an uppercase letter
@@ -205,11 +208,11 @@ impl Iterator for EscapeUnicode {
         match self.state {
             EscapeUnicodeState::Done => None,
 
-            EscapeUnicodeState::RightBrace |
-            EscapeUnicodeState::Value |
-            EscapeUnicodeState::LeftBrace |
-            EscapeUnicodeState::Type |
-            EscapeUnicodeState::Backslash => Some('}'),
+            EscapeUnicodeState::RightBrace
+            | EscapeUnicodeState::Value
+            | EscapeUnicodeState::LeftBrace
+            | EscapeUnicodeState::Type
+            | EscapeUnicodeState::Backslash => Some('}'),
         }
     }
 }
@@ -253,7 +256,7 @@ impl fmt::Display for EscapeUnicode {
 #[derive(Clone, Debug)]
 #[stable(feature = "rust1", since = "1.0.0")]
 pub struct EscapeDefault {
-    state: EscapeDefaultState
+    state: EscapeDefaultState,
 }
 
 #[derive(Clone, Debug)]
@@ -299,15 +302,15 @@ impl Iterator for EscapeDefault {
             EscapeDefaultState::Backslash(c) if n == 0 => {
                 self.state = EscapeDefaultState::Char(c);
                 Some('\\')
-            },
+            }
             EscapeDefaultState::Backslash(c) if n == 1 => {
                 self.state = EscapeDefaultState::Done;
                 Some(c)
-            },
+            }
             EscapeDefaultState::Backslash(_) => {
                 self.state = EscapeDefaultState::Done;
                 None
-            },
+            }
             EscapeDefaultState::Char(c) => {
                 self.state = EscapeDefaultState::Done;
 
@@ -316,7 +319,7 @@ impl Iterator for EscapeDefault {
                 } else {
                     None
                 }
-            },
+            }
             EscapeDefaultState::Done => return None,
             EscapeDefaultState::Unicode(ref mut i) => return i.nth(n),
         }
@@ -370,12 +373,16 @@ pub struct EscapeDebug(EscapeDefault);
 #[stable(feature = "char_escape_debug", since = "1.20.0")]
 impl Iterator for EscapeDebug {
     type Item = char;
-    fn next(&mut self) -> Option<char> { self.0.next() }
-    fn size_hint(&self) -> (usize, Option<usize>) { self.0.size_hint() }
+    fn next(&mut self) -> Option<char> {
+        self.0.next()
+    }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
 }
 
 #[stable(feature = "char_escape_debug", since = "1.20.0")]
-impl ExactSizeIterator for EscapeDebug { }
+impl ExactSizeIterator for EscapeDebug {}
 
 #[stable(feature = "fused", since = "1.26.0")]
 impl FusedIterator for EscapeDebug {}
@@ -443,7 +450,7 @@ impl CaseMappingIter {
     fn new(chars: [char; 3]) -> CaseMappingIter {
         if chars[2] == '\0' {
             if chars[1] == '\0' {
-                CaseMappingIter::One(chars[0])  // Including if chars[0] == '\0'
+                CaseMappingIter::One(chars[0]) // Including if chars[0] == '\0'
             } else {
                 CaseMappingIter::Two(chars[0], chars[1])
             }
@@ -486,9 +493,7 @@ impl fmt::Display for CaseMappingIter {
                 f.write_char(b)?;
                 f.write_char(c)
             }
-            CaseMappingIter::One(c) => {
-                f.write_char(c)
-            }
+            CaseMappingIter::One(c) => f.write_char(c),
             CaseMappingIter::Zero => Ok(()),
         }
     }

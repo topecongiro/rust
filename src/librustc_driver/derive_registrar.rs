@@ -8,9 +8,9 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use rustc::hir;
 use rustc::hir::itemlikevisit::ItemLikeVisitor;
 use rustc::hir::map::Map;
-use rustc::hir;
 use syntax::ast;
 use syntax::attr;
 
@@ -33,10 +33,7 @@ impl<'v> ItemLikeVisitor<'v> for Finder {
         }
     }
 
-    fn visit_trait_item(&mut self, _trait_item: &hir::TraitItem) {
-    }
+    fn visit_trait_item(&mut self, _trait_item: &hir::TraitItem) {}
 
-    fn visit_impl_item(&mut self, _impl_item: &hir::ImplItem) {
-    }
+    fn visit_impl_item(&mut self, _impl_item: &hir::ImplItem) {}
 }
-

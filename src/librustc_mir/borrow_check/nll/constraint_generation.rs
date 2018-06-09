@@ -209,7 +209,7 @@ impl<'cg, 'cx, 'gcx, 'tcx> Visitor<'tcx> for ConstraintGeneration<'cg, 'cx, 'gcx
                 self.add_reborrow_constraint(location, region, borrowed_place);
             }
 
-            _ => { }
+            _ => {}
         }
 
         self.super_rvalue(rvalue, location);

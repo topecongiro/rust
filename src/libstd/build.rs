@@ -19,12 +19,12 @@ use std::fs::File;
 
 fn main() {
     let target = env::var("TARGET").expect("TARGET was not set");
-    if cfg!(feature = "backtrace") &&
-        !target.contains("cloudabi") &&
-        !target.contains("emscripten") &&
-        !target.contains("fuchsia") &&
-        !target.contains("msvc") &&
-        !target.contains("wasm32")
+    if cfg!(feature = "backtrace")
+        && !target.contains("cloudabi")
+        && !target.contains("emscripten")
+        && !target.contains("fuchsia")
+        && !target.contains("msvc")
+        && !target.contains("wasm32")
     {
         let _ = build_libbacktrace(&target);
     }
@@ -42,8 +42,11 @@ fn main() {
     } else if target.contains("freebsd") {
         println!("cargo:rustc-link-lib=execinfo");
         println!("cargo:rustc-link-lib=pthread");
-    } else if target.contains("dragonfly") || target.contains("bitrig") ||
-              target.contains("netbsd") || target.contains("openbsd") {
+    } else if target.contains("dragonfly")
+        || target.contains("bitrig")
+        || target.contains("netbsd")
+        || target.contains("openbsd")
+    {
         println!("cargo:rustc-link-lib=pthread");
     } else if target.contains("solaris") {
         println!("cargo:rustc-link-lib=socket");
@@ -123,10 +126,11 @@ fn build_libbacktrace(target: &str) -> Result<(), ()> {
     build.define("BACKTRACE_SUPPORTS_DATA", "0");
 
     File::create(native.out_dir.join("config.h")).unwrap();
-    if !target.contains("apple-ios") &&
-       !target.contains("solaris") &&
-       !target.contains("redox") &&
-       !target.contains("android") {
+    if !target.contains("apple-ios")
+        && !target.contains("solaris")
+        && !target.contains("redox")
+        && !target.contains("android")
+    {
         build.define("HAVE_DL_ITERATE_PHDR", "1");
     }
     build.define("_GNU_SOURCE", "1");

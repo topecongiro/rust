@@ -345,7 +345,8 @@ impl<'tcx> RegionInferenceContext<'tcx> {
     where
         R: ToRegionVid,
     {
-        let inferred_values = self.inferred_values
+        let inferred_values = self
+            .inferred_values
             .as_ref()
             .expect("region values not yet inferred");
         inferred_values.contains(r.to_region_vid(), p)
@@ -353,7 +354,8 @@ impl<'tcx> RegionInferenceContext<'tcx> {
 
     /// Returns access to the value of `r` for debugging purposes.
     crate fn region_value_str(&self, r: RegionVid) -> String {
-        let inferred_values = self.inferred_values
+        let inferred_values = self
+            .inferred_values
             .as_ref()
             .expect("region values not yet inferred");
 
@@ -595,7 +597,8 @@ impl<'tcx> RegionInferenceContext<'tcx> {
         if self.universal_regions.is_universal_region(r) {
             return self.definitions[r].external_name;
         } else {
-            let inferred_values = self.inferred_values
+            let inferred_values = self
+                .inferred_values
                 .as_ref()
                 .expect("region values not yet inferred");
             let upper_bound = self.universal_upper_bound(r);
@@ -634,8 +637,11 @@ impl<'tcx> RegionInferenceContext<'tcx> {
         // region, which ensures it can be encoded in a `ClosureOutlivesRequirement`.
         let lower_bound_plus = self.non_local_universal_upper_bound(*lower_bound);
         assert!(self.universal_regions.is_universal_region(lower_bound_plus));
-        assert!(!self.universal_regions
-            .is_local_free_region(lower_bound_plus));
+        assert!(
+            !self
+                .universal_regions
+                .is_local_free_region(lower_bound_plus)
+        );
 
         propagated_outlives_requirements.push(ClosureOutlivesRequirement {
             subject,
@@ -663,7 +669,8 @@ impl<'tcx> RegionInferenceContext<'tcx> {
     ) -> Option<ClosureOutlivesSubject<'gcx>> {
         let tcx = infcx.tcx;
         let gcx = tcx.global_tcx();
-        let inferred_values = self.inferred_values
+        let inferred_values = self
+            .inferred_values
             .as_ref()
             .expect("region values not yet inferred");
 
@@ -844,7 +851,8 @@ impl<'tcx> RegionInferenceContext<'tcx> {
             sup_region, sub_region, point
         );
 
-        let inferred_values = self.inferred_values
+        let inferred_values = self
+            .inferred_values
             .as_ref()
             .expect("values for regions not yet inferred");
 
@@ -911,7 +919,8 @@ impl<'tcx> RegionInferenceContext<'tcx> {
     ) {
         // The universal regions are always found in a prefix of the
         // full list.
-        let universal_definitions = self.definitions
+        let universal_definitions = self
+            .definitions
             .iter_enumerated()
             .take_while(|(_, fr_definition)| fr_definition.is_universal);
 

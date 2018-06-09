@@ -57,8 +57,7 @@ pub enum Component<'tcx> {
 impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
     /// Returns all the things that must outlive `'a` for the condition
     /// `ty0: 'a` to hold. Note that `ty0` must be a **fully resolved type**.
-    pub fn outlives_components(&self, ty0: Ty<'tcx>)
-                               -> Vec<Component<'tcx>> {
+    pub fn outlives_components(&self, ty0: Ty<'tcx>) -> Vec<Component<'tcx>> {
         let mut components = vec![];
         self.compute_components(ty0, &mut components);
         debug!("components({:?}) = {:?}", ty0, components);

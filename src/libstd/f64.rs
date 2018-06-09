@@ -24,15 +24,15 @@ use intrinsics;
 use sys::cmath;
 
 #[stable(feature = "rust1", since = "1.0.0")]
-pub use core::f64::{RADIX, MANTISSA_DIGITS, DIGITS, EPSILON};
-#[stable(feature = "rust1", since = "1.0.0")]
-pub use core::f64::{MIN_EXP, MAX_EXP, MIN_10_EXP};
-#[stable(feature = "rust1", since = "1.0.0")]
-pub use core::f64::{MAX_10_EXP, NAN, INFINITY, NEG_INFINITY};
-#[stable(feature = "rust1", since = "1.0.0")]
-pub use core::f64::{MIN, MIN_POSITIVE, MAX};
-#[stable(feature = "rust1", since = "1.0.0")]
 pub use core::f64::consts;
+#[stable(feature = "rust1", since = "1.0.0")]
+pub use core::f64::{MAX_10_EXP, INFINITY, NAN, NEG_INFINITY};
+#[stable(feature = "rust1", since = "1.0.0")]
+pub use core::f64::{MIN_10_EXP, MAX_EXP, MIN_EXP};
+#[stable(feature = "rust1", since = "1.0.0")]
+pub use core::f64::{DIGITS, EPSILON, MANTISSA_DIGITS, RADIX};
+#[stable(feature = "rust1", since = "1.0.0")]
+pub use core::f64::{MAX, MIN, MIN_POSITIVE};
 
 #[cfg(not(test))]
 #[lang = "f64_runtime"]
@@ -121,7 +121,9 @@ impl f64 {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
-    pub fn fract(self) -> f64 { self - self.trunc() }
+    pub fn fract(self) -> f64 {
+        self - self.trunc()
+    }
 
     /// Computes the absolute value of `self`. Returns `NAN` if the
     /// number is `NAN`.
@@ -223,7 +225,7 @@ impl f64 {
     pub fn div_euc(self, rhs: f64) -> f64 {
         let q = (self / rhs).trunc();
         if self % rhs < 0.0 {
-            return if rhs > 0.0 { q - 1.0 } else { q + 1.0 }
+            return if rhs > 0.0 { q - 1.0 } else { q + 1.0 };
         }
         q
     }
@@ -368,7 +370,7 @@ impl f64 {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
     pub fn ln(self) -> f64 {
-        self.log_wrapper(|n| { unsafe { intrinsics::logf64(n) } })
+        self.log_wrapper(|n| unsafe { intrinsics::logf64(n) })
     }
 
     /// Returns the logarithm of the number with respect to an arbitrary base.
@@ -389,7 +391,9 @@ impl f64 {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
-    pub fn log(self, base: f64) -> f64 { self.ln() / base.ln() }
+    pub fn log(self, base: f64) -> f64 {
+        self.ln() / base.ln()
+    }
 
     /// Returns the base 2 logarithm of the number.
     ///
@@ -429,7 +433,7 @@ impl f64 {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
     pub fn log10(self) -> f64 {
-        self.log_wrapper(|n| { unsafe { intrinsics::log10f64(n) } })
+        self.log_wrapper(|n| unsafe { intrinsics::log10f64(n) })
     }
 
     /// The positive difference of two numbers.
@@ -451,16 +455,18 @@ impl f64 {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
-    #[rustc_deprecated(since = "1.10.0",
-                       reason = "you probably meant `(self - other).abs()`: \
-                                 this operation is `(self - other).max(0.0)` (also \
-                                 known as `fdim` in C). If you truly need the positive \
-                                 difference, consider using that expression or the C function \
-                                 `fdim`, depending on how you wish to handle NaN (please consider \
-                                 filing an issue describing your use-case too).")]
-     pub fn abs_sub(self, other: f64) -> f64 {
-         unsafe { cmath::fdim(self, other) }
-     }
+    #[rustc_deprecated(
+        since = "1.10.0",
+        reason = "you probably meant `(self - other).abs()`: \
+                  this operation is `(self - other).max(0.0)` (also \
+                  known as `fdim` in C). If you truly need the positive \
+                  difference, consider using that expression or the C function \
+                  `fdim`, depending on how you wish to handle NaN (please consider \
+                  filing an issue describing your use-case too)."
+    )]
+    pub fn abs_sub(self, other: f64) -> f64 {
+        unsafe { cmath::fdim(self, other) }
+    }
 
     /// Takes the cubic root of a number.
     ///
@@ -879,8 +885,8 @@ impl f64 {
 mod tests {
     use f64;
     use f64::*;
-    use num::*;
     use num::FpCategory as Fp;
+    use num::*;
 
     #[test]
     fn test_num_f64() {
@@ -1127,7 +1133,7 @@ mod tests {
         assert_eq!((-0f64).abs(), 0f64);
         assert_eq!((-1f64).abs(), 1f64);
         assert_eq!(NEG_INFINITY.abs(), INFINITY);
-        assert_eq!((1f64/NEG_INFINITY).abs(), 0f64);
+        assert_eq!((1f64 / NEG_INFINITY).abs(), 0f64);
         assert!(NAN.abs().is_nan());
     }
 
@@ -1139,7 +1145,7 @@ mod tests {
         assert_eq!((-0f64).signum(), -1f64);
         assert_eq!((-1f64).signum(), -1f64);
         assert_eq!(NEG_INFINITY.signum(), -1f64);
-        assert_eq!((1f64/NEG_INFINITY).signum(), -1f64);
+        assert_eq!((1f64 / NEG_INFINITY).signum(), -1f64);
         assert!(NAN.signum().is_nan());
     }
 
@@ -1151,7 +1157,7 @@ mod tests {
         assert!(!(-0f64).is_sign_positive());
         assert!(!(-1f64).is_sign_positive());
         assert!(!NEG_INFINITY.is_sign_positive());
-        assert!(!(1f64/NEG_INFINITY).is_sign_positive());
+        assert!(!(1f64 / NEG_INFINITY).is_sign_positive());
         assert!(NAN.is_sign_positive());
         assert!(!(-NAN).is_sign_positive());
     }
@@ -1164,7 +1170,7 @@ mod tests {
         assert!((-0f64).is_sign_negative());
         assert!((-1f64).is_sign_negative());
         assert!(NEG_INFINITY.is_sign_negative());
-        assert!((1f64/NEG_INFINITY).is_sign_negative());
+        assert!((1f64 / NEG_INFINITY).is_sign_negative());
         assert!(!NAN.is_sign_negative());
         assert!((-NAN).is_sign_negative());
     }

@@ -17,16 +17,16 @@ use cell::UnsafeCell;
 use fmt;
 use ops::{Deref, DerefMut};
 use panicking;
-use ptr::{Unique, NonNull};
+use ptr::{NonNull, Unique};
 use rc::Rc;
-use sync::{Arc, Mutex, RwLock, atomic};
+use sync::{atomic, Arc, Mutex, RwLock};
 use thread::Result;
 
 #[stable(feature = "panic_hooks", since = "1.10.0")]
-pub use panicking::{take_hook, set_hook};
+pub use panicking::{set_hook, take_hook};
 
 #[stable(feature = "panic_hooks", since = "1.10.0")]
-pub use core::panic::{PanicInfo, Location};
+pub use core::panic::{Location, PanicInfo};
 
 /// A marker trait which represents "panic safe" types in Rust.
 ///
@@ -187,10 +187,7 @@ pub auto trait RefUnwindSafe {}
 /// // ...
 /// ```
 #[stable(feature = "catch_unwind", since = "1.9.0")]
-pub struct AssertUnwindSafe<T>(
-    #[stable(feature = "catch_unwind", since = "1.9.0")]
-    pub T
-);
+pub struct AssertUnwindSafe<T>(#[stable(feature = "catch_unwind", since = "1.9.0")] pub T);
 
 // Implementations of the `UnwindSafe` trait:
 //
@@ -309,9 +306,7 @@ impl<R, F: FnOnce() -> R> FnOnce<()> for AssertUnwindSafe<F> {
 #[stable(feature = "std_debug", since = "1.16.0")]
 impl<T: fmt::Debug> fmt::Debug for AssertUnwindSafe<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("AssertUnwindSafe")
-            .field(&self.0)
-            .finish()
+        f.debug_tuple("AssertUnwindSafe").field(&self.0).finish()
     }
 }
 
@@ -370,9 +365,7 @@ impl<T: fmt::Debug> fmt::Debug for AssertUnwindSafe<T> {
 /// ```
 #[stable(feature = "catch_unwind", since = "1.9.0")]
 pub fn catch_unwind<F: FnOnce() -> R + UnwindSafe, R>(f: F) -> Result<R> {
-    unsafe {
-        panicking::try(f)
-    }
+    unsafe { panicking::try(f) }
 }
 
 /// Triggers a panic without invoking the panic hook.

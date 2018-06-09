@@ -37,22 +37,24 @@ Rust MIR: a lowered representation of Rust. Also: an experiment!
 extern crate arena;
 #[macro_use]
 extern crate bitflags;
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate log;
 extern crate either;
 extern crate graphviz as dot;
 extern crate polonius_engine;
 #[macro_use]
 extern crate rustc;
-#[macro_use] extern crate rustc_data_structures;
-extern crate serialize as rustc_serialize;
+#[macro_use]
+extern crate rustc_data_structures;
 extern crate rustc_errors;
+extern crate serialize as rustc_serialize;
 #[macro_use]
 extern crate syntax;
-extern crate syntax_pos;
-extern crate rustc_target;
+extern crate byteorder;
 extern crate log_settings;
 extern crate rustc_apfloat;
-extern crate byteorder;
+extern crate rustc_target;
+extern crate syntax_pos;
 
 mod diagnostics;
 
@@ -60,11 +62,11 @@ mod borrow_check;
 mod build;
 mod dataflow;
 mod hair;
+pub mod interpret;
+pub mod monomorphize;
 mod shim;
 pub mod transform;
 pub mod util;
-pub mod interpret;
-pub mod monomorphize;
 
 pub use hair::pattern::check_crate as matchck_crate;
 use rustc::ty::maps::Providers;

@@ -58,6 +58,7 @@
 use core::any::Any;
 use core::borrow;
 use core::cmp::Ordering;
+use core::convert::From;
 use core::fmt;
 use core::future::Future;
 use core::hash::{Hash, Hasher};
@@ -66,8 +67,7 @@ use core::marker::{Unpin, Unsize};
 use core::mem::{self, PinMut};
 use core::ops::{CoerceUnsized, Deref, DerefMut, Generator, GeneratorState};
 use core::ptr::{self, NonNull, Unique};
-use core::task::{Context, Poll, UnsafePoll, TaskObj};
-use core::convert::From;
+use core::task::{Context, Poll, TaskObj, UnsafePoll};
 
 use raw_vec::RawVec;
 use str::from_boxed_utf8_unchecked;
@@ -236,7 +236,7 @@ impl<T: ?Sized> Box<T> {
     #[inline]
     pub fn leak<'a>(b: Box<T>) -> &'a mut T
     where
-        T: 'a // Technically not needed, but kept to be explicit.
+        T: 'a, // Technically not needed, but kept to be explicit.
     {
         unsafe { &mut *Box::into_raw(b) }
     }
@@ -303,7 +303,6 @@ impl<T: Clone> Clone for Box<T> {
         (**self).clone_from(&(**source));
     }
 }
-
 
 #[stable(feature = "box_slice_clone", since = "1.3.0")]
 impl Clone for Box<str> {
@@ -582,7 +581,6 @@ impl<I: ExactSizeIterator + ?Sized> ExactSizeIterator for Box<I> {
 #[stable(feature = "fused", since = "1.26.0")]
 impl<I: FusedIterator + ?Sized> FusedIterator for Box<I> {}
 
-
 /// `FnBox` is a version of the `FnOnce` intended for use with boxed
 /// closure objects. The idea is that where one would normally store a
 /// `Box<FnOnce()>` in a data structure, you should use
@@ -621,18 +619,25 @@ impl<I: FusedIterator + ?Sized> FusedIterator for Box<I> {}
 /// }
 /// ```
 #[rustc_paren_sugar]
-#[unstable(feature = "fnbox",
-           reason = "will be deprecated if and when `Box<FnOnce>` becomes usable", issue = "28796")]
+#[unstable(
+    feature = "fnbox",
+    reason = "will be deprecated if and when `Box<FnOnce>` becomes usable",
+    issue = "28796"
+)]
 pub trait FnBox<A> {
     type Output;
 
     fn call_box(self: Box<Self>, args: A) -> Self::Output;
 }
 
-#[unstable(feature = "fnbox",
-           reason = "will be deprecated if and when `Box<FnOnce>` becomes usable", issue = "28796")]
+#[unstable(
+    feature = "fnbox",
+    reason = "will be deprecated if and when `Box<FnOnce>` becomes usable",
+    issue = "28796"
+)]
 impl<A, F> FnBox<A> for F
-    where F: FnOnce<A>
+where
+    F: FnOnce<A>,
 {
     type Output = F::Output;
 
@@ -641,8 +646,11 @@ impl<A, F> FnBox<A> for F
     }
 }
 
-#[unstable(feature = "fnbox",
-           reason = "will be deprecated if and when `Box<FnOnce>` becomes usable", issue = "28796")]
+#[unstable(
+    feature = "fnbox",
+    reason = "will be deprecated if and when `Box<FnOnce>` becomes usable",
+    issue = "28796"
+)]
 impl<'a, A, R> FnOnce<A> for Box<FnBox<A, Output = R> + 'a> {
     type Output = R;
 
@@ -651,8 +659,11 @@ impl<'a, A, R> FnOnce<A> for Box<FnBox<A, Output = R> + 'a> {
     }
 }
 
-#[unstable(feature = "fnbox",
-           reason = "will be deprecated if and when `Box<FnOnce>` becomes usable", issue = "28796")]
+#[unstable(
+    feature = "fnbox",
+    reason = "will be deprecated if and when `Box<FnOnce>` becomes usable",
+    issue = "28796"
+)]
 impl<'a, A, R> FnOnce<A> for Box<FnBox<A, Output = R> + Send + 'a> {
     type Output = R;
 
@@ -745,7 +756,8 @@ impl<T: ?Sized> AsMut<T> for Box<T> {
 
 #[unstable(feature = "generator_trait", issue = "43122")]
 impl<T> Generator for Box<T>
-    where T: Generator + ?Sized
+where
+    T: Generator + ?Sized,
 {
     type Yield = T::Yield;
     type Return = T::Return;
@@ -767,7 +779,9 @@ impl<T> PinBox<T> {
     /// Allocate memory on the heap, move the data into it and pin it.
     #[unstable(feature = "pin", issue = "49150")]
     pub fn new(data: T) -> PinBox<T> {
-        PinBox { inner: Box::new(data) }
+        PinBox {
+            inner: Box::new(data),
+        }
     }
 }
 
@@ -805,7 +819,9 @@ impl<T: ?Sized> PinBox<T> {
     /// ```
     #[inline]
     pub unsafe fn from_raw(raw: *mut T) -> Self {
-        PinBox { inner: Box::from_raw(raw) }
+        PinBox {
+            inner: Box::from_raw(raw),
+        }
     }
 
     /// Consumes the `PinBox`, returning the wrapped raw pointer.

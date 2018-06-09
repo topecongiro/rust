@@ -101,8 +101,11 @@ pub fn gnu_target(target: &str) -> String {
 }
 
 pub fn make(host: &str) -> PathBuf {
-    if host.contains("bitrig") || host.contains("dragonfly") || host.contains("freebsd")
-        || host.contains("netbsd") || host.contains("openbsd")
+    if host.contains("bitrig")
+        || host.contains("dragonfly")
+        || host.contains("freebsd")
+        || host.contains("netbsd")
+        || host.contains("openbsd")
     {
         PathBuf::from("gmake")
     } else {
@@ -129,7 +132,8 @@ pub fn output(cmd: &mut Command) -> String {
 }
 
 pub fn rerun_if_changed_anything_in_dir(dir: &Path) {
-    let mut stack = dir.read_dir()
+    let mut stack = dir
+        .read_dir()
         .unwrap()
         .map(|e| e.unwrap())
         .filter(|e| &*e.file_name() != ".git")

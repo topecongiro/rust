@@ -8,12 +8,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use ich::StableHashingContext;
 use hir::HirId;
+use ich::StableHashingContext;
 use util::nodemap::FxHashSet;
 
-use rustc_data_structures::stable_hasher::{HashStable, StableHasher,
-                                           StableHasherResult};
+use rustc_data_structures::stable_hasher::{HashStable, StableHasher, StableHasherResult};
 
 #[derive(Debug, RustcEncodable, RustcDecodable)]
 pub struct BorrowCheckResult {
@@ -21,12 +20,12 @@ pub struct BorrowCheckResult {
 }
 
 impl<'a> HashStable<StableHashingContext<'a>> for BorrowCheckResult {
-    fn hash_stable<W: StableHasherResult>(&self,
-                                          hcx: &mut StableHashingContext<'a>,
-                                          hasher: &mut StableHasher<W>) {
-        let BorrowCheckResult {
-            ref used_mut_nodes,
-        } = *self;
+    fn hash_stable<W: StableHasherResult>(
+        &self,
+        hcx: &mut StableHashingContext<'a>,
+        hasher: &mut StableHasher<W>,
+    ) {
+        let BorrowCheckResult { ref used_mut_nodes } = *self;
         used_mut_nodes.hash_stable(hcx, hasher);
     }
 }

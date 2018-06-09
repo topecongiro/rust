@@ -11,8 +11,8 @@ use self::Context::*;
 
 use rustc::session::Session;
 
+use rustc::hir::intravisit::{self, NestedVisitorMap, Visitor};
 use rustc::hir::map::Map;
-use rustc::hir::intravisit::{self, Visitor, NestedVisitorMap};
 use rustc::hir::{self, Destination};
 use syntax::ast;
 use syntax_pos::Span;
@@ -51,11 +51,13 @@ struct CheckLoopVisitor<'a, 'hir: 'a> {
 
 pub fn check_crate(sess: &Session, map: &Map) {
     let krate = map.krate();
-    krate.visit_all_item_likes(&mut CheckLoopVisitor {
-        sess,
-        hir_map: map,
-        cx: Normal,
-    }.as_deep_visitor());
+    krate.visit_all_item_likes(
+        &mut CheckLoopVisitor {
+            sess,
+            hir_map: map,
+            cx: Normal,
+        }.as_deep_visitor(),
+    );
 }
 
 impl<'a, 'hir> Visitor<'hir> for CheckLoopVisitor<'a, 'hir> {
@@ -104,14 +106,14 @@ impl<'a, 'hir> Visitor<'hir> for CheckLoopVisitor<'a, 'hir> {
                     Err(hir::LoopIdError::UnlabeledCfInWhileCondition) => {
                         self.emit_unlabled_cf_in_while_condition(e.span, "break");
                         ast::DUMMY_NODE_ID
-                    },
+                    }
                     Err(hir::LoopIdError::UnresolvedLabel) => ast::DUMMY_NODE_ID,
                 };
 
                 if loop_id != ast::DUMMY_NODE_ID {
                     match self.hir_map.find(loop_id).unwrap() {
                         hir::map::NodeBlock(_) => return,
-                        _=> (),
+                        _ => (),
                     }
                 }
 
@@ -122,25 +124,34 @@ impl<'a, 'hir> Visitor<'hir> for CheckLoopVisitor<'a, 'hir> {
                         Some(match self.hir_map.expect_expr(loop_id).node {
                             hir::ExprWhile(..) => LoopKind::WhileLoop,
                             hir::ExprLoop(_, _, source) => LoopKind::Loop(source),
-                            ref r => span_bug!(e.span,
-                                               "break label resolved to a non-loop: {:?}", r),
+                            ref r => {
+                                span_bug!(e.span, "break label resolved to a non-loop: {:?}", r)
+                            }
                         })
                     };
                     match loop_kind {
-                        None |
-                        Some(LoopKind::Loop(hir::LoopSource::Loop)) => (),
+                        None | Some(LoopKind::Loop(hir::LoopSource::Loop)) => (),
                         Some(kind) => {
-                            struct_span_err!(self.sess, e.span, E0571,
-                                             "`break` with value from a `{}` loop",
-                                             kind.name())
-                                .span_label(e.span,
-                                            "can only break with a value inside \
-                                            `loop` or breakable block")
-                                .span_suggestion(e.span,
-                                                 &format!("instead, use `break` on its own \
-                                                           without a value inside this `{}` loop",
-                                                          kind.name()),
-                                                 "break".to_string())
+                            struct_span_err!(
+                                self.sess,
+                                e.span,
+                                E0571,
+                                "`break` with value from a `{}` loop",
+                                kind.name()
+                            ).span_label(
+                                e.span,
+                                "can only break with a value inside \
+                                 `loop` or breakable block",
+                            )
+                                .span_suggestion(
+                                    e.span,
+                                    &format!(
+                                        "instead, use `break` on its own \
+                                         without a value inside this `{}` loop",
+                                        kind.name()
+                                    ),
+                                    "break".to_string(),
+                                )
                                 .emit();
                         }
                     }
@@ -154,12 +165,13 @@ impl<'a, 'hir> Visitor<'hir> for CheckLoopVisitor<'a, 'hir> {
                 match label.target_id {
                     Ok(loop_id) => {
                         if let hir::map::NodeBlock(block) = self.hir_map.find(loop_id).unwrap() {
-                            struct_span_err!(self.sess, e.span, E0696,
-                                            "`continue` pointing to a labeled block")
-                                .span_label(e.span,
-                                            "labeled blocks cannot be `continue`'d")
-                                .span_note(block.span,
-                                            "labeled block the continue points to")
+                            struct_span_err!(
+                                self.sess,
+                                e.span,
+                                E0696,
+                                "`continue` pointing to a labeled block"
+                            ).span_label(e.span, "labeled blocks cannot be `continue`'d")
+                                .span_note(block.span, "labeled block the continue points to")
                                 .emit();
                         }
                     }
@@ -169,7 +181,7 @@ impl<'a, 'hir> Visitor<'hir> for CheckLoopVisitor<'a, 'hir> {
                     _ => {}
                 }
                 self.require_break_cx("continue", e.span)
-            },
+            }
             _ => intravisit::walk_expr(self, e),
         }
     }
@@ -177,7 +189,8 @@ impl<'a, 'hir> Visitor<'hir> for CheckLoopVisitor<'a, 'hir> {
 
 impl<'a, 'hir> CheckLoopVisitor<'a, 'hir> {
     fn with_context<F>(&mut self, cx: Context, f: F)
-        where F: FnOnce(&mut CheckLoopVisitor<'a, 'hir>)
+    where
+        F: FnOnce(&mut CheckLoopVisitor<'a, 'hir>),
     {
         let old_cx = self.cx;
         self.cx = cx;
@@ -187,31 +200,42 @@ impl<'a, 'hir> CheckLoopVisitor<'a, 'hir> {
 
     fn require_break_cx(&self, name: &str, span: Span) {
         match self.cx {
-            LabeledBlock |
-            Loop(_) => {}
+            LabeledBlock | Loop(_) => {}
             Closure => {
                 struct_span_err!(self.sess, span, E0267, "`{}` inside of a closure", name)
-                .span_label(span, "cannot break inside of a closure")
-                .emit();
+                    .span_label(span, "cannot break inside of a closure")
+                    .emit();
             }
             Normal => {
                 struct_span_err!(self.sess, span, E0268, "`{}` outside of loop", name)
-                .span_label(span, "cannot break outside of a loop")
-                .emit();
+                    .span_label(span, "cannot break outside of a loop")
+                    .emit();
             }
         }
     }
 
-    fn require_label_in_labeled_block(&mut self, span: Span, label: &Destination, cf_type: &str)
-        -> bool
-    {
+    fn require_label_in_labeled_block(
+        &mut self,
+        span: Span,
+        label: &Destination,
+        cf_type: &str,
+    ) -> bool {
         if self.cx == LabeledBlock {
             if label.label.is_none() {
-                struct_span_err!(self.sess, span, E0695,
-                                "unlabeled `{}` inside of a labeled block", cf_type)
-                    .span_label(span,
-                                format!("`{}` statements that would diverge to or through \
-                                a labeled block need to bear a label", cf_type))
+                struct_span_err!(
+                    self.sess,
+                    span,
+                    E0695,
+                    "unlabeled `{}` inside of a labeled block",
+                    cf_type
+                ).span_label(
+                    span,
+                    format!(
+                        "`{}` statements that would diverge to or through \
+                         a labeled block need to bear a label",
+                        cf_type
+                    ),
+                )
                     .emit();
                 return true;
             }
@@ -219,10 +243,15 @@ impl<'a, 'hir> CheckLoopVisitor<'a, 'hir> {
         return false;
     }
     fn emit_unlabled_cf_in_while_condition(&mut self, span: Span, cf_type: &str) {
-        struct_span_err!(self.sess, span, E0590,
-                         "`break` or `continue` with no label in the condition of a `while` loop")
-            .span_label(span,
-                        format!("unlabeled `{}` in the condition of a `while` loop", cf_type))
+        struct_span_err!(
+            self.sess,
+            span,
+            E0590,
+            "`break` or `continue` with no label in the condition of a `while` loop"
+        ).span_label(
+            span,
+            format!("unlabeled `{}` in the condition of a `while` loop", cf_type),
+        )
             .emit();
     }
 }

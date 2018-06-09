@@ -15,8 +15,8 @@ use rustc::mir::{BasicBlock, Location};
 use rustc_data_structures::indexed_set::{IdxSetBuf, Iter};
 use rustc_data_structures::indexed_vec::Idx;
 
-use dataflow::{BitDenotation, BlockSets, DataflowResults};
 use dataflow::move_paths::{HasMoveData, MovePathIndex};
+use dataflow::{BitDenotation, BlockSets, DataflowResults};
 
 use std::iter;
 
@@ -136,7 +136,8 @@ where
 }
 
 impl<BD> FlowsAtLocation for FlowAtLocation<BD>
-    where BD: BitDenotation
+where
+    BD: BitDenotation,
 {
     fn reset_to_entry_of(&mut self, bb: BasicBlock) {
         (*self.curr_state).clone_from(self.base_results.sets().on_entry_set_for(bb.index()));
@@ -197,7 +198,6 @@ impl<BD> FlowsAtLocation for FlowAtLocation<BD>
         self.curr_state.subtract(&self.stmt_kill);
     }
 }
-
 
 impl<'tcx, T> FlowAtLocation<T>
 where

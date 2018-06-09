@@ -273,47 +273,52 @@ use cmp;
 use core::str as core_str;
 use error as std_error;
 use fmt;
-use result;
-use str;
 use memchr;
 use ptr;
+use result;
+use str;
 
-#[stable(feature = "rust1", since = "1.0.0")]
-pub use self::buffered::{BufReader, BufWriter, LineWriter};
 #[stable(feature = "rust1", since = "1.0.0")]
 pub use self::buffered::IntoInnerError;
 #[stable(feature = "rust1", since = "1.0.0")]
+pub use self::buffered::{BufReader, BufWriter, LineWriter};
+#[stable(feature = "rust1", since = "1.0.0")]
 pub use self::cursor::Cursor;
 #[stable(feature = "rust1", since = "1.0.0")]
-pub use self::error::{Result, Error, ErrorKind};
+pub use self::error::{Error, ErrorKind, Result};
 #[stable(feature = "rust1", since = "1.0.0")]
-pub use self::util::{copy, sink, Sink, empty, Empty, repeat, Repeat};
+pub use self::stdio::{stderr, stdin, stdout, Stderr, Stdin, Stdout};
 #[stable(feature = "rust1", since = "1.0.0")]
-pub use self::stdio::{stdin, stdout, stderr, Stdin, Stdout, Stderr};
-#[stable(feature = "rust1", since = "1.0.0")]
-pub use self::stdio::{StdoutLock, StderrLock, StdinLock};
+pub use self::stdio::{StderrLock, StdinLock, StdoutLock};
 #[unstable(feature = "print_internals", issue = "0")]
-pub use self::stdio::{_print, _eprint};
+pub use self::stdio::{_eprint, _print};
 #[unstable(feature = "libstd_io_internals", issue = "42788")]
 #[doc(no_inline, hidden)]
 pub use self::stdio::{set_panic, set_print};
+#[stable(feature = "rust1", since = "1.0.0")]
+pub use self::util::{copy, empty, repeat, sink, Empty, Repeat, Sink};
 
-pub mod prelude;
 mod buffered;
 mod cursor;
 mod error;
 mod impls;
 mod lazy;
-mod util;
+pub mod prelude;
 mod stdio;
+mod util;
 
 const DEFAULT_BUF_SIZE: usize = ::sys_common::io::DEFAULT_BUF_SIZE;
 
-struct Guard<'a> { buf: &'a mut Vec<u8>, len: usize }
+struct Guard<'a> {
+    buf: &'a mut Vec<u8>,
+    len: usize,
+}
 
 impl<'a> Drop for Guard<'a> {
     fn drop(&mut self) {
-        unsafe { self.buf.set_len(self.len); }
+        unsafe {
+            self.buf.set_len(self.len);
+        }
     }
 }
 
@@ -336,15 +341,21 @@ impl<'a> Drop for Guard<'a> {
 //    the function only *appends* bytes to the buffer. We'll get undefined
 //    behavior if existing bytes are overwritten to have non-UTF-8 data.
 fn append_to_string<F>(buf: &mut String, f: F) -> Result<usize>
-    where F: FnOnce(&mut Vec<u8>) -> Result<usize>
+where
+    F: FnOnce(&mut Vec<u8>) -> Result<usize>,
 {
     unsafe {
-        let mut g = Guard { len: buf.len(), buf: buf.as_mut_vec() };
+        let mut g = Guard {
+            len: buf.len(),
+            buf: buf.as_mut_vec(),
+        };
         let ret = f(g.buf);
         if str::from_utf8(&g.buf[g.len..]).is_err() {
             ret.and_then(|_| {
-                Err(Error::new(ErrorKind::InvalidData,
-                               "stream did not contain valid UTF-8"))
+                Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "stream did not contain valid UTF-8",
+                ))
             })
         } else {
             g.len = g.buf.len();
@@ -364,7 +375,10 @@ fn append_to_string<F>(buf: &mut String, f: F) -> Result<usize>
 // readers, we need to make sure to truncate that if any of this panics.
 fn read_to_end<R: Read + ?Sized>(r: &mut R, buf: &mut Vec<u8>) -> Result<usize> {
     let start_len = buf.len();
-    let mut g = Guard { len: buf.len(), buf: buf };
+    let mut g = Guard {
+        len: buf.len(),
+        buf: buf,
+    };
     let ret;
     loop {
         if g.len == g.buf.len() {
@@ -711,14 +725,19 @@ pub trait Read {
         while !buf.is_empty() {
             match self.read(buf) {
                 Ok(0) => break,
-                Ok(n) => { let tmp = buf; buf = &mut tmp[n..]; }
+                Ok(n) => {
+                    let tmp = buf;
+                    buf = &mut tmp[n..];
+                }
                 Err(ref e) if e.kind() == ErrorKind::Interrupted => {}
                 Err(e) => return Err(e),
             }
         }
         if !buf.is_empty() {
-            Err(Error::new(ErrorKind::UnexpectedEof,
-                           "failed to fill whole buffer"))
+            Err(Error::new(
+                ErrorKind::UnexpectedEof,
+                "failed to fill whole buffer",
+            ))
         } else {
             Ok(())
         }
@@ -759,7 +778,12 @@ pub trait Read {
     /// }
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    fn by_ref(&mut self) -> &mut Self where Self: Sized { self }
+    fn by_ref(&mut self) -> &mut Self
+    where
+        Self: Sized,
+    {
+        self
+    }
 
     /// Transforms this `Read` instance to an [`Iterator`] over its bytes.
     ///
@@ -796,7 +820,10 @@ pub trait Read {
     /// }
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    fn bytes(self) -> Bytes<Self> where Self: Sized {
+    fn bytes(self) -> Bytes<Self>
+    where
+        Self: Sized,
+    {
         Bytes { inner: self }
     }
 
@@ -836,14 +863,23 @@ pub trait Read {
     ///     Ok(())
     /// }
     /// ```
-    #[unstable(feature = "io", reason = "the semantics of a partial read/write \
-                                         of where errors happen is currently \
-                                         unclear and may change",
-               issue = "27802")]
-    #[rustc_deprecated(since = "1.27.0", reason = "Use str::from_utf8 instead:
-        https://doc.rust-lang.org/nightly/std/str/struct.Utf8Error.html#examples")]
+    #[unstable(
+        feature = "io",
+        reason = "the semantics of a partial read/write \
+                  of where errors happen is currently \
+                  unclear and may change",
+        issue = "27802"
+    )]
+    #[rustc_deprecated(
+        since = "1.27.0",
+        reason = "Use str::from_utf8 instead:
+        https://doc.rust-lang.org/nightly/std/str/struct.Utf8Error.html#examples"
+    )]
     #[allow(deprecated)]
-    fn chars(self) -> Chars<Self> where Self: Sized {
+    fn chars(self) -> Chars<Self>
+    where
+        Self: Sized,
+    {
         Chars { inner: self }
     }
 
@@ -878,8 +914,15 @@ pub trait Read {
     /// }
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    fn chain<R: Read>(self, next: R) -> Chain<Self, R> where Self: Sized {
-        Chain { first: self, second: next, done_first: false }
+    fn chain<R: Read>(self, next: R) -> Chain<Self, R>
+    where
+        Self: Sized,
+    {
+        Chain {
+            first: self,
+            second: next,
+            done_first: false,
+        }
     }
 
     /// Creates an adaptor which will read at most `limit` bytes from it.
@@ -914,8 +957,14 @@ pub trait Read {
     /// }
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    fn take(self, limit: u64) -> Take<Self> where Self: Sized {
-        Take { inner: self, limit: limit }
+    fn take(self, limit: u64) -> Take<Self>
+    where
+        Self: Sized,
+    {
+        Take {
+            inner: self,
+            limit: limit,
+        }
     }
 }
 
@@ -1109,8 +1158,12 @@ pub trait Write {
     fn write_all(&mut self, mut buf: &[u8]) -> Result<()> {
         while !buf.is_empty() {
             match self.write(buf) {
-                Ok(0) => return Err(Error::new(ErrorKind::WriteZero,
-                                               "failed to write whole buffer")),
+                Ok(0) => {
+                    return Err(Error::new(
+                        ErrorKind::WriteZero,
+                        "failed to write whole buffer",
+                    ))
+                }
                 Ok(n) => buf = &buf[n..],
                 Err(ref e) if e.kind() == ErrorKind::Interrupted => {}
                 Err(e) => return Err(e),
@@ -1178,7 +1231,10 @@ pub trait Write {
             }
         }
 
-        let mut output = Adaptor { inner: self, error: Ok(()) };
+        let mut output = Adaptor {
+            inner: self,
+            error: Ok(()),
+        };
         match fmt::write(&mut output, fmt) {
             Ok(()) => Ok(()),
             Err(..) => {
@@ -1214,7 +1270,12 @@ pub trait Write {
     /// }
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    fn by_ref(&mut self) -> &mut Self where Self: Sized { self }
+    fn by_ref(&mut self) -> &mut Self
+    where
+        Self: Sized,
+    {
+        self
+    }
 }
 
 /// The `Seek` trait provides a cursor which can be moved within a stream of
@@ -1292,15 +1353,14 @@ pub enum SeekFrom {
     Current(#[stable(feature = "rust1", since = "1.0.0")] i64),
 }
 
-fn read_until<R: BufRead + ?Sized>(r: &mut R, delim: u8, buf: &mut Vec<u8>)
-                                   -> Result<usize> {
+fn read_until<R: BufRead + ?Sized>(r: &mut R, delim: u8, buf: &mut Vec<u8>) -> Result<usize> {
     let mut read = 0;
     loop {
         let (done, used) = {
             let available = match r.fill_buf() {
                 Ok(n) => n,
                 Err(ref e) if e.kind() == ErrorKind::Interrupted => continue,
-                Err(e) => return Err(e)
+                Err(e) => return Err(e),
             };
             match memchr::memchr(delim, available) {
                 Some(i) => {
@@ -1595,8 +1655,14 @@ pub trait BufRead: Read {
     /// assert_eq!(split_iter.next(), None);
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    fn split(self, byte: u8) -> Split<Self> where Self: Sized {
-        Split { buf: self, delim: byte }
+    fn split(self, byte: u8) -> Split<Self>
+    where
+        Self: Sized,
+    {
+        Split {
+            buf: self,
+            delim: byte,
+        }
     }
 
     /// Returns an iterator over the lines of this reader.
@@ -1634,7 +1700,10 @@ pub trait BufRead: Read {
     ///
     /// [`BufRead::read_line`]: trait.BufRead.html#method.read_line
     #[stable(feature = "rust1", since = "1.0.0")]
-    fn lines(self) -> Lines<Self> where Self: Sized {
+    fn lines(self) -> Lines<Self>
+    where
+        Self: Sized,
+    {
         Lines { buf: self }
     }
 }
@@ -1742,7 +1811,9 @@ impl<T: Read, U: Read> Read for Chain<T, U> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         if !self.done_first {
             match self.first.read(buf)? {
-                0 if buf.len() != 0 => { self.done_first = true; }
+                0 if buf.len() != 0 => {
+                    self.done_first = true;
+                }
                 n => return Ok(n),
             }
         }
@@ -1764,7 +1835,9 @@ impl<T: BufRead, U: BufRead> BufRead for Chain<T, U> {
     fn fill_buf(&mut self) -> Result<&[u8]> {
         if !self.done_first {
             match self.first.fill_buf()? {
-                buf if buf.len() == 0 => { self.done_first = true; }
+                buf if buf.len() == 0 => {
+                    self.done_first = true;
+                }
                 buf => return Ok(buf),
             }
         }
@@ -1822,7 +1895,9 @@ impl<T> Take<T> {
     /// }
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
-    pub fn limit(&self) -> u64 { self.limit }
+    pub fn limit(&self) -> u64 {
+        self.limit
+    }
 
     /// Sets the number of bytes that can be read before this instance will
     /// return EOF. This is the same as constructing a new `Take` instance, so
@@ -2011,10 +2086,12 @@ impl<R: Read> Iterator for Bytes<R> {
 /// Please see the documentation of `chars()` for more details.
 ///
 /// [chars]: trait.Read.html#method.chars
-#[unstable(feature = "io", reason = "awaiting stability of Read::chars",
-           issue = "27802")]
-#[rustc_deprecated(since = "1.27.0", reason = "Use str::from_utf8 instead:
-    https://doc.rust-lang.org/nightly/std/str/struct.Utf8Error.html#examples")]
+#[unstable(feature = "io", reason = "awaiting stability of Read::chars", issue = "27802")]
+#[rustc_deprecated(
+    since = "1.27.0",
+    reason = "Use str::from_utf8 instead:
+    https://doc.rust-lang.org/nightly/std/str/struct.Utf8Error.html#examples"
+)]
 #[derive(Debug)]
 #[allow(deprecated)]
 pub struct Chars<R> {
@@ -2023,10 +2100,12 @@ pub struct Chars<R> {
 
 /// An enumeration of possible errors that can be generated from the `Chars`
 /// adapter.
-#[unstable(feature = "io", reason = "awaiting stability of Read::chars",
-           issue = "27802")]
-#[rustc_deprecated(since = "1.27.0", reason = "Use str::from_utf8 instead:
-    https://doc.rust-lang.org/nightly/std/str/struct.Utf8Error.html#examples")]
+#[unstable(feature = "io", reason = "awaiting stability of Read::chars", issue = "27802")]
+#[rustc_deprecated(
+    since = "1.27.0",
+    reason = "Use str::from_utf8 instead:
+    https://doc.rust-lang.org/nightly/std/str/struct.Utf8Error.html#examples"
+)]
 #[derive(Debug)]
 #[allow(deprecated)]
 pub enum CharsError {
@@ -2038,8 +2117,7 @@ pub enum CharsError {
     Other(Error),
 }
 
-#[unstable(feature = "io", reason = "awaiting stability of Read::chars",
-           issue = "27802")]
+#[unstable(feature = "io", reason = "awaiting stability of Read::chars", issue = "27802")]
 #[allow(deprecated)]
 impl<R: Read> Iterator for Chars<R> {
     type Item = result::Result<char, CharsError>;
@@ -2050,8 +2128,12 @@ impl<R: Read> Iterator for Chars<R> {
             Err(e) => return Some(Err(CharsError::Other(e))),
         };
         let width = core_str::utf8_char_width(first_byte);
-        if width == 1 { return Some(Ok(first_byte as char)) }
-        if width == 0 { return Some(Err(CharsError::NotUtf8)) }
+        if width == 1 {
+            return Some(Ok(first_byte as char));
+        }
+        if width == 0 {
+            return Some(Err(CharsError::NotUtf8));
+        }
         let mut buf = [first_byte, 0, 0, 0];
         {
             let mut start = 1;
@@ -2071,8 +2153,7 @@ impl<R: Read> Iterator for Chars<R> {
     }
 }
 
-#[unstable(feature = "io", reason = "awaiting stability of Read::chars",
-           issue = "27802")]
+#[unstable(feature = "io", reason = "awaiting stability of Read::chars", issue = "27802")]
 #[allow(deprecated)]
 impl std_error::Error for CharsError {
     fn description(&self) -> &str {
@@ -2089,15 +2170,12 @@ impl std_error::Error for CharsError {
     }
 }
 
-#[unstable(feature = "io", reason = "awaiting stability of Read::chars",
-           issue = "27802")]
+#[unstable(feature = "io", reason = "awaiting stability of Read::chars", issue = "27802")]
 #[allow(deprecated)]
 impl fmt::Display for CharsError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            CharsError::NotUtf8 => {
-                "byte stream did not contain valid utf8".fmt(f)
-            }
+            CharsError::NotUtf8 => "byte stream did not contain valid utf8".fmt(f),
             CharsError::Other(ref e) => e.fmt(f),
         }
     }
@@ -2131,7 +2209,7 @@ impl<B: BufRead> Iterator for Split<B> {
                 }
                 Some(Ok(buf))
             }
-            Err(e) => Some(Err(e))
+            Err(e) => Some(Err(e)),
         }
     }
 }
@@ -2165,18 +2243,18 @@ impl<B: BufRead> Iterator for Lines<B> {
                 }
                 Some(Ok(buf))
             }
-            Err(e) => Some(Err(e))
+            Err(e) => Some(Err(e)),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use io::prelude::*;
-    use io;
-    use super::Cursor;
-    use test;
     use super::repeat;
+    use super::Cursor;
+    use io;
+    use io::prelude::*;
+    use test;
 
     #[test]
     #[cfg_attr(target_os = "emscripten", ignore)]
@@ -2288,16 +2366,20 @@ mod tests {
         let mut buf = [0; 4];
 
         let mut c = Cursor::new(&b""[..]);
-        assert_eq!(c.read_exact(&mut buf).unwrap_err().kind(),
-                   io::ErrorKind::UnexpectedEof);
+        assert_eq!(
+            c.read_exact(&mut buf).unwrap_err().kind(),
+            io::ErrorKind::UnexpectedEof
+        );
 
         let mut c = Cursor::new(&b"123"[..]).chain(Cursor::new(&b"456789"[..]));
         c.read_exact(&mut buf).unwrap();
         assert_eq!(&buf, b"1234");
         c.read_exact(&mut buf).unwrap();
         assert_eq!(&buf, b"5678");
-        assert_eq!(c.read_exact(&mut buf).unwrap_err().kind(),
-                   io::ErrorKind::UnexpectedEof);
+        assert_eq!(
+            c.read_exact(&mut buf).unwrap_err().kind(),
+            io::ErrorKind::UnexpectedEof
+        );
     }
 
     #[test]
@@ -2305,12 +2387,16 @@ mod tests {
         let mut buf = [0; 4];
 
         let mut c = &b""[..];
-        assert_eq!(c.read_exact(&mut buf).unwrap_err().kind(),
-                   io::ErrorKind::UnexpectedEof);
+        assert_eq!(
+            c.read_exact(&mut buf).unwrap_err().kind(),
+            io::ErrorKind::UnexpectedEof
+        );
 
         let mut c = &b"123"[..];
-        assert_eq!(c.read_exact(&mut buf).unwrap_err().kind(),
-                   io::ErrorKind::UnexpectedEof);
+        assert_eq!(
+            c.read_exact(&mut buf).unwrap_err().kind(),
+            io::ErrorKind::UnexpectedEof
+        );
         // make sure the optimized (early returning) method is being used
         assert_eq!(&buf, &[0; 4]);
 
@@ -2337,7 +2423,7 @@ mod tests {
             fn fill_buf(&mut self) -> io::Result<&[u8]> {
                 Err(io::Error::new(io::ErrorKind::Other, ""))
             }
-            fn consume(&mut self, _amt: usize) { }
+            fn consume(&mut self, _amt: usize) {}
         }
 
         let mut buf = [0; 1];
@@ -2351,7 +2437,11 @@ mod tests {
             let consume = {
                 let buf1 = br1.fill_buf().unwrap();
                 let buf2 = br2.fill_buf().unwrap();
-                let minlen = if buf1.len() < buf2.len() { buf1.len() } else { buf2.len() };
+                let minlen = if buf1.len() < buf2.len() {
+                    buf1.len()
+                } else {
+                    buf2.len()
+                };
                 assert_eq!(buf1[..minlen], buf2[..minlen]);
                 cat.extend_from_slice(&buf1[..minlen]);
                 minlen
@@ -2370,11 +2460,13 @@ mod tests {
     #[test]
     fn chain_bufread() {
         let testdata = b"ABCDEFGHIJKL";
-        let chain1 = (&testdata[..3]).chain(&testdata[3..6])
-                                     .chain(&testdata[6..9])
-                                     .chain(&testdata[9..]);
-        let chain2 = (&testdata[..4]).chain(&testdata[4..8])
-                                     .chain(&testdata[8..]);
+        let chain1 = (&testdata[..3])
+            .chain(&testdata[3..6])
+            .chain(&testdata[6..9])
+            .chain(&testdata[9..]);
+        let chain2 = (&testdata[..4])
+            .chain(&testdata[4..8])
+            .chain(&testdata[8..]);
         cmp_bufread(chain1, chain2, &testdata[..]);
     }
 

@@ -73,16 +73,16 @@ use core::intrinsics::{arith_offset, assume};
 use core::iter::{FromIterator, FusedIterator, TrustedLen};
 use core::marker::PhantomData;
 use core::mem;
+use core::ops;
 use core::ops::Bound::{Excluded, Included, Unbounded};
 use core::ops::{Index, IndexMut, RangeBounds};
-use core::ops;
 use core::ptr;
 use core::ptr::NonNull;
 use core::slice;
 
 use alloc::CollectionAllocErr;
-use borrow::ToOwned;
 use borrow::Cow;
+use borrow::ToOwned;
 use boxed::Box;
 use raw_vec::RawVec;
 
@@ -521,7 +521,7 @@ impl<T> Vec<T> {
     /// }
     /// # process_data(&[1, 2, 3]).expect("why is the test harness OOMing on 12 bytes?");
     /// ```
-    #[unstable(feature = "try_reserve", reason = "new API", issue="48043")]
+    #[unstable(feature = "try_reserve", reason = "new API", issue = "48043")]
     pub fn try_reserve(&mut self, additional: usize) -> Result<(), CollectionAllocErr> {
         self.buf.try_reserve(self.len, additional)
     }
@@ -561,8 +561,8 @@ impl<T> Vec<T> {
     /// }
     /// # process_data(&[1, 2, 3]).expect("why is the test harness OOMing on 12 bytes?");
     /// ```
-    #[unstable(feature = "try_reserve", reason = "new API", issue="48043")]
-    pub fn try_reserve_exact(&mut self, additional: usize) -> Result<(), CollectionAllocErr>  {
+    #[unstable(feature = "try_reserve", reason = "new API", issue = "48043")]
+    pub fn try_reserve_exact(&mut self, additional: usize) -> Result<(), CollectionAllocErr> {
         self.buf.try_reserve_exact(self.len, additional)
     }
 
@@ -607,7 +607,7 @@ impl<T> Vec<T> {
     /// vec.shrink_to(0);
     /// assert!(vec.capacity() >= 3);
     /// ```
-    #[unstable(feature = "shrink_to", reason = "new API", issue="0")]
+    #[unstable(feature = "shrink_to", reason = "new API", issue = "0")]
     pub fn shrink_to(&mut self, min_capacity: usize) {
         self.buf.shrink_to_fit(cmp::max(self.len, min_capacity));
     }
@@ -907,7 +907,8 @@ impl<T> Vec<T> {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn retain<F>(&mut self, mut f: F)
-        where F: FnMut(&T) -> bool
+    where
+        F: FnMut(&T) -> bool,
     {
         self.drain_filter(|x| !f(x));
     }
@@ -928,7 +929,11 @@ impl<T> Vec<T> {
     /// ```
     #[stable(feature = "dedup_by", since = "1.16.0")]
     #[inline]
-    pub fn dedup_by_key<F, K>(&mut self, mut key: F) where F: FnMut(&mut T) -> K, K: PartialEq {
+    pub fn dedup_by_key<F, K>(&mut self, mut key: F)
+    where
+        F: FnMut(&mut T) -> K,
+        K: PartialEq,
+    {
         self.dedup_by(|a, b| key(a) == key(b))
     }
 
@@ -952,7 +957,10 @@ impl<T> Vec<T> {
     /// assert_eq!(vec, ["foo", "bar", "baz", "bar"]);
     /// ```
     #[stable(feature = "dedup_by", since = "1.16.0")]
-    pub fn dedup_by<F>(&mut self, mut same_bucket: F) where F: FnMut(&mut T, &mut T) -> bool {
+    pub fn dedup_by<F>(&mut self, mut same_bucket: F)
+    where
+        F: FnMut(&mut T, &mut T) -> bool,
+    {
         unsafe {
             // Although we have a mutable reference to `self`, we cannot make
             // *arbitrary* changes. The `same_bucket` calls could panic, so we
@@ -1153,7 +1161,8 @@ impl<T> Vec<T> {
     /// ```
     #[stable(feature = "drain", since = "1.6.0")]
     pub fn drain<R>(&mut self, range: R) -> Drain<T>
-        where R: RangeBounds<usize>
+    where
+        R: RangeBounds<usize>,
     {
         // Memory safety
         //
@@ -1169,12 +1178,12 @@ impl<T> Vec<T> {
         let start = match range.start_bound() {
             Included(&n) => n,
             Excluded(&n) => n + 1,
-            Unbounded    => 0,
+            Unbounded => 0,
         };
         let end = match range.end_bound() {
             Included(&n) => n + 1,
             Excluded(&n) => n,
-            Unbounded    => len,
+            Unbounded => len,
         };
         assert!(start <= end);
         assert!(end <= len);
@@ -1184,8 +1193,8 @@ impl<T> Vec<T> {
             self.set_len(start);
             // Use the borrow in the IterMut to indicate borrowing behavior of the
             // whole Drain iterator (like &mut T).
-            let range_slice = slice::from_raw_parts_mut(self.as_mut_ptr().offset(start as isize),
-                                                        end - start);
+            let range_slice =
+                slice::from_raw_parts_mut(self.as_mut_ptr().offset(start as isize), end - start);
             Drain {
                 tail_start: end,
                 tail_len: len - end,
@@ -1278,9 +1287,11 @@ impl<T> Vec<T> {
             self.set_len(at);
             other.set_len(other_len);
 
-            ptr::copy_nonoverlapping(self.as_ptr().offset(at as isize),
-                                     other.as_mut_ptr(),
-                                     other.len());
+            ptr::copy_nonoverlapping(
+                self.as_ptr().offset(at as isize),
+                other.as_mut_ptr(),
+                other.len(),
+            );
         }
         other
     }
@@ -1318,7 +1329,8 @@ impl<T> Vec<T> {
     /// [`Clone`]: ../../std/clone/trait.Clone.html
     #[unstable(feature = "vec_resize_with", issue = "41758")]
     pub fn resize_with<F>(&mut self, new_len: usize, f: F)
-        where F: FnMut() -> T
+    where
+        F: FnMut() -> T,
     {
         let len = self.len();
         if new_len > len {
@@ -1439,20 +1451,32 @@ trait ExtendWith<T> {
 
 struct ExtendElement<T>(T);
 impl<T: Clone> ExtendWith<T> for ExtendElement<T> {
-    fn next(&mut self) -> T { self.0.clone() }
-    fn last(self) -> T { self.0 }
+    fn next(&mut self) -> T {
+        self.0.clone()
+    }
+    fn last(self) -> T {
+        self.0
+    }
 }
 
 struct ExtendDefault;
 impl<T: Default> ExtendWith<T> for ExtendDefault {
-    fn next(&mut self) -> T { Default::default() }
-    fn last(self) -> T { Default::default() }
+    fn next(&mut self) -> T {
+        Default::default()
+    }
+    fn last(self) -> T {
+        Default::default()
+    }
 }
 
 struct ExtendFunc<F>(F);
 impl<T, F: FnMut() -> T> ExtendWith<T> for ExtendFunc<F> {
-    fn next(&mut self) -> T { (self.0)() }
-    fn last(mut self) -> T { (self.0)() }
+    fn next(&mut self) -> T {
+        (self.0)()
+    }
+    fn last(mut self) -> T {
+        (self.0)()
+    }
 }
 
 impl<T> Vec<T> {
@@ -1499,7 +1523,10 @@ struct SetLenOnDrop<'a> {
 impl<'a> SetLenOnDrop<'a> {
     #[inline]
     fn new(len: &'a mut usize) -> Self {
-        SetLenOnDrop { local_len: *len, len: len }
+        SetLenOnDrop {
+            local_len: *len,
+            len: len,
+        }
     }
 
     #[inline]
@@ -1584,7 +1611,7 @@ impl SpecFromElem for u8 {
             return Vec {
                 buf: RawVec::with_capacity_zeroed(n),
                 len: n,
-            }
+            };
         }
         unsafe {
             let mut v = Vec::with_capacity(n);
@@ -1602,7 +1629,7 @@ impl<T: Clone + IsZero> SpecFromElem for T {
             return Vec {
                 buf: RawVec::with_capacity_zeroed(n),
                 len: n,
-            }
+            };
         }
         let mut v = Vec::with_capacity(n);
         v.extend_with(n, ExtendElement(elem));
@@ -1616,14 +1643,14 @@ unsafe trait IsZero {
 }
 
 macro_rules! impl_is_zero {
-    ($t: ty, $is_zero: expr) => {
+    ($t:ty, $is_zero:expr) => {
         unsafe impl IsZero for $t {
             #[inline]
             fn is_zero(&self) -> bool {
                 $is_zero(*self)
             }
         }
-    }
+    };
 }
 
 impl_is_zero!(i8, |x| x == 0);
@@ -1657,7 +1684,6 @@ unsafe impl<T: ?Sized> IsZero for *mut T {
         (*self).is_null()
     }
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // Common trait implementations for Vec
@@ -1826,7 +1852,8 @@ trait SpecExtend<T, I> {
 }
 
 impl<T, I> SpecExtend<T, I> for Vec<T>
-    where I: Iterator<Item=T>,
+where
+    I: Iterator<Item = T>,
 {
     default fn from_iter(mut iterator: I) -> Self {
         // Unroll the first iteration, as the vector is going to be
@@ -1856,7 +1883,8 @@ impl<T, I> SpecExtend<T, I> for Vec<T>
 }
 
 impl<T, I> SpecExtend<T, I> for Vec<T>
-    where I: TrustedLen<Item=T>,
+where
+    I: TrustedLen<Item = T>,
 {
     default fn from_iter(iterator: I) -> Self {
         let mut vector = Vec::new();
@@ -1868,9 +1896,12 @@ impl<T, I> SpecExtend<T, I> for Vec<T>
         // This is the case for a TrustedLen iterator.
         let (low, high) = iterator.size_hint();
         if let Some(high_value) = high {
-            debug_assert_eq!(low, high_value,
-                             "TrustedLen iterator's size hint is not exact: {:?}",
-                             (low, high));
+            debug_assert_eq!(
+                low,
+                high_value,
+                "TrustedLen iterator's size hint is not exact: {:?}",
+                (low, high)
+            );
         }
         if let Some(additional) = high {
             self.reserve(additional);
@@ -1897,9 +1928,7 @@ impl<T> SpecExtend<T, IntoIter<T>> for Vec<T> {
         // has not been advanced at all.
         if iterator.buf.as_ptr() as *const _ == iterator.ptr {
             unsafe {
-                let vec = Vec::from_raw_parts(iterator.buf.as_ptr(),
-                                              iterator.len(),
-                                              iterator.cap);
+                let vec = Vec::from_raw_parts(iterator.buf.as_ptr(), iterator.len(), iterator.cap);
                 mem::forget(iterator);
                 vec
             }
@@ -1919,8 +1948,9 @@ impl<T> SpecExtend<T, IntoIter<T>> for Vec<T> {
 }
 
 impl<'a, T: 'a, I> SpecExtend<&'a T, I> for Vec<T>
-    where I: Iterator<Item=&'a T>,
-          T: Clone,
+where
+    I: Iterator<Item = &'a T>,
+    T: Clone,
 {
     default fn from_iter(iterator: I) -> Self {
         SpecExtend::from_iter(iterator.cloned())
@@ -1932,7 +1962,8 @@ impl<'a, T: 'a, I> SpecExtend<&'a T, I> for Vec<T>
 }
 
 impl<'a, T: 'a> SpecExtend<&'a T, slice::Iter<'a, T>> for Vec<T>
-    where T: Copy,
+where
+    T: Copy,
 {
     fn spec_extend(&mut self, iterator: slice::Iter<'a, T>) {
         let slice = iterator.as_slice();
@@ -2006,7 +2037,9 @@ impl<T> Vec<T> {
     #[inline]
     #[stable(feature = "vec_splice", since = "1.21.0")]
     pub fn splice<R, I>(&mut self, range: R, replace_with: I) -> Splice<I::IntoIter>
-        where R: RangeBounds<usize>, I: IntoIterator<Item=T>
+    where
+        R: RangeBounds<usize>,
+        I: IntoIterator<Item = T>,
     {
         Splice {
             drain: self.drain(range),
@@ -2061,12 +2094,15 @@ impl<T> Vec<T> {
     /// ```
     #[unstable(feature = "drain_filter", reason = "recently added", issue = "43244")]
     pub fn drain_filter<F>(&mut self, filter: F) -> DrainFilter<T, F>
-        where F: FnMut(&mut T) -> bool,
+    where
+        F: FnMut(&mut T) -> bool,
     {
         let old_len = self.len();
 
         // Guard against us getting leaked (leak amplification)
-        unsafe { self.set_len(0); }
+        unsafe {
+            self.set_len(0);
+        }
 
         DrainFilter {
             vec: self,
@@ -2092,18 +2128,25 @@ impl<'a, T: 'a + Copy> Extend<&'a T> for Vec<T> {
 }
 
 macro_rules! __impl_slice_eq1 {
-    ($Lhs: ty, $Rhs: ty) => {
+    ($Lhs:ty, $Rhs:ty) => {
         __impl_slice_eq1! { $Lhs, $Rhs, Sized }
     };
-    ($Lhs: ty, $Rhs: ty, $Bound: ident) => {
+    ($Lhs:ty, $Rhs:ty, $Bound:ident) => {
         #[stable(feature = "rust1", since = "1.0.0")]
-        impl<'a, 'b, A: $Bound, B> PartialEq<$Rhs> for $Lhs where A: PartialEq<B> {
+        impl<'a, 'b, A: $Bound, B> PartialEq<$Rhs> for $Lhs
+        where
+            A: PartialEq<B>,
+        {
             #[inline]
-            fn eq(&self, other: &$Rhs) -> bool { self[..] == other[..] }
+            fn eq(&self, other: &$Rhs) -> bool {
+                self[..] == other[..]
+            }
             #[inline]
-            fn ne(&self, other: &$Rhs) -> bool { self[..] != other[..] }
+            fn ne(&self, other: &$Rhs) -> bool {
+                self[..] != other[..]
+            }
         }
-    }
+    };
 }
 
 __impl_slice_eq1! { Vec<A>, Vec<B> }
@@ -2234,7 +2277,10 @@ impl<'a, T: Clone> From<&'a mut [T]> for Vec<T> {
 }
 
 #[stable(feature = "vec_from_cow_slice", since = "1.14.0")]
-impl<'a, T> From<Cow<'a, [T]>> for Vec<T> where [T]: ToOwned<Owned=Vec<T>> {
+impl<'a, T> From<Cow<'a, [T]>> for Vec<T>
+where
+    [T]: ToOwned<Owned = Vec<T>>,
+{
     fn from(s: Cow<'a, [T]>) -> Vec<T> {
         s.into_owned()
     }
@@ -2291,7 +2337,10 @@ impl<'a, T: Clone> From<&'a Vec<T>> for Cow<'a, [T]> {
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
-impl<'a, T> FromIterator<T> for Cow<'a, [T]> where T: Clone {
+impl<'a, T> FromIterator<T> for Cow<'a, [T]>
+where
+    T: Clone,
+{
     fn from_iter<I: IntoIterator<Item = T>>(it: I) -> Cow<'a, [T]> {
         Cow::Owned(FromIterator::from_iter(it))
     }
@@ -2320,9 +2369,7 @@ pub struct IntoIter<T> {
 #[stable(feature = "vec_intoiter_debug", since = "1.13.0")]
 impl<T: fmt::Debug> fmt::Debug for IntoIter<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("IntoIter")
-            .field(&self.as_slice())
-            .finish()
+        f.debug_tuple("IntoIter").field(&self.as_slice()).finish()
     }
 }
 
@@ -2340,9 +2387,7 @@ impl<T> IntoIter<T> {
     /// ```
     #[stable(feature = "vec_into_iter_as_slice", since = "1.15.0")]
     pub fn as_slice(&self) -> &[T] {
-        unsafe {
-            slice::from_raw_parts(self.ptr, self.len())
-        }
+        unsafe { slice::from_raw_parts(self.ptr, self.len()) }
     }
 
     /// Returns the remaining items of this iterator as a mutable slice.
@@ -2360,9 +2405,7 @@ impl<T> IntoIter<T> {
     /// ```
     #[stable(feature = "vec_into_iter_as_slice", since = "1.15.0")]
     pub fn as_mut_slice(&mut self) -> &mut [T] {
-        unsafe {
-            slice::from_raw_parts_mut(self.ptr as *mut T, self.len())
-        }
+        unsafe { slice::from_raw_parts_mut(self.ptr as *mut T, self.len()) }
     }
 }
 
@@ -2492,9 +2535,7 @@ pub struct Drain<'a, T: 'a> {
 #[stable(feature = "collection_debug", since = "1.17.0")]
 impl<'a, T: 'a + fmt::Debug> fmt::Debug for Drain<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("Drain")
-         .field(&self.iter.as_slice())
-         .finish()
+        f.debug_tuple("Drain").field(&self.iter.as_slice()).finish()
     }
 }
 
@@ -2509,7 +2550,9 @@ impl<'a, T> Iterator for Drain<'a, T> {
 
     #[inline]
     fn next(&mut self) -> Option<T> {
-        self.iter.next().map(|elt| unsafe { ptr::read(elt as *const _) })
+        self.iter
+            .next()
+            .map(|elt| unsafe { ptr::read(elt as *const _) })
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -2521,7 +2564,9 @@ impl<'a, T> Iterator for Drain<'a, T> {
 impl<'a, T> DoubleEndedIterator for Drain<'a, T> {
     #[inline]
     fn next_back(&mut self) -> Option<T> {
-        self.iter.next_back().map(|elt| unsafe { ptr::read(elt as *const _) })
+        self.iter
+            .next_back()
+            .map(|elt| unsafe { ptr::read(elt as *const _) })
     }
 }
 
@@ -2547,7 +2592,6 @@ impl<'a, T> Drop for Drain<'a, T> {
         }
     }
 }
-
 
 #[stable(feature = "drain", since = "1.6.0")]
 impl<'a, T> ExactSizeIterator for Drain<'a, T> {
@@ -2596,7 +2640,6 @@ impl<'a, I: Iterator> DoubleEndedIterator for Splice<'a, I> {
 #[stable(feature = "vec_splice", since = "1.21.0")]
 impl<'a, I: Iterator> ExactSizeIterator for Splice<'a, I> {}
 
-
 #[stable(feature = "vec_splice", since = "1.21.0")]
 impl<'a, I: Iterator> Drop for Splice<'a, I> {
     fn drop(&mut self) {
@@ -2605,27 +2648,31 @@ impl<'a, I: Iterator> Drop for Splice<'a, I> {
         unsafe {
             if self.drain.tail_len == 0 {
                 self.drain.vec.as_mut().extend(self.replace_with.by_ref());
-                return
+                return;
             }
 
             // First fill the range left by drain().
             if !self.drain.fill(&mut self.replace_with) {
-                return
+                return;
             }
 
             // There may be more elements. Use the lower bound as an estimate.
             // FIXME: Is the upper bound a better guess? Or something else?
             let (lower_bound, _upper_bound) = self.replace_with.size_hint();
-            if lower_bound > 0  {
+            if lower_bound > 0 {
                 self.drain.move_tail(lower_bound);
                 if !self.drain.fill(&mut self.replace_with) {
-                    return
+                    return;
                 }
             }
 
             // Collect any remaining elements.
             // This is a zero-length vector which does not allocate if `lower_bound` was exact.
-            let mut collected = self.replace_with.by_ref().collect::<Vec<I::Item>>().into_iter();
+            let mut collected = self
+                .replace_with
+                .by_ref()
+                .collect::<Vec<I::Item>>()
+                .into_iter();
             // Now we have an exact count.
             if collected.len() > 0 {
                 self.drain.move_tail(collected.len());
@@ -2644,20 +2691,21 @@ impl<'a, T> Drain<'a, T> {
     /// that have been moved out.
     /// Fill that range as much as possible with new elements from the `replace_with` iterator.
     /// Return whether we filled the entire range. (`replace_with.next()` didn’t return `None`.)
-    unsafe fn fill<I: Iterator<Item=T>>(&mut self, replace_with: &mut I) -> bool {
+    unsafe fn fill<I: Iterator<Item = T>>(&mut self, replace_with: &mut I) -> bool {
         let vec = self.vec.as_mut();
         let range_start = vec.len;
         let range_end = self.tail_start;
         let range_slice = slice::from_raw_parts_mut(
             vec.as_mut_ptr().offset(range_start as isize),
-            range_end - range_start);
+            range_end - range_start,
+        );
 
         for place in range_slice {
             if let Some(new_item) = replace_with.next() {
                 ptr::write(place, new_item);
                 vec.len += 1;
             } else {
-                return false
+                return false;
             }
         }
         true
@@ -2681,7 +2729,8 @@ impl<'a, T> Drain<'a, T> {
 #[unstable(feature = "drain_filter", reason = "recently added", issue = "43244")]
 #[derive(Debug)]
 pub struct DrainFilter<'a, T: 'a, F>
-    where F: FnMut(&mut T) -> bool,
+where
+    F: FnMut(&mut T) -> bool,
 {
     vec: &'a mut Vec<T>,
     idx: usize,
@@ -2692,7 +2741,8 @@ pub struct DrainFilter<'a, T: 'a, F>
 
 #[unstable(feature = "drain_filter", reason = "recently added", issue = "43244")]
 impl<'a, T, F> Iterator for DrainFilter<'a, T, F>
-    where F: FnMut(&mut T) -> bool,
+where
+    F: FnMut(&mut T) -> bool,
 {
     type Item = T;
 
@@ -2726,7 +2776,8 @@ impl<'a, T, F> Iterator for DrainFilter<'a, T, F>
 
 #[unstable(feature = "drain_filter", reason = "recently added", issue = "43244")]
 impl<'a, T, F> Drop for DrainFilter<'a, T, F>
-    where F: FnMut(&mut T) -> bool,
+where
+    F: FnMut(&mut T) -> bool,
 {
     fn drop(&mut self) {
         self.for_each(drop);

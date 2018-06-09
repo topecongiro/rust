@@ -10,26 +10,26 @@
 
 use borrow_check::borrow_set::BorrowSet;
 use borrow_check::location::LocationTable;
-use borrow_check::{JustWrite, WriteAndRead};
-use borrow_check::{ShallowOrDeep, Deep, Shallow};
-use borrow_check::{ReadOrWrite, Activation, Read, Reservation, Write};
-use borrow_check::{Context, ContextKind};
-use borrow_check::{LocalMutationIsAllowed, MutateMode};
-use borrow_check::ArtificialField;
-use borrow_check::{ReadKind, WriteKind};
 use borrow_check::nll::facts::AllFacts;
 use borrow_check::path_utils::*;
+use borrow_check::ArtificialField;
+use borrow_check::{Activation, Read, ReadOrWrite, Reservation, Write};
+use borrow_check::{Context, ContextKind};
+use borrow_check::{Deep, Shallow, ShallowOrDeep};
+use borrow_check::{JustWrite, WriteAndRead};
+use borrow_check::{LocalMutationIsAllowed, MutateMode};
+use borrow_check::{ReadKind, WriteKind};
 use dataflow::move_paths::indexes::BorrowIndex;
 use rustc::hir::def_id::DefId;
 use rustc::infer::InferCtxt;
 use rustc::mir::visit::Visitor;
-use rustc::mir::{BasicBlock, Location, Mir, Place, Rvalue, Local};
+use rustc::mir::{BasicBlock, Local, Location, Mir, Place, Rvalue};
+use rustc::mir::{BorrowKind, Field, Operand};
 use rustc::mir::{Statement, StatementKind};
 use rustc::mir::{Terminator, TerminatorKind};
-use rustc::mir::{Field, Operand, BorrowKind};
 use rustc::ty::{self, ParamEnv};
-use rustc_data_structures::indexed_vec::Idx;
 use rustc_data_structures::control_flow_graph::dominators::Dominators;
+use rustc_data_structures::indexed_vec::Idx;
 
 pub(super) fn generate_invalidates<'cx, 'gcx, 'tcx>(
     infcx: &InferCtxt<'cx, 'gcx, 'tcx>,
@@ -75,22 +75,21 @@ struct InvalidationGenerator<'cg, 'cx: 'cg, 'tcx: 'cx, 'gcx: 'tcx> {
 /// Visits the whole MIR and generates invalidates() facts
 /// Most of the code implementing this was stolen from borrow_check/mod.rs
 impl<'cg, 'cx, 'tcx, 'gcx> Visitor<'tcx> for InvalidationGenerator<'cg, 'cx, 'tcx, 'gcx> {
-    fn visit_statement(&mut self,
-                       block: BasicBlock,
-                       statement: &Statement<'tcx>,
-                       location: Location) {
+    fn visit_statement(
+        &mut self,
+        block: BasicBlock,
+        statement: &Statement<'tcx>,
+        location: Location,
+    ) {
         match statement.kind {
             StatementKind::Assign(ref lhs, ref rhs) => {
-                self.consume_rvalue(
-                    ContextKind::AssignRhs.new(location),
-                    rhs,
-                );
+                self.consume_rvalue(ContextKind::AssignRhs.new(location), rhs);
 
                 self.mutate_place(
                     ContextKind::AssignLhs.new(location),
                     lhs,
                     Shallow(None),
-                    JustWrite
+                    JustWrite,
                 );
             }
             StatementKind::ReadForMatch(ref place) => {
@@ -142,11 +141,11 @@ impl<'cg, 'cx, 'tcx, 'gcx> Visitor<'tcx> for InvalidationGenerator<'cg, 'cx, 'tc
                 }
             }
             // EndRegion matters to older NLL/MIR AST borrowck, not to alias NLL
-            StatementKind::EndRegion(..) |
-            StatementKind::Nop |
-            StatementKind::UserAssertTy(..) |
-            StatementKind::Validate(..) |
-            StatementKind::StorageLive(..) => {
+            StatementKind::EndRegion(..)
+            | StatementKind::Nop
+            | StatementKind::UserAssertTy(..)
+            | StatementKind::Validate(..)
+            | StatementKind::StorageLive(..) => {
                 // `Nop`, `UserAssertTy`, `Validate`, and `StorageLive` are irrelevant
                 // to borrow check.
             }
@@ -167,7 +166,7 @@ impl<'cg, 'cx, 'tcx, 'gcx> Visitor<'tcx> for InvalidationGenerator<'cg, 'cx, 'tc
         &mut self,
         block: BasicBlock,
         terminator: &Terminator<'tcx>,
-        location: Location
+        location: Location,
     ) {
         match terminator.kind {
             TerminatorKind::SwitchInt {
@@ -202,10 +201,7 @@ impl<'cg, 'cx, 'tcx, 'gcx> Visitor<'tcx> for InvalidationGenerator<'cg, 'cx, 'tc
                     Deep,
                     JustWrite,
                 );
-                self.consume_operand(
-                    ContextKind::DropAndReplace.new(location),
-                    new_value,
-                );
+                self.consume_operand(ContextKind::DropAndReplace.new(location), new_value);
             }
             TerminatorKind::Call {
                 ref func,
@@ -218,12 +214,7 @@ impl<'cg, 'cx, 'tcx, 'gcx> Visitor<'tcx> for InvalidationGenerator<'cg, 'cx, 'tc
                     self.consume_operand(ContextKind::CallOperand.new(location), arg);
                 }
                 if let Some((ref dest, _ /*bb*/)) = *destination {
-                    self.mutate_place(
-                        ContextKind::CallDest.new(location),
-                        dest,
-                        Deep,
-                        JustWrite,
-                    );
+                    self.mutate_place(ContextKind::CallDest.new(location), dest, Deep, JustWrite);
                 }
             }
             TerminatorKind::Assert {
@@ -295,10 +286,8 @@ impl<'cg, 'cx, 'tcx, 'gcx> InvalidationGenerator<'cg, 'cx, 'tcx, 'gcx> {
         erased_drop_place_ty: ty::Ty<'gcx>,
     ) {
         let gcx = self.infcx.tcx.global_tcx();
-        let drop_field = |
-            ig: &mut InvalidationGenerator<'cg, 'cx, 'gcx, 'tcx>,
-            (index, field): (usize, ty::Ty<'gcx>),
-        | {
+        let drop_field = |ig: &mut InvalidationGenerator<'cg, 'cx, 'gcx, 'tcx>,
+                          (index, field): (usize, ty::Ty<'gcx>)| {
             let field_ty = gcx.normalize_erasing_regions(ig.param_env, field);
             let place = drop_place.clone().field(Field::new(index), field_ty);
 
@@ -320,23 +309,31 @@ impl<'cg, 'cx, 'tcx, 'gcx> InvalidationGenerator<'cg, 'cx, 'tcx, 'gcx> {
             }
             // Same as above, but for tuples.
             ty::TyTuple(tys) => {
-                tys.iter().cloned().enumerate()
+                tys.iter()
+                    .cloned()
+                    .enumerate()
                     .for_each(|field| drop_field(self, field));
             }
             // Closures and generators also have disjoint fields, but they are only
             // directly accessed in the body of the closure/generator.
             ty::TyGenerator(def, substs, ..)
-                if *drop_place == Place::Local(Local::new(1)) && !self.mir.upvar_decls.is_empty()
-            => {
-                substs.upvar_tys(def, self.infcx.tcx).enumerate()
+                if *drop_place == Place::Local(Local::new(1))
+                    && !self.mir.upvar_decls.is_empty() =>
+            {
+                substs
+                    .upvar_tys(def, self.infcx.tcx)
+                    .enumerate()
                     .for_each(|field| drop_field(self, field));
             }
             ty::TyClosure(def, substs)
-                if *drop_place == Place::Local(Local::new(1)) && !self.mir.upvar_decls.is_empty()
-                => {
-                    substs.upvar_tys(def, self.infcx.tcx).enumerate()
-                        .for_each(|field| drop_field(self, field));
-                }
+                if *drop_place == Place::Local(Local::new(1))
+                    && !self.mir.upvar_decls.is_empty() =>
+            {
+                substs
+                    .upvar_tys(def, self.infcx.tcx)
+                    .enumerate()
+                    .for_each(|field| drop_field(self, field));
+            }
             _ => {
                 // We have now refined the type of the value being
                 // dropped (potentially) to just the type of a
@@ -372,11 +369,7 @@ impl<'cg, 'cx, 'tcx, 'gcx> InvalidationGenerator<'cg, 'cx, 'tcx, 'gcx> {
     }
 
     /// Simulates consumption of an operand
-    fn consume_operand(
-        &mut self,
-        context: Context,
-        operand: &Operand<'tcx>,
-    ) {
+    fn consume_operand(&mut self, context: Context, operand: &Operand<'tcx>) {
         match *operand {
             Operand::Copy(ref place) => {
                 self.access_place(
@@ -399,11 +392,7 @@ impl<'cg, 'cx, 'tcx, 'gcx> InvalidationGenerator<'cg, 'cx, 'tcx, 'gcx> {
     }
 
     // Simulates consumption of an rvalue
-    fn consume_rvalue(
-        &mut self,
-        context: Context,
-        rvalue: &Rvalue<'tcx>,
-    ) {
+    fn consume_rvalue(&mut self, context: Context, rvalue: &Rvalue<'tcx>) {
         match *rvalue {
             Rvalue::Ref(_ /*rgn*/, bk, ref place) => {
                 let access_kind = match bk {
@@ -418,12 +407,7 @@ impl<'cg, 'cx, 'tcx, 'gcx> InvalidationGenerator<'cg, 'cx, 'tcx, 'gcx> {
                     }
                 };
 
-                self.access_place(
-                    context,
-                    place,
-                    access_kind,
-                    LocalMutationIsAllowed::No,
-                );
+                self.access_place(context, place, access_kind, LocalMutationIsAllowed::No);
             }
 
             Rvalue::Use(ref operand)
@@ -453,8 +437,7 @@ impl<'cg, 'cx, 'tcx, 'gcx> InvalidationGenerator<'cg, 'cx, 'tcx, 'gcx> {
                 self.consume_operand(context, operand2);
             }
 
-            Rvalue::NullaryOp(_op, _ty) => {
-            }
+            Rvalue::NullaryOp(_op, _ty) => {}
 
             Rvalue::Aggregate(_, ref operands) => {
                 for operand in operands {
@@ -487,10 +470,7 @@ impl<'cg, 'cx, 'tcx, 'gcx> InvalidationGenerator<'cg, 'cx, 'tcx, 'gcx> {
         debug!(
             "invalidation::check_access_for_conflict(context={:?}, place={:?}, sd={:?}, \
              rw={:?})",
-            context,
-            place,
-            sd,
-            rw,
+            context, place, sd, rw,
         );
         let tcx = self.infcx.tcx;
         let mir = self.mir;
@@ -535,21 +515,20 @@ impl<'cg, 'cx, 'tcx, 'gcx> InvalidationGenerator<'cg, 'cx, 'tcx, 'gcx> {
                     }
 
                     (Reservation(_), BorrowKind::Unique)
-                        | (Reservation(_), BorrowKind::Mut { .. })
-                        | (Activation(_, _), _)
-                        | (Write(_), _) => {
-                            // unique or mutable borrows are invalidated by writes.
-                            // Reservations count as writes since we need to check
-                            // that activating the borrow will be OK
-                            // TOOD(bob_twinkles) is this actually the right thing to do?
-                            this.generate_invalidates(borrow_index, context.loc);
-                        }
+                    | (Reservation(_), BorrowKind::Mut { .. })
+                    | (Activation(_, _), _)
+                    | (Write(_), _) => {
+                        // unique or mutable borrows are invalidated by writes.
+                        // Reservations count as writes since we need to check
+                        // that activating the borrow will be OK
+                        // TOOD(bob_twinkles) is this actually the right thing to do?
+                        this.generate_invalidates(borrow_index, context.loc);
+                    }
                 }
                 Control::Continue
             },
         );
     }
-
 
     /// Generate a new invalidates(L, B) fact
     fn generate_invalidates(&mut self, b: BorrowIndex, l: Location) {
@@ -557,4 +536,3 @@ impl<'cg, 'cx, 'tcx, 'gcx> InvalidationGenerator<'cg, 'cx, 'tcx, 'gcx> {
         self.all_facts.invalidates.push((lidx, b));
     }
 }
-

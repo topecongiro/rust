@@ -8,11 +8,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use rustc::infer::{InferCtxt, NLLRegionVariableOrigin};
+use rustc::mir::visit::{MutVisitor, TyContext};
+use rustc::mir::{BasicBlock, Local, Location, Mir, Statement, StatementKind};
 use rustc::ty::subst::Substs;
 use rustc::ty::{self, CanonicalTy, ClosureSubsts, GeneratorSubsts, Ty, TypeFoldable};
-use rustc::mir::{BasicBlock, Local, Location, Mir, Statement, StatementKind};
-use rustc::mir::visit::{MutVisitor, TyContext};
-use rustc::infer::{InferCtxt, NLLRegionVariableOrigin};
 
 /// Replaces all free regions appearing in the MIR with fresh
 /// inference variables, returning the number of variables created.
@@ -90,13 +90,10 @@ impl<'a, 'gcx, 'tcx> MutVisitor<'tcx> for NLLVisitor<'a, 'gcx, 'tcx> {
         *constant = self.renumber_regions(ty_context, &*constant);
     }
 
-    fn visit_generator_substs(&mut self,
-                              substs: &mut GeneratorSubsts<'tcx>,
-                              location: Location) {
+    fn visit_generator_substs(&mut self, substs: &mut GeneratorSubsts<'tcx>, location: Location) {
         debug!(
             "visit_generator_substs(substs={:?}, location={:?})",
-            substs,
-            location,
+            substs, location,
         );
 
         let ty_context = TyContext::Location(location);
@@ -108,8 +105,7 @@ impl<'a, 'gcx, 'tcx> MutVisitor<'tcx> for NLLVisitor<'a, 'gcx, 'tcx> {
     fn visit_closure_substs(&mut self, substs: &mut ClosureSubsts<'tcx>, location: Location) {
         debug!(
             "visit_closure_substs(substs={:?}, location={:?})",
-            substs,
-            location
+            substs, location
         );
 
         let ty_context = TyContext::Location(location);
@@ -118,8 +114,12 @@ impl<'a, 'gcx, 'tcx> MutVisitor<'tcx> for NLLVisitor<'a, 'gcx, 'tcx> {
         debug!("visit_closure_substs: substs={:?}", substs);
     }
 
-    fn visit_user_assert_ty(&mut self, _c_ty: &mut CanonicalTy<'tcx>, _local: &mut Local,
-                            _location: Location) {
+    fn visit_user_assert_ty(
+        &mut self,
+        _c_ty: &mut CanonicalTy<'tcx>,
+        _local: &mut Local,
+        _location: Location,
+    ) {
         // User-assert-ty statements represent types that the user added explicitly.
         // We don't want to erase the regions from these types: rather, we want to
         // add them as constraints at type-check time.

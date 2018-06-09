@@ -1,14 +1,14 @@
 use rustc::mir;
-use rustc::ty::{self, Ty};
 use rustc::ty::layout::LayoutOf;
-use syntax::codemap::Span;
+use rustc::ty::{self, Ty};
 use rustc_target::spec::abi::Abi;
+use syntax::codemap::Span;
 
+use super::{EvalContext, Machine, Place, ValTy};
 use rustc::mir::interpret::EvalResult;
-use super::{EvalContext, Place, Machine, ValTy};
 
-use rustc_data_structures::indexed_vec::Idx;
 use interpret::memory::HasMemory;
+use rustc_data_structures::indexed_vec::Idx;
 
 mod drop;
 
@@ -92,27 +92,19 @@ impl<'a, 'mir, 'tcx, M: Machine<'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> {
                         }
                         (instance, sig)
                     }
-                    ty::TyFnDef(def_id, substs) => (
-                        self.resolve(def_id, substs)?,
-                        func.ty.fn_sig(*self.tcx),
-                    ),
+                    ty::TyFnDef(def_id, substs) => {
+                        (self.resolve(def_id, substs)?, func.ty.fn_sig(*self.tcx))
+                    }
                     _ => {
                         let msg = format!("can't handle callee of type {:?}", func.ty);
                         return err!(Unimplemented(msg));
                     }
                 };
                 let args = self.operands_to_args(args)?;
-                let sig = self.tcx.normalize_erasing_late_bound_regions(
-                    ty::ParamEnv::reveal_all(),
-                    &sig,
-                );
-                self.eval_fn_call(
-                    fn_def,
-                    destination,
-                    &args,
-                    terminator.source_info.span,
-                    sig,
-                )?;
+                let sig = self
+                    .tcx
+                    .normalize_erasing_late_bound_regions(ty::ParamEnv::reveal_all(), &sig);
+                self.eval_fn_call(fn_def, destination, &args, terminator.source_info.span, sig)?;
             }
 
             Drop {
@@ -131,13 +123,7 @@ impl<'a, 'mir, 'tcx, M: Machine<'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> {
                 trace!("TerminatorKind::drop: {:?}, type {}", location, ty);
 
                 let instance = ::monomorphize::resolve_drop_in_place(*self.tcx, ty);
-                self.drop_place(
-                    place,
-                    instance,
-                    ty,
-                    terminator.source_info.span,
-                    target,
-                )?;
+                self.drop_place(place, instance, ty, terminator.source_info.span, target)?;
             }
 
             Assert {
@@ -154,20 +140,25 @@ impl<'a, 'mir, 'tcx, M: Machine<'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> {
                     use rustc::mir::interpret::EvalErrorKind::*;
                     return match *msg {
                         BoundsCheck { ref len, ref index } => {
-                            let len = self.eval_operand_to_scalar(len)
+                            let len = self
+                                .eval_operand_to_scalar(len)
                                 .expect("can't eval len")
-                                .to_bits(self.memory().pointer_size())? as u64;
-                            let index = self.eval_operand_to_scalar(index)
+                                .to_bits(self.memory().pointer_size())?
+                                as u64;
+                            let index = self
+                                .eval_operand_to_scalar(index)
                                 .expect("can't eval index")
-                                .to_bits(self.memory().pointer_size())? as u64;
+                                .to_bits(self.memory().pointer_size())?
+                                as u64;
                             err!(BoundsCheck { len, index })
                         }
                         Overflow(op) => Err(Overflow(op).into()),
                         OverflowNeg => Err(OverflowNeg.into()),
                         DivisionByZero => Err(DivisionByZero.into()),
                         RemainderByZero => Err(RemainderByZero.into()),
-                        GeneratorResumedAfterReturn |
-                        GeneratorResumedAfterPanic => unimplemented!(),
+                        GeneratorResumedAfterReturn | GeneratorResumedAfterPanic => {
+                            unimplemented!()
+                        }
                         _ => bug!(),
                     };
                 }
@@ -178,8 +169,12 @@ impl<'a, 'mir, 'tcx, M: Machine<'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> {
             DropAndReplace { .. } => unimplemented!(),
             Resume => unimplemented!(),
             Abort => unimplemented!(),
-            FalseEdges { .. } => bug!("should have been eliminated by `simplify_branches` mir pass"),
-            FalseUnwind { .. } => bug!("should have been eliminated by `simplify_branches` mir pass"),
+            FalseEdges { .. } => {
+                bug!("should have been eliminated by `simplify_branches` mir pass")
+            }
+            FalseUnwind { .. } => {
+                bug!("should have been eliminated by `simplify_branches` mir pass")
+            }
             Unreachable => return err!(Unreachable),
         }
 
@@ -210,9 +205,11 @@ impl<'a, 'mir, 'tcx, M: Machine<'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> {
             };
         }
 
-        if sig.abi == real_sig.abi && sig.variadic == real_sig.variadic &&
-            sig.inputs_and_output.len() == real_sig.inputs_and_output.len() &&
-            sig.inputs_and_output
+        if sig.abi == real_sig.abi
+            && sig.variadic == real_sig.variadic
+            && sig.inputs_and_output.len() == real_sig.inputs_and_output.len()
+            && sig
+                .inputs_and_output
                 .iter()
                 .zip(real_sig.inputs_and_output)
                 .all(|(ty, real_ty)| check_ty_compat(ty, real_ty))
@@ -297,10 +294,9 @@ impl<'a, 'mir, 'tcx, M: Machine<'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> {
                         trace!("args: {:#?}", args);
                         let local = arg_locals.nth(1).unwrap();
                         for (i, &valty) in args.into_iter().enumerate() {
-                            let dest = self.eval_place(&mir::Place::Local(local).field(
-                                mir::Field::new(i),
-                                valty.ty,
-                            ))?;
+                            let dest = self.eval_place(
+                                &mir::Place::Local(local).field(mir::Field::new(i), valty.ty),
+                            )?;
                             self.write_value(valty, dest)?;
                         }
                     }
@@ -308,10 +304,10 @@ impl<'a, 'mir, 'tcx, M: Machine<'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> {
                 }
                 Ok(())
             }
-            ty::InstanceDef::FnPtrShim(..) |
-            ty::InstanceDef::DropGlue(..) |
-            ty::InstanceDef::CloneShim(..) |
-            ty::InstanceDef::Item(_) => {
+            ty::InstanceDef::FnPtrShim(..)
+            | ty::InstanceDef::DropGlue(..)
+            | ty::InstanceDef::CloneShim(..)
+            | ty::InstanceDef::Item(_) => {
                 // Push the stack frame, and potentially be entirely done if the call got hooked
                 if M::eval_fn_call(self, instance, destination, args, span, sig)? {
                     return Ok(());
@@ -346,16 +342,16 @@ impl<'a, 'mir, 'tcx, M: Machine<'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> {
                             if self.frame().mir.args_iter().count() == layout.fields.count() + 1 {
                                 for (i, arg_local) in arg_locals.enumerate() {
                                     let field = mir::Field::new(i);
-                                    let valty = self.read_field(args[1].value, None, field, args[1].ty)?;
+                                    let valty =
+                                        self.read_field(args[1].value, None, field, args[1].ty)?;
                                     let dest = self.eval_place(&mir::Place::Local(arg_local))?;
                                     self.write_value(valty, dest)?;
                                 }
                             } else {
                                 trace!("manual impl of rust-call ABI");
                                 // called a manual impl of a rust-call function
-                                let dest = self.eval_place(
-                                    &mir::Place::Local(arg_locals.next().unwrap()),
-                                )?;
+                                let dest = self
+                                    .eval_place(&mir::Place::Local(arg_locals.next().unwrap()))?;
                                 self.write_value(args[1], dest)?;
                             }
                         } else {
@@ -380,10 +376,13 @@ impl<'a, 'mir, 'tcx, M: Machine<'mir, 'tcx>> EvalContext<'a, 'mir, 'tcx, M> {
                 let ptr_size = self.memory.pointer_size();
                 let ptr_align = self.tcx.data_layout.pointer_align;
                 let (ptr, vtable) = self.into_ptr_vtable_pair(args[0].value)?;
-                let fn_ptr = self.memory.read_ptr_sized(
-                    vtable.offset(ptr_size * (idx as u64 + 3), &self)?,
-                    ptr_align
-                )?.to_ptr()?;
+                let fn_ptr = self
+                    .memory
+                    .read_ptr_sized(
+                        vtable.offset(ptr_size * (idx as u64 + 3), &self)?,
+                        ptr_align,
+                    )?
+                    .to_ptr()?;
                 let instance = self.memory.get_fn(fn_ptr)?;
                 let mut args = args.to_vec();
                 let ty = self.layout_of(args[0].ty)?.field(&self, 0)?.ty;

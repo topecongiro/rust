@@ -12,28 +12,28 @@
 //! that generate the actual methods on tcx which find and execute the
 //! provider, manage the caches, and so forth.
 
-use dep_graph::{DepNodeIndex, DepNode, DepKind, DepNodeColor};
-use errors::DiagnosticBuilder;
-use errors::Level;
+use dep_graph::{DepKind, DepNode, DepNodeColor, DepNodeIndex};
 use errors::Diagnostic;
+use errors::DiagnosticBuilder;
 use errors::FatalError;
-use ty::tls;
-use ty::{TyCtxt};
-use ty::maps::Query;
+use errors::Level;
+use ty::item_path;
 use ty::maps::config::QueryConfig;
 use ty::maps::config::QueryDescription;
-use ty::maps::job::{QueryJob, QueryResult, QueryInfo};
-use ty::item_path;
+use ty::maps::job::{QueryInfo, QueryJob, QueryResult};
+use ty::maps::Query;
+use ty::tls;
+use ty::TyCtxt;
 
 use util::common::{profq_msg, ProfileQueriesMsg, QueryMsg};
 
-use rustc_data_structures::fx::{FxHashMap};
-use rustc_data_structures::sync::{Lrc, Lock};
+use rustc_data_structures::fx::FxHashMap;
+use rustc_data_structures::sync::{Lock, Lrc};
+use std::collections::hash_map::Entry;
 use std::mem;
 use std::ptr;
-use std::collections::hash_map::Entry;
-use syntax_pos::Span;
 use syntax::codemap::DUMMY_SP;
+use syntax_pos::Span;
 
 pub struct QueryMap<'tcx, D: QueryConfig<'tcx> + ?Sized> {
     pub(super) results: FxHashMap<D::Key, QueryValue<D::Value>>,
@@ -46,9 +46,7 @@ pub(super) struct QueryValue<T> {
 }
 
 impl<T> QueryValue<T> {
-    pub(super) fn new(value: T,
-                      dep_node_index: DepNodeIndex)
-                      -> QueryValue<T> {
+    pub(super) fn new(value: T, dep_node_index: DepNodeIndex) -> QueryValue<T> {
         QueryValue {
             value,
             index: dep_node_index,
@@ -73,7 +71,7 @@ macro_rules! profq_msg {
                 profq_msg($tcx.sess, $msg)
             }
         }
-    }
+    };
 }
 
 // If enabled, format a key using its debug string, which can be
@@ -83,13 +81,14 @@ macro_rules! profq_query_msg {
         let msg = if cfg!(debug_assertions) {
             if $tcx.sess.profile_queries_and_keys() {
                 Some(format!("{:?}", $key))
-            } else { None }
-        } else { None };
-        QueryMsg {
-            query: $query,
-            msg,
-        }
-    }}
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        QueryMsg { query: $query, msg }
+    }};
 }
 
 /// A type representing the responsibility to execute the job in the `job` field.
@@ -123,12 +122,10 @@ impl<'a, 'tcx, Q: QueryDescription<'tcx>> JobOwner<'a, 'tcx, Q> {
                 return TryGetJob::JobCompleted(result);
             }
             let job = match lock.active.entry((*key).clone()) {
-                Entry::Occupied(entry) => {
-                    match *entry.get() {
-                        QueryResult::Started(ref job) => job.clone(),
-                        QueryResult::Poisoned => FatalError.raise(),
-                    }
-                }
+                Entry::Occupied(entry) => match *entry.get() {
+                    QueryResult::Started(ref job) => job.clone(),
+                    QueryResult::Poisoned => FatalError.raise(),
+                },
                 Entry::Vacant(entry) => {
                     // No job entry for this query. Return a new one to be started later
                     return tls::with_related_context(tcx, |icx| {
@@ -144,7 +141,7 @@ impl<'a, 'tcx, Q: QueryDescription<'tcx>> JobOwner<'a, 'tcx, Q> {
                         };
                         entry.insert(QueryResult::Started(job));
                         TryGetJob::NotYetStarted(owner)
-                    })
+                    });
                 }
             };
             mem::drop(lock);
@@ -182,10 +179,10 @@ impl<'a, 'tcx, Q: QueryDescription<'tcx>> JobOwner<'a, 'tcx, Q> {
     pub(super) fn start<'lcx, F, R>(
         &self,
         tcx: TyCtxt<'_, 'tcx, 'lcx>,
-        compute: F)
-    -> (R, Vec<Diagnostic>)
+        compute: F,
+    ) -> (R, Vec<Diagnostic>)
     where
-        F: for<'b> FnOnce(TyCtxt<'b, 'tcx, 'lcx>) -> R
+        F: for<'b> FnOnce(TyCtxt<'b, 'tcx, 'lcx>) -> R,
     {
         // The TyCtxt stored in TLS has the same global interner lifetime
         // as `tcx`, so we use `with_related_context` to relate the 'gcx lifetimes
@@ -200,9 +197,7 @@ impl<'a, 'tcx, Q: QueryDescription<'tcx>> JobOwner<'a, 'tcx, Q> {
             };
 
             // Use the ImplicitCtxt while we execute the query
-            tls::enter_context(&new_icx, |_| {
-                compute(tcx)
-            })
+            tls::enter_context(&new_icx, |_| compute(tcx))
         });
 
         // Extract the diagnostic from the job
@@ -215,7 +210,10 @@ impl<'a, 'tcx, Q: QueryDescription<'tcx>> JobOwner<'a, 'tcx, Q> {
 impl<'a, 'tcx, Q: QueryDescription<'tcx>> Drop for JobOwner<'a, 'tcx, Q> {
     fn drop(&mut self) {
         // Poison the query so jobs waiting on it panic
-        self.map.borrow_mut().active.insert(self.key.clone(), QueryResult::Poisoned);
+        self.map
+            .borrow_mut()
+            .active
+            .insert(self.key.clone(), QueryResult::Poisoned);
         // Also signal the completion of the job, so waiters
         // will continue execution
         self.job.signal_complete();
@@ -241,9 +239,13 @@ pub(super) enum TryGetJob<'a, 'tcx: 'a, D: QueryDescription<'tcx> + 'a> {
 }
 
 impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
-    pub(super) fn report_cycle(self, CycleError { usage, cycle: stack }: CycleError<'gcx>)
-        -> DiagnosticBuilder<'a>
-    {
+    pub(super) fn report_cycle(
+        self,
+        CycleError {
+            usage,
+            cycle: stack,
+        }: CycleError<'gcx>,
+    ) -> DiagnosticBuilder<'a> {
         assert!(!stack.is_empty());
 
         let fix_span = |span: Span, query: &Query<'gcx>| {
@@ -256,27 +258,36 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
         // collect/coherence phases anyhow.)
         item_path::with_forced_impl_filename_line(|| {
             let span = fix_span(stack[1 % stack.len()].span, &stack[0].query);
-            let mut err = struct_span_err!(self.sess,
-                                           span,
-                                           E0391,
-                                           "cycle detected when {}",
-                                           stack[0].query.describe(self));
+            let mut err = struct_span_err!(
+                self.sess,
+                span,
+                E0391,
+                "cycle detected when {}",
+                stack[0].query.describe(self)
+            );
 
             for i in 1..stack.len() {
                 let query = &stack[i].query;
                 let span = fix_span(stack[(i + 1) % stack.len()].span, query);
-                err.span_note(span, &format!("...which requires {}...", query.describe(self)));
+                err.span_note(
+                    span,
+                    &format!("...which requires {}...", query.describe(self)),
+                );
             }
 
-            err.note(&format!("...which again requires {}, completing the cycle",
-                              stack[0].query.describe(self)));
+            err.note(&format!(
+                "...which again requires {}, completing the cycle",
+                stack[0].query.describe(self)
+            ));
 
             if let Some((span, query)) = usage {
-                err.span_note(fix_span(span, &query),
-                              &format!("cycle used when {}", query.describe(self)));
+                err.span_note(
+                    fix_span(span, &query),
+                    &format!("cycle used when {}", query.describe(self)),
+                );
             }
 
-            return err
+            return err;
         })
     }
 
@@ -289,12 +300,16 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
                 let mut i = 0;
 
                 while let Some(query) = current_query {
-                    let mut db = DiagnosticBuilder::new(icx.tcx.sess.diagnostic(),
+                    let mut db = DiagnosticBuilder::new(
+                        icx.tcx.sess.diagnostic(),
                         Level::FailureNote,
-                        &format!("#{} [{}] {}",
-                                 i,
-                                 query.info.query.name(),
-                                 query.info.query.describe(icx.tcx)));
+                        &format!(
+                            "#{} [{}] {}",
+                            i,
+                            query.info.query.name(),
+                            query.info.query.describe(icx.tcx)
+                        ),
+                    );
                     db.set_span(icx.tcx.sess.codemap().def_span(query.info.span));
                     icx.tcx.sess.diagnostic().force_print_db(db);
 
@@ -317,9 +332,7 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
                 self.dep_graph.read_index(dep_node_index);
                 Some(dep_node_index)
             }
-            Some(DepNodeColor::Red) => {
-                None
-            }
+            Some(DepNodeColor::Red) => None,
             None => {
                 // try_mark_green (called below) will panic when full incremental
                 // compilation is disabled. If that's the case, we can't try to mark nodes
@@ -333,9 +346,7 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
                         self.dep_graph.read_index(dep_node_index);
                         Some(dep_node_index)
                     }
-                    None => {
-                        None
-                    }
+                    None => None,
                 }
             }
         }
@@ -344,19 +355,18 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
     fn try_get_with<Q: QueryDescription<'gcx>>(
         self,
         span: Span,
-        key: Q::Key)
-    -> Result<Q::Value, CycleError<'gcx>>
-    {
-        debug!("ty::queries::{}::try_get_with(key={:?}, span={:?})",
-               Q::NAME,
-               key,
-               span);
+        key: Q::Key,
+    ) -> Result<Q::Value, CycleError<'gcx>> {
+        debug!(
+            "ty::queries::{}::try_get_with(key={:?}, span={:?})",
+            Q::NAME,
+            key,
+            span
+        );
 
-        profq_msg!(self,
-            ProfileQueriesMsg::QueryBegin(
-                span.data(),
-                profq_query_msg!(Q::NAME, self, key),
-            )
+        profq_msg!(
+            self,
+            ProfileQueriesMsg::QueryBegin(span.data(), profq_query_msg!(Q::NAME, self, key),)
         );
 
         let job = match JobOwner::try_get(self, span, &key) {
@@ -373,7 +383,9 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
         // expensive for some DepKinds.
         if !self.dep_graph.is_fully_enabled() {
             let null_dep_node = DepNode::new_no_params(::dep_graph::DepKind::Null);
-            return self.force_query_with_job::<Q>(key, job, null_dep_node).map(|(v, _)| v);
+            return self
+                .force_query_with_job::<Q>(key, job, null_dep_node)
+                .map(|(v, _)| v);
         }
 
         let dep_node = Q::to_dep_node(self, &key);
@@ -382,9 +394,8 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
             profq_msg!(self, ProfileQueriesMsg::ProviderBegin);
 
             let res = job.start(self, |tcx| {
-                tcx.dep_graph.with_anon_task(dep_node.kind, || {
-                    Q::compute(tcx.global_tcx(), key)
-                })
+                tcx.dep_graph
+                    .with_anon_task(dep_node.kind, || Q::compute(tcx.global_tcx(), key))
             });
 
             profq_msg!(self, ProfileQueriesMsg::ProviderEnd);
@@ -403,10 +414,12 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
         if !dep_node.kind.is_input() {
             if let Some(dep_node_index) = self.try_mark_green_and_read(&dep_node) {
                 profq_msg!(self, ProfileQueriesMsg::CacheHit);
-                return self.load_from_disk_and_cache_in_memory::<Q>(key,
-                                                                    job,
-                                                                    dep_node_index,
-                                                                    &dep_node)
+                return self.load_from_disk_and_cache_in_memory::<Q>(
+                    key,
+                    job,
+                    dep_node_index,
+                    &dep_node,
+                );
             }
         }
 
@@ -415,7 +428,7 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
                 self.dep_graph.read_index(dep_node_index);
                 Ok(result)
             }
-            Err(e) => Err(e)
+            Err(e) => Err(e),
         }
     }
 
@@ -424,33 +437,31 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
         key: Q::Key,
         job: JobOwner<'a, 'gcx, Q>,
         dep_node_index: DepNodeIndex,
-        dep_node: &DepNode
-    ) -> Result<Q::Value, CycleError<'gcx>>
-    {
+        dep_node: &DepNode,
+    ) -> Result<Q::Value, CycleError<'gcx>> {
         // Note this function can be called concurrently from the same query
         // We must ensure that this is handled correctly
 
         debug_assert!(self.dep_graph.is_green(dep_node));
 
         // First we try to load the result from the on-disk cache
-        let result = if Q::cache_on_disk(key.clone()) &&
-                        self.sess.opts.debugging_opts.incremental_queries {
-            let prev_dep_node_index =
-                self.dep_graph.prev_dep_node_index_of(dep_node);
-            let result = Q::try_load_from_disk(self.global_tcx(),
-                                                    prev_dep_node_index);
+        let result =
+            if Q::cache_on_disk(key.clone()) && self.sess.opts.debugging_opts.incremental_queries {
+                let prev_dep_node_index = self.dep_graph.prev_dep_node_index_of(dep_node);
+                let result = Q::try_load_from_disk(self.global_tcx(), prev_dep_node_index);
 
-            // We always expect to find a cached result for things that
-            // can be forced from DepNode.
-            debug_assert!(!dep_node.kind.can_reconstruct_query_key() ||
-                            result.is_some(),
-                            "Missing on-disk cache entry for {:?}",
-                            dep_node);
-            result
-        } else {
-            // Some things are never cached on disk.
-            None
-        };
+                // We always expect to find a cached result for things that
+                // can be forced from DepNode.
+                debug_assert!(
+                    !dep_node.kind.can_reconstruct_query_key() || result.is_some(),
+                    "Missing on-disk cache entry for {:?}",
+                    dep_node
+                );
+                result
+            } else {
+                // Some things are never cached on disk.
+                None
+            };
 
         let result = if let Some(result) = result {
             result
@@ -464,9 +475,7 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
             let (result, _) = job.start(self, |tcx| {
                 // The dep-graph for this computation is already in
                 // place
-                tcx.dep_graph.with_ignore(|| {
-                    Q::compute(tcx, key)
-                })
+                tcx.dep_graph.with_ignore(|| Q::compute(tcx, key))
             });
             result
         };
@@ -474,13 +483,16 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
         // If -Zincremental-verify-ich is specified, re-hash results from
         // the cache and make sure that they have the expected fingerprint.
         if self.sess.opts.debugging_opts.incremental_verify_ich {
-            use rustc_data_structures::stable_hasher::{StableHasher, HashStable};
             use ich::Fingerprint;
+            use rustc_data_structures::stable_hasher::{HashStable, StableHasher};
 
-            assert!(Some(self.dep_graph.fingerprint_of(dep_node_index)) ==
-                    self.dep_graph.prev_fingerprint_of(dep_node),
-                    "Fingerprint for green query instance not loaded \
-                        from cache: {:?}", dep_node);
+            assert!(
+                Some(self.dep_graph.fingerprint_of(dep_node_index))
+                    == self.dep_graph.prev_fingerprint_of(dep_node),
+                "Fingerprint for green query instance not loaded \
+                 from cache: {:?}",
+                dep_node
+            );
 
             debug!("BEGIN verify_ich({:?})", dep_node);
             let mut hcx = self.create_stable_hashing_context();
@@ -493,8 +505,12 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
 
             let old_hash = self.dep_graph.fingerprint_of(dep_node_index);
 
-            assert!(new_hash == old_hash, "Found unstable fingerprints \
-                for {:?}", dep_node);
+            assert!(
+                new_hash == old_hash,
+                "Found unstable fingerprints \
+                 for {:?}",
+                dep_node
+            );
         }
 
         if self.sess.opts.debugging_opts.query_dep_graph {
@@ -510,31 +526,29 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
         self,
         key: Q::Key,
         job: JobOwner<'_, 'gcx, Q>,
-        dep_node: DepNode)
-    -> Result<(Q::Value, DepNodeIndex), CycleError<'gcx>> {
+        dep_node: DepNode,
+    ) -> Result<(Q::Value, DepNodeIndex), CycleError<'gcx>> {
         // If the following assertion triggers, it can have two reasons:
         // 1. Something is wrong with DepNode creation, either here or
         //    in DepGraph::try_mark_green()
         // 2. Two distinct query keys get mapped to the same DepNode
         //    (see for example #48923)
-        assert!(!self.dep_graph.dep_node_exists(&dep_node),
-                "Forcing query with already existing DepNode.\n\
-                    - query-key: {:?}\n\
-                    - dep-node: {:?}",
-                key, dep_node);
+        assert!(
+            !self.dep_graph.dep_node_exists(&dep_node),
+            "Forcing query with already existing DepNode.\n\
+             - query-key: {:?}\n\
+             - dep-node: {:?}",
+            key,
+            dep_node
+        );
 
         profq_msg!(self, ProfileQueriesMsg::ProviderBegin);
         let res = job.start(self, |tcx| {
             if dep_node.kind.is_eval_always() {
-                tcx.dep_graph.with_eval_always_task(dep_node,
-                                                    tcx,
-                                                    key,
-                                                    Q::compute)
+                tcx.dep_graph
+                    .with_eval_always_task(dep_node, tcx, key, Q::compute)
             } else {
-                tcx.dep_graph.with_task(dep_node,
-                                        tcx,
-                                        key,
-                                        Q::compute)
+                tcx.dep_graph.with_task(dep_node, tcx, key, Q::compute)
             }
         });
         profq_msg!(self, ProfileQueriesMsg::ProviderEnd);
@@ -584,7 +598,7 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
         self,
         key: Q::Key,
         span: Span,
-        dep_node: DepNode
+        dep_node: DepNode,
     ) -> Result<(Q::Value, DepNodeIndex), CycleError<'gcx>> {
         // We may be concurrently trying both execute and force a query
         // Ensure that only one of them runs the query
@@ -598,7 +612,7 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
     pub fn try_get_query<Q: QueryDescription<'gcx>>(
         self,
         span: Span,
-        key: Q::Key
+        key: Q::Key,
     ) -> Result<Q::Value, DiagnosticBuilder<'a>> {
         match self.try_get_with::<Q>(span, key) {
             Ok(e) => Ok(e),
@@ -869,7 +883,6 @@ macro_rules! define_provider_struct {
     };
 }
 
-
 /// The red/green evaluation system will try to mark a specific DepNode in the
 /// dependency graph as green by recursively trying to mark the dependencies of
 /// that DepNode as green. While doing so, it will sometimes encounter a DepNode
@@ -912,9 +925,10 @@ macro_rules! define_provider_struct {
 /// then `force_from_dep_node()` should not fail for it. Otherwise, you can just
 /// add it to the "We don't have enough information to reconstruct..." group in
 /// the match below.
-pub fn force_from_dep_node<'a, 'gcx, 'lcx>(tcx: TyCtxt<'a, 'gcx, 'lcx>,
-                                           dep_node: &DepNode)
-                                           -> bool {
+pub fn force_from_dep_node<'a, 'gcx, 'lcx>(
+    tcx: TyCtxt<'a, 'gcx, 'lcx>,
+    dep_node: &DepNode,
+) -> bool {
     use hir::def_id::LOCAL_CRATE;
 
     // We must avoid ever having to call force_from_dep_node() for a
@@ -930,11 +944,13 @@ pub fn force_from_dep_node<'a, 'gcx, 'lcx>(tcx: TyCtxt<'a, 'gcx, 'lcx>,
     // each CGU, right after partitioning. This way `try_mark_green` will always
     // hit the cache instead of having to go through `force_from_dep_node`.
     // This assertion makes sure, we actually keep applying the solution above.
-    debug_assert!(dep_node.kind != DepKind::CodegenUnit,
-                  "calling force_from_dep_node() on DepKind::CodegenUnit");
+    debug_assert!(
+        dep_node.kind != DepKind::CodegenUnit,
+        "calling force_from_dep_node() on DepKind::CodegenUnit"
+    );
 
     if !dep_node.kind.can_reconstruct_query_key() {
-        return false
+        return false;
     }
 
     macro_rules! def_id {
@@ -943,35 +959,36 @@ pub fn force_from_dep_node<'a, 'gcx, 'lcx>(tcx: TyCtxt<'a, 'gcx, 'lcx>,
                 def_id
             } else {
                 // return from the whole function
-                return false
+                return false;
             }
-        }
+        };
     };
 
     macro_rules! krate {
-        () => { (def_id!()).krate }
+        () => {
+            (def_id!()).krate
+        };
     };
 
     macro_rules! force {
-        ($query:ident, $key:expr) => {
-            {
-                use $crate::util::common::{ProfileQueriesMsg, profq_msg};
+        ($query:ident, $key:expr) => {{
+            use $crate::util::common::{profq_msg, ProfileQueriesMsg};
 
-                profq_msg!(tcx,
-                    ProfileQueriesMsg::QueryBegin(
-                        DUMMY_SP.data(),
-                        profq_query_msg!(::ty::maps::queries::$query::NAME, tcx, $key),
-                    )
-                );
+            profq_msg!(
+                tcx,
+                ProfileQueriesMsg::QueryBegin(
+                    DUMMY_SP.data(),
+                    profq_query_msg!(::ty::maps::queries::$query::NAME, tcx, $key),
+                )
+            );
 
-                match tcx.force_query::<::ty::maps::queries::$query>($key, DUMMY_SP, *dep_node) {
-                    Ok(_) => {},
-                    Err(e) => {
-                        tcx.report_cycle(e).emit();
-                    }
+            match tcx.force_query::<::ty::maps::queries::$query>($key, DUMMY_SP, *dep_node) {
+                Ok(_) => {}
+                Err(e) => {
+                    tcx.report_cycle(e).emit();
                 }
             }
-        }
+        }};
     };
 
     // FIXME(#45015): We should try move this boilerplate code into a macro
@@ -1197,7 +1214,6 @@ pub fn force_from_dep_node<'a, 'gcx, 'lcx>(tcx: TyCtxt<'a, 'gcx, 'lcx>,
 
     true
 }
-
 
 // FIXME(#45015): Another piece of boilerplate code that could be generated in
 //                a combined define_dep_nodes!()/define_maps!() macro.

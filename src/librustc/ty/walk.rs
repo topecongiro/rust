@@ -12,9 +12,9 @@
 //! WARNING: this does not keep track of the region depth.
 
 use middle::const_val::ConstVal;
-use ty::{self, Ty};
-use rustc_data_structures::small_vec::SmallVec;
 use rustc_data_structures::accumulate_vec::IntoIter as AccIntoIter;
+use rustc_data_structures::small_vec::SmallVec;
+use ty::{self, Ty};
 
 // The TypeWalker's stack is hot enough that it's worth going to some effort to
 // avoid heap allocations.
@@ -28,7 +28,10 @@ pub struct TypeWalker<'tcx> {
 
 impl<'tcx> TypeWalker<'tcx> {
     pub fn new(ty: Ty<'tcx>) -> TypeWalker<'tcx> {
-        TypeWalker { stack: SmallVec::one(ty), last_subtree: 1, }
+        TypeWalker {
+            stack: SmallVec::one(ty),
+            last_subtree: 1,
+        }
     }
 
     /// Skips the subtree of types corresponding to the last type
@@ -81,10 +84,17 @@ pub fn walk_shallow<'tcx>(ty: Ty<'tcx>) -> AccIntoIter<TypeWalkerArray<'tcx>> {
 // types as they are written).
 fn push_subtypes<'tcx>(stack: &mut TypeWalkerStack<'tcx>, parent_ty: Ty<'tcx>) {
     match parent_ty.sty {
-        ty::TyBool | ty::TyChar | ty::TyInt(_) | ty::TyUint(_) | ty::TyFloat(_) |
-        ty::TyStr | ty::TyInfer(_) | ty::TyParam(_) | ty::TyNever | ty::TyError |
-        ty::TyForeign(..) => {
-        }
+        ty::TyBool
+        | ty::TyChar
+        | ty::TyInt(_)
+        | ty::TyUint(_)
+        | ty::TyFloat(_)
+        | ty::TyStr
+        | ty::TyInfer(_)
+        | ty::TyParam(_)
+        | ty::TyNever
+        | ty::TyError
+        | ty::TyForeign(..) => {}
         ty::TyArray(ty, len) => {
             push_const(stack, len);
             stack.push(ty);

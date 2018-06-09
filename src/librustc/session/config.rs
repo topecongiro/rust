@@ -11,45 +11,45 @@
 //! Contains infrastructure for configuring the compiler, including parsing
 //! command line options.
 
-pub use self::EntryFnType::*;
 pub use self::CrateType::*;
-pub use self::Passes::*;
 pub use self::DebugInfoLevel::*;
+pub use self::EntryFnType::*;
+pub use self::Passes::*;
 
 use std::str::FromStr;
 
-use session::{early_error, early_warn, Session};
 use session::search_paths::SearchPaths;
+use session::{early_error, early_warn, Session};
 
 use ich::StableHashingContext;
-use rustc_target::spec::{LinkerFlavor, PanicStrategy, RelroLevel};
-use rustc_target::spec::{Target, TargetTriple};
-use rustc_data_structures::stable_hasher::ToStableHashKey;
 use lint;
 use middle::cstore;
+use rustc_data_structures::stable_hasher::ToStableHashKey;
+use rustc_target::spec::{LinkerFlavor, PanicStrategy, RelroLevel};
+use rustc_target::spec::{Target, TargetTriple};
 
 use syntax::ast::{self, IntTy, UintTy};
 use syntax::codemap::{FileName, FilePathMapping};
-use syntax::edition::{Edition, EDITION_NAME_LIST, DEFAULT_EDITION};
-use syntax::parse::token;
-use syntax::parse;
-use syntax::symbol::Symbol;
+use syntax::edition::{Edition, DEFAULT_EDITION, EDITION_NAME_LIST};
 use syntax::feature_gate::UnstableFeatures;
+use syntax::parse;
+use syntax::parse::token;
+use syntax::symbol::Symbol;
 
 use errors::{ColorConfig, FatalError, Handler};
 
 use getopts;
-use std::collections::{BTreeMap, BTreeSet};
 use std::collections::btree_map::Iter as BTreeMapIter;
 use std::collections::btree_map::Keys as BTreeMapKeysIter;
 use std::collections::btree_map::Values as BTreeMapValuesIter;
+use std::collections::{BTreeMap, BTreeSet};
 
-use std::{fmt, str};
-use std::hash::Hasher;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashSet;
+use std::hash::Hasher;
 use std::iter::FromIterator;
 use std::path::{Path, PathBuf};
+use std::{fmt, str};
 
 pub struct Config {
     pub target: Target,
@@ -99,14 +99,13 @@ pub enum Lto {
 pub enum CrossLangLto {
     LinkerPlugin(PathBuf),
     NoLink,
-    Disabled
+    Disabled,
 }
 
 impl CrossLangLto {
     pub fn embed_bitcode(&self) -> bool {
         match *self {
-            CrossLangLto::LinkerPlugin(_) |
-            CrossLangLto::NoLink => true,
+            CrossLangLto::LinkerPlugin(_) | CrossLangLto::NoLink => true,
             CrossLangLto::Disabled => false,
         }
     }
@@ -119,7 +118,8 @@ pub enum DebugInfoLevel {
     FullDebugInfo,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord, RustcEncodable, RustcDecodable)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord, RustcEncodable,
+         RustcDecodable)]
 pub enum OutputType {
     Bitcode,
     Assembly,
@@ -130,7 +130,6 @@ pub enum OutputType {
     Exe,
     DepInfo,
 }
-
 
 impl_stable_hash_for!(enum self::OutputType {
     Bitcode,
@@ -304,21 +303,30 @@ impl Externs {
 }
 
 macro_rules! hash_option {
-    ($opt_name:ident, $opt_expr:expr, $sub_hashes:expr, [UNTRACKED]) => ({});
-    ($opt_name:ident, $opt_expr:expr, $sub_hashes:expr, [TRACKED]) => ({
-        if $sub_hashes.insert(stringify!($opt_name),
-                              $opt_expr as &dyn dep_tracking::DepTrackingHash).is_some() {
-            bug!("Duplicate key in CLI DepTrackingHash: {}", stringify!($opt_name))
+    ($opt_name:ident, $opt_expr:expr, $sub_hashes:expr,[UNTRACKED]) => {{}};
+    ($opt_name:ident, $opt_expr:expr, $sub_hashes:expr,[TRACKED]) => {{
+        if $sub_hashes
+            .insert(
+                stringify!($opt_name),
+                $opt_expr as &dyn dep_tracking::DepTrackingHash,
+            )
+            .is_some()
+        {
+            bug!(
+                "Duplicate key in CLI DepTrackingHash: {}",
+                stringify!($opt_name)
+            )
         }
-    });
-    ($opt_name:ident,
-     $opt_expr:expr,
-     $sub_hashes:expr,
-     [UNTRACKED_WITH_WARNING $warn_val:expr, $warn_text:expr, $error_format:expr]) => ({
+    }};
+    (
+        $opt_name:ident,
+        $opt_expr:expr,
+        $sub_hashes:expr,[UNTRACKED_WITH_WARNING $warn_val:expr, $warn_text:expr, $error_format:expr]
+    ) => {{
         if *$opt_expr == $warn_val {
             early_warn($error_format, $warn_text)
         }
-    });
+    }};
 }
 
 macro_rules! top_level_options {
@@ -617,7 +625,8 @@ pub fn basic_options() -> Options {
 impl Options {
     /// True if there is a reason to build the dep graph.
     pub fn build_dep_graph(&self) -> bool {
-        self.incremental.is_some() || self.debugging_opts.dump_dep_graph
+        self.incremental.is_some()
+            || self.debugging_opts.dump_dep_graph
             || self.debugging_opts.query_dep_graph
     }
 
@@ -1435,11 +1444,13 @@ pub fn build_target_config(opts: &Options, sp: &Handler) -> Config {
         "16" => (ast::IntTy::I16, ast::UintTy::U16),
         "32" => (ast::IntTy::I32, ast::UintTy::U32),
         "64" => (ast::IntTy::I64, ast::UintTy::U64),
-        w => sp.fatal(&format!(
-            "target specification was invalid: \
-             unrecognized target-pointer-width {}",
-            w
-        )).raise(),
+        w => {
+            sp.fatal(&format!(
+                "target specification was invalid: \
+                 unrecognized target-pointer-width {}",
+                w
+            )).raise()
+        }
     };
 
     Config {
@@ -1501,8 +1512,8 @@ mod opt {
     // in the future; do not warn about them not being used right now.
     #![allow(dead_code)]
 
-    use getopts;
     use super::RustcOptGroup;
+    use getopts;
 
     pub type R = RustcOptGroup;
     pub type S = &'static str;
@@ -1761,32 +1772,30 @@ pub fn build_session_options_and_crate_config(
     };
 
     let edition = match matches.opt_str("edition") {
-        Some(arg) => match Edition::from_str(&arg){
+        Some(arg) => match Edition::from_str(&arg) {
             Ok(edition) => edition,
             Err(_) => early_error(
                 ErrorOutputType::default(),
                 &format!(
                     "argument for --edition must be one of: \
-                    {}. (instead was `{}`)",
-                    EDITION_NAME_LIST,
-                    arg
+                     {}. (instead was `{}`)",
+                    EDITION_NAME_LIST, arg
                 ),
             ),
-        }
+        },
         None => DEFAULT_EDITION,
     };
 
     if !edition.is_stable() && !nightly_options::is_nightly_build() {
         early_error(
-                ErrorOutputType::default(),
-                &format!(
-                    "Edition {} is unstable an only\
-                    available for nightly builds of rustc.",
-                    edition,
-                )
+            ErrorOutputType::default(),
+            &format!(
+                "Edition {} is unstable an only\
+                 available for nightly builds of rustc.",
+                edition,
+            ),
         )
     }
-
 
     // We need the opts_present check because the driver will send us Matches
     // with only stable options if no unstable options are used. Since error-format
@@ -1997,9 +2006,10 @@ pub fn build_session_options_and_crate_config(
             let path = Path::new(&target);
             match TargetTriple::from_path(&path) {
                 Ok(triple) => triple,
-                Err(_) => {
-                    early_error(error_format, &format!("target file {:?} does not exist", path))
-                }
+                Err(_) => early_error(
+                    error_format,
+                    &format!("target file {:?} does not exist", path),
+                ),
             }
         } else {
             TargetTriple::TargetTriple(target)
@@ -2252,10 +2262,10 @@ pub fn parse_crate_types_from_list(list_list: Vec<String>) -> Result<Vec<CrateTy
 }
 
 pub mod nightly_options {
-    use getopts;
-    use syntax::feature_gate::UnstableFeatures;
     use super::{ErrorOutputType, OptionStability, RustcOptGroup};
+    use getopts;
     use session::early_error;
+    use syntax::feature_gate::UnstableFeatures;
 
     pub fn is_unstable_enabled(matches: &getopts::Matches) -> bool {
         is_nightly_build()
@@ -2344,34 +2354,36 @@ impl fmt::Display for CrateType {
 /// we have an opt-in scheme here, so one is hopefully forced to think about
 /// how the hash should be calculated when adding a new commandline argument.
 mod dep_tracking {
+    use super::{
+        CrateType, CrossLangLto, DebugInfoLevel, ErrorOutputType, Lto, OptLevel, OutputTypes,
+        Passes, Sanitizer,
+    };
     use lint;
     use middle::cstore;
+    use rustc_target::spec::{PanicStrategy, RelroLevel, TargetTriple};
+    use std::collections::hash_map::DefaultHasher;
     use std::collections::BTreeMap;
     use std::hash::Hash;
     use std::path::PathBuf;
-    use std::collections::hash_map::DefaultHasher;
-    use super::{CrateType, DebugInfoLevel, ErrorOutputType, Lto, OptLevel, OutputTypes,
-                Passes, Sanitizer, CrossLangLto};
-    use syntax::feature_gate::UnstableFeatures;
-    use rustc_target::spec::{PanicStrategy, RelroLevel, TargetTriple};
     use syntax::edition::Edition;
+    use syntax::feature_gate::UnstableFeatures;
 
     pub trait DepTrackingHash {
         fn hash(&self, hasher: &mut DefaultHasher, error_format: ErrorOutputType);
     }
 
     macro_rules! impl_dep_tracking_hash_via_hash {
-        ($t:ty) => (
+        ($t:ty) => {
             impl DepTrackingHash for $t {
                 fn hash(&self, hasher: &mut DefaultHasher, _: ErrorOutputType) {
                     Hash::hash(self, hasher);
                 }
             }
-        )
+        };
     }
 
     macro_rules! impl_dep_tracking_hash_for_sortable_vec_of {
-        ($t:ty) => (
+        ($t:ty) => {
             impl DepTrackingHash for Vec<$t> {
                 fn hash(&self, hasher: &mut DefaultHasher, error_format: ErrorOutputType) {
                     let mut elems: Vec<&$t> = self.iter().collect();
@@ -2383,7 +2395,7 @@ mod dep_tracking {
                     }
                 }
             }
-        );
+        };
     }
 
     impl_dep_tracking_hash_via_hash!(bool);
@@ -2475,21 +2487,21 @@ mod dep_tracking {
 
 #[cfg(test)]
 mod tests {
+    use super::{Externs, OutputType, OutputTypes};
     use errors;
     use getopts;
     use lint;
     use middle::cstore;
-    use session::config::{build_configuration, build_session_options_and_crate_config};
-    use session::config::{Lto, CrossLangLto};
+    use rustc_target::spec::{PanicStrategy, RelroLevel};
     use session::build_session;
+    use session::config::{build_configuration, build_session_options_and_crate_config};
+    use session::config::{CrossLangLto, Lto};
     use std::collections::{BTreeMap, BTreeSet};
     use std::iter::FromIterator;
     use std::path::PathBuf;
-    use super::{Externs, OutputType, OutputTypes};
-    use rustc_target::spec::{PanicStrategy, RelroLevel};
-    use syntax::symbol::Symbol;
-    use syntax::edition::{Edition, DEFAULT_EDITION};
     use syntax;
+    use syntax::edition::{Edition, DEFAULT_EDITION};
+    use syntax::symbol::Symbol;
 
     fn optgroups() -> getopts::Options {
         let mut opts = getopts::Options::new();
@@ -2528,11 +2540,11 @@ mod tests {
     #[test]
     fn test_switch_implies_cfg_test_unless_cfg_test() {
         syntax::with_globals(|| {
-            let matches = &match optgroups().parse(&["--test".to_string(),
-                                                     "--cfg=test".to_string()]) {
-                Ok(m) => m,
-                Err(f) => panic!("test_switch_implies_cfg_test_unless_cfg_test: {}", f),
-            };
+            let matches =
+                &match optgroups().parse(&["--test".to_string(), "--cfg=test".to_string()]) {
+                    Ok(m) => m,
+                    Err(f) => panic!("test_switch_implies_cfg_test_unless_cfg_test: {}", f),
+                };
             let registry = errors::registry::Registry::new(&[]);
             let (sessopts, cfg) = build_session_options_and_crate_config(matches);
             let sess = build_session(sessopts, None, registry);
@@ -3148,9 +3160,7 @@ mod tests {
         let options = super::basic_options();
         assert!(options.edition == DEFAULT_EDITION);
 
-        let matches = optgroups()
-            .parse(&["--edition=2018".to_string()])
-            .unwrap();
+        let matches = optgroups().parse(&["--edition=2018".to_string()]).unwrap();
         let (sessopts, _) = build_session_options_and_crate_config(&matches);
         assert!(sessopts.edition == Edition::Edition2018)
     }

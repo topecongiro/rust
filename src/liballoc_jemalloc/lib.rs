@@ -10,10 +10,12 @@
 
 #![no_std]
 #![allow(unused_attributes)]
-#![unstable(feature = "alloc_jemalloc",
-            reason = "this library is unlikely to be stabilized in its current \
-                      form or name",
-            issue = "27783")]
+#![unstable(
+    feature = "alloc_jemalloc",
+    reason = "this library is unlikely to be stabilized in its current \
+              form or name",
+    issue = "27783"
+)]
 #![feature(core_intrinsics)]
 #![feature(libc)]
 #![feature(linkage)]
@@ -35,21 +37,53 @@ mod contents {
     // don't explicitly request it), and on Android and DragonFly we explicitly
     // request it as unprefixing cause segfaults (mismatches in allocators).
     extern "C" {
-        #[cfg_attr(any(target_os = "macos", target_os = "android", target_os = "ios",
-                       target_os = "dragonfly", target_os = "windows", target_env = "musl"),
-                   link_name = "je_mallocx")]
+        #[cfg_attr(
+            any(
+                target_os = "macos",
+                target_os = "android",
+                target_os = "ios",
+                target_os = "dragonfly",
+                target_os = "windows",
+                target_env = "musl"
+            ),
+            link_name = "je_mallocx"
+        )]
         fn mallocx(size: size_t, flags: c_int) -> *mut c_void;
-        #[cfg_attr(any(target_os = "macos", target_os = "android", target_os = "ios",
-                       target_os = "dragonfly", target_os = "windows", target_env = "musl"),
-                   link_name = "je_calloc")]
+        #[cfg_attr(
+            any(
+                target_os = "macos",
+                target_os = "android",
+                target_os = "ios",
+                target_os = "dragonfly",
+                target_os = "windows",
+                target_env = "musl"
+            ),
+            link_name = "je_calloc"
+        )]
         fn calloc(size: size_t, flags: c_int) -> *mut c_void;
-        #[cfg_attr(any(target_os = "macos", target_os = "android", target_os = "ios",
-                       target_os = "dragonfly", target_os = "windows", target_env = "musl"),
-                   link_name = "je_rallocx")]
+        #[cfg_attr(
+            any(
+                target_os = "macos",
+                target_os = "android",
+                target_os = "ios",
+                target_os = "dragonfly",
+                target_os = "windows",
+                target_env = "musl"
+            ),
+            link_name = "je_rallocx"
+        )]
         fn rallocx(ptr: *mut c_void, size: size_t, flags: c_int) -> *mut c_void;
-        #[cfg_attr(any(target_os = "macos", target_os = "android", target_os = "ios",
-                       target_os = "dragonfly", target_os = "windows", target_env = "musl"),
-                   link_name = "je_sdallocx")]
+        #[cfg_attr(
+            any(
+                target_os = "macos",
+                target_os = "android",
+                target_os = "ios",
+                target_os = "dragonfly",
+                target_os = "windows",
+                target_env = "musl"
+            ),
+            link_name = "je_sdallocx"
+        )]
         fn sdallocx(ptr: *mut c_void, size: size_t, flags: c_int);
     }
 
@@ -57,17 +91,21 @@ mod contents {
 
     // The minimum alignment guaranteed by the architecture. This value is used to
     // add fast paths for low alignment values.
-    #[cfg(all(any(target_arch = "arm",
-                  target_arch = "mips",
-                  target_arch = "powerpc")))]
+    #[cfg(all(any(target_arch = "arm", target_arch = "mips", target_arch = "powerpc")))]
     const MIN_ALIGN: usize = 8;
-    #[cfg(all(any(target_arch = "x86",
-                  target_arch = "x86_64",
-                  target_arch = "aarch64",
-                  target_arch = "powerpc64",
-                  target_arch = "mips64",
-                  target_arch = "s390x",
-                  target_arch = "sparc64")))]
+    #[cfg(
+        all(
+            any(
+                target_arch = "x86",
+                target_arch = "x86_64",
+                target_arch = "aarch64",
+                target_arch = "powerpc64",
+                target_arch = "mips64",
+                target_arch = "s390x",
+                target_arch = "sparc64"
+            )
+        )
+    )]
     const MIN_ALIGN: usize = 16;
 
     // MALLOCX_ALIGN(a) macro
@@ -91,7 +129,7 @@ mod contents {
 
     #[no_mangle]
     #[rustc_std_internal_symbol]
-    pub unsafe extern fn __rde_alloc(size: usize, align: usize) -> *mut u8 {
+    pub unsafe extern "C" fn __rde_alloc(size: usize, align: usize) -> *mut u8 {
         let flags = align_to_flags(align, size);
         let ptr = mallocx(size as size_t, flags) as *mut u8;
         ptr
@@ -99,19 +137,19 @@ mod contents {
 
     #[no_mangle]
     #[rustc_std_internal_symbol]
-    pub unsafe extern fn __rde_dealloc(ptr: *mut u8,
-                                       size: usize,
-                                       align: usize) {
+    pub unsafe extern "C" fn __rde_dealloc(ptr: *mut u8, size: usize, align: usize) {
         let flags = align_to_flags(align, size);
         sdallocx(ptr as *mut c_void, size, flags);
     }
 
     #[no_mangle]
     #[rustc_std_internal_symbol]
-    pub unsafe extern fn __rde_realloc(ptr: *mut u8,
-                                       _old_size: usize,
-                                       align: usize,
-                                       new_size: usize) -> *mut u8 {
+    pub unsafe extern "C" fn __rde_realloc(
+        ptr: *mut u8,
+        _old_size: usize,
+        align: usize,
+        new_size: usize,
+    ) -> *mut u8 {
         let flags = align_to_flags(align, new_size);
         let ptr = rallocx(ptr as *mut c_void, new_size, flags) as *mut u8;
         ptr
@@ -119,7 +157,7 @@ mod contents {
 
     #[no_mangle]
     #[rustc_std_internal_symbol]
-    pub unsafe extern fn __rde_alloc_zeroed(size: usize, align: usize) -> *mut u8 {
+    pub unsafe extern "C" fn __rde_alloc_zeroed(size: usize, align: usize) -> *mut u8 {
         let ptr = if align <= MIN_ALIGN && align <= size {
             calloc(size as size_t, 1) as *mut u8
         } else {

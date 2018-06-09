@@ -8,10 +8,11 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#![doc(html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
-       html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
-       html_root_url = "https://doc.rust-lang.org/nightly/")]
-
+#![doc(
+    html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
+    html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
+    html_root_url = "https://doc.rust-lang.org/nightly/"
+)]
 #![feature(box_patterns)]
 #![feature(fs_read_write)]
 #![feature(libc)]
@@ -22,20 +23,19 @@
 #![feature(slice_sort_by_cached_key)]
 #![feature(specialization)]
 #![feature(rustc_private)]
-
-#![recursion_limit="256"]
+#![recursion_limit = "256"]
 
 extern crate libc;
 #[macro_use]
 extern crate log;
 #[macro_use]
 extern crate syntax;
-extern crate syntax_pos;
 extern crate flate2;
-extern crate serialize as rustc_serialize; // used by deriving
-extern crate rustc_errors as errors;
-extern crate syntax_ext;
 extern crate proc_macro;
+extern crate rustc_errors as errors;
+extern crate serialize as rustc_serialize; // used by deriving
+extern crate syntax_ext;
+extern crate syntax_pos;
 
 #[macro_use]
 extern crate rustc;
@@ -45,16 +45,16 @@ extern crate rustc_data_structures;
 
 mod diagnostics;
 
-mod index_builder;
-mod index;
-mod encoder;
-mod decoder;
 mod cstore_impl;
-mod isolated_encoder;
-mod schema;
-mod native_libs;
-mod link_args;
+mod decoder;
+mod encoder;
 mod foreign_modules;
+mod index;
+mod index_builder;
+mod isolated_encoder;
+mod link_args;
+mod native_libs;
+mod schema;
 
 pub mod creader;
 pub mod cstore;

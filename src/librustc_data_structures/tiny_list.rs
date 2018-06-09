@@ -8,7 +8,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-
 //! A singly-linked list.
 //!
 //! Using this data structure only makes sense under very specific
@@ -26,25 +25,19 @@ use std::mem;
 
 #[derive(Clone, Hash, Debug, PartialEq)]
 pub struct TinyList<T: PartialEq> {
-    head: Option<Element<T>>
+    head: Option<Element<T>>,
 }
 
 impl<T: PartialEq> TinyList<T> {
-
     #[inline]
     pub fn new() -> TinyList<T> {
-        TinyList {
-            head: None
-        }
+        TinyList { head: None }
     }
 
     #[inline]
     pub fn new_single(data: T) -> TinyList<T> {
         TinyList {
-            head: Some(Element {
-                data,
-                next: None,
-            })
+            head: Some(Element { data, next: None }),
         }
     }
 
@@ -56,13 +49,10 @@ impl<T: PartialEq> TinyList<T> {
             let current_head = Box::new(current_head);
             self.head = Some(Element {
                 data,
-                next: Some(current_head)
+                next: Some(current_head),
             });
         } else {
-            self.head = Some(Element {
-                data,
-                next: None,
-            })
+            self.head = Some(Element { data, next: None })
         }
     }
 
@@ -75,7 +65,7 @@ impl<T: PartialEq> TinyList<T> {
                 None
             }
         } else {
-            return false
+            return false;
         };
 
         if let Some(remove_head) = remove_head {
@@ -84,7 +74,7 @@ impl<T: PartialEq> TinyList<T> {
             } else {
                 self.head = None;
             }
-            return true
+            return true;
         }
 
         self.head.as_mut().unwrap().remove_next(data)
@@ -116,20 +106,19 @@ struct Element<T: PartialEq> {
 }
 
 impl<T: PartialEq> Element<T> {
-
     fn remove_next(&mut self, data: &T) -> bool {
         let new_next = if let Some(ref mut next) = self.next {
             if next.data != *data {
-                return next.remove_next(data)
+                return next.remove_next(data);
             } else {
                 mem::replace(&mut next.next, None)
             }
         } else {
-            return false
+            return false;
         };
 
         self.next = new_next;
-        return true
+        return true;
     }
 
     fn len(&self) -> usize {
@@ -142,7 +131,7 @@ impl<T: PartialEq> Element<T> {
 
     fn contains(&self, data: &T) -> bool {
         if self.data == *data {
-            return true
+            return true;
         }
 
         if let Some(ref next) = self.next {
@@ -159,14 +148,14 @@ mod test {
 
     #[test]
     fn test_contains_and_insert() {
-        fn do_insert(i : u32) -> bool {
+        fn do_insert(i: u32) -> bool {
             i % 2 == 0
         }
 
         let mut list = TinyList::new();
 
-        for i in 0 .. 10 {
-            for j in 0 .. i {
+        for i in 0..10 {
+            for j in 0..i {
                 if do_insert(j) {
                     assert!(list.contains(&j));
                 } else {

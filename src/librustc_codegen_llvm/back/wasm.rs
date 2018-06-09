@@ -39,7 +39,7 @@ const WASM_EXTERNAL_KIND_GLOBAL: u8 = 3;
 /// although after that support will need to be in LLD as well.
 pub fn add_custom_sections(path: &Path, sections: &BTreeMap<String, Vec<u8>>) {
     if sections.len() == 0 {
-        return
+        return;
     }
 
     let wasm = fs::read(path).expect("failed to read wasm output");
@@ -83,7 +83,7 @@ pub fn add_custom_sections(path: &Path, sections: &BTreeMap<String, Vec<u8>>) {
 /// needs to be added (AFAIK at the time of this writing) to LLD
 pub fn rewrite_imports(path: &Path, import_map: &FxHashMap<String, String>) {
     if import_map.len() == 0 {
-        return
+        return;
     }
 
     let wasm = fs::read(path).expect("failed to read wasm output");
@@ -95,10 +95,7 @@ pub fn rewrite_imports(path: &Path, import_map: &FxHashMap<String, String>) {
         ret.byte(id);
         if id == WASM_IMPORT_SECTION_ID {
             info!("rewriting import section");
-            let data = rewrite_import_section(
-                &mut WasmDecoder::new(raw),
-                import_map,
-            );
+            let data = rewrite_import_section(&mut WasmDecoder::new(raw), import_map);
             ret.bytes(&data);
         } else {
             info!("carry forward section {}, {} bytes long", id, raw.len());
@@ -111,9 +108,7 @@ pub fn rewrite_imports(path: &Path, import_map: &FxHashMap<String, String>) {
     fn rewrite_import_section(
         wasm: &mut WasmDecoder,
         import_map: &FxHashMap<String, String>,
-    )
-        -> Vec<u8>
-    {
+    ) -> Vec<u8> {
         let mut dst = WasmEncoder::new();
         let n = wasm.u32();
         dst.u32(n);
@@ -121,12 +116,14 @@ pub fn rewrite_imports(path: &Path, import_map: &FxHashMap<String, String>) {
         for _ in 0..n {
             rewrite_import_entry(wasm, &mut dst, import_map);
         }
-        return dst.data
+        return dst.data;
     }
 
-    fn rewrite_import_entry(wasm: &mut WasmDecoder,
-                            dst: &mut WasmEncoder,
-                            import_map: &FxHashMap<String, String>) {
+    fn rewrite_import_entry(
+        wasm: &mut WasmDecoder,
+        dst: &mut WasmEncoder,
+        import_map: &FxHashMap<String, String>,
+    ) {
         // More info about the binary format here is available at:
         // https://webassembly.github.io/spec/core/binary/modules.html#import-section
         //
@@ -168,7 +165,7 @@ impl<'a> Iterator for WasmSections<'a> {
 
     fn next(&mut self) -> Option<(u8, &'a [u8])> {
         if self.0.data.len() == 0 {
-            return None
+            return None;
         }
 
         // see https://webassembly.github.io/spec/core/binary/modules.html#sections
@@ -196,7 +193,7 @@ impl<'a> WasmDecoder<'a> {
     fn u32(&mut self) -> u32 {
         let (n, l1) = leb128::read_u32_leb128(self.data);
         self.data = &self.data[l1..];
-        return n
+        return n;
     }
 
     fn skip(&mut self, amt: usize) -> &'a [u8] {

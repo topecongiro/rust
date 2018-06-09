@@ -8,39 +8,39 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use base;
+use callee;
 use common;
+use debuginfo;
+use declare;
 use llvm;
 use llvm::{ContextRef, ModuleRef, ValueRef};
+use monomorphize::Instance;
 use rustc::dep_graph::DepGraphSafe;
 use rustc::hir;
 use rustc::hir::def_id::DefId;
-use debuginfo;
-use callee;
-use base;
-use declare;
-use monomorphize::Instance;
 
 use monomorphize::partitioning::CodegenUnit;
 use type_::Type;
 use type_of::PointeeInfo;
 
-use rustc_data_structures::base_n;
 use rustc::mir::mono::Stats;
 use rustc::session::config::{self, NoDebugInfo};
 use rustc::session::Session;
 use rustc::ty::layout::{LayoutError, LayoutOf, Size, TyLayout};
 use rustc::ty::{self, Ty, TyCtxt};
 use rustc::util::nodemap::FxHashMap;
+use rustc_data_structures::base_n;
 use rustc_target::spec::{HasTargetSpec, Target};
 
-use std::ffi::{CStr, CString};
+use abi::Abi;
 use std::cell::{Cell, RefCell};
-use std::ptr;
+use std::ffi::{CStr, CString};
 use std::iter;
+use std::ptr;
 use std::str;
 use std::sync::Arc;
 use syntax::symbol::LocalInternedString;
-use abi::Abi;
 
 /// There is one `CodegenCx` per compilation unit. Each one has its own LLVM
 /// `ContextRef` so that several compilation units may be optimized in parallel.
@@ -59,8 +59,8 @@ pub struct CodegenCx<'a, 'tcx: 'a> {
     /// Cache instances of monomorphic and polymorphic items
     pub instances: RefCell<FxHashMap<Instance<'tcx>, ValueRef>>,
     /// Cache generated vtables
-    pub vtables: RefCell<FxHashMap<(Ty<'tcx>,
-                                Option<ty::PolyExistentialTraitRef<'tcx>>), ValueRef>>,
+    pub vtables:
+        RefCell<FxHashMap<(Ty<'tcx>, Option<ty::PolyExistentialTraitRef<'tcx>>), ValueRef>>,
     /// Cache of constant strings,
     pub const_cstr_cache: RefCell<FxHashMap<LocalInternedString, ValueRef>>,
 
@@ -107,8 +107,7 @@ pub struct CodegenCx<'a, 'tcx: 'a> {
     local_gen_sym_counter: Cell<usize>,
 }
 
-impl<'a, 'tcx> DepGraphSafe for CodegenCx<'a, 'tcx> {
-}
+impl<'a, 'tcx> DepGraphSafe for CodegenCx<'a, 'tcx> {}
 
 pub fn get_reloc_model(sess: &Session) -> llvm::RelocMode {
     let reloc_model_arg = match sess.opts.cg.relocation_model {
@@ -116,12 +115,16 @@ pub fn get_reloc_model(sess: &Session) -> llvm::RelocMode {
         None => &sess.target.target.options.relocation_model[..],
     };
 
-    match ::back::write::RELOC_MODEL_ARGS.iter().find(
-        |&&arg| arg.0 == reloc_model_arg) {
+    match ::back::write::RELOC_MODEL_ARGS
+        .iter()
+        .find(|&&arg| arg.0 == reloc_model_arg)
+    {
         Some(x) => x.1,
         _ => {
-            sess.err(&format!("{:?} is not a valid relocation mode",
-                              reloc_model_arg));
+            sess.err(&format!(
+                "{:?} is not a valid relocation mode",
+                reloc_model_arg
+            ));
             sess.abort_if_errors();
             bug!();
         }
@@ -134,12 +137,13 @@ fn get_tls_model(sess: &Session) -> llvm::ThreadLocalMode {
         None => &sess.target.target.options.tls_model[..],
     };
 
-    match ::back::write::TLS_MODEL_ARGS.iter().find(
-        |&&arg| arg.0 == tls_model_arg) {
+    match ::back::write::TLS_MODEL_ARGS
+        .iter()
+        .find(|&&arg| arg.0 == tls_model_arg)
+    {
         Some(x) => x.1,
         _ => {
-            sess.err(&format!("{:?} is not a valid TLS model",
-                              tls_model_arg));
+            sess.err(&format!("{:?} is not a valid TLS model", tls_model_arg));
             sess.abort_if_errors();
             bug!();
         }
@@ -147,9 +151,10 @@ fn get_tls_model(sess: &Session) -> llvm::ThreadLocalMode {
 }
 
 fn is_any_library(sess: &Session) -> bool {
-    sess.crate_types.borrow().iter().any(|ty| {
-        *ty != config::CrateTypeExecutable
-    })
+    sess.crate_types
+        .borrow()
+        .iter()
+        .any(|ty| *ty != config::CrateTypeExecutable)
 }
 
 pub fn is_pie_binary(sess: &Session) -> bool {
@@ -169,7 +174,8 @@ pub unsafe fn create_context_and_module(sess: &Session, mod_name: &str) -> (Cont
 
         let data_layout = llvm::LLVMGetDataLayout(llmod);
         let data_layout = str::from_utf8(CStr::from_ptr(data_layout).to_bytes())
-            .ok().expect("got a non-UTF8 data-layout from LLVM");
+            .ok()
+            .expect("got a non-UTF8 data-layout from LLVM");
 
         // Unfortunately LLVM target specs change over time, and right now we
         // don't have proper support to work with any more than one
@@ -190,11 +196,13 @@ pub unsafe fn create_context_and_module(sess: &Session, mod_name: &str) -> (Cont
         let custom_llvm_used = cfg_llvm_root.trim() != "";
 
         if !custom_llvm_used && sess.target.target.data_layout != data_layout {
-            bug!("data-layout for builtin `{}` target, `{}`, \
-                  differs from LLVM default, `{}`",
-                 sess.target.target.llvm_target,
-                 sess.target.target.data_layout,
-                 data_layout);
+            bug!(
+                "data-layout for builtin `{}` target, `{}`, \
+                 differs from LLVM default, `{}`",
+                sess.target.target.llvm_target,
+                sess.target.target.data_layout,
+                data_layout
+            );
         }
     }
 
@@ -213,10 +221,11 @@ pub unsafe fn create_context_and_module(sess: &Session, mod_name: &str) -> (Cont
 }
 
 impl<'a, 'tcx> CodegenCx<'a, 'tcx> {
-    pub fn new(tcx: TyCtxt<'a, 'tcx, 'tcx>,
-               codegen_unit: Arc<CodegenUnit<'tcx>>,
-               llmod_id: &str)
-               -> CodegenCx<'a, 'tcx> {
+    pub fn new(
+        tcx: TyCtxt<'a, 'tcx, 'tcx>,
+        codegen_unit: Arc<CodegenUnit<'tcx>>,
+        llmod_id: &str,
+    ) -> CodegenCx<'a, 'tcx> {
         // An interesting part of Windows which MSVC forces our hand on (and
         // apparently MinGW didn't) is the usage of `dllimport` and `dllexport`
         // attributes in LLVM IR as well as native dependencies (in C these
@@ -267,14 +276,15 @@ impl<'a, 'tcx> CodegenCx<'a, 'tcx> {
         let tls_model = get_tls_model(&tcx.sess);
 
         unsafe {
-            let (llcx, llmod) = create_context_and_module(&tcx.sess,
-                                                          &llmod_id[..]);
+            let (llcx, llmod) = create_context_and_module(&tcx.sess, &llmod_id[..]);
 
             let dbg_cx = if tcx.sess.opts.debuginfo != NoDebugInfo {
                 let dctx = debuginfo::CrateDebugContext::new(llmod);
-                debuginfo::metadata::compile_unit_metadata(tcx,
-                                                           &codegen_unit.name().as_str(),
-                                                           &dctx);
+                debuginfo::metadata::compile_unit_metadata(
+                    tcx,
+                    &codegen_unit.name().as_str(),
+                    &dctx,
+                );
                 Some(dctx)
             } else {
                 None
@@ -329,7 +339,7 @@ impl<'b, 'tcx> CodegenCx<'b, 'tcx> {
         }
         match declare_intrinsic(self, key) {
             Some(v) => return v,
-            None => bug!("unknown intrinsic '{}'", key)
+            None => bug!("unknown intrinsic '{}'", key),
         }
     }
 
@@ -369,7 +379,7 @@ impl<'b, 'tcx> CodegenCx<'b, 'tcx> {
         // CRT's custom personality function, which forces LLVM to consider
         // landing pads as "landing pads for SEH".
         if let Some(llpersonality) = self.eh_personality.get() {
-            return llpersonality
+            return llpersonality;
         }
         let tcx = self.tcx;
         let llfn = match tcx.lang_items().eh_personality() {
@@ -412,7 +422,7 @@ impl<'b, 'tcx> CodegenCx<'b, 'tcx> {
             tcx.types.never,
             false,
             hir::Unsafety::Unsafe,
-            Abi::C
+            Abi::C,
         )));
 
         let llfn = declare::declare_fn(self, "rust_eh_unwind_resume", ty);
@@ -471,10 +481,11 @@ impl<'a, 'tcx> LayoutOf for &'a CodegenCx<'a, 'tcx> {
     type TyLayout = TyLayout<'tcx>;
 
     fn layout_of(self, ty: Ty<'tcx>) -> Self::TyLayout {
-        self.tcx.layout_of(ty::ParamEnv::reveal_all().and(ty))
+        self.tcx
+            .layout_of(ty::ParamEnv::reveal_all().and(ty))
             .unwrap_or_else(|e| match e {
                 LayoutError::SizeOverflow(_) => self.sess().fatal(&e.to_string()),
-                _ => bug!("failed to get layout for `{}`: {}", ty, e)
+                _ => bug!("failed to get layout for `{}`: {}", ty, e),
             })
     }
 }
@@ -531,15 +542,42 @@ fn declare_intrinsic(cx: &CodegenCx, key: &str) -> Option<ValueRef> {
     let t_v4f64 = Type::vector(&t_f64, 4);
     let t_v8f64 = Type::vector(&t_f64, 8);
 
-    ifn!("llvm.memcpy.p0i8.p0i8.i16", fn(i8p, i8p, t_i16, t_i32, i1) -> void);
-    ifn!("llvm.memcpy.p0i8.p0i8.i32", fn(i8p, i8p, t_i32, t_i32, i1) -> void);
-    ifn!("llvm.memcpy.p0i8.p0i8.i64", fn(i8p, i8p, t_i64, t_i32, i1) -> void);
-    ifn!("llvm.memmove.p0i8.p0i8.i16", fn(i8p, i8p, t_i16, t_i32, i1) -> void);
-    ifn!("llvm.memmove.p0i8.p0i8.i32", fn(i8p, i8p, t_i32, t_i32, i1) -> void);
-    ifn!("llvm.memmove.p0i8.p0i8.i64", fn(i8p, i8p, t_i64, t_i32, i1) -> void);
-    ifn!("llvm.memset.p0i8.i16", fn(i8p, t_i8, t_i16, t_i32, i1) -> void);
-    ifn!("llvm.memset.p0i8.i32", fn(i8p, t_i8, t_i32, t_i32, i1) -> void);
-    ifn!("llvm.memset.p0i8.i64", fn(i8p, t_i8, t_i64, t_i32, i1) -> void);
+    ifn!(
+        "llvm.memcpy.p0i8.p0i8.i16",
+        fn(i8p, i8p, t_i16, t_i32, i1) -> void
+    );
+    ifn!(
+        "llvm.memcpy.p0i8.p0i8.i32",
+        fn(i8p, i8p, t_i32, t_i32, i1) -> void
+    );
+    ifn!(
+        "llvm.memcpy.p0i8.p0i8.i64",
+        fn(i8p, i8p, t_i64, t_i32, i1) -> void
+    );
+    ifn!(
+        "llvm.memmove.p0i8.p0i8.i16",
+        fn(i8p, i8p, t_i16, t_i32, i1) -> void
+    );
+    ifn!(
+        "llvm.memmove.p0i8.p0i8.i32",
+        fn(i8p, i8p, t_i32, t_i32, i1) -> void
+    );
+    ifn!(
+        "llvm.memmove.p0i8.p0i8.i64",
+        fn(i8p, i8p, t_i64, t_i32, i1) -> void
+    );
+    ifn!(
+        "llvm.memset.p0i8.i16",
+        fn(i8p, t_i8, t_i16, t_i32, i1) -> void
+    );
+    ifn!(
+        "llvm.memset.p0i8.i32",
+        fn(i8p, t_i8, t_i32, t_i32, i1) -> void
+    );
+    ifn!(
+        "llvm.memset.p0i8.i64",
+        fn(i8p, t_i8, t_i64, t_i32, i1) -> void
+    );
 
     ifn!("llvm.trap", fn() -> void);
     ifn!("llvm.debugtrap", fn() -> void);
@@ -649,7 +687,10 @@ fn declare_intrinsic(cx: &CodegenCx, key: &str) -> Option<ValueRef> {
     ifn!("llvm.fma.v2f32", fn(t_v2f32, t_v2f32, t_v2f32) -> t_v2f32);
     ifn!("llvm.fma.v4f32", fn(t_v4f32, t_v4f32, t_v4f32) -> t_v4f32);
     ifn!("llvm.fma.v8f32", fn(t_v8f32, t_v8f32, t_v8f32) -> t_v8f32);
-    ifn!("llvm.fma.v16f32", fn(t_v16f32, t_v16f32, t_v16f32) -> t_v16f32);
+    ifn!(
+        "llvm.fma.v16f32",
+        fn(t_v16f32, t_v16f32, t_v16f32) -> t_v16f32
+    );
     ifn!("llvm.fma.f64", fn(t_f64, t_f64, t_f64) -> t_f64);
     ifn!("llvm.fma.v2f64", fn(t_v2f64, t_v2f64, t_v2f64) -> t_v2f64);
     ifn!("llvm.fma.v4f64", fn(t_v4f64, t_v4f64, t_v4f64) -> t_v4f64);
@@ -704,13 +745,13 @@ fn declare_intrinsic(cx: &CodegenCx, key: &str) -> Option<ValueRef> {
     ifn!("llvm.ctpop.i64", fn(t_i64) -> t_i64);
     ifn!("llvm.ctpop.i128", fn(t_i128) -> t_i128);
 
-    ifn!("llvm.ctlz.i8", fn(t_i8 , i1) -> t_i8);
+    ifn!("llvm.ctlz.i8", fn(t_i8, i1) -> t_i8);
     ifn!("llvm.ctlz.i16", fn(t_i16, i1) -> t_i16);
     ifn!("llvm.ctlz.i32", fn(t_i32, i1) -> t_i32);
     ifn!("llvm.ctlz.i64", fn(t_i64, i1) -> t_i64);
     ifn!("llvm.ctlz.i128", fn(t_i128, i1) -> t_i128);
 
-    ifn!("llvm.cttz.i8", fn(t_i8 , i1) -> t_i8);
+    ifn!("llvm.cttz.i8", fn(t_i8, i1) -> t_i8);
     ifn!("llvm.cttz.i16", fn(t_i16, i1) -> t_i16);
     ifn!("llvm.cttz.i32", fn(t_i32, i1) -> t_i32);
     ifn!("llvm.cttz.i64", fn(t_i64, i1) -> t_i64);
@@ -763,7 +804,7 @@ fn declare_intrinsic(cx: &CodegenCx, key: &str) -> Option<ValueRef> {
     ifn!("llvm.umul.with.overflow.i64", fn(t_i64, t_i64) -> mk_struct!{t_i64, i1});
     ifn!("llvm.umul.with.overflow.i128", fn(t_i128, t_i128) -> mk_struct!{t_i128, i1});
 
-    ifn!("llvm.lifetime.start", fn(t_i64,i8p) -> void);
+    ifn!("llvm.lifetime.start", fn(t_i64, i8p) -> void);
     ifn!("llvm.lifetime.end", fn(t_i64, i8p) -> void);
 
     ifn!("llvm.expect.i1", fn(i1, i1) -> i1);
@@ -776,8 +817,14 @@ fn declare_intrinsic(cx: &CodegenCx, key: &str) -> Option<ValueRef> {
     ifn!("llvm.prefetch", fn(i8p, t_i32, t_i32, t_i32) -> void);
 
     if cx.sess().opts.debuginfo != NoDebugInfo {
-        ifn!("llvm.dbg.declare", fn(Type::metadata(cx), Type::metadata(cx)) -> void);
-        ifn!("llvm.dbg.value", fn(Type::metadata(cx), t_i64, Type::metadata(cx)) -> void);
+        ifn!(
+            "llvm.dbg.declare",
+            fn(Type::metadata(cx), Type::metadata(cx)) -> void
+        );
+        ifn!(
+            "llvm.dbg.value",
+            fn(Type::metadata(cx), t_i64, Type::metadata(cx)) -> void
+        );
     }
     return None;
 }

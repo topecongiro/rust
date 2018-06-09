@@ -14,10 +14,11 @@
 //!
 //! This API is completely unstable and subject to change.
 
-#![doc(html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
-      html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
-      html_root_url = "https://doc.rust-lang.org/nightly/")]
-
+#![doc(
+    html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
+    html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
+    html_root_url = "https://doc.rust-lang.org/nightly/"
+)]
 #![feature(box_patterns)]
 #![feature(box_syntax)]
 #![feature(custom_attribute)]
@@ -33,52 +34,57 @@
 use rustc::dep_graph::WorkProduct;
 use syntax_pos::symbol::Symbol;
 
-#[macro_use] extern crate bitflags;
+#[macro_use]
+extern crate bitflags;
 extern crate flate2;
 extern crate libc;
-#[macro_use] extern crate rustc;
+#[macro_use]
+extern crate rustc;
 extern crate jobserver;
 extern crate num_cpus;
-extern crate rustc_mir;
 extern crate rustc_allocator;
 extern crate rustc_apfloat;
+extern crate rustc_mir;
 extern crate rustc_target;
-#[macro_use] extern crate rustc_data_structures;
+#[macro_use]
+extern crate rustc_data_structures;
+extern crate rustc_codegen_utils;
 extern crate rustc_demangle;
 extern crate rustc_incremental;
 extern crate rustc_llvm as llvm;
 extern crate rustc_platform_intrinsics as intrinsics;
-extern crate rustc_codegen_utils;
 
-#[macro_use] extern crate log;
-#[macro_use] extern crate syntax;
-extern crate syntax_pos;
+#[macro_use]
+extern crate log;
+#[macro_use]
+extern crate syntax;
+extern crate cc; // Used to locate MSVC
 extern crate rustc_errors as errors;
 extern crate serialize;
-extern crate cc; // Used to locate MSVC
+extern crate syntax_pos;
 extern crate tempdir;
 
 use back::bytecode::RLIB_BYTECODE_EXTENSION;
 
 pub use llvm_util::target_features;
 
+use rustc_data_structures::sync::Lrc;
 use std::any::Any;
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::mpsc;
-use std::collections::BTreeMap;
-use rustc_data_structures::sync::Lrc;
 
 use rustc::dep_graph::DepGraph;
 use rustc::hir::def_id::CrateNum;
 use rustc::middle::cstore::MetadataLoader;
-use rustc::middle::cstore::{NativeLibrary, CrateSource, LibSource};
+use rustc::middle::cstore::{CrateSource, LibSource, NativeLibrary};
 use rustc::middle::lang_items::LangItem;
-use rustc::session::{Session, CompileIncomplete};
 use rustc::session::config::{OutputFilenames, OutputType, PrintRequest};
+use rustc::session::{CompileIncomplete, Session};
 use rustc::ty::{self, TyCtxt};
-use rustc::util::nodemap::{FxHashSet, FxHashMap};
-use rustc_mir::monomorphize;
+use rustc::util::nodemap::{FxHashMap, FxHashSet};
 use rustc_codegen_utils::codegen_backend::CodegenBackend;
+use rustc_mir::monomorphize;
 
 mod diagnostics;
 
@@ -87,13 +93,13 @@ mod back {
     mod archive;
     pub mod bytecode;
     mod command;
-    pub mod linker;
     pub mod link;
+    pub mod linker;
     mod lto;
-    pub mod symbol_export;
-    pub mod write;
     mod rpath;
+    pub mod symbol_export;
     mod wasm;
+    pub mod write;
 }
 
 mod abi;
@@ -114,8 +120,8 @@ mod llvm_util;
 mod metadata;
 mod meth;
 mod mir;
-mod time_graph;
 mod mono_item;
+mod time_graph;
 mod type_;
 mod type_of;
 mod value;
@@ -147,14 +153,14 @@ impl CodegenBackend for LlvmCodegenBackend {
             }
             PrintRequest::CodeModels => {
                 println!("Available code models:");
-                for &(name, _) in back::write::CODE_GEN_MODEL_ARGS.iter(){
+                for &(name, _) in back::write::CODE_GEN_MODEL_ARGS.iter() {
                     println!("    {}", name);
                 }
                 println!("");
             }
             PrintRequest::TlsModels => {
                 println!("Available TLS models:");
-                for &(name, _) in back::write::TLS_MODEL_ARGS.iter(){
+                for &(name, _) in back::write::TLS_MODEL_ARGS.iter() {
                     println!("    {}", name);
                 }
                 println!("");
@@ -199,7 +205,7 @@ impl CodegenBackend for LlvmCodegenBackend {
     fn codegen_crate<'a, 'tcx>(
         &self,
         tcx: TyCtxt<'a, 'tcx, 'tcx>,
-        rx: mpsc::Receiver<Box<Any + Send>>
+        rx: mpsc::Receiver<Box<Any + Send>>,
     ) -> Box<Any> {
         box base::codegen_crate(tcx, rx)
     }
@@ -210,32 +216,40 @@ impl CodegenBackend for LlvmCodegenBackend {
         sess: &Session,
         dep_graph: &DepGraph,
         outputs: &OutputFilenames,
-    ) -> Result<(), CompileIncomplete>{
+    ) -> Result<(), CompileIncomplete> {
         use rustc::util::common::time;
-        let (ongoing_codegen, work_products) =
-            ongoing_codegen.downcast::<::back::write::OngoingCodegen>()
-                .expect("Expected LlvmCodegenBackend's OngoingCodegen, found Box<Any>")
-                .join(sess);
+        let (ongoing_codegen, work_products) = ongoing_codegen
+            .downcast::<::back::write::OngoingCodegen>()
+            .expect("Expected LlvmCodegenBackend's OngoingCodegen, found Box<Any>")
+            .join(sess);
         if sess.opts.debugging_opts.incremental_info {
             back::write::dump_incremental_data(&ongoing_codegen);
         }
 
-        time(sess,
-             "serialize work products",
-             move || rustc_incremental::save_work_product_index(sess, &dep_graph, work_products));
+        time(sess, "serialize work products", move || {
+            rustc_incremental::save_work_product_index(sess, &dep_graph, work_products)
+        });
 
         sess.compile_status()?;
 
-        if !sess.opts.output_types.keys().any(|&i| i == OutputType::Exe ||
-                                                   i == OutputType::Metadata) {
+        if !sess
+            .opts
+            .output_types
+            .keys()
+            .any(|&i| i == OutputType::Exe || i == OutputType::Metadata)
+        {
             return Ok(());
         }
 
         // Run the linker on any artifacts that resulted from the LLVM run.
         // This should produce either a finished executable or library.
         time(sess, "linking", || {
-            back::link::link_binary(sess, &ongoing_codegen,
-                                    outputs, &ongoing_codegen.crate_name.as_str());
+            back::link::link_binary(
+                sess,
+                &ongoing_codegen,
+                outputs,
+                &ongoing_codegen.crate_name.as_str(),
+            );
         });
 
         // Now that we won't touch anything in the incremental compilation directory
@@ -279,11 +293,13 @@ impl ModuleCodegen {
         }
     }
 
-    fn into_compiled_module(self,
-                                emit_obj: bool,
-                                emit_bc: bool,
-                                emit_bc_compressed: bool,
-                                outputs: &OutputFilenames) -> CompiledModule {
+    fn into_compiled_module(
+        self,
+        emit_obj: bool,
+        emit_bc: bool,
+        emit_bc_compressed: bool,
+        outputs: &OutputFilenames,
+    ) -> CompiledModule {
         let pre_existing = match self.source {
             ModuleSource::Preexisting(_) => true,
             ModuleSource::Codegened(_) => false,
@@ -299,8 +315,11 @@ impl ModuleCodegen {
             None
         };
         let bytecode_compressed = if emit_bc_compressed {
-            Some(outputs.temp_path(OutputType::Bitcode, Some(&self.name))
-                    .with_extension(RLIB_BYTECODE_EXTENSION))
+            Some(
+                outputs
+                    .temp_path(OutputType::Bitcode, Some(&self.name))
+                    .with_extension(RLIB_BYTECODE_EXTENSION),
+            )
         } else {
             None
         };
@@ -343,8 +362,8 @@ struct ModuleLlvm {
     tm: llvm::TargetMachineRef,
 }
 
-unsafe impl Send for ModuleLlvm { }
-unsafe impl Sync for ModuleLlvm { }
+unsafe impl Send for ModuleLlvm {}
+unsafe impl Sync for ModuleLlvm {}
 
 impl Drop for ModuleLlvm {
     fn drop(&mut self) {

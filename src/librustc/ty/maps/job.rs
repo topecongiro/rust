@@ -10,28 +10,28 @@
 
 #![allow(warnings)]
 
-use std::mem;
+use errors::Diagnostic;
 use rustc_data_structures::sync::{Lock, LockGuard, Lrc, Weak};
 use rustc_data_structures::OnDrop;
-use syntax_pos::Span;
-use ty::tls;
-use ty::maps::Query;
-use ty::maps::plumbing::CycleError;
-use ty::context::TyCtxt;
-use errors::Diagnostic;
-use std::process;
-use std::fmt;
 use std::collections::HashSet;
+use std::fmt;
+use std::mem;
+use std::process;
+use syntax_pos::Span;
+use ty::context::TyCtxt;
+use ty::maps::plumbing::CycleError;
+use ty::maps::Query;
+use ty::tls;
 #[cfg(parallel_queries)]
 use {
+    parking_lot::{Condvar, Mutex},
     rayon_core,
-    parking_lot::{Mutex, Condvar},
-    std::sync::atomic::Ordering,
-    std::thread,
+    rustc_data_structures::stable_hasher::{HashStable, StableHasher, StableHasherResult},
     std::iter,
     std::iter::FromIterator,
+    std::sync::atomic::Ordering,
+    std::thread,
     syntax_pos::DUMMY_SP,
-    rustc_data_structures::stable_hasher::{StableHasherResult, StableHasher, HashStable},
 };
 
 /// Indicates the state of a query for a given key in a query map
@@ -105,7 +105,7 @@ impl<'tcx> QueryJob<'tcx> {
 
                 match Lrc::get_mut(&mut waiter).unwrap().cycle.get_mut().take() {
                     None => Ok(()),
-                    Some(cycle) => Err(cycle)
+                    Some(cycle) => Err(cycle),
                 }
             })
         }
@@ -131,9 +131,10 @@ impl<'tcx> QueryJob<'tcx> {
                 // Replace it with the span which caused the cycle to form
                 cycle[0].span = span;
                 // Find out why the cycle itself was used
-                let usage = job.parent.as_ref().map(|parent| {
-                    (job.info.span, parent.info.query.clone())
-                });
+                let usage = job
+                    .parent
+                    .as_ref()
+                    .map(|parent| (job.info.span, parent.info.query.clone()));
                 return Err(CycleError { usage, cycle });
             }
 
@@ -226,10 +227,7 @@ impl<'tcx> QueryLatch<'tcx> {
 
     /// Remove a single waiter from the list of waiters.
     /// This is used to break query cycles.
-    fn extract_waiter(
-        &self,
-        waiter: usize,
-    ) -> Lrc<QueryWaiter<'tcx>> {
+    fn extract_waiter(&self, waiter: usize) -> Lrc<QueryWaiter<'tcx>> {
         let mut info = self.info.lock();
         debug_assert!(!info.complete);
         // Remove the waiter from the list of waiters
@@ -253,7 +251,7 @@ type Waiter<'tcx> = (Lrc<QueryJob<'tcx>>, usize);
 #[cfg(parallel_queries)]
 fn visit_waiters<'tcx, F>(query: Lrc<QueryJob<'tcx>>, mut visit: F) -> Option<Option<Waiter<'tcx>>>
 where
-    F: FnMut(Span, Lrc<QueryJob<'tcx>>) -> Option<Option<Waiter<'tcx>>>
+    F: FnMut(Span, Lrc<QueryJob<'tcx>>) -> Option<Option<Waiter<'tcx>>>,
 {
     // Visit the parent query which is a non-resumable waiter since it's on the same stack
     if let Some(ref parent) = query.parent {
@@ -279,10 +277,11 @@ where
 /// If a cycle is detected, this initial value is replaced with the span causing
 /// the cycle.
 #[cfg(parallel_queries)]
-fn cycle_check<'tcx>(query: Lrc<QueryJob<'tcx>>,
-                     span: Span,
-                     stack: &mut Vec<(Span, Lrc<QueryJob<'tcx>>)>,
-                     visited: &mut HashSet<*const QueryJob<'tcx>>
+fn cycle_check<'tcx>(
+    query: Lrc<QueryJob<'tcx>>,
+    span: Span,
+    stack: &mut Vec<(Span, Lrc<QueryJob<'tcx>>)>,
+    visited: &mut HashSet<*const QueryJob<'tcx>>,
 ) -> Option<Option<Waiter<'tcx>>> {
     if visited.contains(&query.as_ptr()) {
         return if let Some(p) = stack.iter().position(|q| q.1.as_ptr() == query.as_ptr()) {
@@ -295,7 +294,7 @@ fn cycle_check<'tcx>(query: Lrc<QueryJob<'tcx>>,
             Some(None)
         } else {
             None
-        }
+        };
     }
 
     // Mark this query is visited and add it to the stack
@@ -321,7 +320,7 @@ fn cycle_check<'tcx>(query: Lrc<QueryJob<'tcx>>,
 #[cfg(parallel_queries)]
 fn connected_to_root<'tcx>(
     query: Lrc<QueryJob<'tcx>>,
-    visited: &mut HashSet<*const QueryJob<'tcx>>
+    visited: &mut HashSet<*const QueryJob<'tcx>>,
 ) -> bool {
     // We already visited this or we're deliberately ignoring it
     if visited.contains(&query.as_ptr()) {
@@ -355,15 +354,12 @@ fn connected_to_root<'tcx>(
 fn remove_cycle<'tcx>(
     jobs: &mut Vec<Lrc<QueryJob<'tcx>>>,
     wakelist: &mut Vec<Lrc<QueryWaiter<'tcx>>>,
-    tcx: TyCtxt<'_, 'tcx, '_>
+    tcx: TyCtxt<'_, 'tcx, '_>,
 ) -> bool {
     let mut visited = HashSet::new();
     let mut stack = Vec::new();
     // Look for a cycle starting with the last query in `jobs`
-    if let Some(waiter) = cycle_check(jobs.pop().unwrap(),
-                                      DUMMY_SP,
-                                      &mut stack,
-                                      &mut visited) {
+    if let Some(waiter) = cycle_check(jobs.pop().unwrap(), DUMMY_SP, &mut stack, &mut visited) {
         // Reverse the stack so earlier entries require later entries
         stack.reverse();
 
@@ -387,31 +383,38 @@ fn remove_cycle<'tcx>(
 
         // Find the queries in the cycle which are
         // connected to queries outside the cycle
-        let entry_points: Vec<Lrc<QueryJob<'tcx>>> = stack.iter().filter_map(|query| {
-            // Mark all the other queries in the cycle as already visited
-            let mut visited = HashSet::from_iter(stack.iter().filter_map(|q| {
-                if q.1.as_ptr() != query.1.as_ptr() {
-                    Some(q.1.as_ptr())
+        let entry_points: Vec<Lrc<QueryJob<'tcx>>> = stack
+            .iter()
+            .filter_map(|query| {
+                // Mark all the other queries in the cycle as already visited
+                let mut visited = HashSet::from_iter(stack.iter().filter_map(|q| {
+                    if q.1.as_ptr() != query.1.as_ptr() {
+                        Some(q.1.as_ptr())
+                    } else {
+                        None
+                    }
+                }));
+
+                if connected_to_root(query.1.clone(), &mut visited) {
+                    Some(query.1.clone())
                 } else {
                     None
                 }
-            }));
-
-            if connected_to_root(query.1.clone(), &mut visited) {
-                Some(query.1.clone())
-            } else {
-                None
-            }
-        }).collect();
+            })
+            .collect();
 
         // Deterministically pick an entry point
         // FIXME: Sort this instead
         let mut hcx = tcx.create_stable_hashing_context();
-        let entry_point = entry_points.iter().min_by_key(|q| {
-            let mut stable_hasher = StableHasher::<u64>::new();
-            q.info.query.hash_stable(&mut hcx, &mut stable_hasher);
-            stable_hasher.finish()
-        }).unwrap().as_ptr();
+        let entry_point = entry_points
+            .iter()
+            .min_by_key(|q| {
+                let mut stable_hasher = StableHasher::<u64>::new();
+                q.info.query.hash_stable(&mut hcx, &mut stable_hasher);
+                stable_hasher.finish()
+            })
+            .unwrap()
+            .as_ptr();
 
         // Shift the stack until our entry point is first
         while stack[0].1.as_ptr() != entry_point {
@@ -422,10 +425,13 @@ fn remove_cycle<'tcx>(
         // Create the cycle error
         let mut error = CycleError {
             usage: None,
-            cycle: stack.iter().map(|&(s, ref q)| QueryInfo {
-                span: s,
-                query: q.info.query.clone(),
-            } ).collect(),
+            cycle: stack
+                .iter()
+                .map(|&(s, ref q)| QueryInfo {
+                    span: s,
+                    query: q.info.query.clone(),
+                })
+                .collect(),
         };
 
         // We unwrap `waiter` here since there must always be one
@@ -457,27 +463,20 @@ pub unsafe fn handle_deadlock() {
 
     let registry = rayon_core::Registry::current();
 
-    let gcx_ptr = tls::GCX_PTR.with(|gcx_ptr| {
-        gcx_ptr as *const _
-    });
+    let gcx_ptr = tls::GCX_PTR.with(|gcx_ptr| gcx_ptr as *const _);
     let gcx_ptr = &*gcx_ptr;
 
-    let syntax_globals = syntax::GLOBALS.with(|syntax_globals| {
-        syntax_globals as *const _
-    });
+    let syntax_globals = syntax::GLOBALS.with(|syntax_globals| syntax_globals as *const _);
     let syntax_globals = &*syntax_globals;
 
-    let syntax_pos_globals = syntax_pos::GLOBALS.with(|syntax_pos_globals| {
-        syntax_pos_globals as *const _
-    });
+    let syntax_pos_globals =
+        syntax_pos::GLOBALS.with(|syntax_pos_globals| syntax_pos_globals as *const _);
     let syntax_pos_globals = &*syntax_pos_globals;
     thread::spawn(move || {
         tls::GCX_PTR.set(gcx_ptr, || {
             syntax_pos::GLOBALS.set(syntax_pos_globals, || {
                 syntax_pos::GLOBALS.set(syntax_pos_globals, || {
-                    tls::with_thread_locals(|| {
-                        tls::with_global(|tcx| deadlock(tcx, &registry))
-                    })
+                    tls::with_thread_locals(|| tls::with_global(|tcx| deadlock(tcx, &registry)))
                 })
             })
         })

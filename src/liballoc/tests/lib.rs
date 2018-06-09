@@ -30,8 +30,8 @@ extern crate alloc_system;
 extern crate core;
 extern crate rand;
 
-use std::hash::{Hash, Hasher};
 use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 mod binary_heap;
 mod btree;
@@ -42,8 +42,8 @@ mod linked_list;
 mod slice;
 mod str;
 mod string;
-mod vec_deque;
 mod vec;
+mod vec_deque;
 
 fn hash<T: Hash>(t: &T) -> u64 {
     let mut s = DefaultHasher::new();

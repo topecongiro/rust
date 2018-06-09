@@ -1,13 +1,11 @@
-use std::{fmt, env};
+use std::{env, fmt};
 
-use mir;
 use middle::const_val::ConstEvalErr;
-use ty::{FnSig, Ty, layout};
-use ty::layout::{Size, Align};
+use mir;
+use ty::layout::{Align, Size};
+use ty::{layout, FnSig, Ty};
 
-use super::{
-    Pointer, Lock, AccessKind
-};
+use super::{AccessKind, Lock, Pointer};
 
 use backtrace::Backtrace;
 
@@ -24,7 +22,11 @@ impl<'tcx> From<EvalErrorKind<'tcx, u64>> for EvalError<'tcx> {
 
                 use std::fmt::Write;
                 let mut trace_text = "\n\nAn error occurred in miri:\n".to_string();
-                write!(trace_text, "backtrace frames: {}\n", backtrace.frames().len()).unwrap();
+                write!(
+                    trace_text,
+                    "backtrace frames: {}\n",
+                    backtrace.frames().len()
+                ).unwrap();
                 'frames: for (i, frame) in backtrace.frames().iter().enumerate() {
                     if frame.symbols().is_empty() {
                         write!(trace_text, "{}: no symbols\n", i).unwrap();
@@ -50,12 +52,10 @@ impl<'tcx> From<EvalErrorKind<'tcx, u64>> for EvalError<'tcx> {
                     }
                 }
                 error!("{}", trace_text);
-            },
-            _ => {},
+            }
+            _ => {}
         }
-        EvalError {
-            kind,
-        }
+        EvalError { kind }
     }
 }
 
@@ -90,7 +90,10 @@ pub enum EvalErrorKind<'tcx, O> {
     Unimplemented(String),
     DerefFunctionPointer,
     ExecuteMemory,
-    BoundsCheck { len: O, index: O },
+    BoundsCheck {
+        len: O,
+        index: O,
+    },
     Overflow(mir::BinOp),
     OverflowNeg,
     DivisionByZero,

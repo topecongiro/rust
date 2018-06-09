@@ -10,17 +10,17 @@
 
 //! A stack-allocated vector, allowing storage of N elements on the stack.
 
-use std::marker::Unsize;
-use std::iter::Extend;
-use std::ptr::{self, drop_in_place, NonNull};
-use std::ops::{Deref, DerefMut, Range};
-use std::hash::{Hash, Hasher};
-use std::slice;
 use std::fmt;
+use std::hash::{Hash, Hasher};
+use std::iter::Extend;
+use std::marker::Unsize;
 use std::mem;
 use std::mem::ManuallyDrop;
 use std::ops::Bound::{Excluded, Included, Unbounded};
 use std::ops::RangeBounds;
+use std::ops::{Deref, DerefMut, Range};
+use std::ptr::{self, drop_in_place, NonNull};
+use std::slice;
 
 pub unsafe trait Array {
     type Element;
@@ -48,20 +48,27 @@ unsafe impl<T> Array for [T; 32] {
 
 pub struct ArrayVec<A: Array> {
     count: usize,
-    values: A::PartialStorage
+    values: A::PartialStorage,
 }
 
 impl<A> Hash for ArrayVec<A>
-    where A: Array,
-          A::Element: Hash {
-    fn hash<H>(&self, state: &mut H) where H: Hasher {
+where
+    A: Array,
+    A::Element: Hash,
+{
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
         (&self[..]).hash(state);
     }
 }
 
 impl<A> Clone for ArrayVec<A>
-    where A: Array,
-          A::Element: Clone {
+where
+    A: Array,
+    A::Element: Clone,
+{
     fn clone(&self) -> Self {
         let mut v = ArrayVec::new();
         v.extend(self.iter().cloned());
@@ -106,7 +113,8 @@ impl<A: Array> ArrayVec<A> {
     }
 
     pub fn drain<R>(&mut self, range: R) -> Drain<A>
-        where R: RangeBounds<usize>
+    where
+        R: RangeBounds<usize>,
     {
         // Memory safety
         //
@@ -122,12 +130,12 @@ impl<A: Array> ArrayVec<A> {
         let start = match range.start_bound() {
             Included(&n) => n,
             Excluded(&n) => n + 1,
-            Unbounded    => 0,
+            Unbounded => 0,
         };
         let end = match range.end_bound() {
             Included(&n) => n + 1,
             Excluded(&n) => n,
-            Unbounded    => len,
+            Unbounded => len,
         };
         assert!(start <= end);
         assert!(end <= len);
@@ -139,8 +147,7 @@ impl<A: Array> ArrayVec<A> {
             // whole Drain iterator (like &mut T).
             let range_slice = {
                 let arr = &mut self.values as &mut [ManuallyDrop<<A as Array>::Element>];
-                slice::from_raw_parts_mut(arr.as_mut_ptr().offset(start as isize),
-                                          end - start)
+                slice::from_raw_parts_mut(arr.as_mut_ptr().offset(start as isize), end - start)
             };
             Drain {
                 tail_start: end,
@@ -153,15 +160,19 @@ impl<A: Array> ArrayVec<A> {
 }
 
 impl<A> Default for ArrayVec<A>
-    where A: Array {
+where
+    A: Array,
+{
     fn default() -> Self {
         ArrayVec::new()
     }
 }
 
 impl<A> fmt::Debug for ArrayVec<A>
-    where A: Array,
-          A::Element: fmt::Debug {
+where
+    A: Array,
+    A::Element: fmt::Debug,
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self[..].fmt(f)
     }
@@ -170,9 +181,7 @@ impl<A> fmt::Debug for ArrayVec<A>
 impl<A: Array> Deref for ArrayVec<A> {
     type Target = [A::Element];
     fn deref(&self) -> &Self::Target {
-        unsafe {
-            slice::from_raw_parts(&self.values as *const _ as *const A::Element, self.count)
-        }
+        unsafe { slice::from_raw_parts(&self.values as *const _ as *const A::Element, self.count) }
     }
 }
 
@@ -186,14 +195,15 @@ impl<A: Array> DerefMut for ArrayVec<A> {
 
 impl<A: Array> Drop for ArrayVec<A> {
     fn drop(&mut self) {
-        unsafe {
-            drop_in_place(&mut self[..])
-        }
+        unsafe { drop_in_place(&mut self[..]) }
     }
 }
 
 impl<A: Array> Extend<A::Element> for ArrayVec<A> {
-    fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=A::Element> {
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = A::Element>,
+    {
         for el in iter {
             self.push(el);
         }
@@ -216,9 +226,7 @@ impl<A: Array> Iterator for Iter<A> {
 
     fn next(&mut self) -> Option<A::Element> {
         let arr = &self.store as &[ManuallyDrop<_>];
-        unsafe {
-            self.indices.next().map(|i| ptr::read(&*arr[i]))
-        }
+        unsafe { self.indices.next().map(|i| ptr::read(&*arr[i])) }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -227,7 +235,8 @@ impl<A: Array> Iterator for Iter<A> {
 }
 
 pub struct Drain<'a, A: Array>
-        where A::Element: 'a
+where
+    A::Element: 'a,
 {
     tail_start: usize,
     tail_len: usize,
@@ -260,8 +269,8 @@ impl<'a, A: Array> Drop for Drain<'a, A> {
                 let start = source_array_vec.len();
                 let tail = self.tail_start;
                 {
-                    let arr =
-                        &mut source_array_vec.values as &mut [ManuallyDrop<<A as Array>::Element>];
+                    let arr = &mut source_array_vec.values
+                        as &mut [ManuallyDrop<<A as Array>::Element>];
                     let src = arr.as_ptr().offset(tail as isize);
                     let dst = arr.as_mut_ptr().offset(start as isize);
                     ptr::copy(src, dst, self.tail_len);
@@ -276,15 +285,10 @@ impl<A: Array> IntoIterator for ArrayVec<A> {
     type Item = A::Element;
     type IntoIter = Iter<A>;
     fn into_iter(self) -> Self::IntoIter {
-        let store = unsafe {
-            ptr::read(&self.values)
-        };
+        let store = unsafe { ptr::read(&self.values) };
         let indices = 0..self.count;
         mem::forget(self);
-        Iter {
-            indices,
-            store,
-        }
+        Iter { indices, store }
     }
 }
 

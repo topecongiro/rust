@@ -10,12 +10,12 @@
 
 use fmt;
 use io::prelude::*;
-use sys::stdio::{Stderr, stderr_prints_nothing};
+use sys::stdio::{stderr_prints_nothing, Stderr};
 use thread;
 
 pub fn dumb_print(args: fmt::Arguments) {
     if stderr_prints_nothing() {
-        return
+        return;
     }
     let _ = Stderr::new().map(|mut stderr| stderr.write_fmt(args));
 }
@@ -27,11 +27,15 @@ pub fn dumb_print(args: fmt::Arguments) {
 
 pub fn abort(args: fmt::Arguments) -> ! {
     dumb_print(format_args!("fatal runtime error: {}\n", args));
-    unsafe { ::sys::abort_internal(); }
+    unsafe {
+        ::sys::abort_internal();
+    }
 }
 
 #[allow(dead_code)] // stack overflow detection not enabled on all platforms
 pub unsafe fn report_overflow() {
-    dumb_print(format_args!("\nthread '{}' has overflowed its stack\n",
-                            thread::current().name().unwrap_or("<unknown>")));
+    dumb_print(format_args!(
+        "\nthread '{}' has overflowed its stack\n",
+        thread::current().name().unwrap_or("<unknown>")
+    ));
 }

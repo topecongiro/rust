@@ -8,9 +8,10 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use rustc::traits::{EvaluationResult, Obligation, ObligationCause,
-                    OverflowError, SelectionContext, TraitQueryMode};
 use rustc::traits::query::CanonicalPredicateGoal;
+use rustc::traits::{
+    EvaluationResult, Obligation, ObligationCause, OverflowError, SelectionContext, TraitQueryMode,
+};
 use rustc::ty::{ParamEnvAnd, TyCtxt};
 use syntax::codemap::DUMMY_SP;
 

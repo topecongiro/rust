@@ -16,8 +16,7 @@
 #![feature(extern_prelude)]
 #![feature(iterator_find_map)]
 #![feature(in_band_lifetimes)]
-
-#![recursion_limit="256"]
+#![recursion_limit = "256"]
 
 extern crate chalk_engine;
 #[macro_use]
@@ -31,10 +30,10 @@ extern crate syntax_pos;
 mod chalk_context;
 mod dropck_outlives;
 mod evaluate_obligation;
-mod normalize_projection_ty;
-mod normalize_erasing_regions;
-mod util;
 pub mod lowering;
+mod normalize_erasing_regions;
+mod normalize_projection_ty;
+mod util;
 
 use rustc::ty::maps::Providers;
 

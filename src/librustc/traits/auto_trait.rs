@@ -180,21 +180,22 @@ impl<'a, 'tcx> AutoTraitFinder<'a, 'tcx> {
                 None => return AutoTraitResult::NegativeImpl,
             };
 
-            let (full_env, full_user_env) = self.evaluate_predicates(
-                &mut infcx,
-                did,
-                trait_did,
-                ty,
-                new_env.clone(),
-                user_env,
-                &mut fresh_preds,
-                true,
-            ).unwrap_or_else(|| {
-                panic!(
-                    "Failed to fully process: {:?} {:?} {:?}",
-                    ty, trait_did, orig_params
-                )
-            });
+            let (full_env, full_user_env) =
+                self.evaluate_predicates(
+                    &mut infcx,
+                    did,
+                    trait_did,
+                    ty,
+                    new_env.clone(),
+                    user_env,
+                    &mut fresh_preds,
+                    true,
+                ).unwrap_or_else(|| {
+                    panic!(
+                        "Failed to fully process: {:?} {:?} {:?}",
+                        ty, trait_did, orig_params
+                    )
+                });
 
             debug!(
                 "find_auto_trait_generics(did={:?}, trait_did={:?}, generics={:?}): fulfilling \
@@ -224,11 +225,9 @@ impl<'a, 'tcx> AutoTraitFinder<'a, 'tcx> {
             let names_map: FxHashSet<String> = generics
                 .params
                 .iter()
-                .filter_map(|param| {
-                    match param.kind {
-                        ty::GenericParamDefKind::Lifetime => Some(param.name.to_string()),
-                        _ => None
-                    }
+                .filter_map(|param| match param.kind {
+                    ty::GenericParamDefKind::Lifetime => Some(param.name.to_string()),
+                    _ => None,
                 })
                 .collect();
 

@@ -55,22 +55,22 @@
 //! ported to this system, and which relies on string concatenation at the
 //! time of error detection.
 
-use infer;
-use super::{InferCtxt, RegionVariableOrigin, SubregionOrigin, TypeTrace, ValuePairs};
-use super::region_constraints::GenericKind;
 use super::lexical_region_resolve::RegionResolutionError;
+use super::region_constraints::GenericKind;
+use super::{InferCtxt, RegionVariableOrigin, SubregionOrigin, TypeTrace, ValuePairs};
+use infer;
 
-use std::fmt;
+use errors::{Applicability, DiagnosticBuilder, DiagnosticStyledString};
 use hir;
-use hir::map as hir_map;
 use hir::def_id::DefId;
+use hir::map as hir_map;
 use middle::region;
-use traits::{ObligationCause, ObligationCauseCode};
-use ty::{self, Region, Ty, TyCtxt, TypeFoldable, TypeVariants};
-use ty::error::TypeError;
+use std::fmt;
 use syntax::ast::DUMMY_NODE_ID;
 use syntax_pos::{Pos, Span};
-use errors::{Applicability, DiagnosticBuilder, DiagnosticStyledString};
+use traits::{ObligationCause, ObligationCauseCode};
+use ty::error::TypeError;
+use ty::{self, Region, Ty, TyCtxt, TypeFoldable, TypeVariants};
 
 use rustc_data_structures::indexed_vec::Idx;
 
@@ -154,8 +154,7 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
             }
 
             // We shouldn't encounter an error message with ReClosureBound.
-            ty::ReCanonical(..) |
-            ty::ReClosureBound(..) => {
+            ty::ReCanonical(..) | ty::ReClosureBound(..) => {
                 bug!("encountered unexpected ReClosureBound: {:?}", region,);
             }
         };
@@ -177,9 +176,9 @@ impl<'a, 'gcx, 'tcx> TyCtxt<'a, 'gcx, 'tcx> {
 
     fn msg_span_from_free_region(self, region: ty::Region<'tcx>) -> (String, Option<Span>) {
         match *region {
-            ty::ReEarlyBound(_) | ty::ReFree(_)  => {
+            ty::ReEarlyBound(_) | ty::ReFree(_) => {
                 self.msg_span_from_early_bound_and_free_regions(region)
-            },
+            }
             ty::ReStatic => ("the static lifetime".to_owned(), None),
             _ => bug!("{:?}", region),
         }
@@ -545,7 +544,8 @@ impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
         }
 
         // Output the lifetimes fot the first type
-        let lifetimes = sub.regions()
+        let lifetimes = sub
+            .regions()
             .map(|lifetime| {
                 let s = format!("{}", lifetime);
                 if s.is_empty() {
@@ -674,11 +674,7 @@ impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
                 "&{}{}{}",
                 r,
                 if r == "" { "" } else { " " },
-                if mutbl == hir::MutMutable {
-                    "mut "
-                } else {
-                    ""
-                }
+                if mutbl == hir::MutMutable { "mut " } else { "" }
             ));
             s.push_normal(format!("{}", ty));
         }
@@ -772,14 +768,16 @@ impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
                     //     Foo<Bar<Qux>
                     //         ------- this type argument is exactly the same as the other type
                     //     Bar<Qux>
-                    if self.cmp_type_arg(
-                        &mut values.0,
-                        &mut values.1,
-                        path1.clone(),
-                        sub1,
-                        path2.clone(),
-                        &t2,
-                    ).is_some()
+                    if self
+                        .cmp_type_arg(
+                            &mut values.0,
+                            &mut values.1,
+                            path1.clone(),
+                            sub1,
+                            path2.clone(),
+                            &t2,
+                        )
+                        .is_some()
                     {
                         return values;
                     }
@@ -788,7 +786,8 @@ impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
                     //     Bar<Qux>
                     //     Foo<Bar<Qux>>
                     //         ------- this type argument is exactly the same as the other type
-                    if self.cmp_type_arg(&mut values.1, &mut values.0, path2, sub2, path1, &t1)
+                    if self
+                        .cmp_type_arg(&mut values.1, &mut values.0, path2, sub2, path1, &t1)
                         .is_some()
                     {
                         return values;
@@ -818,8 +817,9 @@ impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
             }
 
             // When encountering &T != &mut T, highlight only the borrow
-            (&ty::TyRef(r1, ref_ty1, mutbl1),
-             &ty::TyRef(r2, ref_ty2, mutbl2)) if equals(&ref_ty1, &ref_ty2) => {
+            (&ty::TyRef(r1, ref_ty1, mutbl1), &ty::TyRef(r2, ref_ty2, mutbl2))
+                if equals(&ref_ty1, &ref_ty2) =>
+            {
                 let mut values = (DiagnosticStyledString::new(), DiagnosticStyledString::new());
                 push_ty_ref(&r1, ref_ty1, mutbl1, &mut values.0);
                 push_ty_ref(&r2, ref_ty2, mutbl2, &mut values.1);
@@ -1045,7 +1045,8 @@ impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
                             // `sp` only covers `T`, change it so that it covers
                             // `T:` when appropriate
                             let sp = if has_lifetimes {
-                                sp.to(self.tcx
+                                sp.to(self
+                                    .tcx
                                     .sess
                                     .codemap()
                                     .next_point(self.tcx.sess.codemap().next_point(sp)))
@@ -1098,8 +1099,10 @@ impl<'a, 'gcx, 'tcx> InferCtxt<'a, 'gcx, 'tcx> {
                 let tail = if has_lifetimes { " + " } else { "" };
                 let suggestion = format!("{}: {}{}", bound_kind, sub, tail);
                 err.span_suggestion_short_with_applicability(
-                    sp, consider, suggestion,
-                    Applicability::MaybeIncorrect // Issue #41966
+                    sp,
+                    consider,
+                    suggestion,
+                    Applicability::MaybeIncorrect, // Issue #41966
                 );
             } else {
                 err.help(consider);

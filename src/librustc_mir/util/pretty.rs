@@ -8,19 +8,19 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use super::graphviz::write_mir_fn_graphviz;
 use rustc::hir;
 use rustc::hir::def_id::{DefId, LOCAL_CRATE};
-use rustc::mir::*;
 use rustc::mir::visit::Visitor;
-use rustc::ty::{self, TyCtxt};
+use rustc::mir::*;
 use rustc::ty::item_path;
+use rustc::ty::{self, TyCtxt};
 use rustc_data_structures::fx::FxHashMap;
 use rustc_data_structures::indexed_vec::Idx;
 use std::fmt::Display;
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-use super::graphviz::write_mir_fn_graphviz;
 use transform::MirSource;
 
 const INDENT: &'static str = "    ";
@@ -189,18 +189,14 @@ fn dump_path(
     let mut file_path = PathBuf::new();
     file_path.push(Path::new(&tcx.sess.opts.debugging_opts.dump_mir_dir));
 
-    let item_name = tcx.hir
+    let item_name = tcx
+        .hir
         .def_path(source.def_id)
         .to_filename_friendly_no_crate();
 
     let file_name = format!(
         "rustc.{}{}{}.{}.{}.{}",
-        item_name,
-        promotion_id,
-        pass_num,
-        pass_name,
-        disambiguator,
-        extension,
+        item_name, promotion_id, pass_num, pass_name, disambiguator, extension,
     );
 
     file_path.push(&file_name);
@@ -483,11 +479,7 @@ fn write_scope_tree(
             let indent = indent + INDENT.len();
             let indented_var = format!(
                 "{0:1$}let {2}{3:?}: {4:?};",
-                INDENT,
-                indent,
-                mut_str,
-                local,
-                var.ty
+                INDENT, indent, mut_str, local, var.ty
             );
             writeln!(
                 w,
@@ -533,13 +525,11 @@ pub fn write_mir_intro<'a, 'gcx, 'tcx>(
     }
 
     // Print return place
-    let indented_retptr = format!("{}let mut {:?}: {};",
-                                  INDENT,
-                                  RETURN_PLACE,
-                                  mir.local_decls[RETURN_PLACE].ty);
-    writeln!(w, "{0:1$} // return place",
-             indented_retptr,
-             ALIGN)?;
+    let indented_retptr = format!(
+        "{}let mut {:?}: {};",
+        INDENT, RETURN_PLACE, mir.local_decls[RETURN_PLACE].ty
+    );
+    writeln!(w, "{0:1$} // return place", indented_retptr, ALIGN)?;
 
     write_scope_tree(tcx, mir, &scope_tree, w, OUTERMOST_SOURCE_SCOPE, 1)?;
 
@@ -601,9 +591,7 @@ fn write_temp_decls(mir: &Mir, w: &mut dyn Write) -> io::Result<()> {
         writeln!(
             w,
             "{}let mut {:?}: {};",
-            INDENT,
-            temp,
-            mir.local_decls[temp].ty
+            INDENT, temp, mir.local_decls[temp].ty
         )?;
     }
 

@@ -2088,7 +2088,6 @@ struct Foo;
 
 }
 
-
 register_diagnostics! {
 //  E0006 // merged with E0005
 //  E0101, // replaced with E0282

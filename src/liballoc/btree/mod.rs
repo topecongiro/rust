@@ -8,9 +8,9 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+pub mod map;
 mod node;
 mod search;
-pub mod map;
 pub mod set;
 
 #[doc(hidden)]

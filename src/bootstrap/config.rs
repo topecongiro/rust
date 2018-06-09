@@ -13,20 +13,20 @@
 //! This module implements parsing `config.toml` configuration files to tweak
 //! how the build runs.
 
+use std::cmp;
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs::{self, File};
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 use std::process;
-use std::cmp;
 
+use cache::{Interned, INTERNER};
+use flags::Flags;
+pub use flags::Subcommand;
 use num_cpus;
 use toml;
 use util::exe;
-use cache::{INTERNER, Interned};
-use flags::Flags;
-pub use flags::Subcommand;
 
 /// Global configuration for the entire build and/or bootstrap.
 ///
@@ -251,7 +251,7 @@ struct Llvm {
     experimental_targets: Option<String>,
     link_jobs: Option<u32>,
     link_shared: Option<bool>,
-    clang_cl: Option<String>
+    clang_cl: Option<String>,
 }
 
 #[derive(Deserialize, Default, Clone)]
@@ -398,19 +398,23 @@ impl Config {
         // If --target was specified but --host wasn't specified, don't run any host-only tests.
         config.run_host_only = !(flags.host.is_empty() && !flags.target.is_empty());
 
-        let toml = file.map(|file| {
-            let mut f = t!(File::open(&file));
-            let mut contents = String::new();
-            t!(f.read_to_string(&mut contents));
-            match toml::from_str(&contents) {
-                Ok(table) => table,
-                Err(err) => {
-                    println!("failed to parse TOML configuration '{}': {}",
-                        file.display(), err);
-                    process::exit(2);
+        let toml =
+            file.map(|file| {
+                let mut f = t!(File::open(&file));
+                let mut contents = String::new();
+                t!(f.read_to_string(&mut contents));
+                match toml::from_str(&contents) {
+                    Ok(table) => table,
+                    Err(err) => {
+                        println!(
+                            "failed to parse TOML configuration '{}': {}",
+                            file.display(),
+                            err
+                        );
+                        process::exit(2);
+                    }
                 }
-            }
-        }).unwrap_or_else(|| TomlConfig::default());
+            }).unwrap_or_else(|| TomlConfig::default());
 
         let build = toml.build.clone().unwrap_or(Build::default());
         // set by bootstrap.py
@@ -421,7 +425,10 @@ impl Config {
                 config.hosts.push(host);
             }
         }
-        for target in config.hosts.iter().cloned()
+        for target in config
+            .hosts
+            .iter()
+            .cloned()
             .chain(build.target.iter().map(|s| INTERNER.intern_str(s)))
         {
             if !config.targets.contains(&target) {
@@ -438,7 +445,6 @@ impl Config {
         } else {
             config.targets
         };
-
 
         config.nodejs = build.nodejs.map(PathBuf::from);
         config.gdb = build.gdb.map(PathBuf::from);
@@ -487,9 +493,7 @@ impl Config {
 
         if let Some(ref llvm) = toml.llvm {
             match llvm.ccache {
-                Some(StringOrBool::String(ref s)) => {
-                    config.ccache = Some(s.to_string())
-                }
+                Some(StringOrBool::String(ref s)) => config.ccache = Some(s.to_string()),
                 Some(StringOrBool::Bool(true)) => {
                     config.ccache = Some("ccache".to_string());
                 }
@@ -504,7 +508,9 @@ impl Config {
             set(&mut config.llvm_static_stdcpp, llvm.static_libstdcpp);
             set(&mut config.llvm_link_shared, llvm.link_shared);
             config.llvm_targets = llvm.targets.clone();
-            config.llvm_experimental_targets = llvm.experimental_targets.clone()
+            config.llvm_experimental_targets = llvm
+                .experimental_targets
+                .clone()
                 .unwrap_or("WebAssembly".to_string());
             config.llvm_link_jobs = llvm.link_jobs;
             config.llvm_clang_cl = llvm.clang_cl.clone();
@@ -540,16 +546,21 @@ impl Config {
             config.rustc_default_linker = rust.default_linker.clone();
             config.musl_root = rust.musl_root.clone().map(PathBuf::from);
             config.save_toolstates = rust.save_toolstates.clone().map(PathBuf::from);
-            set(&mut config.deny_warnings, rust.deny_warnings.or(flags.warnings));
+            set(
+                &mut config.deny_warnings,
+                rust.deny_warnings.or(flags.warnings),
+            );
             set(&mut config.backtrace_on_ice, rust.backtrace_on_ice);
 
             if let Some(ref backends) = rust.codegen_backends {
-                config.rust_codegen_backends = backends.iter()
-                    .map(|s| INTERNER.intern_str(s))
-                    .collect();
+                config.rust_codegen_backends =
+                    backends.iter().map(|s| INTERNER.intern_str(s)).collect();
             }
 
-            set(&mut config.rust_codegen_backends_dir, rust.codegen_backends_dir.clone());
+            set(
+                &mut config.rust_codegen_backends_dir,
+                rust.codegen_backends_dir.clone(),
+            );
 
             match rust.codegen_units {
                 Some(0) => config.rust_codegen_units = Some(num_cpus::get() as u32),
@@ -579,7 +590,9 @@ impl Config {
                 target.musl_root = cfg.musl_root.clone().map(PathBuf::from);
                 target.qemu_rootfs = cfg.qemu_rootfs.clone().map(PathBuf::from);
 
-                config.target_config.insert(INTERNER.intern_string(triple.clone()), target);
+                config
+                    .target_config
+                    .insert(INTERNER.intern_string(triple.clone()), target);
             }
         }
 

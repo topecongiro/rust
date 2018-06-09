@@ -25,4 +25,3 @@ pub fn FxHashMap<K: Hash + Eq, V>() -> FxHashMap<K, V> {
 pub fn FxHashSet<V: Hash + Eq>() -> FxHashSet<V> {
     HashSet::default()
 }
-
